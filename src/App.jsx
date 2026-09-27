@@ -1,24 +1,24 @@
-import { BrowserRouter, Routes, Route } from 'react-router-dom'
+
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import HomePage from './pages/HomePage'
-import { Typography } from '@mui/material'
-import { BrowserRouter, Navigate, Route, Routes } from 'react-router-dom'
 import Login from './pages/Login/Login.jsx'
+import { Typography } from '@mui/material'
 
 function App() {
   return (
     <BrowserRouter>
       <Routes>
-        <Route path="/" element={<HomePage />} />
-        <Route path="/login" element={<Login />} />
+        {/* Trang mặc định */}
         <Route path="/" element={<Navigate to="/login" replace />} />
-        <Route
-          path="/homepage"
-          element={
-            <Typography variant="h4" sx={{ p: 4 }}>
-              Homepage
-            </Typography>
-          }
-        />
+
+        {/* Trang đăng nhập */}
+        <Route path="/login" element={<Login />} />
+
+        {/* Trang chủ */}
+        <Route path="/homepage" element={<HomePage />} />
+
+        {/* Trang không tồn tại */}
+        <Route path="*" element={<Navigate to="/login" replace />} />
       </Routes>
     </BrowserRouter>
   )
