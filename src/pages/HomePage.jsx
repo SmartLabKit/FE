@@ -1,4 +1,8 @@
+import { useNavigate } from 'react-router-dom'
+
 export default function HomePage() {
+  const navigate = useNavigate()
+
   return (
     <div className="bg-white text-[#131b2e] min-h-screen" style={{ fontFamily: 'Geist, sans-serif' }}>
 
@@ -17,7 +21,7 @@ export default function HomePage() {
           <a href="#" className="hover:text-[#0058be] transition-colors">Về LabStock</a>
         </div>
         <div className="flex gap-3 items-center">
-          <button type="button" className="border border-[#c2c6d6] text-[#424754] text-sm font-medium px-[18px] h-11 rounded hover:bg-gray-50 transition-colors">Đăng nhập</button>
+          <button type="button" onClick={() => navigate('/login')} className="border border-[#c2c6d6] text-[#424754] text-sm font-medium px-[18px] h-11 rounded hover:bg-gray-50 transition-colors">Đăng nhập</button>
           <button type="button" className="bg-[#0058be] text-white text-sm font-medium px-[18px] h-11 rounded hover:bg-[#0049a3] transition-colors">Yêu cầu dùng thử</button>
         </div>
       </nav>

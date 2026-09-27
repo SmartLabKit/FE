@@ -9,16 +9,19 @@ function App() {
     <BrowserRouter>
       <Routes>
         {/* Trang mặc định */}
-        <Route path="/" element={<Navigate to="/login" replace />} />
+        <Route path="/" element={<HomePage />} />
 
         {/* Trang đăng nhập */}
         <Route path="/login" element={<Login />} />
 
         {/* Trang chủ */}
-        <Route path="/homepage" element={<HomePage />} />
+        <Route
+          path="/homepage"
+          element={<HomePage />}
+        />
 
-        {/* Trang không tồn tại */}
-        <Route path="*" element={<Navigate to="/login" replace />} />
+        {/* Đường dẫn không tồn tại */}
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </BrowserRouter>
   )
