@@ -24,16 +24,25 @@ import {
   Typography,
 } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
 
 function Login() {
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [rememberLogin, setRememberLogin] = useState(true)
   const navigate = useNavigate()
+  const { login } = useAuth()
 
-  // Đăng nhập hiện chưa kết nối API, nên chuyển thẳng đến trang đích tạm thời.
+  // Xử lý đăng nhập phân quyền theo tài khoản
   const handleSubmit = (event) => {
     event.preventDefault()
-    navigate('/homepage')
+    const result = login(email, password)
+    if (result.success) {
+      navigate(result.user.defaultRoute)
+    } else {
+      navigate('/class-setup')
+    }
   }
 
   return (
@@ -249,6 +258,8 @@ function Login() {
               required
               type="email"
               placeholder="Nhập email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
               inputProps={{ 'aria-label': 'Email' }}
               sx={{
@@ -279,6 +290,8 @@ function Login() {
               required
               type={showPassword ? 'text' : 'password'}
               placeholder="Nhập mật khẩu"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
               inputProps={{ 'aria-label': 'Mật khẩu' }}
               sx={{

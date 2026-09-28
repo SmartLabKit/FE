@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import {
+  Alert,
+  Avatar,
   Box,
   Button,
   Chip,
@@ -18,53 +20,45 @@ import {
   SettingsSuggest as SystemIcon,
   ArrowForward as ArrowIcon,
   CheckCircle as CheckIcon,
+  Logout as LogoutIcon,
 } from '@mui/icons-material'
 import { useLocation, useNavigate } from 'react-router-dom'
-import PortalLayout, { ACTORS } from '../../components/layout/PortalLayout'
+import PortalLayout from '../../components/layout/PortalLayout'
 import SemesterClassManager from './SemesterClassManager'
 import ImportRosterFaculty from './ImportRosterFaculty'
 import CourseQuotaSetting from './CourseQuotaSetting'
 import GroupInviteManager from './GroupInviteManager'
+import { useAuth, DEMO_ACCOUNTS } from '../../context/AuthContext'
 
 /**
  * ClassSetup Component: Trang trung tâm chính cho quy trình Class Setup
- * Tích hợp sơ đồ Swimlane Flowchart và 4 phân hệ tương ứng với các Actor (Admin, Lecturer, Student)
+ * Tự động điều hướng và hiển thị phân hệ tương ứng với tài khoản Actor đang đăng nhập.
  */
 export default function ClassSetup() {
+  const { user, loginAsRole, logout } = useAuth()
   const location = useLocation()
   const navigate = useNavigate()
 
-  // Xกำหนด tab hiện tại dựa trên path
-  const getTabFromPath = (path) => {
+  const currentUser = user || DEMO_ACCOUNTS.ADMIN
+
+  // Xác định tab tương ứng với URL hoặc vai trò tài khoản
+  const getTabFromPathOrUser = (path, userRole) => {
     if (path.includes('/admin/semesters')) return 0
     if (path.includes('/admin/roster')) return 1
     if (path.includes('/lecturer/quotas')) return 2
     if (path.includes('/student/groups')) return 3
-    return 0 // Default stage 1
+
+    // Nếu chỉ gõ `/class-setup`, tự chọn tab theo vai trò actor đăng nhập
+    if (userRole === 'LECTURER') return 2
+    if (userRole === 'STUDENT') return 3
+    return 0 // Default ADMIN stage 0
   }
 
-  const [activeTab, setActiveTab] = useState(getTabFromPath(location.pathname))
+  const [activeTab, setActiveTab] = useState(getTabFromPathOrUser(location.pathname, currentUser.roleLabel))
 
   useEffect(() => {
-    setActiveTab(getTabFromPath(location.pathname))
-  }, [location.pathname])
-
-  // Lấy actor tương ứng với tab đang chọn
-  const getActorForTab = (tabIndex) => {
-    switch (tabIndex) {
-      case 0:
-      case 1:
-        return 'ADMIN'
-      case 2:
-        return 'LECTURER'
-      case 3:
-        return 'STUDENT'
-      default:
-        return 'ADMIN'
-    }
-  }
-
-  const activeActor = getActorForTab(activeTab)
+    setActiveTab(getTabFromPathOrUser(location.pathname, currentUser.roleLabel))
+  }, [location.pathname, currentUser.roleLabel])
 
   const handleTabChange = (event, newValue) => {
     setActiveTab(newValue)
@@ -86,21 +80,14 @@ export default function ClassSetup() {
     }
   }
 
-  const handleActorChange = (actorId) => {
-    if (actorId === 'ADMIN') {
-      setActiveTab(0)
-      navigate('/class-setup/admin/semesters')
-    } else if (actorId === 'LECTURER') {
-      setActiveTab(2)
-      navigate('/class-setup/lecturer/quotas')
-    } else if (actorId === 'STUDENT') {
-      setActiveTab(3)
-      navigate('/class-setup/student/groups')
-    }
+  // Chuyển nhanh tài khoản actor
+  const handleSwitchActor = (roleKey) => {
+    const newUser = loginAsRole(roleKey)
+    navigate(newUser.defaultRoute)
   }
 
   return (
-    <PortalLayout activeActor={activeActor} onActorChange={handleActorChange}>
+    <PortalLayout>
       <Container maxWidth="xl" disableGutters>
         {/* Banner Header MF2 Class Setup */}
         <Paper
@@ -133,11 +120,82 @@ export default function ClassSetup() {
               </Typography>
             </Box>
 
-            <Box sx={{ display: 'flex', gap: 1 }}>
-              <Chip icon={<AdminIcon sx={{ fontSize: '16px !important' }} />} label="Admin" size="small" variant={activeActor === 'ADMIN' ? 'filled' : 'outlined'} color="primary" />
-              <Chip icon={<LecturerIcon sx={{ fontSize: '16px !important' }} />} label="Lecturer" size="small" variant={activeActor === 'LECTURER' ? 'filled' : 'outlined'} color="info" />
-              <Chip icon={<StudentIcon sx={{ fontSize: '16px !important' }} />} label="Student Leader" size="small" variant={activeActor === 'STUDENT' ? 'filled' : 'outlined'} color="success" />
-            </Box>
+            {/* Account Role Banner Indicator */}
+            <Paper
+              elevation={0}
+              sx={{
+                p: 1,
+                px: 2,
+                borderRadius: 2,
+                bgcolor: '#ffffff',
+                border: '1px solid #dcdfe6',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 1.5,
+              }}
+            >
+              <Avatar
+                sx={{
+                  width: 32,
+                  height: 32,
+                  bgcolor: currentUser.avatarBg || '#0058be',
+                  fontSize: 12,
+                  fontWeight: 800,
+                }}
+              >
+                {currentUser.name.charAt(0)}
+              </Avatar>
+              <Box>
+                <Typography variant="caption" sx={{ color: '#6b7280', fontSize: 10, display: 'block', fontWeight: 700 }}>
+                  ĐANG ĐĂNG NHẬP
+                </Typography>
+                <Typography variant="body2" sx={{ fontWeight: 800, fontSize: 12, color: '#131b2e' }}>
+                  {currentUser.name} ({currentUser.roleLabel})
+                </Typography>
+              </Box>
+              <Button
+                size="small"
+                onClick={() => navigate('/login')}
+                startIcon={<LogoutIcon fontSize="small" />}
+                sx={{ ml: 1, textTransform: 'none', fontSize: 11, color: '#ef4444', fontWeight: 700 }}
+              >
+                Đổi tài khoản
+              </Button>
+            </Paper>
+          </Box>
+
+          {/* Actor Fast Switch Bar */}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, my: 1, flexWrap: 'wrap' }}>
+            <Typography variant="caption" sx={{ fontWeight: 800, color: '#6b7280', mr: 1, textTransform: 'uppercase', fontSize: 10 }}>
+              Kịch bản Demo Login Actor:
+            </Typography>
+            <Button
+              size="small"
+              variant={currentUser.roleLabel === 'ADMIN' ? 'contained' : 'outlined'}
+              onClick={() => handleSwitchActor('ADMIN')}
+              startIcon={<AdminIcon fontSize="small" />}
+              sx={{ borderRadius: 1.5, textTransform: 'none', fontSize: 11, fontWeight: 700, bgcolor: currentUser.roleLabel === 'ADMIN' ? '#0058be' : 'transparent' }}
+            >
+              Admin (Nguyễn Văn Minh)
+            </Button>
+            <Button
+              size="small"
+              variant={currentUser.roleLabel === 'LECTURER' ? 'contained' : 'outlined'}
+              onClick={() => handleSwitchActor('LECTURER')}
+              startIcon={<LecturerIcon fontSize="small" />}
+              sx={{ borderRadius: 1.5, textTransform: 'none', fontSize: 11, fontWeight: 700, bgcolor: currentUser.roleLabel === 'LECTURER' ? '#0284c7' : 'transparent', color: currentUser.roleLabel === 'LECTURER' ? '#fff' : '#0284c7', borderColor: '#0284c7' }}
+            >
+              Giảng viên (Dr. Evelyn Stone)
+            </Button>
+            <Button
+              size="small"
+              variant={currentUser.roleLabel === 'STUDENT' ? 'contained' : 'outlined'}
+              onClick={() => handleSwitchActor('STUDENT')}
+              startIcon={<StudentIcon fontSize="small" />}
+              sx={{ borderRadius: 1.5, textTransform: 'none', fontSize: 11, fontWeight: 700, bgcolor: currentUser.roleLabel === 'STUDENT' ? '#059669' : 'transparent', color: currentUser.roleLabel === 'STUDENT' ? '#fff' : '#059669', borderColor: '#059669' }}
+            >
+              Sinh viên (Lê Hoàng Nam)
+            </Button>
           </Box>
 
           {/* Mini Interactive Swimlane Flowchart visualization matching diagram */}
@@ -145,13 +203,14 @@ export default function ClassSetup() {
             elevation={0}
             sx={{
               p: 2,
+              mt: 2,
               borderRadius: 2,
               bgcolor: '#ffffff',
               border: '1px solid #e0e6ed',
             }}
           >
             <Typography variant="caption" sx={{ fontWeight: 800, color: '#64748b', mb: 1, display: 'block', textTransform: 'uppercase' }}>
-              Sơ đồ quy trình làm việc (Actor Workflow Swimlane)
+              Sơ đồ quy trình làm việc (Swimlane Workflow Diagram)
             </Typography>
 
             <Grid container spacing={1} alignItems="center">
