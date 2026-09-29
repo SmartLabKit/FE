@@ -258,37 +258,7 @@ export default function CourseQuotaSetting({ onNext, onPrev }) {
         </Alert>
       )}
 
-      {/* Bottom navigation buttons */}
-      <Box sx={{ mt: 3, display: 'flex', justifyContent: 'space-between' }}>
-        {onPrev ? (
-          <Button
-            variant="outlined"
-            startIcon={<ArrowBackIcon />}
-            onClick={onPrev}
-            sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 1.5, borderColor: '#c2c6d6', color: '#424754' }}
-          >
-            Quay lại
-          </Button>
-        ) : <Box />}
 
-        {onNext && (
-          <Button
-            variant="outlined"
-            endIcon={<ArrowForwardIcon />}
-            onClick={onNext}
-            sx={{
-              textTransform: 'none',
-              fontWeight: 700,
-              borderRadius: 1.5,
-              borderColor: '#0058be',
-              color: '#0058be',
-              '&:hover': { bgcolor: '#eaedff' },
-            }}
-          >
-            Sang bước 4: Tạo nhóm &amp; Mời thành viên
-          </Button>
-        )}
-      </Box>
 
       {/* Snackbar */}
       <Snackbar

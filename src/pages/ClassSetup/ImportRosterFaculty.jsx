@@ -337,7 +337,6 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
                 fullWidth
                 variant="contained"
                 onClick={handleFinish}
-                endIcon={<ArrowForwardIcon />}
                 sx={{
                   bgcolor: '#0058be',
                   py: 1.2,
@@ -349,7 +348,7 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
                   '&:hover': { bgcolor: '#0049a3' },
                 }}
               >
-                Hoàn tất nhập liệu &amp; Sang bước 3
+                Hoàn tất nhập liệu
               </Button>
             </Box>
           </Paper>

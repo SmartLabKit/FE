@@ -18,10 +18,7 @@ import {
   MenuItem,
   Paper,
   TextField,
-  Tooltip,
   Typography,
-  useMediaQuery,
-  useTheme,
 } from '@mui/material'
 import {
   Dashboard as DashboardIcon,
@@ -33,31 +30,24 @@ import {
   Search as SearchIcon,
   NotificationsOutlined as NotificationsIcon,
   Menu as MenuIcon,
-  SupervisorAccount as AdminIcon,
-  School as LecturerIcon,
-  Person as StudentIcon,
-  SwapHoriz as SwitchRoleIcon,
-  Check as CheckIcon,
   Logout as LogoutIcon,
-  Login as LoginIcon,
 } from '@mui/icons-material'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth, DEMO_ACCOUNTS } from '../../context/AuthContext'
 
 /**
  * PortalLayout: Khung giao diện dùng chung cho hệ thống SmartLabKit (LabStock Portal Core V3.1)
- * Lấy tài khoản đang đăng nhập từ AuthContext, hiển thị vai trò hiện tại và nút Đăng xuất.
+ * Hiển thị chuẩn vai trò của tài khoản đang đăng nhập, không cho phép tự ý chuyển đổi vai trò.
  */
 export default function PortalLayout({ children }) {
-  const { user, loginAsRole, logout } = useAuth()
+  const { user, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
-  const theme = useTheme()
 
   const [mobileOpen, setMobileOpen] = useState(false)
   const [userMenuAnchor, setUserMenuAnchor] = useState(null)
 
-  // Current logged in user info fallback
+  // Thông tin tài khoản hiện tại
   const currentUser = user || DEMO_ACCOUNTS.ADMIN
 
   const handleDrawerToggle = () => {
@@ -70,13 +60,6 @@ export default function PortalLayout({ children }) {
 
   const handleUserMenuClose = () => {
     setUserMenuAnchor(null)
-  }
-
-  // Chuyển đổi nhanh tài khoản của actor khác
-  const handleSwitchActorAccount = (roleKey) => {
-    handleUserMenuClose()
-    const actorUser = loginAsRole(roleKey)
-    navigate(actorUser.defaultRoute)
   }
 
   // Đăng xuất tài khoản
@@ -206,57 +189,50 @@ export default function PortalLayout({ children }) {
             letterSpacing: 0.5,
           }}
         >
-          Đã đăng nhập vai trò
+          Tài khoản đăng nhập
         </Typography>
 
         <Paper
           elevation={0}
-          onClick={handleUserMenuOpen}
           sx={{
             p: 1.2,
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'space-between',
+            gap: 1.2,
             bgcolor: '#ffffff',
             border: '1px solid #dcdfe6',
             borderRadius: 1.5,
-            cursor: 'pointer',
-            transition: 'all 0.2s',
-            '&:hover': { borderColor: '#0058be', boxShadow: '0 2px 8px rgba(0,88,190,0.1)' },
           }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, overflow: 'hidden' }}>
-            <Avatar
+          <Avatar
+            sx={{
+              width: 32,
+              height: 32,
+              bgcolor: currentUser.avatarBg || '#0058be',
+              fontSize: 12,
+              fontWeight: 700,
+              flexShrink: 0,
+            }}
+          >
+            {currentUser.name ? currentUser.name.charAt(0) : 'U'}
+          </Avatar>
+          <Box sx={{ overflow: 'hidden' }}>
+            <Typography variant="body2" sx={{ fontWeight: 700, fontSize: 12, color: '#131b2e', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+              {currentUser.name}
+            </Typography>
+            <Chip
+              label={currentUser.roleLabel}
+              size="small"
               sx={{
-                width: 32,
-                height: 32,
-                bgcolor: currentUser.avatarBg || '#0058be',
-                fontSize: 12,
-                fontWeight: 700,
-                flexShrink: 0,
+                height: 16,
+                fontSize: 9,
+                fontWeight: 800,
+                bgcolor: `${currentUser.badgeColor || '#0058be'}15`,
+                color: currentUser.badgeColor || '#0058be',
+                borderRadius: 0.8,
               }}
-            >
-              {currentUser.name ? currentUser.name.charAt(0) : 'U'}
-            </Avatar>
-            <Box sx={{ overflow: 'hidden' }}>
-              <Typography variant="body2" sx={{ fontWeight: 700, fontSize: 12, color: '#131b2e', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
-                {currentUser.name}
-              </Typography>
-              <Chip
-                label={currentUser.roleLabel}
-                size="small"
-                sx={{
-                  height: 16,
-                  fontSize: 9,
-                  fontWeight: 800,
-                  bgcolor: `${currentUser.badgeColor || '#0058be'}15`,
-                  color: currentUser.badgeColor || '#0058be',
-                  borderRadius: 0.8,
-                }}
-              />
-            </Box>
+            />
           </Box>
-          <SwitchRoleIcon sx={{ fontSize: 16, color: '#81899a', flexShrink: 0 }} />
         </Paper>
 
         <Button
@@ -364,50 +340,20 @@ export default function PortalLayout({ children }) {
                   '&.Mui-focused fieldset': { borderColor: '#0058be' },
                 },
               }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon sx={{ color: '#81899a', fontSize: 18 }} />
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon sx={{ color: '#81899a', fontSize: 18 }} />
+                    </InputAdornment>
+                  ),
+                },
               }}
             />
           </Box>
 
           {/* Right Controls */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            {/* Logged in User Profile & Switch Actor Menu */}
-            <Tooltip title="Tài khoản đang đăng nhập (Click để chuyển tài khoản hoặc đăng xuất)">
-              <Button
-                onClick={handleUserMenuOpen}
-                variant="outlined"
-                size="small"
-                startIcon={
-                  currentUser.roleLabel === 'ADMIN' ? (
-                    <AdminIcon fontSize="small" />
-                  ) : currentUser.roleLabel === 'LECTURER' ? (
-                    <LecturerIcon fontSize="small" />
-                  ) : (
-                    <StudentIcon fontSize="small" />
-                  )
-                }
-                endIcon={<SwitchRoleIcon fontSize="small" />}
-                sx={{
-                  height: 36,
-                  textTransform: 'none',
-                  borderRadius: 1.5,
-                  fontSize: 12,
-                  fontWeight: 700,
-                  borderColor: '#dcdfe6',
-                  color: '#263247',
-                  bgcolor: '#ffffff',
-                  '&:hover': { borderColor: '#0058be', bgcolor: '#f4f7ff' },
-                }}
-              >
-                Actor: {currentUser.roleLabel} ({currentUser.name})
-              </Button>
-            </Tooltip>
-
             {/* Notifications */}
             <IconButton size="small" sx={{ color: '#556070' }}>
               <Badge badgeContent={3} color="primary" slotProps={{ badge: { style: { fontSize: 10, height: 16, minWidth: 16 } } }}>
@@ -417,7 +363,7 @@ export default function PortalLayout({ children }) {
 
             <Divider orientation="vertical" flexItem sx={{ my: 1.5 }} />
 
-            {/* User Avatar & Logout */}
+            {/* User Avatar & Info */}
             <Box
               onClick={handleUserMenuOpen}
               sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer' }}
@@ -445,17 +391,17 @@ export default function PortalLayout({ children }) {
           </Box>
         </Box>
 
-        {/* User Account & Actor Menu */}
+        {/* User Account Popover Menu */}
         <Menu
           anchorEl={userMenuAnchor}
           open={Boolean(userMenuAnchor)}
           onClose={handleUserMenuClose}
           PaperProps={{
             elevation: 3,
-            sx: { borderRadius: 2, minWidth: 280, mt: 1, p: 0.5 },
+            sx: { borderRadius: 2, minWidth: 240, mt: 1, p: 0.5 },
           }}
         >
-          <Box sx={{ px: 2, py: 1.5, bgcolor: '#f8fafc', borderRadius: 1, mb: 1 }}>
+          <Box sx={{ px: 2, py: 1.5, bgcolor: '#f8fafc', borderRadius: 1, mb: 0.5 }}>
             <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 13 }}>
               {currentUser.name}
             </Typography>
@@ -476,52 +422,11 @@ export default function PortalLayout({ children }) {
             />
           </Box>
 
-          <Box sx={{ px: 2, py: 0.5 }}>
-            <Typography variant="caption" sx={{ fontWeight: 800, color: '#81899a', textTransform: 'uppercase', fontSize: 10 }}>
-              Đổi tài khoản Actor (Demo Fast Switch)
-            </Typography>
-          </Box>
-
-          {Object.keys(DEMO_ACCOUNTS).map((roleKey) => {
-            const acc = DEMO_ACCOUNTS[roleKey]
-            const isSelected = currentUser.roleLabel === acc.roleLabel
-            return (
-              <MenuItem
-                key={roleKey}
-                onClick={() => handleSwitchActorAccount(roleKey)}
-                selected={isSelected}
-                sx={{ borderRadius: 1, my: 0.5, py: 1 }}
-              >
-                <Avatar
-                  sx={{
-                    width: 28,
-                    height: 28,
-                    bgcolor: acc.avatarBg,
-                    fontSize: 11,
-                    fontWeight: 700,
-                    mr: 1.5,
-                  }}
-                >
-                  {acc.name.charAt(0)}
-                </Avatar>
-                <Box sx={{ flexGrow: 1 }}>
-                  <Typography variant="body2" sx={{ fontWeight: 700, fontSize: 12 }}>
-                    {acc.name} ({acc.roleLabel})
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: '#6b7280', fontSize: 10, display: 'block' }}>
-                    {acc.email}
-                  </Typography>
-                </Box>
-                {isSelected && <CheckIcon sx={{ fontSize: 16, color: '#0058be' }} />}
-              </MenuItem>
-            );
-          })}
-
-          <Divider sx={{ my: 1 }} />
+          <Divider sx={{ my: 0.5 }} />
 
           <MenuItem onClick={handleLogout} sx={{ color: '#ef4444', borderRadius: 1, fontWeight: 700, fontSize: 13 }}>
             <LogoutIcon fontSize="small" sx={{ mr: 1.5 }} />
-            Đăng xuất ra màn hình Login
+            Đăng xuất tài khoản
           </MenuItem>
         </Menu>
 

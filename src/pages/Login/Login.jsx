@@ -261,18 +261,20 @@ function Login() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               autoComplete="email"
-              inputProps={{ 'aria-label': 'Email' }}
               sx={{
                 mb: 1.5,
                 '& .MuiOutlinedInput-root': { height: 40, borderRadius: 1 },
                 '& input': { py: 1, fontSize: 12 },
               }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <PersonOutlined sx={{ color: '#778195', fontSize: 18 }} />
-                  </InputAdornment>
-                ),
+              slotProps={{
+                htmlInput: { 'aria-label': 'Email' },
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <PersonOutlined sx={{ color: '#778195', fontSize: 18 }} />
+                    </InputAdornment>
+                  ),
+                },
               }}
             />
 
@@ -293,33 +295,35 @@ function Login() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               autoComplete="current-password"
-              inputProps={{ 'aria-label': 'Mật khẩu' }}
               sx={{
                 '& .MuiOutlinedInput-root': { height: 40, borderRadius: 1 },
                 '& input': { py: 1, fontSize: 12 },
               }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <LockOutlined sx={{ color: '#778195', fontSize: 17 }} />
-                  </InputAdornment>
-                ),
-                endAdornment: (
-                  <InputAdornment position="end">
-                    <IconButton
-                      aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
-                      onClick={() => setShowPassword((visible) => !visible)}
-                      edge="end"
-                      size="small"
-                    >
-                      {showPassword ? (
-                        <VisibilityOff sx={{ fontSize: 17 }} />
-                      ) : (
-                        <Visibility sx={{ fontSize: 17 }} />
-                      )}
-                    </IconButton>
-                  </InputAdornment>
-                ),
+              slotProps={{
+                htmlInput: { 'aria-label': 'Mật khẩu' },
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <LockOutlined sx={{ color: '#778195', fontSize: 17 }} />
+                    </InputAdornment>
+                  ),
+                  endAdornment: (
+                    <InputAdornment position="end">
+                      <IconButton
+                        aria-label={showPassword ? 'Ẩn mật khẩu' : 'Hiện mật khẩu'}
+                        onClick={() => setShowPassword((visible) => !visible)}
+                        edge="end"
+                        size="small"
+                      >
+                        {showPassword ? (
+                          <VisibilityOff sx={{ fontSize: 17 }} />
+                        ) : (
+                          <Visibility sx={{ fontSize: 17 }} />
+                        )}
+                      </IconButton>
+                    </InputAdornment>
+                  ),
+                },
               }}
             />
 

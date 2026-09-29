@@ -20,7 +20,7 @@ import {
   Search as SearchIcon,
   PersonAdd as PersonAddIcon,
   Check as CheckIcon,
-  DeleteOutline as DeleteIcon,
+  DeleteOutlined as DeleteIcon,
   ArrowBack as ArrowBackIcon,
   Groups as GroupsIcon,
 } from '@mui/icons-material'
@@ -181,7 +181,7 @@ export default function GroupInviteManager({ onPrev }) {
             '&:hover': { bgcolor: '#0049a3' },
           }}
         >
-          + Create New Group
+           Create New Group
         </Button>
       </Paper>
 
@@ -314,12 +314,14 @@ export default function GroupInviteManager({ onPrev }) {
                 mb: 2,
                 '& .MuiOutlinedInput-root': { borderRadius: 1.5, height: 40, fontSize: 12 },
               }}
-              InputProps={{
-                startAdornment: (
-                  <InputAdornment position="start">
-                    <SearchIcon sx={{ color: '#81899a', fontSize: 18 }} />
-                  </InputAdornment>
-                ),
+              slotProps={{
+                input: {
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon sx={{ color: '#81899a', fontSize: 18 }} />
+                    </InputAdornment>
+                  ),
+                },
               }}
             />
 
@@ -447,19 +449,7 @@ export default function GroupInviteManager({ onPrev }) {
         </Grid>
       </Grid>
 
-      {/* Bottom prev button */}
-      {onPrev && (
-        <Box sx={{ mt: 3 }}>
-          <Button
-            variant="outlined"
-            startIcon={<ArrowBackIcon />}
-            onClick={onPrev}
-            sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 1.5, borderColor: '#c2c6d6', color: '#424754' }}
-          >
-            Quay lại
-          </Button>
-        </Box>
-      )}
+
 
       {/* Snackbar */}
       <Snackbar
