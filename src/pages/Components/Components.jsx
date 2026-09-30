@@ -1,10 +1,13 @@
+import { useState } from 'react'
 import {
   Add as AddIcon,
   Category as CategoryIcon,
+  Inventory as StockInIcon,
   Inventory2 as InventoryIcon,
   Widgets as WidgetsIcon,
 } from '@mui/icons-material'
 import {
+  Alert,
   Box,
   Button,
   Card,
@@ -19,33 +22,68 @@ import {
   TableRow,
   Typography,
 } from '@mui/material'
+import { useLocation, useNavigate } from 'react-router-dom'
 import PortalLayout from '../../components/layout/PortalLayout'
+import { getComponents, getStockInwards, INITIAL_COMPONENTS } from './componentStore'
 
 const summaryCards = [
-  { label: 'Tổng linh kiện', value: '1,248', icon: <InventoryIcon /> },
-  { label: 'Danh mục', value: '12', icon: <CategoryIcon /> },
-  { label: 'Tồn kho', value: '3,856', icon: <InventoryIcon /> },
+  { label: 'Tổng linh kiện', icon: <InventoryIcon /> },
+  { label: 'Danh mục', icon: <CategoryIcon /> },
+  { label: 'Tồn kho', icon: <InventoryIcon /> },
   { label: 'Cần nhập thêm', value: '8', icon: <WidgetsIcon /> },
 ]
 
-const components = [
-  { name: 'Điện trở kim loại 10kΩ', code: 'RES-10K-01', category: 'Điện trở', stock: '500', location: 'A-02' },
-  { name: 'Tụ gốm 10uF', code: 'CAP-10U-02', category: 'Tụ điện', stock: '300', location: 'A-03' },
-  { name: 'Arduino Uno R3', code: 'MCU-ARD-01', category: 'Vi điều khiển', stock: '15', location: 'B-01' },
-  { name: 'Breadboard 400 điểm', code: 'BRD-SLD-05', category: 'Khay hàn', stock: '50', location: 'C-02' },
-  { name: 'LED đỏ 5mm', code: 'LED-RED-01', category: 'LED', stock: '100', location: 'D-01' },
-  { name: 'Probe oscilloscope 100MHz', code: 'PRB-OSC-01', category: 'Dụng cụ đo', stock: '10', location: 'E-01' },
-]
-
 export default function Components() {
+  const navigate = useNavigate()
+  const location = useLocation()
+  const [components] = useState(getComponents)
+  const [inwards] = useState(getStockInwards)
+  const initialCodes = new Set(INITIAL_COMPONENTS.map((component) => component.code))
+  const initialStock = INITIAL_COMPONENTS.reduce((total, component) => total + Number(component.stock), 0)
+  const initialCategories = new Set(INITIAL_COMPONENTS.map((component) => component.category))
+  const pendingAllocationCodes = new Set(
+    inwards
+      .filter((inward) => inward.status !== 'Hoàn tất')
+      .flatMap((inward) => [
+        inward.componentCode,
+        ...(inward.items || []).map((item) => item.componentCode),
+      ])
+      .filter(Boolean)
+  )
+  const [notice, setNotice] = useState(() => {
+    if (location.state?.allocatedComponentName) {
+      return `"${location.state.allocatedComponentName}" đã được xếp kệ và chuyển sang trạng thái sẵn sàng.`
+    }
+    if (location.state?.createdComponentName) {
+      return `Đã thêm "${location.state.createdComponentName}" vào danh mục. Linh kiện đang chờ nhập kho.`
+    }
+    return ''
+  })
+  const addedComponents = components.filter((component) => !initialCodes.has(component.code))
+  const pendingComponent = components.find((component) => !component.location)
+  const stockDelta = components.reduce((total, component) => total + Number(component.stock || 0), 0) - initialStock
+  const addedCategories = new Set(addedComponents.map((component) => component.category))
+  const newCategories = [...addedCategories].filter((category) => !initialCategories.has(category)).length
+  const summaryValues = [
+    (1248 + addedComponents.length).toLocaleString('en-US'),
+    12 + newCategories,
+    (3856 + stockDelta).toLocaleString('en-US'),
+    '8',
+  ]
+
   return (
     <PortalLayout
       headerTitle="Danh mục linh kiện"
       headerSubtitle="Quản lý danh mục linh kiện và theo dõi tồn kho"
     >
       <Box sx={{ maxWidth: 1440, mx: 'auto' }}>
+        {notice && (
+          <Alert severity="success" onClose={() => setNotice('')} sx={{ mb: 2 }}>
+            {notice}
+          </Alert>
+        )}
         <Grid container spacing={2} sx={{ mb: 2.5 }}>
-          {summaryCards.map((card) => (
+          {summaryCards.map((card, index) => (
             <Grid key={card.label} size={{ xs: 12, sm: 6, lg: 3 }}>
               <Card
                 variant="outlined"
@@ -68,7 +106,7 @@ export default function Components() {
                   <Box>
                     <Typography sx={{ color: '#657084', fontSize: 12 }}>{card.label}</Typography>
                     <Typography sx={{ color: '#182238', fontWeight: 800, fontSize: 21, lineHeight: 1.3 }}>
-                      {card.value}
+                      {summaryValues[index]}
                     </Typography>
                   </Box>
                 </CardContent>
@@ -98,20 +136,39 @@ export default function Components() {
               Quản lý danh mục linh kiện và theo dõi tồn kho
             </Typography>
           </Box>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            sx={{
-              flexShrink: 0,
-              textTransform: 'none',
-              bgcolor: '#0865ce',
-              fontSize: 12,
-              boxShadow: 'none',
-              '&:hover': { bgcolor: '#0757b2', boxShadow: 'none' },
-            }}
-          >
-            Khai báo mới
-          </Button>
+          <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+            <Button
+              variant="outlined"
+              startIcon={<StockInIcon />}
+              onClick={() => navigate('/class-setup/admin/stock-inwards', {
+                state: { componentCode: pendingComponent?.code },
+              })}
+              sx={{
+                flexShrink: 0,
+                textTransform: 'none',
+                borderColor: '#0865ce',
+                color: '#0865ce',
+                fontSize: 12,
+              }}
+            >
+              Nhập kho
+            </Button>
+            <Button
+              variant="contained"
+              startIcon={<AddIcon />}
+              onClick={() => navigate('/class-setup/admin/components/new')}
+              sx={{
+                flexShrink: 0,
+                textTransform: 'none',
+                bgcolor: '#0865ce',
+                fontSize: 12,
+                boxShadow: 'none',
+                '&:hover': { bgcolor: '#0757b2', boxShadow: 'none' },
+              }}
+            >
+              Khai báo mới
+            </Button>
+          </Box>
         </Box>
 
         <TableContainer
@@ -150,17 +207,21 @@ export default function Components() {
                     {component.category}
                   </TableCell>
                   <TableCell align="right" sx={{ py: 1.5, color: '#263247', fontSize: 11, borderColor: '#d8dced', whiteSpace: 'nowrap' }}>
-                    {component.stock} Kệ {component.location}
+                    {component.stock ?? 0} {component.location ? `Kệ ${component.location}` : 'Chưa xếp kệ'}
                   </TableCell>
                   <TableCell sx={{ py: 1.5, borderColor: '#d8dced' }}>
                     <Chip
-                      label="Sẵn sàng"
+                      label={component.location && Number(component.stock) > 0
+                        ? 'Sẵn sàng'
+                        : pendingAllocationCodes.has(component.code)
+                          ? 'Chờ phân bổ'
+                          : 'Chờ nhập kho'}
                       size="small"
                       sx={{
                         height: 20,
                         borderRadius: 0.5,
-                        bgcolor: '#edf0ff',
-                        color: '#0865ce',
+                        bgcolor: component.location && Number(component.stock) > 0 ? '#edf0ff' : '#fff3cd',
+                        color: component.location && Number(component.stock) > 0 ? '#0865ce' : '#946200',
                         fontWeight: 700,
                         fontSize: 10,
                       }}
@@ -182,7 +243,7 @@ export default function Components() {
             }}
           >
             <Typography sx={{ color: '#667085', fontSize: 11, whiteSpace: 'nowrap' }}>
-              Showing 1 to 6 of 124 components
+              Showing 1 to {components.length} of {124 + addedComponents.length} components
             </Typography>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
               <Button disabled size="small" variant="outlined" sx={{ textTransform: 'none', fontSize: 10 }}>

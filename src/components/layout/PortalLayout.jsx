@@ -25,6 +25,7 @@ import {
   Category as CategoryIcon,
   CompareArrows as BorrowReturnIcon,
   QrCodeScanner as QrCodeIcon,
+  AssignmentTurnedIn as ApprovalsIcon,
   Assessment as ReportsIcon,
   Settings as SettingsIcon,
   Search as SearchIcon,
@@ -39,7 +40,13 @@ import { useAuth, DEMO_ACCOUNTS } from '../../context/AuthContext'
  * PortalLayout: Khung giao diện dùng chung cho hệ thống SmartLabKit (LabStock Portal Core V3.1)
  * Hiển thị chuẩn vai trò của tài khoản đang đăng nhập, không cho phép tự ý chuyển đổi vai trò.
  */
-export default function PortalLayout({ children }) {
+export default function PortalLayout({
+  children,
+  headerTitle,
+  headerSubtitle,
+  headerSearchPlaceholder,
+  onHeaderSearchChange,
+}) {
   const { user, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
@@ -72,7 +79,8 @@ export default function PortalLayout({ children }) {
   // Danh sách navigation ở menu bên trái
   const navItems = [
     { label: 'Dashboard', icon: <DashboardIcon fontSize="small" />, path: '/class-setup' },
-    { label: 'Components', icon: <CategoryIcon fontSize="small" />, path: '#' },
+    { label: 'Components', icon: <CategoryIcon fontSize="small" />, path: '/class-setup/admin/components' },
+    { label: 'Inventory Stocking', icon: <ApprovalsIcon fontSize="small" />, path: '/class-setup/admin/stock-inwards' },
     { label: 'Borrow / Return', icon: <BorrowReturnIcon fontSize="small" />, path: '#' },
     { label: 'QR Codes', icon: <QrCodeIcon fontSize="small" />, path: '#' },
     { label: 'Reports', icon: <ReportsIcon fontSize="small" />, path: '#' },
@@ -135,13 +143,29 @@ export default function PortalLayout({ children }) {
       {/* Main Navigation List */}
       <List sx={{ px: 1.5, py: 2, flexGrow: 1 }}>
         {navItems.map((item) => {
-          const isActive = location.pathname === item.path || (item.path === '/class-setup' && location.pathname.startsWith('/class-setup'))
+          const isComponentsRoute = location.pathname.startsWith('/class-setup/admin/components')
+          const isStockInwardsRoute = location.pathname.startsWith('/class-setup/admin/stock-inwards')
+          const isStorageAllocationRoute = location.pathname.startsWith('/class-setup/admin/storage-allocation')
+          const isActive = location.pathname === item.path ||
+            (item.path === '/class-setup/admin/components' && isComponentsRoute) ||
+            (item.path === '/class-setup/admin/stock-inwards' && isStockInwardsRoute) ||
+            (item.path === '/class-setup/admin/stock-inwards' && isStorageAllocationRoute) ||
+            (
+              item.path === '/class-setup' &&
+              location.pathname.startsWith('/class-setup') &&
+              !isComponentsRoute &&
+              !isStockInwardsRoute &&
+              !isStorageAllocationRoute
+            )
 
           return (
             <ListItem key={item.label} disablePadding sx={{ mb: 0.5 }}>
               <ListItemButton
                 onClick={() => {
-                  if (item.path !== '#') navigate(item.path)
+                  if (item.path !== '#') {
+                    navigate(item.path)
+                    setMobileOpen(false)
+                  }
                 }}
                 sx={{
                   borderRadius: 1.5,
@@ -257,6 +281,35 @@ export default function PortalLayout({ children }) {
     </Box>
   )
 
+  const searchField = (
+    <TextField
+      placeholder={headerSearchPlaceholder || (headerTitle ? 'Search components, codes...' : 'Search requests, components...')}
+      onChange={onHeaderSearchChange}
+      size="small"
+      sx={{
+        width: { xs: 180, sm: 280, md: headerTitle ? 280 : 340 },
+        '& .MuiOutlinedInput-root': {
+          height: 36,
+          borderRadius: 1.5,
+          bgcolor: '#f4f6fa',
+          fontSize: 12,
+          '& fieldset': { borderColor: 'transparent' },
+          '&:hover fieldset': { borderColor: '#c2c6d6' },
+          '&.Mui-focused fieldset': { borderColor: '#0058be' },
+        },
+      }}
+      slotProps={{
+        input: {
+          startAdornment: (
+            <InputAdornment position="start">
+              <SearchIcon sx={{ color: '#81899a', fontSize: 18 }} />
+            </InputAdornment>
+          ),
+        },
+      }}
+    />
+  )
+
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#f8fafc' }}>
       {/* Mobile Drawer */}
@@ -324,36 +377,23 @@ export default function PortalLayout({ children }) {
               <MenuIcon />
             </IconButton>
 
-            {/* Quick search input */}
-            <TextField
-              placeholder="Search requests, components..."
-              size="small"
-              sx={{
-                width: { xs: 180, sm: 280, md: 340 },
-                '& .MuiOutlinedInput-root': {
-                  height: 36,
-                  borderRadius: 1.5,
-                  bgcolor: '#f4f6fa',
-                  fontSize: 12,
-                  '& fieldset': { borderColor: 'transparent' },
-                  '&:hover fieldset': { borderColor: '#c2c6d6' },
-                  '&.Mui-focused fieldset': { borderColor: '#0058be' },
-                },
-              }}
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon sx={{ color: '#81899a', fontSize: 18 }} />
-                    </InputAdornment>
-                  ),
-                },
-              }}
-            />
+            {headerTitle ? (
+              <Box>
+                <Typography sx={{ color: '#182238', fontWeight: 800, fontSize: 16, lineHeight: 1.3 }}>
+                  {headerTitle}
+                </Typography>
+                {headerSubtitle && (
+                  <Typography sx={{ color: '#697386', fontSize: 10, lineHeight: 1.3 }}>
+                    {headerSubtitle}
+                  </Typography>
+                )}
+              </Box>
+            ) : searchField}
           </Box>
 
           {/* Right Controls */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+            {headerTitle && searchField}
             {/* Notifications */}
             <IconButton size="small" sx={{ color: '#556070' }}>
               <Badge badgeContent={3} color="primary" slotProps={{ badge: { style: { fontSize: 10, height: 16, minWidth: 16 } } }}>
