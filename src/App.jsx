@@ -2,7 +2,6 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import HomePage from './pages/HomePage'
 import Login from './pages/Login/Login.jsx'
 import ClassSetup from './pages/ClassSetup/ClassSetup.jsx'
-import Components from './pages/Components/Components.jsx'
 import { AuthProvider } from './context/AuthContext'
 
 function App() {
@@ -23,7 +22,6 @@ function App() {
           <Route path="/class-setup" element={<ClassSetup />} />
           <Route path="/class-setup/admin/semesters" element={<ClassSetup />} />
           <Route path="/class-setup/admin/roster" element={<ClassSetup />} />
-          <Route path="/class-setup/admin/components" element={<Components />} />
           <Route path="/class-setup/lecturer/quotas" element={<ClassSetup />} />
           <Route path="/class-setup/student/groups" element={<ClassSetup />} />
 
