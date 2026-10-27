@@ -22,26 +22,49 @@ import {
   Paper,
   TextField,
   Typography,
+  Alert,
+  CircularProgress,
 } from '@mui/material'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 
 function Login() {
-  const [email, setEmail] = useState('')
+  const [identifier, setIdentifier] = useState('')
   const [password, setPassword] = useState('')
   const [showPassword, setShowPassword] = useState(false)
   const [rememberLogin, setRememberLogin] = useState(true)
+  const [loading, setLoading] = useState(false)
+  const [errorMessage, setErrorMessage] = useState('')
+
   const navigate = useNavigate()
   const { login } = useAuth()
 
-  // Xử lý đăng nhập phân quyền theo tài khoản
-  const handleSubmit = (event) => {
+  // Xử lý đăng nhập thông qua API POST /api/auth/login
+  const handleSubmit = async (event) => {
     event.preventDefault()
-    const result = login(email, password)
-    if (result.success) {
-      navigate(result.user.defaultRoute)
-    } else {
-      navigate('/class-setup')
+    setErrorMessage('')
+
+    if (!identifier.trim()) {
+      setErrorMessage('Vui lòng nhập email hoặc tên đăng nhập')
+      return
+    }
+    if (!password) {
+      setErrorMessage('Vui lòng nhập mật khẩu')
+      return
+    }
+
+    setLoading(true)
+    try {
+      const result = await login(identifier.trim(), password)
+      if (result.success && result.user) {
+        navigate(result.user.defaultRoute || '/class-setup')
+      } else {
+        setErrorMessage(result.error || 'Email/username hoặc mật khẩu không chính xác')
+      }
+    } catch (err) {
+      setErrorMessage(err.message || 'Đăng nhập không thành công. Vui lòng kiểm tra lại.')
+    } finally {
+      setLoading(false)
     }
   }
 
@@ -183,7 +206,7 @@ function Login() {
               Kết nối an toàn
             </Typography>
             <Typography variant="caption" sx={{ color: 'rgba(255,255,255,0.76)' }}>
-              Phiên đăng nhập được bảo vệ và tự động kết thúc khi không hoạt động.
+              Phiên đăng nhập được bảo vệ qua JWT và tự động kết thúc khi hết hạn.
             </Typography>
           </Box>
         </Paper>
@@ -242,6 +265,15 @@ function Login() {
             <br />
             SmartLabKit
           </Typography>
+          <Typography variant="caption" sx={{ color: '#6b7280', display: 'block', mb: 2 }}>
+            Nhập email hoặc tên đăng nhập của tài khoản đơn vị
+          </Typography>
+
+          {errorMessage && (
+            <Alert severity="error" sx={{ mb: 2, borderRadius: 1.5, fontSize: 12 }}>
+              {errorMessage}
+            </Alert>
+          )}
 
           <Box component="form" onSubmit={handleSubmit}>
             <Typography
@@ -250,24 +282,23 @@ function Login() {
               variant="caption"
               sx={{ display: 'block', mb: 0.6, color: '#263247', fontWeight: 700 }}
             >
-              Email
+              Email hoặc Username
             </Typography>
             <TextField
               id="login-email"
               fullWidth
               required
-              type="email"
-              placeholder="Nhập email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              autoComplete="email"
+              placeholder="Nhập email hoặc tên đăng nhập"
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              autoComplete="username"
               sx={{
                 mb: 1.5,
                 '& .MuiOutlinedInput-root': { height: 40, borderRadius: 1 },
                 '& input': { py: 1, fontSize: 12 },
               }}
               slotProps={{
-                htmlInput: { 'aria-label': 'Email' },
+                htmlInput: { 'aria-label': 'Email hoặc Username' },
                 input: {
                   startAdornment: (
                     <InputAdornment position="start">
@@ -354,7 +385,8 @@ function Login() {
               <Button
                 type="button"
                 size="small"
-                sx={{ p: 0, minWidth: 0, textTransform: 'none', fontSize: 10, fontWeight: 700 }}
+                onClick={() => navigate('/forgot-password')}
+                sx={{ p: 0, minWidth: 0, textTransform: 'none', fontSize: 11, fontWeight: 700, color: '#0058be' }}
               >
                 Quên mật khẩu?
               </Button>
@@ -364,7 +396,8 @@ function Login() {
               type="submit"
               fullWidth
               variant="contained"
-              endIcon={<ArrowForward />}
+              disabled={loading}
+              endIcon={loading ? <CircularProgress size={16} color="inherit" /> : <ArrowForward />}
               sx={{
                 minHeight: 39,
                 borderRadius: 1,
@@ -372,16 +405,41 @@ function Login() {
                 fontSize: 12,
                 fontWeight: 700,
                 boxShadow: 'none',
+                bgcolor: '#0058be',
+                '&:hover': { bgcolor: '#0049a3' },
               }}
             >
-              Đăng nhập
+              {loading ? 'Đang xác thực...' : 'Đăng nhập'}
             </Button>
+
+            {/* Mục đăng ký sinh viên */}
+            <Box
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                mt: 2,
+                px: 1,
+              }}
+            >
+              <Typography variant="caption" sx={{ color: '#6b7280', fontSize: 11 }}>
+                Là sinh viên mới?
+              </Typography>
+              <Button
+                size="small"
+                onClick={() => navigate('/register')}
+                sx={{ p: 0, minWidth: 0, textTransform: 'none', fontSize: 11, fontWeight: 700, color: '#0058be' }}
+              >
+                Đăng ký tài khoản sinh viên
+              </Button>
+            </Box>
 
             <Paper
               elevation={0}
               sx={{
                 display: 'flex',
                 alignItems: 'center',
+                justifyContent: 'space-between',
                 gap: 1,
                 mt: 2,
                 p: 1.2,
@@ -390,10 +448,19 @@ function Login() {
                 borderRadius: 1,
               }}
             >
-              <InfoOutlined sx={{ color: 'primary.main', fontSize: 17, flexShrink: 0 }} />
-              <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: 10, lineHeight: 1.6 }}>
-                Chưa có tài khoản SmartLabKit? Liên hệ lab staff hoặc quản trị viên của đơn vị để được cấp quyền.
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                <InfoOutlined sx={{ color: 'primary.main', fontSize: 17, flexShrink: 0 }} />
+                <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: 10, lineHeight: 1.6 }}>
+                  Chưa xác thực email sau đăng ký?
+                </Typography>
+              </Box>
+              <Button
+                size="small"
+                onClick={() => navigate('/verify-email')}
+                sx={{ p: 0, minWidth: 0, textTransform: 'none', fontSize: 10, fontWeight: 700, color: '#0058be' }}
+              >
+                Nhập mã xác thực
+              </Button>
             </Paper>
           </Box>
         </Box>

@@ -27,18 +27,20 @@ import {
   QrCodeScanner as QrCodeIcon,
   AssignmentTurnedIn as ApprovalsIcon,
   Assessment as ReportsIcon,
-  Settings as SettingsIcon,
   Search as SearchIcon,
   NotificationsOutlined as NotificationsIcon,
   Menu as MenuIcon,
   Logout as LogoutIcon,
+  People as PeopleIcon,
+  Security as SecurityIcon,
+  AccountCircle as AccountCircleIcon,
 } from '@mui/icons-material'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth, DEMO_ACCOUNTS } from '../../context/AuthContext'
 
 /**
  * PortalLayout: Khung giao diện dùng chung cho hệ thống SmartLabKit (LabStock Portal Core V3.1)
- * Hiển thị chuẩn vai trò của tài khoản đang đăng nhập, không cho phép tự ý chuyển đổi vai trò.
+ * Hiển thị chuẩn vai trò của tài khoản đang đăng nhập và thanh điều hướng phân quyền.
  */
 export default function PortalLayout({
   children,
@@ -47,7 +49,7 @@ export default function PortalLayout({
   headerSearchPlaceholder,
   onHeaderSearchChange,
 }) {
-  const { user, logout } = useAuth()
+  const { user, logout, hasPermission, hasRole } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -69,6 +71,12 @@ export default function PortalLayout({
     setUserMenuAnchor(null)
   }
 
+  // Chuyển tới trang hồ sơ cá nhân
+  const handleGoProfile = () => {
+    handleUserMenuClose()
+    navigate('/profile')
+  }
+
   // Đăng xuất tài khoản
   const handleLogout = () => {
     handleUserMenuClose()
@@ -81,11 +89,33 @@ export default function PortalLayout({
     { label: 'Dashboard', icon: <DashboardIcon fontSize="small" />, path: '/class-setup' },
     { label: 'Components', icon: <CategoryIcon fontSize="small" />, path: '/class-setup/admin/components' },
     { label: 'Inventory Stocking', icon: <ApprovalsIcon fontSize="small" />, path: '/class-setup/admin/stock-inwards' },
+    // Quản lý Tài khoản & Phân quyền dành cho Quản trị viên (Admin)
+    {
+      label: 'Người dùng',
+      icon: <PeopleIcon fontSize="small" />,
+      path: '/admin/users',
+      adminOnly: true,
+      permission: 'USER_MANAGE',
+    },
+    {
+      label: 'Vai trò & Quyền',
+      icon: <SecurityIcon fontSize="small" />,
+      path: '/admin/roles',
+      adminOnly: true,
+      permission: 'ROLE_MANAGE',
+    },
     { label: 'Borrow / Return', icon: <BorrowReturnIcon fontSize="small" />, path: '#' },
     { label: 'QR Codes', icon: <QrCodeIcon fontSize="small" />, path: '#' },
     { label: 'Reports', icon: <ReportsIcon fontSize="small" />, path: '#' },
-    { label: 'Settings', icon: <SettingsIcon fontSize="small" />, path: '#' },
   ]
+
+  // Lọc navigation theo vai trò và quyền
+  const visibleNavItems = navItems.filter((item) => {
+    if (!item.adminOnly) return true
+    if (currentUser.roleLabel === 'ADMIN' || hasRole?.('Admin')) return true
+    if (item.permission && hasPermission?.(item.permission)) return true
+    return false
+  })
 
   const drawerContent = (
     <Box
@@ -142,21 +172,24 @@ export default function PortalLayout({
 
       {/* Main Navigation List */}
       <List sx={{ px: 1.5, py: 2, flexGrow: 1 }}>
-        {navItems.map((item) => {
+        {visibleNavItems.map((item) => {
           const isComponentsRoute = location.pathname.startsWith('/class-setup/admin/components')
           const isStockInwardsRoute = location.pathname.startsWith('/class-setup/admin/stock-inwards')
           const isStorageAllocationRoute = location.pathname.startsWith('/class-setup/admin/storage-allocation')
-          const isActive = location.pathname === item.path ||
+          const isUsersRoute = location.pathname.startsWith('/admin/users')
+          const isRolesRoute = location.pathname.startsWith('/admin/roles')
+
+          const isActive =
+            (item.path === '/admin/users' && isUsersRoute) ||
+            (item.path === '/admin/roles' && isRolesRoute) ||
             (item.path === '/class-setup/admin/components' && isComponentsRoute) ||
-            (item.path === '/class-setup/admin/stock-inwards' && isStockInwardsRoute) ||
-            (item.path === '/class-setup/admin/stock-inwards' && isStorageAllocationRoute) ||
-            (
-              item.path === '/class-setup' &&
+            (item.path === '/class-setup/admin/stock-inwards' && (isStockInwardsRoute || isStorageAllocationRoute)) ||
+            (item.path === '/class-setup' &&
               location.pathname.startsWith('/class-setup') &&
               !isComponentsRoute &&
               !isStockInwardsRoute &&
-              !isStorageAllocationRoute
-            )
+              !isStorageAllocationRoute) ||
+            location.pathname === item.path
 
           return (
             <ListItem key={item.label} disablePadding sx={{ mb: 0.5 }}>
@@ -218,6 +251,7 @@ export default function PortalLayout({
 
         <Paper
           elevation={0}
+          onClick={() => navigate('/profile')}
           sx={{
             p: 1.2,
             display: 'flex',
@@ -226,9 +260,13 @@ export default function PortalLayout({
             bgcolor: '#ffffff',
             border: '1px solid #dcdfe6',
             borderRadius: 1.5,
+            cursor: 'pointer',
+            transition: 'border-color 0.2s',
+            '&:hover': { borderColor: '#0058be' },
           }}
         >
           <Avatar
+            src={currentUser.avatarUrl}
             sx={{
               width: 32,
               height: 32,
@@ -238,10 +276,20 @@ export default function PortalLayout({
               flexShrink: 0,
             }}
           >
-            {currentUser.name ? currentUser.name.charAt(0) : 'U'}
+            {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
           </Avatar>
           <Box sx={{ overflow: 'hidden' }}>
-            <Typography variant="body2" sx={{ fontWeight: 700, fontSize: 12, color: '#131b2e', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>
+            <Typography
+              variant="body2"
+              sx={{
+                fontWeight: 700,
+                fontSize: 12,
+                color: '#131b2e',
+                whiteSpace: 'nowrap',
+                overflow: 'hidden',
+                textOverflow: 'ellipsis',
+              }}
+            >
               {currentUser.name}
             </Typography>
             <Chip
@@ -283,7 +331,10 @@ export default function PortalLayout({
 
   const searchField = (
     <TextField
-      placeholder={headerSearchPlaceholder || (headerTitle ? 'Search components, codes...' : 'Search requests, components...')}
+      placeholder={
+        headerSearchPlaceholder ||
+        (headerTitle ? 'Tìm kiếm chức năng, mã...' : 'Tìm kiếm yêu cầu, linh kiện...')
+      }
       onChange={onHeaderSearchChange}
       size="small"
       sx={{
@@ -388,7 +439,9 @@ export default function PortalLayout({
                   </Typography>
                 )}
               </Box>
-            ) : searchField}
+            ) : (
+              searchField
+            )}
           </Box>
 
           {/* Right Controls */}
@@ -396,7 +449,11 @@ export default function PortalLayout({
             {headerTitle && searchField}
             {/* Notifications */}
             <IconButton size="small" sx={{ color: '#556070' }}>
-              <Badge badgeContent={3} color="primary" slotProps={{ badge: { style: { fontSize: 10, height: 16, minWidth: 16 } } }}>
+              <Badge
+                badgeContent={3}
+                color="primary"
+                slotProps={{ badge: { style: { fontSize: 10, height: 16, minWidth: 16 } } }}
+              >
                 <NotificationsIcon fontSize="small" />
               </Badge>
             </IconButton>
@@ -409,6 +466,7 @@ export default function PortalLayout({
               sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer' }}
             >
               <Avatar
+                src={currentUser.avatarUrl}
                 sx={{
                   width: 32,
                   height: 32,
@@ -417,7 +475,7 @@ export default function PortalLayout({
                   fontWeight: 700,
                 }}
               >
-                {currentUser.name ? currentUser.name.charAt(0) : 'U'}
+                {currentUser.name ? currentUser.name.charAt(0).toUpperCase() : 'U'}
               </Avatar>
               <Box sx={{ display: { xs: 'none', sm: 'block' } }}>
                 <Typography variant="body2" sx={{ fontWeight: 700, fontSize: 12, lineHeight: 1.2 }}>
@@ -436,9 +494,11 @@ export default function PortalLayout({
           anchorEl={userMenuAnchor}
           open={Boolean(userMenuAnchor)}
           onClose={handleUserMenuClose}
-          PaperProps={{
-            elevation: 3,
-            sx: { borderRadius: 2, minWidth: 240, mt: 1, p: 0.5 },
+          slotProps={{
+            paper: {
+              elevation: 3,
+              sx: { borderRadius: 2, minWidth: 240, mt: 1, p: 0.5 },
+            },
           }}
         >
           <Box sx={{ px: 2, py: 1.5, bgcolor: '#f8fafc', borderRadius: 1, mb: 0.5 }}>
@@ -461,6 +521,11 @@ export default function PortalLayout({
               }}
             />
           </Box>
+
+          <MenuItem onClick={handleGoProfile} sx={{ borderRadius: 1, fontSize: 13, fontWeight: 600 }}>
+            <AccountCircleIcon fontSize="small" sx={{ mr: 1.5, color: '#0058be' }} />
+            Hồ sơ cá nhân & Bảo mật
+          </MenuItem>
 
           <Divider sx={{ my: 0.5 }} />
 
