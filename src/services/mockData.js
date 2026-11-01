@@ -262,3 +262,199 @@ export const MOCK_USERS = [
     },
   },
 ]
+
+export const MOCK_SEMESTERS = [
+  {
+    semesterId: 'sem-2026-sp',
+    semesterCode: 'SP26',
+    term: 'Spring',
+    year: 2026,
+    startDate: '2026-01-15',
+    endDate: '2026-05-30',
+    isActive: true,
+  },
+  {
+    semesterId: 'sem-2025-fa',
+    semesterCode: 'FA25',
+    term: 'Fall',
+    year: 2025,
+    startDate: '2025-09-01',
+    endDate: '2025-12-31',
+    isActive: false,
+  },
+]
+
+export const MOCK_COURSES = [
+  {
+    courseId: 'course-ee302',
+    courseCode: 'EE302',
+    courseName: 'Embedded Systems & IoT',
+    credits: 3,
+    description: 'Hệ thống nhúng và lập trình IoT với vi điều khiển ESP32, STM32 và ARM Cortex',
+    isActive: true,
+  },
+  {
+    courseId: 'course-cs101',
+    courseCode: 'CS101',
+    courseName: 'Introduction to Programming',
+    credits: 3,
+    description: 'Lập trình căn bản với C/C++, cấu trúc dữ liệu và giải thuật thực hành lab',
+    isActive: true,
+  },
+  {
+    courseId: 'course-me204',
+    courseCode: 'ME204',
+    courseName: 'Robotics Fundamentals',
+    credits: 4,
+    description: 'Nguyên lý cơ cấu robot, động cơ servo/stepper và bộ điều khiển PID',
+    isActive: true,
+  },
+  {
+    courseId: 'course-ee201',
+    courseCode: 'EE201',
+    courseName: 'Circuit Analysis',
+    credits: 3,
+    description: 'Phân tích mạch điện tử, dao động ký và linh kiện điện tử thụ động/tích cực',
+    isActive: true,
+  },
+]
+
+export const MOCK_CLASSES = [
+  {
+    classId: 'cls-ee302-01',
+    classCode: 'EE302-01',
+    courseId: 'course-ee302',
+    courseCode: 'EE302',
+    courseName: 'Embedded Systems & IoT',
+    semesterId: 'sem-2026-sp',
+    semesterCode: 'SP26',
+    instructorId: 'u-004',
+    instructorName: 'Dr. Evelyn Stone',
+    maxStudents: 35,
+    currentStudents: 32,
+    createdAt: '2026-01-10T08:00:00Z',
+  },
+  {
+    classId: 'cls-ee302-02',
+    classCode: 'EE302-02',
+    courseId: 'course-ee302',
+    courseCode: 'EE302',
+    courseName: 'Embedded Systems & IoT',
+    semesterId: 'sem-2026-sp',
+    semesterCode: 'SP26',
+    instructorId: 'u-004',
+    instructorName: 'Dr. Evelyn Stone',
+    maxStudents: 30,
+    currentStudents: 28,
+    createdAt: '2026-01-10T08:30:00Z',
+  },
+  {
+    classId: 'cls-cs101-01',
+    classCode: 'CS101-01',
+    courseId: 'course-cs101',
+    courseCode: 'CS101',
+    courseName: 'Introduction to Programming',
+    semesterId: 'sem-2026-sp',
+    semesterCode: 'SP26',
+    instructorId: 'u-004',
+    instructorName: 'Prof. Alan Turing',
+    maxStudents: 30,
+    currentStudents: 25,
+    createdAt: '2026-01-11T09:00:00Z',
+  },
+  {
+    classId: 'cls-me204-01',
+    classCode: 'ME204-01',
+    courseId: 'course-me204',
+    courseCode: 'ME204',
+    courseName: 'Robotics Fundamentals',
+    semesterId: 'sem-2026-sp',
+    semesterCode: 'SP26',
+    instructorId: 'u-004',
+    instructorName: 'Dr. Evelyn Stone',
+    maxStudents: 30,
+    currentStudents: 20,
+    createdAt: '2026-01-12T10:00:00Z',
+  },
+]
+
+export const MOCK_TEAMS = [
+  {
+    teamId: 'team-001',
+    classId: 'cls-ee302-01',
+    classCode: 'EE302-01',
+    teamName: 'Nhóm 1 - IoT Smart Garden',
+    leaderId: 'u-005',
+    isReadyForProject: true,
+    createdAt: '2026-01-18T08:00:00Z',
+    updatedAt: '2026-01-19T08:00:00Z',
+    members: [
+      {
+        studentProfileId: 'u-005',
+        studentCode: 'SE160245',
+        fullName: 'Lê Hoàng Nam',
+        isLeader: true,
+        status: 'Accepted',
+        invitedAt: '2026-01-18T08:00:00Z',
+        respondedAt: '2026-01-18T08:00:00Z',
+      },
+      {
+        studentProfileId: 'u-cand-01',
+        studentCode: 'SE160111',
+        fullName: 'Trần Thị Bích',
+        isLeader: false,
+        status: 'Accepted',
+        invitedAt: '2026-01-18T09:00:00Z',
+        respondedAt: '2026-01-18T10:00:00Z',
+      },
+      {
+        studentProfileId: 'u-cand-02',
+        studentCode: 'SE160222',
+        fullName: 'Nguyễn Văn Cường',
+        isLeader: false,
+        status: 'Pending',
+        invitedAt: '2026-01-19T08:00:00Z',
+        respondedAt: null,
+      },
+    ],
+  },
+]
+
+export const MOCK_TEAM_CANDIDATES = [
+  {
+    studentProfileId: 'u-cand-03',
+    studentCode: 'SE160333',
+    fullName: 'Phạm Minh Đức',
+    major: 'Kỹ thuật Phần mềm',
+    cohort: 'K16',
+  },
+  {
+    studentProfileId: 'u-cand-04',
+    studentCode: 'SE160444',
+    fullName: 'Vũ Hoàng Giang',
+    major: 'IoT & Phần cứng nhúng',
+    cohort: 'K16',
+  },
+  {
+    studentProfileId: 'u-cand-05',
+    studentCode: 'SE160555',
+    fullName: 'Đặng Mai Hương',
+    major: 'Khoa học Máy tính',
+    cohort: 'K16',
+  },
+]
+
+export const MOCK_TEAM_INVITATIONS = [
+  {
+    teamId: 'team-002',
+    classId: 'cls-ee302-01',
+    classCode: 'EE302-01',
+    teamName: 'Nhóm 2 - Autonomous Robot Kit',
+    leaderId: 'u-other-lead',
+    leaderStudentCode: 'SE160789',
+    leaderFullName: 'Đỗ Tiến Đạt',
+    status: 'Pending',
+    invitedAt: '2026-01-20T14:30:00Z',
+  },
+]
+

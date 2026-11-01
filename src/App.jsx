@@ -37,6 +37,7 @@ function App() {
           {/* Class Setup Flow Routes */}
           <Route path="/class-setup" element={<ClassSetup />} />
           <Route path="/class-setup/admin/semesters" element={<ClassSetup />} />
+          <Route path="/class-setup/admin/courses" element={<ClassSetup />} />
           <Route path="/class-setup/admin/roster" element={<ClassSetup />} />
           <Route path="/class-setup/admin/components" element={<Components />} />
           <Route path="/class-setup/admin/components/new" element={<NewComponent />} />
