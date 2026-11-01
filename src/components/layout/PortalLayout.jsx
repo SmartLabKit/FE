@@ -34,6 +34,9 @@ import {
   People as PeopleIcon,
   Security as SecurityIcon,
   AccountCircle as AccountCircleIcon,
+  School as SchoolIcon,
+  Groups as GroupsIcon,
+  MenuBook as MenuBookIcon,
 } from '@mui/icons-material'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth, DEMO_ACCOUNTS } from '../../context/AuthContext'
@@ -85,8 +88,45 @@ export default function PortalLayout({
   }
 
   // Danh sách navigation ở menu bên trái
+  const isStudent = currentUser.roleLabel === 'STUDENT' || hasRole?.('Student')
+  const isLecturer = currentUser.roleLabel === 'LECTURER' || hasRole?.('Lecturer')
+  const isAdmin = currentUser.roleLabel === 'ADMIN' || hasRole?.('Admin')
+
   const navItems = [
     { label: 'Dashboard', icon: <DashboardIcon fontSize="small" />, path: '/class-setup' },
+    // MF2: Menu dành riêng cho Sinh viên
+    {
+      label: 'Nhóm & Lời mời',
+      icon: <GroupsIcon fontSize="small" />,
+      path: '/class-setup/student/groups',
+      studentOnly: true,
+    },
+    // MF2: Menu dành cho Giảng viên
+    {
+      label: 'Định mức môn học',
+      icon: <SchoolIcon fontSize="small" />,
+      path: '/class-setup/lecturer/quotas',
+      lecturerOnly: true,
+    },
+    // MF2: Menu dành cho Quản trị viên (Admin)
+    {
+      label: 'Kỳ học & Lớp môn',
+      icon: <SchoolIcon fontSize="small" />,
+      path: '/class-setup/admin/semesters',
+      adminOnly: true,
+    },
+    {
+      label: 'Danh mục Môn học',
+      icon: <MenuBookIcon fontSize="small" />,
+      path: '/class-setup/admin/courses',
+      adminOnly: true,
+    },
+    {
+      label: 'Nhập Roster & Phân công',
+      icon: <ApprovalsIcon fontSize="small" />,
+      path: '/class-setup/admin/roster',
+      adminOnly: true,
+    },
     { label: 'Components', icon: <CategoryIcon fontSize="small" />, path: '/class-setup/admin/components' },
     { label: 'Inventory Stocking', icon: <ApprovalsIcon fontSize="small" />, path: '/class-setup/admin/stock-inwards' },
     // Quản lý Tài khoản & Phân quyền dành cho Quản trị viên (Admin)
@@ -111,10 +151,14 @@ export default function PortalLayout({
 
   // Lọc navigation theo vai trò và quyền
   const visibleNavItems = navItems.filter((item) => {
-    if (!item.adminOnly) return true
-    if (currentUser.roleLabel === 'ADMIN' || hasRole?.('Admin')) return true
-    if (item.permission && hasPermission?.(item.permission)) return true
-    return false
+    if (item.studentOnly) return isStudent
+    if (item.lecturerOnly) return isLecturer
+    if (item.adminOnly) {
+      if (isAdmin) return true
+      if (item.permission && hasPermission?.(item.permission)) return true
+      return false
+    }
+    return true
   })
 
   const drawerContent = (
@@ -178,18 +222,37 @@ export default function PortalLayout({
           const isStorageAllocationRoute = location.pathname.startsWith('/class-setup/admin/storage-allocation')
           const isUsersRoute = location.pathname.startsWith('/admin/users')
           const isRolesRoute = location.pathname.startsWith('/admin/roles')
+          const isSemestersRoute = location.pathname === '/class-setup/admin/semesters'
+          const isCoursesRoute = location.pathname === '/class-setup/admin/courses'
+          const isRosterRoute = location.pathname === '/class-setup/admin/roster'
+          const isStudentGroupsRoute = location.pathname.startsWith('/class-setup/student')
+          const isLecturerQuotasRoute = location.pathname.startsWith('/class-setup/lecturer')
 
-          const isActive =
-            (item.path === '/admin/users' && isUsersRoute) ||
-            (item.path === '/admin/roles' && isRolesRoute) ||
-            (item.path === '/class-setup/admin/components' && isComponentsRoute) ||
-            (item.path === '/class-setup/admin/stock-inwards' && (isStockInwardsRoute || isStorageAllocationRoute)) ||
-            (item.path === '/class-setup' &&
-              location.pathname.startsWith('/class-setup') &&
-              !isComponentsRoute &&
-              !isStockInwardsRoute &&
-              !isStorageAllocationRoute) ||
-            location.pathname === item.path
+          let isActive = false
+          if (item.path === '/admin/users') isActive = isUsersRoute
+          else if (item.path === '/admin/roles') isActive = isRolesRoute
+          else if (item.path === '/class-setup/admin/components') isActive = isComponentsRoute
+          else if (item.path === '/class-setup/admin/stock-inwards') isActive = isStockInwardsRoute || isStorageAllocationRoute
+          else if (item.path === '/class-setup/admin/semesters') isActive = isSemestersRoute
+          else if (item.path === '/class-setup/admin/courses') isActive = isCoursesRoute
+          else if (item.path === '/class-setup/admin/roster') isActive = isRosterRoute
+          else if (item.path === '/class-setup/student/groups') isActive = isStudentGroupsRoute
+          else if (item.path === '/class-setup/lecturer/quotas') isActive = isLecturerQuotasRoute
+          else if (item.path === '/class-setup') {
+            isActive =
+              location.pathname === '/class-setup' ||
+              (!isSemestersRoute &&
+                !isCoursesRoute &&
+                !isRosterRoute &&
+                !isStudentGroupsRoute &&
+                !isLecturerQuotasRoute &&
+                !isComponentsRoute &&
+                !isStockInwardsRoute &&
+                !isStorageAllocationRoute &&
+                location.pathname.startsWith('/class-setup'))
+          } else {
+            isActive = location.pathname === item.path
+          }
 
           return (
             <ListItem key={item.label} disablePadding sx={{ mb: 0.5 }}>

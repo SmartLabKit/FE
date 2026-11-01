@@ -1,9 +1,19 @@
-import { useState } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
+  Alert,
   Avatar,
+  Badge,
   Box,
   Button,
+  Card,
+  CardContent,
   Chip,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Divider,
   Grid,
   IconButton,
   InputAdornment,
@@ -11,116 +21,400 @@ import {
   Paper,
   Select,
   Snackbar,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   TextField,
   Typography,
-  Alert,
 } from '@mui/material'
 import {
   Add as AddIcon,
   Search as SearchIcon,
   PersonAdd as PersonAddIcon,
   Check as CheckIcon,
+  Close as CloseIcon,
   DeleteOutlined as DeleteIcon,
   ArrowBack as ArrowBackIcon,
   Groups as GroupsIcon,
+  Mail as MailIcon,
+  Refresh as RefreshIcon,
+  School as SchoolIcon,
+  Star as StarIcon,
+  CheckCircle as CheckCircleIcon,
+  HourglassEmpty as HourglassEmptyIcon,
 } from '@mui/icons-material'
+import { academicService } from '../../services/academicService'
+import { teamService } from '../../services/teamService'
 
 /**
  * GroupInviteManager Component (Actor: STUDENT / GROUP LEADER)
- * Tạo nhóm & Mời thành viên (Phân hệ 4 trong quy trình Class Setup)
+ * Kết nối đầy đủ 8 API Nhóm & Lời mời MF2:
+ * 1. GET /api/classes/my - Lấy lớp của tôi
+ * 2. GET /api/team-invitations/me - Danh sách lời mời đang chờ phản hồi
+ * 3. PUT /api/team-invitations/{teamId}/response - Chấp nhận / từ chối lời mời
+ * 4. GET /api/classes/{classId}/team - Lấy nhóm đã tham gia trong lớp
+ * 5. POST /api/classes/{classId}/teams - Tạo nhóm mới (tự động làm trưởng nhóm)
+ * 6. GET /api/classes/{classId}/team-candidates - Danh sách SV cùng lớp có thể mời
+ * 7. GET /api/teams/{teamId} - Chi tiết nhóm
+ * 8. POST /api/teams/{teamId}/invitations - Mời SV vào nhóm
+ * 9. DELETE /api/teams/{teamId}/invitations/{studentProfileId} - Hủy lời mời
  */
 export default function GroupInviteManager({ onPrev }) {
-  // State form tạo nhóm mới
-  const [groupForm, setGroupForm] = useState({
-    name: 'Nhóm 1 - IoT Smart Garden',
-    classCode: 'EE302 - Embedded Systems',
-    description: 'Dự án IoT giám sát vườn thông minh với cảm biến nhiệt độ, độ ẩm và điều khiển tự động.',
-  })
+  // State lớp học của sinh viên
+  const [myClasses, setMyClasses] = useState([])
+  const [selectedClassId, setSelectedClassId] = useState('')
+  const [loadingClasses, setLoadingClasses] = useState(false)
 
-  // State danh sách tìm kiếm sinh viên
-  const [searchQuery, setSearchQuery] = useState('')
-  const [candidateStudents, setCandidateStudents] = useState([
-    { code: 'STU-2025-001', name: 'Nguyen Van A', email: 'nguyenvana@edu.vn', invited: false },
-    { code: 'STU-2025-002', name: 'Tran Thi B', email: 'tranthib@edu.vn', invited: false },
-    { code: 'STU-2025-003', name: 'Pham Minh C', email: 'phamminhc@edu.vn', invited: false },
-  ])
+  // State lời mời nhóm nhận được
+  const [myInvitations, setMyInvitations] = useState([])
+  const [loadingInvitations, setLoadingInvitations] = useState(false)
 
-  // State danh sách thành viên hiện tại trong nhóm
-  const [members, setMembers] = useState([
-    { code: 'STU-2025-101', name: 'Le Hoang Nam', role: 'NHÓM TRƯỞNG', isLeader: true },
-    { code: 'STU-2025-004', name: 'Hoang Thi D', role: 'THÀNH VIÊN', isLeader: false },
-    { code: 'STU-2025-005', name: 'Le Quang E', role: 'THÀNH VIÊN', isLeader: false },
-  ])
+  // State nhóm hiện tại trong lớp
+  const [currentTeam, setCurrentTeam] = useState(null)
+  const [loadingTeam, setLoadingTeam] = useState(false)
+
+  // State form tạo nhóm
+  const [newTeamName, setNewTeamName] = useState('')
+  const [creatingTeam, setCreatingTeam] = useState(false)
+
+  // State ứng viên có thể mời
+  const [candidates, setCandidates] = useState([])
+  const [candidateSearch, setCandidateSearch] = useState('')
+  const [loadingCandidates, setLoadingCandidates] = useState(false)
+  const [invitingId, setInvitingId] = useState(null)
+  const [cancellingId, setCancellingId] = useState(null)
 
   // Toast alert
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
 
-  // Handle tạo nhóm
-  const handleCreateGroup = (e) => {
+  // 1. Tải danh sách lớp học của sinh viên (GET /api/classes/my)
+  const fetchMyClasses = useCallback(async () => {
+    setLoadingClasses(true)
+    try {
+      const data = await academicService.getMyClasses()
+      const list = Array.isArray(data) ? data : data?.items || []
+      setMyClasses(list)
+      if (list.length > 0 && !selectedClassId) {
+        setSelectedClassId(list[0].classId)
+      }
+    } catch (err) {
+      console.warn('Lỗi khi tải lớp của tôi:', err)
+    } finally {
+      setLoadingClasses(false)
+    }
+  }, [selectedClassId])
+
+  // 2. Tải danh sách lời mời nhóm gửi tới tôi (GET /api/team-invitations/me)
+  const fetchMyInvitations = useCallback(async () => {
+    setLoadingInvitations(true)
+    try {
+      const data = await teamService.getMyInvitations()
+      setMyInvitations(Array.isArray(data) ? data : [])
+    } catch (err) {
+      console.warn('Lỗi khi tải danh sách lời mời:', err)
+    } finally {
+      setLoadingInvitations(false)
+    }
+  }, [])
+
+  // 3. Tải nhóm của sinh viên trong lớp đang chọn (GET /api/classes/{classId}/team)
+  const fetchMyTeamInClass = useCallback(async (classId) => {
+    if (!classId) return
+    setLoadingTeam(true)
+    try {
+      const team = await teamService.getMyTeam(classId)
+      setCurrentTeam(team)
+    } catch (err) {
+      console.warn('Chưa có nhóm hoặc lỗi tải nhóm:', err)
+      setCurrentTeam(null)
+    } finally {
+      setLoadingTeam(false)
+    }
+  }, [])
+
+  // 4. Tải danh sách ứng viên có thể mời (GET /api/classes/{classId}/team-candidates)
+  const fetchCandidates = useCallback(async (classId) => {
+    if (!classId) return
+    setLoadingCandidates(true)
+    try {
+      const list = await teamService.getTeamCandidates(classId)
+      setCandidates(Array.isArray(list) ? list : [])
+    } catch (err) {
+      console.warn('Lỗi khi tải ứng viên:', err)
+      setCandidates([])
+    } finally {
+      setLoadingCandidates(false)
+    }
+  }, [])
+
+  // Initial load
+  useEffect(() => {
+    fetchMyClasses()
+    fetchMyInvitations()
+  }, [fetchMyClasses, fetchMyInvitations])
+
+  // Load team & candidates khi đổi classId
+  useEffect(() => {
+    if (selectedClassId) {
+      fetchMyTeamInClass(selectedClassId)
+      fetchCandidates(selectedClassId)
+    }
+  }, [selectedClassId, fetchMyTeamInClass, fetchCandidates])
+
+  // Phản hồi lời mời (Chấp nhận / Từ chối)
+  const handleRespondInvitation = async (teamId, decision) => {
+    try {
+      await teamService.respondInvitation(teamId, decision)
+      setToast({
+        open: true,
+        message: decision === 'Accept' ? 'Bạn đã chấp nhận lời mời vào nhóm!' : 'Đã từ chối lời mời.',
+        severity: decision === 'Accept' ? 'success' : 'info',
+      })
+      // Cập nhật lại danh sách lời mời và nhóm của lớp
+      fetchMyInvitations()
+      if (selectedClassId) {
+        fetchMyTeamInClass(selectedClassId)
+      }
+    } catch (err) {
+      setToast({
+        open: true,
+        message: err.message || 'Thao tác không thành công',
+        severity: 'error',
+      })
+    }
+  }
+
+  // Tạo nhóm mới (POST /api/classes/{classId}/teams)
+  const handleCreateTeam = async (e) => {
     e.preventDefault()
-    setToast({
-      open: true,
-      message: `Đã tạo nhóm "${groupForm.name}" thành công! Bây giờ bạn có thể mời thành viên.`,
-      severity: 'success',
-    })
+    if (!selectedClassId) {
+      setToast({ open: true, message: 'Vui lòng chọn lớp học', severity: 'warning' })
+      return
+    }
+    if (!newTeamName.trim()) {
+      setToast({ open: true, message: 'Vui lòng nhập tên nhóm', severity: 'warning' })
+      return
+    }
+
+    setCreatingTeam(true)
+    try {
+      const team = await teamService.createTeam(selectedClassId, { teamName: newTeamName.trim() })
+      setCurrentTeam(team)
+      setNewTeamName('')
+      setToast({
+        open: true,
+        message: `Đã tạo nhóm "${team.teamName}" thành công! Bạn là nhóm trưởng.`,
+        severity: 'success',
+      })
+      fetchCandidates(selectedClassId)
+    } catch (err) {
+      setToast({
+        open: true,
+        message: err.message || 'Không thể tạo nhóm',
+        severity: 'error',
+      })
+    } finally {
+      setCreatingTeam(false)
+    }
   }
 
-  // Handle mời sinh viên vào nhóm
-  const handleInviteStudent = (student) => {
-    // Thêm vào danh sách thành viên
-    setMembers((prev) => [
-      ...prev,
-      { code: student.code, name: student.name, role: 'THÀNH VIÊN', isLeader: false },
-    ])
-
-    // Cập nhật trạng thái mời
-    setCandidateStudents((prev) =>
-      prev.map((s) => (s.code === student.code ? { ...s, invited: true } : s))
-    )
-
-    setToast({
-      open: true,
-      message: `Đã gửi lời mời tham gia nhóm tới sinh viên ${student.name}!`,
-      severity: 'success',
-    })
+  // Mời thành viên (POST /api/teams/{teamId}/invitations)
+  const handleInviteMember = async (studentProfileId, fullName) => {
+    if (!currentTeam?.teamId) return
+    setInvitingId(studentProfileId)
+    try {
+      const updatedTeam = await teamService.inviteMember(currentTeam.teamId, studentProfileId)
+      setCurrentTeam(updatedTeam)
+      setToast({
+        open: true,
+        message: `Đã gửi lời mời tham gia nhóm tới ${fullName}!`,
+        severity: 'success',
+      })
+      fetchCandidates(selectedClassId)
+    } catch (err) {
+      setToast({
+        open: true,
+        message: err.message || 'Gửi lời mời thất bại',
+        severity: 'error',
+      })
+    } finally {
+      setInvitingId(null)
+    }
   }
 
-  // Handle xóa thành viên khỏi nhóm
-  const handleRemoveMember = (code) => {
-    setMembers((prev) => prev.filter((m) => m.code !== code))
-    setCandidateStudents((prev) =>
-      prev.map((s) => (s.code === code ? { ...s, invited: false } : s))
-    )
-    setToast({ open: true, message: 'Đã xoá thành viên khỏi nhóm.', severity: 'info' })
+  // Hủy lời mời chưa chấp nhận (DELETE /api/teams/{teamId}/invitations/{studentProfileId})
+  const handleCancelInvitation = async (studentProfileId, fullName) => {
+    if (!currentTeam?.teamId) return
+    setCancellingId(studentProfileId)
+    try {
+      const updatedTeam = await teamService.cancelInvitation(currentTeam.teamId, studentProfileId)
+      setCurrentTeam(updatedTeam)
+      setToast({
+        open: true,
+        message: `Đã hủy lời mời sinh viên ${fullName}.`,
+        severity: 'info',
+      })
+      fetchCandidates(selectedClassId)
+    } catch (err) {
+      setToast({
+        open: true,
+        message: err.message || 'Hủy lời mời thất bại',
+        severity: 'error',
+      })
+    } finally {
+      setCancellingId(null)
+    }
   }
 
   // Filter candidate students
-  const filteredCandidates = candidateStudents.filter(
+  const filteredCandidates = candidates.filter(
     (s) =>
-      s.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      s.code.toLowerCase().includes(searchQuery.toLowerCase())
+      s.fullName?.toLowerCase().includes(candidateSearch.toLowerCase()) ||
+      s.studentCode?.toLowerCase().includes(candidateSearch.toLowerCase())
   )
+
+  const selectedClass = myClasses.find((c) => c.classId === selectedClassId) || null
 
   return (
     <Box sx={{ maxWidth: 1200, mx: 'auto' }}>
       {/* Header section */}
-      <Box sx={{ mb: 2 }}>
-        <Typography variant="caption" sx={{ color: '#0058be', fontWeight: 700, fontSize: 11 }}>
-          My Classes &gt; EE302 Embedded Systems &gt; Tạo nhóm
-        </Typography>
-        <Typography variant="h5" sx={{ fontWeight: 800, color: '#131b2e', mt: 0.5, mb: 0.5 }}>
-          Tạo nhóm &amp; Mời thành viên
-        </Typography>
-        <Typography variant="body2" sx={{ color: '#424754', fontSize: 13 }}>
-          Bước 4: Nhóm trưởng tạo nhóm trong lớp và mời thành viên tham gia (Dành cho Sinh viên)
-        </Typography>
+      <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
+        <Box>
+          <Typography variant="caption" sx={{ color: '#0058be', fontWeight: 700, fontSize: 11 }}>
+            Student Workspace &gt; Quản lý Nhóm &amp; Lời mời
+          </Typography>
+          <Typography variant="h5" sx={{ fontWeight: 800, color: '#131b2e', mt: 0.5, mb: 0.5 }}>
+            Tạo nhóm, Quản lý thành viên &amp; Lời mời tham gia
+          </Typography>
+          <Typography variant="body2" sx={{ color: '#424754', fontSize: 13 }}>
+            Dành cho Sinh viên: Chọn lớp môn học đang tham gia để tạo nhóm đồ án hoặc phản hồi lời mời.
+          </Typography>
+        </Box>
+        <Button
+          variant="outlined"
+          size="small"
+          startIcon={<RefreshIcon />}
+          onClick={() => {
+            fetchMyClasses()
+            fetchMyInvitations()
+            if (selectedClassId) {
+              fetchMyTeamInClass(selectedClassId)
+              fetchCandidates(selectedClassId)
+            }
+          }}
+          sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 1.5, borderColor: '#dcdfe6' }}
+        >
+          Làm mới
+        </Button>
       </Box>
 
-      {/* Class Overview Banner */}
+      {/* 1. LỜI MỜI NHẬN ĐƯỢC SECTION (GET /api/team-invitations/me) */}
+      {myInvitations.length > 0 && (
+        <Paper
+          elevation={0}
+          sx={{
+            p: 2.5,
+            mb: 3,
+            borderRadius: 2,
+            border: '1px solid #fed7aa',
+            bgcolor: '#fffbeb',
+          }}
+        >
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, mb: 1.5 }}>
+            <Badge badgeContent={myInvitations.length} color="warning">
+              <MailIcon sx={{ color: '#d97706' }} />
+            </Badge>
+            <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#92400e', fontSize: 15 }}>
+              Lời mời tham gia nhóm đang chờ bạn phản hồi
+            </Typography>
+            <Typography variant="caption" sx={{ color: '#b45309' }}>
+              (API: <code>GET /api/team-invitations/me</code> &amp; <code>PUT /api/team-invitations/{'{teamId}'}/response</code>)
+            </Typography>
+          </Box>
+
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            {myInvitations.map((inv) => (
+              <Paper
+                key={inv.invitationId || inv.teamId}
+                elevation={0}
+                sx={{
+                  p: 1.5,
+                  px: 2,
+                  borderRadius: 1.5,
+                  bgcolor: '#ffffff',
+                  border: '1px solid #fde68a',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: 1.5,
+                }}
+              >
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <Typography variant="body2" sx={{ fontWeight: 800, color: '#131b2e' }}>
+                      {inv.teamName}
+                    </Typography>
+                    <Chip
+                      label={`Lớp: ${inv.classCode}`}
+                      size="small"
+                      sx={{ height: 20, fontSize: 10, fontWeight: 700, bgcolor: '#eaedff', color: '#0058be' }}
+                    />
+                  </Box>
+                  <Typography variant="caption" sx={{ color: '#6b7280' }}>
+                    Người mời: <strong>{inv.invitedBy}</strong> • Ngày gửi:{' '}
+                    {inv.invitedAt ? new Date(inv.invitedAt).toLocaleDateString('vi-VN') : 'Gần đây'}
+                  </Typography>
+                </Box>
+
+                <Box sx={{ display: 'flex', gap: 1 }}>
+                  <Button
+                    size="small"
+                    variant="contained"
+                    startIcon={<CheckIcon />}
+                    onClick={() => handleRespondInvitation(inv.teamId, 'Accept')}
+                    sx={{
+                      bgcolor: '#16a34a',
+                      color: '#ffffff',
+                      textTransform: 'none',
+                      fontWeight: 700,
+                      fontSize: 12,
+                      '&:hover': { bgcolor: '#15803d' },
+                    }}
+                  >
+                    Chấp nhận
+                  </Button>
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    startIcon={<CloseIcon />}
+                    onClick={() => handleRespondInvitation(inv.teamId, 'Reject')}
+                    sx={{
+                      color: '#dc2626',
+                      borderColor: '#fca5a5',
+                      textTransform: 'none',
+                      fontWeight: 700,
+                      fontSize: 12,
+                      '&:hover': { bgcolor: '#fee2e2' },
+                    }}
+                  >
+                    Từ chối
+                  </Button>
+                </Box>
+              </Paper>
+            ))}
+          </Box>
+        </Paper>
+      )}
+
+      {/* Class Overview & Selection Bar (GET /api/classes/my) */}
       <Paper
         elevation={0}
         sx={{
-          p: 2,
+          p: 2.5,
           mb: 3,
           borderRadius: 2,
           border: '1px solid #e4e6ef',
@@ -132,324 +426,385 @@ export default function GroupInviteManager({ onPrev }) {
           gap: 2,
         }}
       >
-        <Box sx={{ display: 'flex', gap: 3, flexWrap: 'wrap', alignItems: 'center' }}>
-          <Box>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, minWidth: 280 }}>
+          <SchoolIcon sx={{ color: '#0058be', fontSize: 26 }} />
+          <Box sx={{ flex: 1 }}>
             <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 10 }}>
-              CLASS
+              CHỌN LỚP MÔN HỌC BẠN ĐANG HỌC:
             </Typography>
-            <Typography variant="body2" sx={{ fontWeight: 800, color: '#0058be' }}>
-              EE302 Embedded Systems
-            </Typography>
-          </Box>
-          <Box>
-            <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 10 }}>
-              TERM
-            </Typography>
-            <Typography variant="body2" sx={{ fontWeight: 700, color: '#131b2e' }}>
-              Semester 2 - 2025-2026
-            </Typography>
-          </Box>
-          <Box>
-            <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 10 }}>
-              STUDENTS
-            </Typography>
-            <Typography variant="body2" sx={{ fontWeight: 700, color: '#131b2e' }}>
-              32
-            </Typography>
-          </Box>
-          <Box>
-            <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 10 }}>
-              GROUPS
-            </Typography>
-            <Typography variant="body2" sx={{ fontWeight: 700, color: '#131b2e' }}>
-              6
-            </Typography>
+            {loadingClasses ? (
+              <CircularProgress size={20} />
+            ) : (
+              <Select
+                fullWidth
+                size="small"
+                value={selectedClassId}
+                onChange={(e) => setSelectedClassId(e.target.value)}
+                sx={{ borderRadius: 1.5, height: 40, fontSize: 13, bgcolor: '#fafbff' }}
+                displayEmpty
+              >
+                {myClasses.length === 0 && (
+                  <MenuItem value="" disabled>
+                    Bạn chưa ghi danh vào lớp nào
+                  </MenuItem>
+                )}
+                {myClasses.map((cls) => (
+                  <MenuItem key={cls.classId} value={cls.classId} sx={{ fontSize: 13 }}>
+                    <strong>{cls.classCode}</strong> - {cls.courseName || cls.courseCode} ({cls.semesterCode || 'Học kỳ'})
+                  </MenuItem>
+                ))}
+              </Select>
+            )}
           </Box>
         </Box>
 
-        <Button
-          variant="contained"
-          size="small"
-          startIcon={<AddIcon />}
-          sx={{
-            bgcolor: '#0058be',
-            textTransform: 'none',
-            fontWeight: 700,
-            borderRadius: 1.5,
-            fontSize: 12,
-            boxShadow: 'none',
-            '&:hover': { bgcolor: '#0049a3' },
-          }}
-        >
-           Create New Group
-        </Button>
+        {selectedClass && (
+          <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+            <Box>
+              <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 10 }}>
+                GIẢNG VIÊN
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: 700, color: '#131b2e' }}>
+                {selectedClass.instructorName || 'Chưa phân công'}
+              </Typography>
+            </Box>
+            <Box>
+              <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 10 }}>
+                SĨ SỐ LỚP
+              </Typography>
+              <Typography variant="body2" sx={{ fontWeight: 700, color: '#0058be' }}>
+                {selectedClass.currentStudents || 0}/{selectedClass.maxStudents || 30}
+              </Typography>
+            </Box>
+          </Box>
+        )}
       </Paper>
 
-      <Grid container spacing={3}>
-        {/* Left Column: Form Tạo nhóm mới */}
-        <Grid item xs={12} md={6}>
-          <Paper
-            elevation={0}
-            sx={{
-              p: 3,
-              borderRadius: 2,
-              border: '1px solid #e4e6ef',
-              bgcolor: '#ffffff',
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
-            }}
+      {/* NẾU CHƯA CÓ NHÓM TRONG LỚP NÀY */}
+      {!currentTeam && !loadingTeam && (
+        <Paper
+          elevation={0}
+          sx={{
+            p: 4,
+            borderRadius: 2,
+            border: '1px dashed #c2c6d6',
+            bgcolor: '#ffffff',
+            textAlign: 'center',
+            maxWidth: 600,
+            mx: 'auto',
+          }}
+        >
+          <GroupsIcon sx={{ fontSize: 56, color: '#0058be', mb: 1.5 }} />
+          <Typography variant="h6" sx={{ fontWeight: 800, color: '#131b2e', mb: 1 }}>
+            Bạn chưa có nhóm trong lớp này
+          </Typography>
+          <Typography variant="body2" sx={{ color: '#6b7280', fontSize: 13, mb: 3 }}>
+            Hãy đặt tên nhóm và tạo nhóm ngay. Sau khi tạo, bạn sẽ là <strong>Trưởng nhóm</strong> và có quyền mời các bạn cùng lớp tham gia.
+          </Typography>
+
+          <Box
+            component="form"
+            onSubmit={handleCreateTeam}
+            sx={{ display: 'flex', flexDirection: 'column', gap: 2, textAlign: 'left' }}
           >
-            <Box component="form" onSubmit={handleCreateGroup}>
-              <Typography variant="h6" sx={{ fontWeight: 700, fontSize: 16, color: '#131b2e', mb: 0.5 }}>
-                Tạo nhóm mới
+            <Box>
+              <Typography variant="caption" sx={{ fontWeight: 700, color: '#6b7280', display: 'block', mb: 0.5 }}>
+                TÊN NHÓM MỚI (CREATE TEAM) *
               </Typography>
-              <Typography variant="caption" sx={{ color: '#6b7280', display: 'block', mb: 2.5 }}>
-                Điền thông tin nhóm và chọn lớp môn học trước khi mời thành viên.
-              </Typography>
-
-              {/* Tên nhóm */}
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="caption" sx={{ fontWeight: 700, color: '#263247', mb: 0.8, display: 'block' }}>
-                  TÊN NHÓM
-                </Typography>
-                <TextField
-                  fullWidth
-                  size="small"
-                  value={groupForm.name}
-                  onChange={(e) => setGroupForm({ ...groupForm, name: e.target.value })}
-                  placeholder="Ví dụ: Nhóm 1 - IoT Smart Garden"
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, height: 42, fontSize: 13 } }}
-                />
-              </Box>
-
-              {/* Lớp môn học */}
-              <Box sx={{ mb: 2 }}>
-                <Typography variant="caption" sx={{ fontWeight: 700, color: '#263247', mb: 0.8, display: 'block' }}>
-                  LỚP MÔN HỌC
-                </Typography>
-                <Select
-                  fullWidth
-                  size="small"
-                  value={groupForm.classCode}
-                  onChange={(e) => setGroupForm({ ...groupForm, classCode: e.target.value })}
-                  sx={{ borderRadius: 1.5, height: 42, fontSize: 13 }}
-                >
-                  <MenuItem value="EE302 - Embedded Systems">EE302 - Embedded Systems</MenuItem>
-                  <MenuItem value="CS101 - Intro to Programming">CS101 - Intro to Programming</MenuItem>
-                  <MenuItem value="ME204 - Robotics Fundamentals">ME204 - Robotics Fundamentals</MenuItem>
-                </Select>
-              </Box>
-
-              {/* Mô tả ngắn */}
-              <Box sx={{ mb: 3 }}>
-                <Typography variant="caption" sx={{ fontWeight: 700, color: '#263247', mb: 0.8, display: 'block' }}>
-                  MÔ TẢ NGẮN
-                </Typography>
-                <TextField
-                  fullWidth
-                  multiline
-                  rows={3}
-                  size="small"
-                  value={groupForm.description}
-                  onChange={(e) => setGroupForm({ ...groupForm, description: e.target.value })}
-                  placeholder="Mô tả đề tài hoặc hướng nghiên cứu của nhóm..."
-                  sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5, fontSize: 13 } }}
-                />
-              </Box>
-
-              {/* Submit Button */}
-              <Button
-                type="submit"
+              <TextField
                 fullWidth
-                variant="contained"
-                sx={{
-                  bgcolor: '#0058be',
-                  py: 1.2,
-                  borderRadius: 1.5,
-                  textTransform: 'none',
-                  fontWeight: 700,
-                  fontSize: 13,
-                  boxShadow: 'none',
-                  '&:hover': { bgcolor: '#0049a3' },
-                }}
-              >
-                Tạo nhóm
-              </Button>
-            </Box>
-          </Paper>
-        </Grid>
-
-        {/* Right Column: Mời thành viên */}
-        <Grid item xs={12} md={6}>
-          <Paper
-            elevation={0}
-            sx={{
-              p: 3,
-              borderRadius: 2,
-              border: '1px solid #e4e6ef',
-              bgcolor: '#ffffff',
-            }}
-          >
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
-              <Typography variant="h6" sx={{ fontWeight: 700, fontSize: 16, color: '#131b2e' }}>
-                Mời thành viên
-              </Typography>
-              <Chip
-                label={`${members.length}/5 phòng trống`}
                 size="small"
-                sx={{ bgcolor: '#fff7ed', color: '#c2410c', fontWeight: 800, fontSize: 10 }}
+                value={newTeamName}
+                onChange={(e) => setNewTeamName(e.target.value)}
+                placeholder="Ví dụ: Nhóm 1 - IoT Smart Home Project"
               />
             </Box>
 
-            {/* Search Input */}
-            <TextField
-              fullWidth
-              size="small"
-              placeholder="Tìm sinh viên theo tên hoặc mã số"
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
+            <Button
+              type="submit"
+              variant="contained"
+              disabled={creatingTeam || !newTeamName.trim()}
+              startIcon={creatingTeam ? <CircularProgress size={16} color="inherit" /> : <AddIcon />}
               sx={{
-                mb: 2,
-                '& .MuiOutlinedInput-root': { borderRadius: 1.5, height: 40, fontSize: 12 },
+                bgcolor: '#0058be',
+                py: 1.2,
+                borderRadius: 1.5,
+                textTransform: 'none',
+                fontWeight: 700,
+                fontSize: 13,
+                boxShadow: 'none',
+                '&:hover': { bgcolor: '#0049a3' },
               }}
-              slotProps={{
-                input: {
-                  startAdornment: (
-                    <InputAdornment position="start">
-                      <SearchIcon sx={{ color: '#81899a', fontSize: 18 }} />
-                    </InputAdornment>
-                  ),
-                },
+            >
+              {creatingTeam ? 'Đang tạo nhóm...' : 'Tạo nhóm ngay (POST /api/classes/{id}/teams)'}
+            </Button>
+          </Box>
+        </Paper>
+      )}
+
+      {/* ĐANG TẢI DỮ LIỆU NHÓM */}
+      {loadingTeam && (
+        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
+          <CircularProgress size={36} />
+        </Box>
+      )}
+
+      {/* NẾU ĐÃ CÓ NHÓM TRONG LỚP */}
+      {currentTeam && !loadingTeam && (
+        <Grid container spacing={3}>
+          {/* Cột Trái: Thông tin nhóm & Danh sách thành viên (GET /api/teams/{teamId}) */}
+          <Grid item xs={12} md={7}>
+            <Paper
+              elevation={0}
+              sx={{
+                p: 3,
+                borderRadius: 2,
+                border: '1px solid #e4e6ef',
+                bgcolor: '#ffffff',
               }}
-            />
-
-            {/* Search Results / Invite List */}
-            <Typography variant="caption" sx={{ fontWeight: 700, color: '#6b7280', mb: 1, display: 'block' }}>
-              KẾT QUẢ TÌM KIẾM
-            </Typography>
-
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 3 }}>
-              {filteredCandidates.map((st) => (
-                <Paper
-                  key={st.code}
-                  elevation={0}
+            >
+              {/* Header nhóm */}
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+                <Box>
+                  <Typography variant="h6" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 17 }}>
+                    {currentTeam.teamName}
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: '#6b7280' }}>
+                    Mã nhóm: <code>{currentTeam.teamId}</code> • Lớp: {currentTeam.classCode || selectedClass?.classCode}
+                  </Typography>
+                </Box>
+                <Chip
+                  label={currentTeam.isReadyForProject ? 'Đã đủ thành viên' : 'Đang tuyển thành viên'}
+                  size="small"
                   sx={{
-                    p: 1.2,
-                    px: 2,
-                    borderRadius: 1.5,
-                    bgcolor: '#fafbff',
-                    border: '1px solid #eef2f6',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
+                    bgcolor: currentTeam.isReadyForProject ? '#ecfdf5' : '#eff6ff',
+                    color: currentTeam.isReadyForProject ? '#047857' : '#1d4ed8',
+                    fontWeight: 700,
+                    fontSize: 11,
                   }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Avatar sx={{ width: 32, height: 32, bgcolor: '#0284c7', fontSize: 12, fontWeight: 700 }}>
-                      {st.name.charAt(0)}
-                    </Avatar>
-                    <Box>
-                      <Typography variant="body2" sx={{ fontWeight: 700, color: '#131b2e', fontSize: 12 }}>
-                        {st.name}
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: '#6b7280', fontSize: 11 }}>
-                        {st.code}
-                      </Typography>
-                    </Box>
-                  </Box>
+                />
+              </Box>
 
-                  <Button
-                    size="small"
-                    variant={st.invited ? 'outlined' : 'contained'}
-                    disabled={st.invited}
-                    onClick={() => handleInviteStudent(st)}
-                    sx={{
-                      minWidth: 64,
-                      height: 28,
-                      fontSize: 11,
-                      fontWeight: 700,
-                      textTransform: 'none',
-                      borderRadius: 1,
-                      bgcolor: st.invited ? 'transparent' : '#0058be',
-                    }}
-                  >
-                    {st.invited ? 'Đã mời' : 'Mời'}
-                  </Button>
-                </Paper>
-              ))}
-            </Box>
+              <Divider sx={{ mb: 2 }} />
 
-            {/* Current Group Members Section */}
-            <Typography variant="caption" sx={{ fontWeight: 700, color: '#6b7280', mb: 1, display: 'block' }}>
-              THÀNH VIÊN HIỆN TẠI ({members.length})
-            </Typography>
+              {/* Bảng thành viên nhóm */}
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1.5 }}>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#131b2e' }}>
+                  Thành viên nhóm ({currentTeam.members?.length || 0})
+                </Typography>
+                <Typography variant="caption" sx={{ color: '#6b7280', fontSize: 11 }}>
+                  API: <code>GET /api/teams/{'{id}'}</code>
+                </Typography>
+              </Box>
 
-            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-              {members.map((m) => (
-                <Paper
-                  key={m.code}
-                  elevation={0}
-                  sx={{
-                    p: 1.2,
-                    px: 2,
-                    borderRadius: 1.5,
-                    bgcolor: '#ffffff',
-                    border: '1px solid #e4e6ef',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'space-between',
-                  }}
-                >
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                    <Avatar
+              <TableContainer sx={{ border: '1px solid #f0f2f5', borderRadius: 1.5 }}>
+                <Table size="small">
+                  <TableHead sx={{ bgcolor: '#fafbff' }}>
+                    <TableRow>
+                      <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>THÀNH VIÊN</TableCell>
+                      <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>MÃ SV</TableCell>
+                      <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>VAI TRÒ</TableCell>
+                      <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>TRẠNG THÁI</TableCell>
+                      <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280', textAlign: 'right' }}>
+                        THAO TÁC
+                      </TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {currentTeam.members?.map((m) => (
+                      <TableRow key={m.studentProfileId || m.studentCode} hover>
+                        <TableCell>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                            <Avatar
+                              sx={{
+                                width: 28,
+                                height: 28,
+                                bgcolor: m.isLeader ? '#0058be' : '#64748b',
+                                fontSize: 11,
+                                fontWeight: 800,
+                              }}
+                            >
+                              {m.fullName?.charAt(0) || 'U'}
+                            </Avatar>
+                            <Typography variant="body2" sx={{ fontWeight: 700, fontSize: 12, color: '#131b2e' }}>
+                              {m.fullName}
+                            </Typography>
+                          </Box>
+                        </TableCell>
+                        <TableCell sx={{ fontSize: 12, color: '#424754', fontWeight: 600 }}>
+                          {m.studentCode}
+                        </TableCell>
+                        <TableCell>
+                          {m.isLeader ? (
+                            <Chip
+                              icon={<StarIcon sx={{ fontSize: '12px !important' }} />}
+                              label="Trưởng nhóm"
+                              size="small"
+                              sx={{ height: 20, fontSize: 10, fontWeight: 800, bgcolor: '#fef3c7', color: '#b45309' }}
+                            />
+                          ) : (
+                            <Chip
+                              label="Thành viên"
+                              size="small"
+                              sx={{ height: 20, fontSize: 10, fontWeight: 700, bgcolor: '#f1f5f9', color: '#475569' }}
+                            />
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            label={m.status === 'Accepted' ? 'Đã tham gia' : 'Chờ phản hồi'}
+                            size="small"
+                            sx={{
+                              height: 20,
+                              fontSize: 10,
+                              fontWeight: 700,
+                              bgcolor: m.status === 'Accepted' ? '#dcfce7' : '#fff7ed',
+                              color: m.status === 'Accepted' ? '#15803d' : '#c2410c',
+                            }}
+                          />
+                        </TableCell>
+                        <TableCell sx={{ textAlign: 'right' }}>
+                          {m.status === 'Pending' && (
+                            <Button
+                              size="small"
+                              color="error"
+                              variant="outlined"
+                              onClick={() => handleCancelInvitation(m.studentProfileId, m.fullName)}
+                              disabled={cancellingId === m.studentProfileId}
+                              sx={{
+                                textTransform: 'none',
+                                fontSize: 10,
+                                fontWeight: 700,
+                                height: 24,
+                                minWidth: 64,
+                                p: 0.5,
+                              }}
+                            >
+                              {cancellingId === m.studentProfileId ? 'Đang hủy...' : 'Hủy lời mời'}
+                            </Button>
+                          )}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            </Paper>
+          </Grid>
+
+          {/* Cột Phải: Mời thành viên cùng lớp (GET /api/classes/{id}/team-candidates & POST /api/teams/{id}/invitations) */}
+          <Grid item xs={12} md={5}>
+            <Paper
+              elevation={0}
+              sx={{
+                p: 3,
+                borderRadius: 2,
+                border: '1px solid #e4e6ef',
+                bgcolor: '#ffffff',
+                height: '100%',
+              }}
+            >
+              <Typography variant="h6" sx={{ fontWeight: 800, fontSize: 16, color: '#131b2e', mb: 0.5 }}>
+                Mời thành viên cùng lớp
+              </Typography>
+              <Typography variant="caption" sx={{ color: '#6b7280', display: 'block', mb: 2 }}>
+                API: <code>GET /api/classes/{'{id}'}/team-candidates</code> &amp; <code>POST /api/teams/{'{id}'}/invitations</code>
+              </Typography>
+
+              {/* Tìm kiếm ứng viên */}
+              <TextField
+                fullWidth
+                size="small"
+                placeholder="Tìm bạn cùng lớp theo tên hoặc mã SV..."
+                value={candidateSearch}
+                onChange={(e) => setCandidateSearch(e.target.value)}
+                sx={{
+                  mb: 2,
+                  '& .MuiOutlinedInput-root': { borderRadius: 1.5, height: 38, fontSize: 12 },
+                }}
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon sx={{ color: '#81899a', fontSize: 18 }} />
+                      </InputAdornment>
+                    ),
+                  },
+                }}
+              />
+
+              {loadingCandidates ? (
+                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                  <CircularProgress size={24} />
+                </Box>
+              ) : filteredCandidates.length === 0 ? (
+                <Alert severity="info" sx={{ fontSize: 12, borderRadius: 1.5 }}>
+                  {candidateSearch ? 'Không tìm thấy sinh viên phù hợp.' : 'Không có sinh viên nào trống trong lớp này.'}
+                </Alert>
+              ) : (
+                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, maxHeight: 380, overflowY: 'auto' }}>
+                  {filteredCandidates.map((cand) => (
+                    <Paper
+                      key={cand.studentProfileId || cand.studentCode}
+                      elevation={0}
                       sx={{
-                        width: 32,
-                        height: 32,
-                        bgcolor: m.isLeader ? '#0058be' : '#64748b',
-                        fontSize: 12,
-                        fontWeight: 700,
+                        p: 1.2,
+                        px: 1.5,
+                        borderRadius: 1.5,
+                        bgcolor: '#fafbff',
+                        border: '1px solid #eef2f6',
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
                       }}
                     >
-                      {m.name.charAt(0)}
-                    </Avatar>
-                    <Box>
-                      <Typography variant="body2" sx={{ fontWeight: 700, color: '#131b2e', fontSize: 12 }}>
-                        {m.name}
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: '#6b7280', fontSize: 11 }}>
-                        {m.code}
-                      </Typography>
-                    </Box>
-                  </Box>
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+                        <Avatar sx={{ width: 32, height: 32, bgcolor: '#0284c7', fontSize: 11, fontWeight: 700 }}>
+                          {cand.fullName?.charAt(0) || 'S'}
+                        </Avatar>
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 700, color: '#131b2e', fontSize: 12 }}>
+                            {cand.fullName}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: '#6b7280', fontSize: 11 }}>
+                            {cand.studentCode} • {cand.major || 'Kỹ thuật'} ({cand.cohort || 'K16'})
+                          </Typography>
+                        </Box>
+                      </Box>
 
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Chip
-                      label={m.role}
-                      size="small"
-                      sx={{
-                        height: 20,
-                        fontSize: 9,
-                        fontWeight: 800,
-                        bgcolor: m.isLeader ? '#eaedff' : '#f1f5f9',
-                        color: m.isLeader ? '#0058be' : '#475569',
-                      }}
-                    />
-                    {!m.isLeader && (
-                      <IconButton size="small" onClick={() => handleRemoveMember(m.code)} sx={{ color: '#ef4444' }}>
-                        <DeleteIcon fontSize="small" />
-                      </IconButton>
-                    )}
-                  </Box>
-                </Paper>
-              ))}
-            </Box>
-          </Paper>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        disabled={invitingId === cand.studentProfileId}
+                        startIcon={
+                          invitingId === cand.studentProfileId ? (
+                            <CircularProgress size={12} color="inherit" />
+                          ) : (
+                            <PersonAddIcon sx={{ fontSize: 14 }} />
+                          )
+                        }
+                        onClick={() => handleInviteMember(cand.studentProfileId, cand.fullName)}
+                        sx={{
+                          height: 28,
+                          fontSize: 11,
+                          fontWeight: 700,
+                          textTransform: 'none',
+                          borderRadius: 1,
+                          bgcolor: '#0058be',
+                          boxShadow: 'none',
+                          '&:hover': { bgcolor: '#0049a3' },
+                        }}
+                      >
+                        {invitingId === cand.studentProfileId ? 'Đang gửi...' : 'Mời'}
+                      </Button>
+                    </Paper>
+                  ))}
+                </Box>
+              )}
+            </Paper>
+          </Grid>
         </Grid>
-      </Grid>
-
-
+      )}
 
       {/* Snackbar */}
       <Snackbar
