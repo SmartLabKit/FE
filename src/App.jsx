@@ -15,6 +15,9 @@ import CreateSupplementaryBorrow from './pages/Borrowing/CreateSupplementaryBorr
 import SupplementaryBorrowDetail from './pages/Borrowing/SupplementaryBorrowDetail.jsx'
 import ReviewSupplementaryBorrow from './pages/Borrowing/ReviewSupplementaryBorrow.jsx'
 import SupplementaryBorrowList from './pages/Borrowing/SupplementaryBorrowList.jsx'
+import CreateReturnRequest from './pages/Borrowing/CreateReturnRequest.jsx'
+import ReturnRequestDetail from './pages/Borrowing/ReturnRequestDetail.jsx'
+import ConfirmReturnRequest from './pages/Borrowing/ConfirmReturnRequest.jsx'
 import { AuthProvider } from './context/AuthContext'
 
 function App() {
@@ -52,9 +55,15 @@ function App() {
 
           {/* MF5.1: Mượn Bổ Sung (Supplementary Borrowing) */}
           <Route path="/borrow/my-requests" element={<SupplementaryBorrowList />} />
+          <Route path="/borrow/supplementary" element={<SupplementaryBorrowList />} />
           <Route path="/borrow/supplementary/create" element={<CreateSupplementaryBorrow />} />
           <Route path="/borrow/supplementary/:id" element={<SupplementaryBorrowDetail />} />
           <Route path="/borrow/supplementary/review/:id" element={<ReviewSupplementaryBorrow />} />
+
+          {/* MF5.2: Trả Linh Kiện (Component Return Process) */}
+          <Route path="/borrow/return/create" element={<CreateReturnRequest />} />
+          <Route path="/borrow/return/:id" element={<ReturnRequestDetail />} />
+          <Route path="/borrow/return/confirm/:id" element={<ConfirmReturnRequest />} />
 
           {/* Đường dẫn không tồn tại */}
           <Route path="*" element={<Navigate to="/" replace />} />

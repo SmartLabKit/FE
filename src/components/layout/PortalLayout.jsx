@@ -51,6 +51,9 @@ export default function PortalLayout({
   headerSubtitle,
   headerSearchPlaceholder,
   onHeaderSearchChange,
+  currentRole,
+  currentUser: propUser,
+  activeMenuKey,
 }) {
   const { user, logout, hasPermission, hasRole } = useAuth()
   const navigate = useNavigate()
@@ -59,8 +62,8 @@ export default function PortalLayout({
   const [mobileOpen, setMobileOpen] = useState(false)
   const [userMenuAnchor, setUserMenuAnchor] = useState(null)
 
-  // Thông tin tài khoản hiện tại
-  const currentUser = user || DEMO_ACCOUNTS.ADMIN
+  // Thông tin tài khoản hiện tại (hỗ trợ override từ props để demo đúng vai trò trên UI)
+  const currentUser = propUser || user || DEMO_ACCOUNTS.ADMIN
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen)
@@ -240,7 +243,7 @@ export default function PortalLayout({
           const isRosterRoute = location.pathname === '/class-setup/admin/roster'
           const isStudentGroupsRoute = location.pathname.startsWith('/class-setup/student')
           const isLecturerQuotasRoute = location.pathname.startsWith('/class-setup/lecturer')
-          const isBorrowRoute = location.pathname.startsWith('/borrow')
+          const isBorrowRoute = location.pathname.startsWith('/borrow') || activeMenuKey === 'borrow' || activeMenuKey === 'handover'
 
           const isActive =
             item.path === '/admin/users'
@@ -543,6 +546,20 @@ export default function PortalLayout({
                 <NotificationsIcon fontSize="small" />
               </Badge>
             </IconButton>
+
+            {currentRole && (
+              <Chip
+                label={currentRole}
+                size="small"
+                sx={{
+                  bgcolor: '#eff6ff',
+                  color: '#0058be',
+                  fontWeight: 700,
+                  fontSize: 12,
+                  borderRadius: 1.5,
+                }}
+              />
+            )}
 
             <Divider orientation="vertical" flexItem sx={{ my: 1.5 }} />
 

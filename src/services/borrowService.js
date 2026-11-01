@@ -140,6 +140,63 @@ export const MOCK_ORIGINAL_BORROWS = [
   },
 ]
 
+// Mock data phiếu trả linh kiện phục vụ MF5.2
+export const MOCK_RETURN_REQUESTS = [
+  {
+    returnId: 'TR-2026-014',
+    requestCode: 'TR-2026-014',
+    borrowRequestId: 'br-001',
+    originalBorrowCode: 'BR-2026-1020',
+    status: 'PendingLab', // 'PendingLab' (Chờ Lab tiếp nhận) | 'Returned' (Đã trả & cập nhật kho)
+    leaderName: 'Lê Hoàng Nam',
+    leaderCode: '20214589',
+    teamName: 'Nhóm 07 – IoT',
+    classCode: 'EE302 - IoT & Embedded',
+    returnDate: '2026-10-29',
+    returnLocation: 'Phòng thực hành IoT · B1-302',
+    note: 'Nhóm đã hoàn thành mô hình IoT, xin trả 1 ESP32 DevKit và 2 cảm biến DHT22 đã nhận.',
+    submittedAt: '2026-10-29T09:15:00.000Z',
+    confirmedAt: null,
+    confirmedByName: null,
+    evidencePhotos: ['photo-return-1.jpg', 'photo-handover.jpg'],
+    components: [
+      {
+        componentId: 'comp-esp32',
+        componentCode: 'MCU-ESP32',
+        componentName: 'ESP32 DevKit',
+        borrowedQuantity: 1,
+        returnQuantity: 1,
+        remainingQuantity: 0,
+        goodQuantity: 1,
+        damagedQuantity: 0,
+        dueDate: '2026-10-29',
+        statusResult: 'Normal', // 'Normal' (Bình thường) | 'Damaged' (Hỏng)
+        stockBefore: 11,
+        stockReturned: 1,
+        stockAfter: 12,
+        storageLocation: 'Tủ A · Ngăn A1',
+      },
+      {
+        componentId: 'comp-dht22',
+        componentCode: 'SEN-DHT22',
+        componentName: 'Cảm biến DHT22',
+        borrowedQuantity: 2,
+        returnQuantity: 2,
+        remainingQuantity: 0,
+        goodQuantity: 2,
+        damagedQuantity: 0,
+        dueDate: '2026-10-29',
+        statusResult: 'Normal',
+        stockBefore: 18,
+        stockReturned: 2,
+        stockAfter: 20,
+        storageLocation: 'Tủ A · Ngăn A2',
+      },
+    ],
+  },
+]
+
+let localReturnRequests = JSON.parse(JSON.stringify(MOCK_RETURN_REQUESTS))
 let localSupplementaryRequests = JSON.parse(JSON.stringify(MOCK_SUPPLEMENTARY_REQUESTS))
 
 export const borrowService = {
@@ -322,5 +379,81 @@ export const borrowService = {
       }
       throw new Error(extractErrorMessage(error, 'Từ chối yêu cầu thất bại'), { cause: error })
     }
+  },
+
+  // ===================== MF5.2: TRẢ LINH KIỆN (RETURNS) =====================
+
+  /**
+   * Lấy danh sách phiếu trả linh kiện
+   */
+  async getReturnRequests() {
+    return localReturnRequests
+  },
+
+  /**
+   * Lấy chi tiết phiếu trả linh kiện theo id hoặc mã
+   */
+  async getReturnRequestById(id) {
+    const found = localReturnRequests.find(
+      (r) => r.returnId === id || r.requestCode === id
+    )
+    if (found) return found
+    return localReturnRequests[0]
+  },
+
+  /**
+   * Tạo phiếu trả linh kiện (Actor: Sinh viên)
+   * POST /api/borrow-requests/{id}/return (hoặc lưu phiếu trả)
+   */
+  async createReturnRequest(data) {
+    try {
+      if (data.borrowRequestId) {
+        await api.post(`/api/borrow-requests/${data.borrowRequestId}/return`, data)
+      }
+    } catch (err) {
+      console.warn('API return gặp lỗi, lưu vào mock fallback', err)
+    }
+
+    const newReturn = {
+      returnId: `TR-2026-${String(localReturnRequests.length + 14).padStart(3, '0')}`,
+      requestCode: `TR-2026-${String(localReturnRequests.length + 14).padStart(3, '0')}`,
+      borrowRequestId: data.borrowRequestId || 'br-001',
+      originalBorrowCode: data.originalBorrowCode || 'BR-2026-1020',
+      status: 'PendingLab',
+      leaderName: data.leaderName || 'Lê Hoàng Nam',
+      leaderCode: data.leaderCode || '20214589',
+      teamName: data.teamName || 'Nhóm 07 – IoT',
+      returnDate: data.returnDate || '2026-10-29',
+      returnLocation: data.returnLocation || 'Phòng thực hành IoT · B1-302',
+      note: data.note || '',
+      submittedAt: new Date().toISOString(),
+      components: data.components || [],
+    }
+    localReturnRequests.unshift(newReturn)
+    return newReturn
+  },
+
+  /**
+   * Xác nhận trả linh kiện & cập nhật tồn kho (Actor: Nhân viên Lab)
+   */
+  async confirmReturnRequest(id, data = {}) {
+    try {
+      if (data.borrowRequestId) {
+        await api.post(`/api/borrow-requests/${data.borrowRequestId}/return`, data)
+      }
+    } catch (err) {
+      console.warn('API confirm return gặp lỗi, cập nhật mock fallback', err)
+    }
+
+    const idx = localReturnRequests.findIndex(
+      (r) => r.returnId === id || r.requestCode === id
+    )
+    if (idx !== -1) {
+      localReturnRequests[idx].status = 'Returned'
+      localReturnRequests[idx].confirmedAt = new Date().toISOString()
+      localReturnRequests[idx].confirmedByName = data.confirmedByName || 'Trần Thị Lan'
+      return localReturnRequests[idx]
+    }
+    return localReturnRequests[0]
   },
 }
