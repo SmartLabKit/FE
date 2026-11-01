@@ -1,17 +1,21 @@
-import { useState, useEffect } from 'react'
 import { Box, Container, Tab, Tabs, Paper } from '@mui/material'
 import { useLocation, useNavigate } from 'react-router-dom'
 import PortalLayout from '../../components/layout/PortalLayout'
 import SemesterClassManager from './SemesterClassManager'
+import CourseManager from './CourseManager'
 import ImportRosterFaculty from './ImportRosterFaculty'
 import CourseQuotaSetting from './CourseQuotaSetting'
 import GroupInviteManager from './GroupInviteManager'
 import { useAuth, DEMO_ACCOUNTS } from '../../context/AuthContext'
 
 /**
- * ClassSetup Component: Giao diện phân quyền tuyệt đối cho từng vai trò (Actor)
- * Đã bỏ toàn bộ các nút điều hướng chuyển vai trò và các nút nhảy qua bước của vai trò khác.
+ * ClassSetup Component: Giao diện quản lý Học kỳ, Môn học, Lớp & Nhóm (MF2)
+ * Phân quyền rõ ràng cho từng vai trò (Actor):
+ * - ADMIN: Quản lý Kỳ học & Lớp, Danh mục Môn học, Nhập Roster & Phân công
+ * - LECTURER: Cài đặt định mức linh kiện
+ * - STUDENT: Tạo nhóm & Mời thành viên, Phản hồi lời mời
  */
+// Component quản lý Học kỳ, Môn học, Lớp & Nhóm (MF2)
 export default function ClassSetup() {
   const { user } = useAuth()
   const location = useLocation()
@@ -19,22 +23,20 @@ export default function ClassSetup() {
 
   const currentUser = user || DEMO_ACCOUNTS.ADMIN
 
-  // Xác định sub-tab cho Admin (0: Quản lý kỳ học, 1: Nhập danh sách & phân công)
+  // Xác định sub-tab cho Admin (0: Kỳ học & Lớp, 1: Môn học, 2: Nhập roster & phân công)
   const getAdminTab = (path) => {
-    if (path.includes('/admin/roster')) return 1
+    if (path.includes('/admin/roster')) return 2
+    if (path.includes('/admin/courses')) return 1
     return 0
   }
 
-  const [adminTab, setAdminTab] = useState(getAdminTab(location.pathname))
-
-  useEffect(() => {
-    setAdminTab(getAdminTab(location.pathname))
-  }, [location.pathname])
+  const adminTab = getAdminTab(location.pathname)
 
   const handleAdminTabChange = (event, newValue) => {
-    setAdminTab(newValue)
     if (newValue === 0) {
       navigate('/class-setup/admin/semesters')
+    } else if (newValue === 1) {
+      navigate('/class-setup/admin/courses')
     } else {
       navigate('/class-setup/admin/roster')
     }
@@ -48,7 +50,7 @@ export default function ClassSetup() {
   return (
     <PortalLayout>
       <Container maxWidth="xl" disableGutters>
-        {/* Vai trò ADMIN: Chỉ hiển thị 2 tính năng dành riêng cho Admin */}
+        {/* Vai trò ADMIN: Hiển thị 3 tính năng dành riêng cho Admin */}
         {isAdminRoute && (
           <Box>
             <Paper
@@ -78,15 +80,17 @@ export default function ClassSetup() {
                   '& .MuiTabs-indicator': { height: 3, borderRadius: 1.5, bgcolor: '#0058be' },
                 }}
               >
-                <Tab label="Quản lý Kỳ học & Lớp môn học" />
-                <Tab label="Nhập Danh sách Sinh viên & Phân công" />
+                <Tab label="1. Kỳ học & Lớp môn học" />
+                <Tab label="2. Danh mục Môn học (Courses)" />
+                <Tab label="3. Nhập Danh sách SV & Phân công" />
               </Tabs>
             </Paper>
 
             {adminTab === 0 && <SemesterClassManager onNext={() => handleAdminTabChange(null, 1)} />}
-            {adminTab === 1 && (
+            {adminTab === 1 && <CourseManager />}
+            {adminTab === 2 && (
               <ImportRosterFaculty
-                onPrev={() => handleAdminTabChange(null, 0)}
+                onPrev={() => handleAdminTabChange(null, 1)}
               />
             )}
           </Box>
@@ -99,7 +103,7 @@ export default function ClassSetup() {
           </Box>
         )}
 
-        {/* Vai trò SINH VIÊN (Student): Chỉ hiển thị tính năng Tạo nhóm & Mời thành viên */}
+        {/* Vai trò SINH VIÊN (Student): Hiển thị tính năng Tạo nhóm & Mời thành viên & Lời mời */}
         {isStudentRoute && (
           <Box>
             <GroupInviteManager />

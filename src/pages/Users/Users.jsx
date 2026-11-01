@@ -63,7 +63,7 @@ export default function Users() {
   const [totalItems, setTotalItems] = useState(0)
   const [page, setPage] = useState(0) // 0-indexed cho MUI
   const [pageSize, setPageSize] = useState(10)
-  const [loading, setLoading] = useState(false)
+  const [loading, setLoading] = useState(true)
 
   // State bộ lọc tìm kiếm
   const [search, setSearch] = useState('')
@@ -125,7 +125,6 @@ export default function Users() {
 
   useEffect(() => {
     let ignore = false
-    setLoading(true)
     userService
       .getUsers({
         search,
