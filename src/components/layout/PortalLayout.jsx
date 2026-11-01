@@ -144,7 +144,20 @@ export default function PortalLayout({
       adminOnly: true,
       permission: 'ROLE_MANAGE',
     },
-    { label: 'Borrow / Return', icon: <BorrowReturnIcon fontSize="small" />, path: '#' },
+    // MF5.1: Mượn / Trả dành cho Sinh viên & Duyệt yêu cầu cho Giảng viên
+    {
+      label: 'Duyệt yêu cầu',
+      icon: <BorrowReturnIcon fontSize="small" />,
+      path: '/borrow/my-requests',
+      lecturerOnly: true,
+    },
+    {
+      label: 'Mượn / Trả',
+      icon: <BorrowReturnIcon fontSize="small" />,
+      path: '/borrow/my-requests',
+      studentOnly: true,
+    },
+    { label: 'Borrow / Return', icon: <BorrowReturnIcon fontSize="small" />, path: '/borrow/my-requests', adminOnly: true },
     { label: 'QR Codes', icon: <QrCodeIcon fontSize="small" />, path: '#' },
     { label: 'Reports', icon: <ReportsIcon fontSize="small" />, path: '#' },
   ]
@@ -227,6 +240,7 @@ export default function PortalLayout({
           const isRosterRoute = location.pathname === '/class-setup/admin/roster'
           const isStudentGroupsRoute = location.pathname.startsWith('/class-setup/student')
           const isLecturerQuotasRoute = location.pathname.startsWith('/class-setup/lecturer')
+          const isBorrowRoute = location.pathname.startsWith('/borrow')
 
           const isActive =
             item.path === '/admin/users'
@@ -247,6 +261,8 @@ export default function PortalLayout({
               ? isStudentGroupsRoute
               : item.path === '/class-setup/lecturer/quotas'
               ? isLecturerQuotasRoute
+              : item.path === '/borrow/my-requests'
+              ? isBorrowRoute
               : item.path === '/class-setup'
               ? location.pathname === '/class-setup' ||
                 (!isSemestersRoute &&
@@ -254,6 +270,7 @@ export default function PortalLayout({
                   !isRosterRoute &&
                   !isStudentGroupsRoute &&
                   !isLecturerQuotasRoute &&
+                  !isBorrowRoute &&
                   !isComponentsRoute &&
                   !isStockInwardsRoute &&
                   !isStorageAllocationRoute &&

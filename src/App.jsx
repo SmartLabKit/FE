@@ -11,6 +11,10 @@ import Components from './pages/Components/Components.jsx'
 import NewComponent from './pages/Components/NewComponent.jsx'
 import StockInwards from './pages/Components/StockInwards.jsx'
 import StorageAllocation from './pages/Components/StorageAllocation.jsx'
+import CreateSupplementaryBorrow from './pages/Borrowing/CreateSupplementaryBorrow.jsx'
+import SupplementaryBorrowDetail from './pages/Borrowing/SupplementaryBorrowDetail.jsx'
+import ReviewSupplementaryBorrow from './pages/Borrowing/ReviewSupplementaryBorrow.jsx'
+import SupplementaryBorrowList from './pages/Borrowing/SupplementaryBorrowList.jsx'
 import { AuthProvider } from './context/AuthContext'
 
 function App() {
@@ -45,6 +49,12 @@ function App() {
           <Route path="/class-setup/admin/storage-allocation/:inwardId" element={<StorageAllocation />} />
           <Route path="/class-setup/lecturer/quotas" element={<ClassSetup />} />
           <Route path="/class-setup/student/groups" element={<ClassSetup />} />
+
+          {/* MF5.1: Mượn Bổ Sung (Supplementary Borrowing) */}
+          <Route path="/borrow/my-requests" element={<SupplementaryBorrowList />} />
+          <Route path="/borrow/supplementary/create" element={<CreateSupplementaryBorrow />} />
+          <Route path="/borrow/supplementary/:id" element={<SupplementaryBorrowDetail />} />
+          <Route path="/borrow/supplementary/review/:id" element={<ReviewSupplementaryBorrow />} />
 
           {/* Đường dẫn không tồn tại */}
           <Route path="*" element={<Navigate to="/" replace />} />
