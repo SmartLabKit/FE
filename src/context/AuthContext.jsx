@@ -212,11 +212,17 @@ export function AuthProvider({ children }) {
     [user]
   )
 
-  // Đăng xuất
-  const logout = () => {
-    setUser(null)
-    localStorage.removeItem('smartlabkit_user')
-    localStorage.removeItem('smartlabkit_token')
+  // Đăng xuất gọi POST /api/auth/logout và giải phóng phiên
+  const logout = async () => {
+    try {
+      await authService.logout()
+    } catch (e) {
+      console.warn('Lỗi khi đăng xuất:', e)
+    } finally {
+      setUser(null)
+      localStorage.removeItem('smartlabkit_user')
+      localStorage.removeItem('smartlabkit_token')
+    }
   }
 
   return (

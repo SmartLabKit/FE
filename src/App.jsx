@@ -1,8 +1,6 @@
 import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom'
 import HomePage from './pages/HomePage'
 import Login from './pages/Login/Login.jsx'
-import Register from './pages/Auth/Register.jsx'
-import VerifyEmail from './pages/Auth/VerifyEmail.jsx'
 import ForgotPassword from './pages/Auth/ForgotPassword.jsx'
 import ResetPassword from './pages/Auth/ResetPassword.jsx'
 import Users from './pages/Users/Users.jsx'
@@ -26,8 +24,6 @@ function App() {
 
           {/* Luồng Xác thực & Tài khoản (Public) */}
           <Route path="/login" element={<Login />} />
-          <Route path="/register" element={<Register />} />
-          <Route path="/verify-email" element={<VerifyEmail />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
 

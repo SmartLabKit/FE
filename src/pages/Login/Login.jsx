@@ -412,55 +412,23 @@ function Login() {
               {loading ? 'Đang xác thực...' : 'Đăng nhập'}
             </Button>
 
-            {/* Mục đăng ký sinh viên */}
-            <Box
-              sx={{
-                display: 'flex',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                mt: 2,
-                px: 1,
-              }}
-            >
-              <Typography variant="caption" sx={{ color: '#6b7280', fontSize: 11 }}>
-                Là sinh viên mới?
-              </Typography>
-              <Button
-                size="small"
-                onClick={() => navigate('/register')}
-                sx={{ p: 0, minWidth: 0, textTransform: 'none', fontSize: 11, fontWeight: 700, color: '#0058be' }}
-              >
-                Đăng ký tài khoản sinh viên
-              </Button>
-            </Box>
-
             <Paper
               elevation={0}
               sx={{
                 display: 'flex',
                 alignItems: 'center',
-                justifyContent: 'space-between',
                 gap: 1,
-                mt: 2,
-                p: 1.2,
+                mt: 2.5,
+                p: 1.5,
                 bgcolor: '#faf9ff',
                 border: '1px solid #e5e5f2',
-                borderRadius: 1,
+                borderRadius: 1.5,
               }}
             >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                <InfoOutlined sx={{ color: 'primary.main', fontSize: 17, flexShrink: 0 }} />
-                <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: 10, lineHeight: 1.6 }}>
-                  Chưa xác thực email sau đăng ký?
-                </Typography>
-              </Box>
-              <Button
-                size="small"
-                onClick={() => navigate('/verify-email')}
-                sx={{ p: 0, minWidth: 0, textTransform: 'none', fontSize: 10, fontWeight: 700, color: '#0058be' }}
-              >
-                Nhập mã xác thực
-              </Button>
+              <InfoOutlined sx={{ color: 'primary.main', fontSize: 18, flexShrink: 0 }} />
+              <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: 11, lineHeight: 1.6 }}>
+                Tài khoản SmartLabKit được cấp và phân quyền bởi Quản trị viên đơn vị. Liên hệ Lab Staff hoặc quản trị viên nếu bạn chưa có tài khoản.
+              </Typography>
             </Paper>
           </Box>
         </Box>

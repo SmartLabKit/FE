@@ -78,9 +78,9 @@ export default function PortalLayout({
   }
 
   // Đăng xuất tài khoản
-  const handleLogout = () => {
+  const handleLogout = async () => {
     handleUserMenuClose()
-    logout()
+    await logout()
     navigate('/login')
   }
 

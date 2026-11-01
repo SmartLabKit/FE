@@ -8,7 +8,7 @@ export default defineConfig({
   server: {
     proxy: {
       '/api': {
-        target: 'https://localhost:7220',
+        target: 'https://smartlab-production-ea45.up.railway.app',
         changeOrigin: true,
         secure: false,
       },

@@ -1,9 +1,8 @@
 import axios from 'axios'
 
-// Khởi tạo instance Axios kết nối Backend API SmartLabKit
+// Khởi tạo instance Axios kết nối Backend API SmartLabKit (Railway Cloud / Local)
 const api = axios.create({
-  // Khi chạy dev thông qua proxy Vite hoặc direct URL
-  baseURL: import.meta.env.VITE_API_URL || '',
+  baseURL: import.meta.env.VITE_API_URL || 'https://smartlab-production-ea45.up.railway.app',
   headers: {
     'Content-Type': 'application/json',
   },
@@ -28,18 +27,15 @@ api.interceptors.response.use(
     return response
   },
   (error) => {
-    // Nếu token hết hạn (401), xử lý dọn token nếu không phải đang ở trang login/register
+    // Nếu token hết hạn (401), xử lý dọn token nếu không phải đang ở trang login/forgot-password
     if (error.response && error.response.status === 401) {
       const isPublicAuthRoute =
         window.location.pathname === '/login' ||
-        window.location.pathname === '/register' ||
         window.location.pathname === '/forgot-password' ||
-        window.location.pathname === '/reset-password' ||
-        window.location.pathname === '/verify-email'
+        window.location.pathname === '/reset-password'
 
       if (!isPublicAuthRoute) {
         localStorage.removeItem('smartlabkit_token')
-        // Có thể kích hoạt sự kiện unauthorized nếu cần
       }
     }
     return Promise.reject(error)
@@ -71,7 +67,7 @@ export function extractErrorMessage(error, defaultMsg = 'Đã có lỗi xảy ra
 
   if (error.message) {
     if (error.message.includes('Network Error')) {
-      return 'Không thể kết nối tới máy chủ backend. Vui lòng kiểm tra dịch vụ backend đang chạy.'
+      return 'Không thể kết nối tới máy chủ backend. Vui lòng kiểm tra kết nối mạng.'
     }
     return error.message
   }

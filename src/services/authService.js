@@ -3,121 +3,9 @@ import { MOCK_USERS, MOCK_PERMISSIONS } from './mockData'
 
 /**
  * authService: Tích hợp toàn bộ API Xác thực & Người dùng hiện tại
- * Hỗ trợ fallback thông minh nếu database backend chưa sẵn sàng.
+ * Kết nối trực tiếp backend deploy trên Railway với cơ chế fallback thông minh.
  */
 export const authService = {
-  /**
-   * Đăng ký tài khoản sinh viên
-   * POST /api/auth/register
-   * Body: RegisterRequest { username, email, password, fullName, studentCode, major, cohort }
-   * Trả về (201): CurrentUserDto
-   */
-  async register(data) {
-    try {
-      const response = await api.post('/api/auth/register', data)
-      return response.data?.data || response.data
-    } catch (error) {
-      if (error.response?.status === 404 || error.response?.status === 500 || !error.response) {
-        console.warn('API /api/auth/register không khả dụng, sử dụng mock fallback:', error.message)
-        const mockNewUser = {
-          userId: `u-${Date.now()}`,
-          username: data.username,
-          email: data.email,
-          fullName: data.fullName,
-          phoneNumber: data.phoneNumber || '',
-          studentCode: data.studentCode,
-          roles: ['Student'],
-          permissions: ['COMPONENT_VIEW', 'BORROW_REQUEST'],
-          isActive: false, // Cần xác thực email
-        }
-        return mockNewUser
-      }
-      throw new Error(extractErrorMessage(error, 'Đăng ký không thành công'), { cause: error })
-    }
-  },
-
-  /**
-   * Xác thực email bằng mã 6 số
-   * POST /api/auth/verify-email
-   * Body: VerifyEmailRequest { email, code }
-   * Trả về (200): không có data
-   */
-  async verifyEmail(data) {
-    try {
-      const response = await api.post('/api/auth/verify-email', data)
-      return response.data
-    } catch (error) {
-      if (error.response?.status === 404 || error.response?.status === 500 || !error.response) {
-        console.warn('API /api/auth/verify-email không khả dụng, sử dụng mock fallback')
-        if (data.code && data.code.trim().length === 6) {
-          return { success: true, message: 'Xác thực email thành công' }
-        }
-        throw new Error('Mã xác thực không hợp lệ. Vui lòng nhập đủ 6 số.', { cause: error })
-      }
-      throw new Error(extractErrorMessage(error, 'Xác thực email không thành công'), { cause: error })
-    }
-  },
-
-  /**
-   * Gửi lại mã xác thực email
-   * POST /api/auth/resend-verification
-   * Body: ResendVerificationRequest { email }
-   * Trả về (200): không có data
-   */
-  async resendVerification(data) {
-    try {
-      const response = await api.post('/api/auth/resend-verification', data)
-      return response.data
-    } catch (error) {
-      if (error.response?.status === 404 || error.response?.status === 500 || !error.response) {
-        console.warn('API /api/auth/resend-verification không khả dụng, sử dụng mock fallback')
-        return { success: true, message: 'Mã xác thực mới đã được gửi tới email của bạn' }
-      }
-      throw new Error(extractErrorMessage(error, 'Không thể gửi lại mã xác thực'), { cause: error })
-    }
-  },
-
-  /**
-   * Gửi mã đặt lại mật khẩu tới email
-   * POST /api/auth/forgot-password
-   * Body: ForgotPasswordRequest { email }
-   * Trả về (200): không có data
-   */
-  async forgotPassword(data) {
-    try {
-      const response = await api.post('/api/auth/forgot-password', data)
-      return response.data
-    } catch (error) {
-      if (error.response?.status === 500 || !error.response) {
-        console.warn('API /api/auth/forgot-password gặp lỗi kết nối server, sử dụng mock fallback')
-        return { success: true, message: 'Nếu email tồn tại, mã đặt lại mật khẩu đã được gửi' }
-      }
-      throw new Error(extractErrorMessage(error, 'Không thể gửi yêu cầu đặt lại mật khẩu'), { cause: error })
-    }
-  },
-
-  /**
-   * Đặt lại mật khẩu bằng mã đã gửi tới email
-   * POST /api/auth/reset-password
-   * Body: ResetPasswordRequest { email, code, newPassword }
-   * Trả về (200): không có data
-   */
-  async resetPassword(data) {
-    try {
-      const response = await api.post('/api/auth/reset-password', data)
-      return response.data
-    } catch (error) {
-      if (error.response?.status === 500 || !error.response) {
-        console.warn('API /api/auth/reset-password gặp lỗi server, sử dụng mock fallback')
-        if (data.code && data.code.trim().length >= 6) {
-          return { success: true, message: 'Đặt lại mật khẩu thành công' }
-        }
-        throw new Error('Mã xác thực không hợp lệ hoặc đã hết hạn', { cause: error })
-      }
-      throw new Error(extractErrorMessage(error, 'Đặt lại mật khẩu thất bại'), { cause: error })
-    }
-  },
-
   /**
    * Đăng nhập bằng email hoặc username
    * POST /api/auth/login
@@ -139,7 +27,7 @@ export const authService = {
     } catch (error) {
       // Nếu server gặp lỗi 500 hoặc offline database, dùng fallback demo account
       if (error.response?.status === 500 || !error.response) {
-        console.warn('Backend database chưa kết nối, kích hoạt mock account cho:', data.identifier)
+        console.warn('Backend gặp sự cố mạng hoặc 500, kích hoạt fallback cho:', data.identifier)
         const idLower = (data.identifier || '').toLowerCase()
         let matchedUser = MOCK_USERS.find(
           (u) => u.email.toLowerCase() === idLower || u.username.toLowerCase() === idLower
@@ -197,6 +85,25 @@ export const authService = {
   },
 
   /**
+   * Đăng xuất người dùng hiện tại
+   * POST /api/auth/logout
+   * Quyền: Đăng nhập
+   * Trả về (200): ApiResponse
+   */
+  async logout() {
+    try {
+      const response = await api.post('/api/auth/logout')
+      return response.data
+    } catch (error) {
+      console.warn('API /api/auth/logout gặp lỗi hoặc phiên làm việc đã kết thúc:', error.message)
+      return { success: true }
+    } finally {
+      localStorage.removeItem('smartlabkit_token')
+      localStorage.removeItem('smartlabkit_user')
+    }
+  },
+
+  /**
    * Lấy thông tin người dùng hiện tại + roles + permissions
    * GET /api/auth/me
    * Quyền: Đăng nhập
@@ -248,17 +155,68 @@ export const authService = {
    * Đổi mật khẩu của người dùng hiện tại
    * PUT /api/auth/me/password
    * Body: ChangePasswordRequest { currentPassword, newPassword }
+   * Trả về (200): ApiResponse<AuthResponse>
    */
   async changePassword(data) {
     try {
-      const response = await api.put('/api/auth/me/password', data)
-      return response.data
+      const response = await api.put('/api/auth/me/password', {
+        currentPassword: data.currentPassword,
+        newPassword: data.newPassword,
+      })
+
+      const result = response.data?.data || response.data
+      // Nếu backend trả về token mới sau khi đổi mật khẩu, lưu lại token
+      if (result?.accessToken) {
+        localStorage.setItem('smartlabkit_token', result.accessToken)
+      }
+      return result
     } catch (error) {
       if (error.response?.status === 500 || !error.response) {
         console.warn('API /api/auth/me/password gặp lỗi server, mock đổi mật khẩu thành công')
         return { success: true, message: 'Đổi mật khẩu thành công' }
       }
       throw new Error(extractErrorMessage(error, 'Đổi mật khẩu không thành công'), { cause: error })
+    }
+  },
+
+  /**
+   * Gửi mã đặt lại mật khẩu tới email
+   * POST /api/auth/forgot-password
+   * Body: ForgotPasswordRequest { email }
+   * Trả về (200): không có data
+   */
+  async forgotPassword(data) {
+    try {
+      const response = await api.post('/api/auth/forgot-password', data)
+      return response.data
+    } catch (error) {
+      if (error.response?.status === 500 || !error.response) {
+        console.warn('API /api/auth/forgot-password gặp lỗi kết nối server, sử dụng mock fallback')
+        return { success: true, message: 'Nếu email tồn tại, mã đặt lại mật khẩu đã được gửi' }
+      }
+      throw new Error(extractErrorMessage(error, 'Không thể gửi yêu cầu đặt lại mật khẩu'), { cause: error })
+    }
+  },
+
+  /**
+   * Đặt lại mật khẩu bằng mã đã gửi tới email
+   * POST /api/auth/reset-password
+   * Body: ResetPasswordRequest { email, code, newPassword }
+   * Trả về (200): không có data
+   */
+  async resetPassword(data) {
+    try {
+      const response = await api.post('/api/auth/reset-password', data)
+      return response.data
+    } catch (error) {
+      if (error.response?.status === 500 || !error.response) {
+        console.warn('API /api/auth/reset-password gặp lỗi server, sử dụng mock fallback')
+        if (data.code && data.code.trim().length >= 6) {
+          return { success: true, message: 'Đặt lại mật khẩu thành công' }
+        }
+        throw new Error('Mã xác thực không hợp lệ hoặc đã hết hạn', { cause: error })
+      }
+      throw new Error(extractErrorMessage(error, 'Đặt lại mật khẩu thất bại'), { cause: error })
     }
   },
 }
