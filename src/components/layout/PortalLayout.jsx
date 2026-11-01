@@ -37,6 +37,7 @@ import {
   School as SchoolIcon,
   Groups as GroupsIcon,
   MenuBook as MenuBookIcon,
+  Tune as TuneIcon,
 } from '@mui/icons-material'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth, DEMO_ACCOUNTS } from '../../context/AuthContext'
@@ -147,6 +148,12 @@ export default function PortalLayout({
       adminOnly: true,
       permission: 'ROLE_MANAGE',
     },
+    {
+      label: 'Cài đặt hệ thống',
+      icon: <TuneIcon fontSize="small" />,
+      path: '/admin/system-settings',
+      adminOnly: true,
+    },
     // MF5.1: Mượn / Trả dành cho Sinh viên & Duyệt yêu cầu cho Giảng viên
     {
       label: 'Duyệt yêu cầu',
@@ -238,6 +245,7 @@ export default function PortalLayout({
           const isStorageAllocationRoute = location.pathname.startsWith('/class-setup/admin/storage-allocation')
           const isUsersRoute = location.pathname.startsWith('/admin/users')
           const isRolesRoute = location.pathname.startsWith('/admin/roles')
+          const isSystemSettingsRoute = location.pathname.startsWith('/admin/system-settings')
           const isSemestersRoute = location.pathname === '/class-setup/admin/semesters'
           const isCoursesRoute = location.pathname === '/class-setup/admin/courses'
           const isRosterRoute = location.pathname === '/class-setup/admin/roster'
@@ -250,6 +258,8 @@ export default function PortalLayout({
               ? isUsersRoute
               : item.path === '/admin/roles'
               ? isRolesRoute
+              : item.path === '/admin/system-settings'
+              ? isSystemSettingsRoute
               : item.path === '/class-setup/admin/components'
               ? isComponentsRoute
               : item.path === '/class-setup/admin/stock-inwards'

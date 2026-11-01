@@ -5,6 +5,7 @@ import ForgotPassword from './pages/Auth/ForgotPassword.jsx'
 import ResetPassword from './pages/Auth/ResetPassword.jsx'
 import Users from './pages/Users/Users.jsx'
 import Roles from './pages/Roles/Roles.jsx'
+import SystemSettings from './pages/Admin/SystemSettings.jsx'
 import Profile from './pages/Profile/Profile.jsx'
 import ClassSetup from './pages/ClassSetup/ClassSetup.jsx'
 import Components from './pages/Components/Components.jsx'
@@ -37,9 +38,10 @@ function App() {
           {/* Hồ sơ cá nhân & Bảo mật (Đăng nhập) */}
           <Route path="/profile" element={<Profile />} />
 
-          {/* Quản trị Tài khoản & Phân quyền (Admin) */}
+          {/* Quản trị Tài khoản & Phân quyền & Cài đặt (Admin) */}
           <Route path="/admin/users" element={<Users />} />
           <Route path="/admin/roles" element={<Roles />} />
+          <Route path="/admin/system-settings" element={<SystemSettings />} />
 
           {/* Class Setup Flow Routes */}
           <Route path="/class-setup" element={<ClassSetup />} />
