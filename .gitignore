@@ -22,3 +22,66 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# ===== IDE =====
+.vscode/
+.idea/
+*.suo
+*.user
+*.userosscache
+*.sln.docstates
+
+# ===== Environment & Secrets =====
+.env
+.env.*
+!.env.example
+appsettings.Development.json
+secrets.json
+
+# ===== Node.js / React / Vite =====
+node_modules/
+dist/
+build/
+coverage/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# ===== .NET =====
+[Bb]in/
+[Oo]bj/
+.vs/
+*.user
+*.sln.docstates
+TestResults/
+
+# ===== Java / Maven / Gradle =====
+target/
+build/
+.gradle/
+*.class
+*.jar
+*.war
+
+# ===== Logs =====
+*.log
+logs/
+
+# ===== OS =====
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ===== Temporary files =====
+*.tmp
+*.bak
+*.swp
+*.orig
+
+# ===== Database =====
+*.db
+*.sqlite
+*.sqlite3
+
+# ===== Uploads =====
+uploads/
