@@ -47,7 +47,7 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
   // State danh sách lớp học
   const [classes, setClasses] = useState([])
   const [selectedClassId, setSelectedClassId] = useState('')
-  const [loadingClasses, setLoadingClasses] = useState(false)
+  const [loadingClasses, setLoadingClasses] = useState(true)
 
   // State upload file Excel
   const [selectedFile, setSelectedFile] = useState(null)
@@ -97,8 +97,42 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
   }, [selectedClassId])
 
   useEffect(() => {
-    fetchClasses()
-  }, [fetchClasses])
+    let ignore = false
+    academicService
+      .getClasses()
+      .then((data) => {
+        if (!ignore) {
+          const classList = Array.isArray(data) ? data : data?.items || []
+          setClasses(classList)
+          if (classList.length > 0) {
+            setSelectedClassId(classList[0].classId)
+            if (classList[0].instructorName) {
+              setAssignedResult({
+                fullName: classList[0].instructorName,
+                email: 'gv@smartlab.edu.vn',
+                academicTitle: 'Giảng viên',
+              })
+            }
+          }
+        }
+      })
+      .catch((err) => {
+        if (!ignore) {
+          setToast({
+            open: true,
+            message: err.message || 'Không thể tải danh sách lớp học',
+            severity: 'error',
+          })
+        }
+      })
+      .finally(() => {
+        if (!ignore) setLoadingClasses(false)
+      })
+
+    return () => {
+      ignore = true
+    }
+  }, [])
 
   // Lớp đang chọn hiện tại
   const currentClass = classes.find((c) => c.classId === selectedClassId) || null

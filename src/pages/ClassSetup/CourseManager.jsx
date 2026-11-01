@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   Alert,
   Box,
@@ -70,7 +70,7 @@ export default function CourseManager() {
   const showToast = (message, severity = 'success') => setToast({ open: true, message, severity })
 
   // Tải danh sách môn học
-  const fetchCourses = () => {
+  const fetchCourses = useCallback(() => {
     setLoading(true)
     academicService
       .getCourses()
@@ -83,10 +83,24 @@ export default function CourseManager() {
       .finally(() => {
         setLoading(false)
       })
-  }
+  }, [])
 
   useEffect(() => {
-    fetchCourses()
+    let ignore = false
+    academicService
+      .getCourses()
+      .then((data) => {
+        if (!ignore) setCourses(data || [])
+      })
+      .catch((err) => {
+        if (!ignore) showToast(err.message, 'error')
+      })
+      .finally(() => {
+        if (!ignore) setLoading(false)
+      })
+    return () => {
+      ignore = true
+    }
   }, [])
 
   // Mở modal tạo môn học mới

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import {
   Alert,
   Box,
@@ -25,7 +25,6 @@ import {
   TableRow,
   TextField,
   Typography,
-  CircularProgress,
   Tooltip,
 } from '@mui/material'
 import {
@@ -35,7 +34,6 @@ import {
   Edit as EditIcon,
   DeleteOutlined as DeleteIcon,
   ArrowForward as ArrowForwardIcon,
-  Refresh as RefreshIcon,
   Search as SearchIcon,
 } from '@mui/icons-material'
 import { academicService } from '../../services/academicService'
@@ -61,7 +59,6 @@ export default function SemesterClassManager({ onNext }) {
   const [courses, setCourses] = useState([])
   const [classes, setClasses] = useState([])
   const [selectedSemesterId, setSelectedSemesterId] = useState('')
-  const [loading, setLoading] = useState(false)
   const [classSearch, setClassSearch] = useState('')
 
   // State Modal Kỳ học (Thêm / Sửa)
@@ -97,35 +94,32 @@ export default function SemesterClassManager({ onNext }) {
 
   // Toast
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
-  const showToast = (message, severity = 'success') => setToast({ open: true, message, severity })
-
-  // Tải dữ liệu ban đầu: Học kỳ và Môn học
-  const fetchInitialData = async () => {
-    setLoading(true)
-    try {
-      const [semData, courseData] = await Promise.all([
-        academicService.getSemesters(),
-        academicService.getCourses(),
-      ])
-
-      setSemesters(semData || [])
-      setCourses(courseData || [])
-
-      if (semData && semData.length > 0 && !selectedSemesterId) {
-        // Mặc định chọn kỳ đang Active hoặc kỳ đầu tiên
-        const activeSem = semData.find((s) => s.isActive) || semData[0]
-        setSelectedSemesterId(activeSem.semesterId)
-      }
-    } catch (err) {
-      showToast(err.message, 'error')
-    } finally {
-      setLoading(false)
-    }
-  }
+  const showToast = useCallback((message, severity = 'success') => setToast({ open: true, message, severity }), [])
 
   useEffect(() => {
-    fetchInitialData()
-  }, [])
+    let ignore = false
+    Promise.all([
+      academicService.getSemesters(),
+      academicService.getCourses(),
+    ])
+      .then(([semData, courseData]) => {
+        if (!ignore) {
+          setSemesters(semData || [])
+          setCourses(courseData || [])
+          if (semData && semData.length > 0) {
+            const activeSem = semData.find((s) => s.isActive) || semData[0]
+            setSelectedSemesterId(activeSem.semesterId)
+          }
+        }
+      })
+      .catch((err) => {
+        if (!ignore) showToast(err.message, 'error')
+      })
+
+    return () => {
+      ignore = true
+    }
+  }, [showToast])
 
   // Tải danh sách lớp khi thay đổi học kỳ được chọn
   useEffect(() => {
@@ -138,7 +132,7 @@ export default function SemesterClassManager({ onNext }) {
       .catch((err) => {
         showToast(err.message, 'error')
       })
-  }, [selectedSemesterId])
+  }, [selectedSemesterId, showToast])
 
   // ==================== XỬ LÝ HỌC KỲ ====================
   const handleOpenCreateSemester = () => {

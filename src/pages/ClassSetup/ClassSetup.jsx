@@ -1,4 +1,3 @@
-import { useState, useEffect } from 'react'
 import { Box, Container, Tab, Tabs, Paper } from '@mui/material'
 import { useLocation, useNavigate } from 'react-router-dom'
 import PortalLayout from '../../components/layout/PortalLayout'
@@ -16,6 +15,7 @@ import { useAuth, DEMO_ACCOUNTS } from '../../context/AuthContext'
  * - LECTURER: Cài đặt định mức linh kiện
  * - STUDENT: Tạo nhóm & Mời thành viên, Phản hồi lời mời
  */
+// Component quản lý Học kỳ, Môn học, Lớp & Nhóm (MF2)
 export default function ClassSetup() {
   const { user } = useAuth()
   const location = useLocation()
@@ -30,14 +30,9 @@ export default function ClassSetup() {
     return 0
   }
 
-  const [adminTab, setAdminTab] = useState(getAdminTab(location.pathname))
-
-  useEffect(() => {
-    setAdminTab(getAdminTab(location.pathname))
-  }, [location.pathname])
+  const adminTab = getAdminTab(location.pathname)
 
   const handleAdminTabChange = (event, newValue) => {
-    setAdminTab(newValue)
     if (newValue === 0) {
       navigate('/class-setup/admin/semesters')
     } else if (newValue === 1) {

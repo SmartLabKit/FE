@@ -5,17 +5,10 @@ import {
   Badge,
   Box,
   Button,
-  Card,
-  CardContent,
   Chip,
   CircularProgress,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   Divider,
   Grid,
-  IconButton,
   InputAdornment,
   MenuItem,
   Paper,
@@ -36,15 +29,11 @@ import {
   PersonAdd as PersonAddIcon,
   Check as CheckIcon,
   Close as CloseIcon,
-  DeleteOutlined as DeleteIcon,
-  ArrowBack as ArrowBackIcon,
   Groups as GroupsIcon,
   Mail as MailIcon,
   Refresh as RefreshIcon,
   School as SchoolIcon,
   Star as StarIcon,
-  CheckCircle as CheckCircleIcon,
-  HourglassEmpty as HourglassEmptyIcon,
 } from '@mui/icons-material'
 import { academicService } from '../../services/academicService'
 import { teamService } from '../../services/teamService'
@@ -62,15 +51,14 @@ import { teamService } from '../../services/teamService'
  * 8. POST /api/teams/{teamId}/invitations - Mời SV vào nhóm
  * 9. DELETE /api/teams/{teamId}/invitations/{studentProfileId} - Hủy lời mời
  */
-export default function GroupInviteManager({ onPrev }) {
+export default function GroupInviteManager() {
   // State lớp học của sinh viên
   const [myClasses, setMyClasses] = useState([])
   const [selectedClassId, setSelectedClassId] = useState('')
-  const [loadingClasses, setLoadingClasses] = useState(false)
+  const [loadingClasses, setLoadingClasses] = useState(true)
 
   // State lời mời nhóm nhận được
   const [myInvitations, setMyInvitations] = useState([])
-  const [loadingInvitations, setLoadingInvitations] = useState(false)
 
   // State nhóm hiện tại trong lớp
   const [currentTeam, setCurrentTeam] = useState(null)
@@ -92,7 +80,6 @@ export default function GroupInviteManager({ onPrev }) {
 
   // 1. Tải danh sách lớp học của sinh viên (GET /api/classes/my)
   const fetchMyClasses = useCallback(async () => {
-    setLoadingClasses(true)
     try {
       const data = await academicService.getMyClasses()
       const list = Array.isArray(data) ? data : data?.items || []
@@ -109,21 +96,17 @@ export default function GroupInviteManager({ onPrev }) {
 
   // 2. Tải danh sách lời mời nhóm gửi tới tôi (GET /api/team-invitations/me)
   const fetchMyInvitations = useCallback(async () => {
-    setLoadingInvitations(true)
     try {
       const data = await teamService.getMyInvitations()
       setMyInvitations(Array.isArray(data) ? data : [])
     } catch (err) {
       console.warn('Lỗi khi tải danh sách lời mời:', err)
-    } finally {
-      setLoadingInvitations(false)
     }
   }, [])
 
   // 3. Tải nhóm của sinh viên trong lớp đang chọn (GET /api/classes/{classId}/team)
   const fetchMyTeamInClass = useCallback(async (classId) => {
     if (!classId) return
-    setLoadingTeam(true)
     try {
       const team = await teamService.getMyTeam(classId)
       setCurrentTeam(team)
@@ -138,7 +121,6 @@ export default function GroupInviteManager({ onPrev }) {
   // 4. Tải danh sách ứng viên có thể mời (GET /api/classes/{classId}/team-candidates)
   const fetchCandidates = useCallback(async (classId) => {
     if (!classId) return
-    setLoadingCandidates(true)
     try {
       const list = await teamService.getTeamCandidates(classId)
       setCandidates(Array.isArray(list) ? list : [])
@@ -152,17 +134,68 @@ export default function GroupInviteManager({ onPrev }) {
 
   // Initial load
   useEffect(() => {
-    fetchMyClasses()
-    fetchMyInvitations()
-  }, [fetchMyClasses, fetchMyInvitations])
+    let ignore = false
+    academicService
+      .getMyClasses()
+      .then((data) => {
+        if (!ignore) {
+          const list = Array.isArray(data) ? data : data?.items || []
+          setMyClasses(list)
+          if (list.length > 0) {
+            setSelectedClassId(list[0].classId)
+          }
+        }
+      })
+      .catch((err) => console.warn(err))
+      .finally(() => {
+        if (!ignore) setLoadingClasses(false)
+      })
+
+    teamService
+      .getMyInvitations()
+      .then((data) => {
+        if (!ignore) setMyInvitations(Array.isArray(data) ? data : [])
+      })
+      .catch((err) => console.warn(err))
+
+    return () => {
+      ignore = true
+    }
+  }, [])
 
   // Load team & candidates khi đổi classId
   useEffect(() => {
-    if (selectedClassId) {
-      fetchMyTeamInClass(selectedClassId)
-      fetchCandidates(selectedClassId)
+    if (!selectedClassId) return
+    let ignore = false
+
+    teamService
+      .getMyTeam(selectedClassId)
+      .then((team) => {
+        if (!ignore) setCurrentTeam(team)
+      })
+      .catch(() => {
+        if (!ignore) setCurrentTeam(null)
+      })
+      .finally(() => {
+        if (!ignore) setLoadingTeam(false)
+      })
+
+    teamService
+      .getTeamCandidates(selectedClassId)
+      .then((list) => {
+        if (!ignore) setCandidates(Array.isArray(list) ? list : [])
+      })
+      .catch(() => {
+        if (!ignore) setCandidates([])
+      })
+      .finally(() => {
+        if (!ignore) setLoadingCandidates(false)
+      })
+
+    return () => {
+      ignore = true
     }
-  }, [selectedClassId, fetchMyTeamInClass, fetchCandidates])
+  }, [selectedClassId])
 
   // Phản hồi lời mời (Chấp nhận / Từ chối)
   const handleRespondInvitation = async (teamId, decision) => {

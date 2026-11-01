@@ -1,10 +1,8 @@
 import { useState } from 'react'
 import {
   Alert,
-  Avatar,
   Box,
   Button,
-  Chip,
   Grid,
   Paper,
   Snackbar,
@@ -20,16 +18,13 @@ import {
 import {
   CheckCircle as CheckCircleIcon,
   Save as SaveIcon,
-  Info as InfoIcon,
-  ArrowForward as ArrowForwardIcon,
-  ArrowBack as ArrowBackIcon,
 } from '@mui/icons-material'
 
 /**
  * CourseQuotaSetting Component (Actor: LECTURER)
  * Cài đặt định mức linh kiện cho từng nhóm trong môn học (Phân hệ 3 trong quy trình Class Setup)
  */
-export default function CourseQuotaSetting({ onNext, onPrev }) {
+export default function CourseQuotaSetting() {
   // State cấu hình định mức linh kiện theo loại
   const [quotas, setQuotas] = useState([
     {

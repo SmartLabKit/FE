@@ -25,7 +25,7 @@ import {
   Alert,
   CircularProgress,
 } from '@mui/material'
-import { useNavigate, Link } from 'react-router-dom'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 
 function Login() {

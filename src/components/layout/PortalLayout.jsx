@@ -228,31 +228,37 @@ export default function PortalLayout({
           const isStudentGroupsRoute = location.pathname.startsWith('/class-setup/student')
           const isLecturerQuotasRoute = location.pathname.startsWith('/class-setup/lecturer')
 
-          let isActive = false
-          if (item.path === '/admin/users') isActive = isUsersRoute
-          else if (item.path === '/admin/roles') isActive = isRolesRoute
-          else if (item.path === '/class-setup/admin/components') isActive = isComponentsRoute
-          else if (item.path === '/class-setup/admin/stock-inwards') isActive = isStockInwardsRoute || isStorageAllocationRoute
-          else if (item.path === '/class-setup/admin/semesters') isActive = isSemestersRoute
-          else if (item.path === '/class-setup/admin/courses') isActive = isCoursesRoute
-          else if (item.path === '/class-setup/admin/roster') isActive = isRosterRoute
-          else if (item.path === '/class-setup/student/groups') isActive = isStudentGroupsRoute
-          else if (item.path === '/class-setup/lecturer/quotas') isActive = isLecturerQuotasRoute
-          else if (item.path === '/class-setup') {
-            isActive =
-              location.pathname === '/class-setup' ||
-              (!isSemestersRoute &&
-                !isCoursesRoute &&
-                !isRosterRoute &&
-                !isStudentGroupsRoute &&
-                !isLecturerQuotasRoute &&
-                !isComponentsRoute &&
-                !isStockInwardsRoute &&
-                !isStorageAllocationRoute &&
-                location.pathname.startsWith('/class-setup'))
-          } else {
-            isActive = location.pathname === item.path
-          }
+          const isActive =
+            item.path === '/admin/users'
+              ? isUsersRoute
+              : item.path === '/admin/roles'
+              ? isRolesRoute
+              : item.path === '/class-setup/admin/components'
+              ? isComponentsRoute
+              : item.path === '/class-setup/admin/stock-inwards'
+              ? isStockInwardsRoute || isStorageAllocationRoute
+              : item.path === '/class-setup/admin/semesters'
+              ? isSemestersRoute
+              : item.path === '/class-setup/admin/courses'
+              ? isCoursesRoute
+              : item.path === '/class-setup/admin/roster'
+              ? isRosterRoute
+              : item.path === '/class-setup/student/groups'
+              ? isStudentGroupsRoute
+              : item.path === '/class-setup/lecturer/quotas'
+              ? isLecturerQuotasRoute
+              : item.path === '/class-setup'
+              ? location.pathname === '/class-setup' ||
+                (!isSemestersRoute &&
+                  !isCoursesRoute &&
+                  !isRosterRoute &&
+                  !isStudentGroupsRoute &&
+                  !isLecturerQuotasRoute &&
+                  !isComponentsRoute &&
+                  !isStockInwardsRoute &&
+                  !isStorageAllocationRoute &&
+                  location.pathname.startsWith('/class-setup'))
+              : location.pathname === item.path
 
           return (
             <ListItem key={item.label} disablePadding sx={{ mb: 0.5 }}>
