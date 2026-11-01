@@ -11,6 +11,7 @@ import ClassSetup from './pages/ClassSetup/ClassSetup.jsx'
 import Components from './pages/Components/Components.jsx'
 import NewComponent from './pages/Components/NewComponent.jsx'
 import StockInwards from './pages/Components/StockInwards.jsx'
+
 import StorageAllocation from './pages/Components/StorageAllocation.jsx'
 import CreateSupplementaryBorrow from './pages/Borrowing/CreateSupplementaryBorrow.jsx'
 import SupplementaryBorrowDetail from './pages/Borrowing/SupplementaryBorrowDetail.jsx'
@@ -19,6 +20,12 @@ import SupplementaryBorrowList from './pages/Borrowing/SupplementaryBorrowList.j
 import CreateReturnRequest from './pages/Borrowing/CreateReturnRequest.jsx'
 import ReturnRequestDetail from './pages/Borrowing/ReturnRequestDetail.jsx'
 import ConfirmReturnRequest from './pages/Borrowing/ConfirmReturnRequest.jsx'
+
+import InventorySetup from './pages/Components/InventorySetup.jsx'
+import CabinetDetail from './pages/Components/CabinetDetail.jsx'
+import StockReceipts from './pages/Components/StockReceipts.jsx'
+import StockReceiptDetail from './pages/Components/StockReceiptDetail.jsx'
+
 import { AuthProvider } from './context/AuthContext'
 
 function App() {
@@ -50,8 +57,15 @@ function App() {
           <Route path="/class-setup/admin/roster" element={<ClassSetup />} />
           <Route path="/class-setup/admin/components" element={<Components />} />
           <Route path="/class-setup/admin/components/new" element={<NewComponent />} />
+          <Route path="/class-setup/admin/components/:componentId/edit" element={<NewComponent />} />
+          <Route path="/class-setup/admin/categories" element={<InventorySetup />} />
+          <Route path="/class-setup/admin/lab-rooms" element={<InventorySetup />} />
+          <Route path="/class-setup/admin/cabinets" element={<InventorySetup />} />
+          <Route path="/class-setup/admin/cabinets/:cabinetId" element={<CabinetDetail />} />
           <Route path="/class-setup/admin/stock-inwards" element={<StockInwards />} />
-          <Route path="/class-setup/admin/storage-allocation/:inwardId" element={<StorageAllocation />} />
+          <Route path="/class-setup/admin/stock-receipts" element={<StockReceipts />} />
+          <Route path="/class-setup/admin/stock-receipts/:receiptId" element={<StockReceiptDetail />} />
+          <Route path="/class-setup/admin/storage-allocation/:inwardId" element={<StockReceipts />} />
           <Route path="/class-setup/lecturer/quotas" element={<ClassSetup />} />
           <Route path="/class-setup/student/groups" element={<ClassSetup />} />
 
