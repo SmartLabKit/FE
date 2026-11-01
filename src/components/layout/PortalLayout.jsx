@@ -37,6 +37,7 @@ import {
   School as SchoolIcon,
   Groups as GroupsIcon,
   MenuBook as MenuBookIcon,
+  Tune as TuneIcon,
 } from '@mui/icons-material'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth, DEMO_ACCOUNTS } from '../../context/AuthContext'
@@ -51,6 +52,9 @@ export default function PortalLayout({
   headerSubtitle,
   headerSearchPlaceholder,
   onHeaderSearchChange,
+  currentRole,
+  currentUser: propUser,
+  activeMenuKey,
 }) {
   const { user, logout, hasPermission, hasRole } = useAuth()
   const navigate = useNavigate()
@@ -59,8 +63,8 @@ export default function PortalLayout({
   const [mobileOpen, setMobileOpen] = useState(false)
   const [userMenuAnchor, setUserMenuAnchor] = useState(null)
 
-  // Thông tin tài khoản hiện tại
-  const currentUser = user || DEMO_ACCOUNTS.ADMIN
+  // Thông tin tài khoản hiện tại (hỗ trợ override từ props để demo đúng vai trò trên UI)
+  const currentUser = propUser || user || DEMO_ACCOUNTS.ADMIN
 
   const handleDrawerToggle = () => {
     setMobileOpen(!mobileOpen)
@@ -148,7 +152,26 @@ export default function PortalLayout({
       adminOnly: true,
       permission: 'ROLE_MANAGE',
     },
-    { label: 'Borrow / Return', icon: <BorrowReturnIcon fontSize="small" />, path: '#' },
+    {
+      label: 'Cài đặt hệ thống',
+      icon: <TuneIcon fontSize="small" />,
+      path: '/admin/system-settings',
+      adminOnly: true,
+    },
+    // MF5.1: Mượn / Trả dành cho Sinh viên & Duyệt yêu cầu cho Giảng viên
+    {
+      label: 'Duyệt yêu cầu',
+      icon: <BorrowReturnIcon fontSize="small" />,
+      path: '/borrow/my-requests',
+      lecturerOnly: true,
+    },
+    {
+      label: 'Mượn / Trả',
+      icon: <BorrowReturnIcon fontSize="small" />,
+      path: '/borrow/my-requests',
+      studentOnly: true,
+    },
+    { label: 'Borrow / Return', icon: <BorrowReturnIcon fontSize="small" />, path: '/borrow/my-requests', adminOnly: true },
     { label: 'QR Codes', icon: <QrCodeIcon fontSize="small" />, path: '#' },
     { label: 'Reports', icon: <ReportsIcon fontSize="small" />, path: '#' },
   ]
@@ -230,17 +253,21 @@ export default function PortalLayout({
           const isCabinetsRoute = location.pathname.startsWith('/class-setup/admin/cabinets')
           const isUsersRoute = location.pathname.startsWith('/admin/users')
           const isRolesRoute = location.pathname.startsWith('/admin/roles')
+          const isSystemSettingsRoute = location.pathname.startsWith('/admin/system-settings')
           const isSemestersRoute = location.pathname === '/class-setup/admin/semesters'
           const isCoursesRoute = location.pathname === '/class-setup/admin/courses'
           const isRosterRoute = location.pathname === '/class-setup/admin/roster'
           const isStudentGroupsRoute = location.pathname.startsWith('/class-setup/student')
           const isLecturerQuotasRoute = location.pathname.startsWith('/class-setup/lecturer')
+          const isBorrowRoute = location.pathname.startsWith('/borrow') || activeMenuKey === 'borrow' || activeMenuKey === 'handover'
 
           const isActive =
             item.path === '/admin/users'
               ? isUsersRoute
               : item.path === '/admin/roles'
               ? isRolesRoute
+              : item.path === '/admin/system-settings'
+              ? isSystemSettingsRoute
               : item.path === '/class-setup/admin/components'
               ? isComponentsRoute
               : item.path === '/class-setup/admin/stock-inwards'
@@ -263,6 +290,8 @@ export default function PortalLayout({
               ? isStudentGroupsRoute
               : item.path === '/class-setup/lecturer/quotas'
               ? isLecturerQuotasRoute
+              : item.path === '/borrow/my-requests'
+              ? isBorrowRoute
               : item.path === '/class-setup'
               ? location.pathname === '/class-setup' ||
                 (!isSemestersRoute &&
@@ -270,6 +299,7 @@ export default function PortalLayout({
                   !isRosterRoute &&
                   !isStudentGroupsRoute &&
                   !isLecturerQuotasRoute &&
+                  !isBorrowRoute &&
                   !isComponentsRoute &&
                   !isStockInwardsRoute &&
                   !isStorageAllocationRoute &&
@@ -542,6 +572,20 @@ export default function PortalLayout({
                 <NotificationsIcon fontSize="small" />
               </Badge>
             </IconButton>
+
+            {currentRole && (
+              <Chip
+                label={currentRole}
+                size="small"
+                sx={{
+                  bgcolor: '#eff6ff',
+                  color: '#0058be',
+                  fontWeight: 700,
+                  fontSize: 12,
+                  borderRadius: 1.5,
+                }}
+              />
+            )}
 
             <Divider orientation="vertical" flexItem sx={{ my: 1.5 }} />
 
