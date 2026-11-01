@@ -189,7 +189,6 @@ export function AuthProvider({ children }) {
       const merged = { ...prev, ...updatedData }
       return normalizeUser(merged)
     })
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Kiểm tra quyền (Permission)
