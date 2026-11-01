@@ -79,7 +79,6 @@ export default function Roles() {
 
   useEffect(() => {
     let ignore = false
-    setLoadingRoles(true)
     Promise.all([
       rolePermissionService.getRoles(),
       rolePermissionService.getPermissions(),
@@ -110,7 +109,6 @@ export default function Roles() {
     if (!selectedRoleId) return
 
     let isMounted = true
-    setLoadingDetail(true)
 
     rolePermissionService
       .getRoleById(selectedRoleId)
