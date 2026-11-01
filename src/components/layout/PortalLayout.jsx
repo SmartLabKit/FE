@@ -128,7 +128,11 @@ export default function PortalLayout({
       adminOnly: true,
     },
     { label: 'Components', icon: <CategoryIcon fontSize="small" />, path: '/class-setup/admin/components' },
-    { label: 'Inventory Stocking', icon: <ApprovalsIcon fontSize="small" />, path: '/class-setup/admin/stock-inwards' },
+    { label: 'Danh mục linh kiện', icon: <CategoryIcon fontSize="small" />, path: '/class-setup/admin/categories' },
+    { label: 'Phòng lab', icon: <SchoolIcon fontSize="small" />, path: '/class-setup/admin/lab-rooms' },
+    { label: 'Tủ lưu trữ', icon: <ApprovalsIcon fontSize="small" />, path: '/class-setup/admin/cabinets' },
+    { label: 'Lập phiếu nhập', icon: <ApprovalsIcon fontSize="small" />, path: '/class-setup/admin/stock-inwards' },
+    { label: 'Phiếu nhập kho', icon: <ApprovalsIcon fontSize="small" />, path: '/class-setup/admin/stock-receipts' },
     // Quản lý Tài khoản & Phân quyền dành cho Quản trị viên (Admin)
     {
       label: 'Người dùng',
@@ -220,6 +224,10 @@ export default function PortalLayout({
           const isComponentsRoute = location.pathname.startsWith('/class-setup/admin/components')
           const isStockInwardsRoute = location.pathname.startsWith('/class-setup/admin/stock-inwards')
           const isStorageAllocationRoute = location.pathname.startsWith('/class-setup/admin/storage-allocation')
+          const isStockReceiptsRoute = location.pathname.startsWith('/class-setup/admin/stock-receipts')
+          const isCategoriesRoute = location.pathname.startsWith('/class-setup/admin/categories')
+          const isLabRoomsRoute = location.pathname.startsWith('/class-setup/admin/lab-rooms')
+          const isCabinetsRoute = location.pathname.startsWith('/class-setup/admin/cabinets')
           const isUsersRoute = location.pathname.startsWith('/admin/users')
           const isRolesRoute = location.pathname.startsWith('/admin/roles')
           const isSemestersRoute = location.pathname === '/class-setup/admin/semesters'
@@ -237,6 +245,14 @@ export default function PortalLayout({
               ? isComponentsRoute
               : item.path === '/class-setup/admin/stock-inwards'
               ? isStockInwardsRoute || isStorageAllocationRoute
+              : item.path === '/class-setup/admin/categories'
+              ? isCategoriesRoute
+              : item.path === '/class-setup/admin/lab-rooms'
+              ? isLabRoomsRoute
+              : item.path === '/class-setup/admin/cabinets'
+              ? isCabinetsRoute
+              : item.path === '/class-setup/admin/stock-receipts'
+              ? isStockReceiptsRoute
               : item.path === '/class-setup/admin/semesters'
               ? isSemestersRoute
               : item.path === '/class-setup/admin/courses'
