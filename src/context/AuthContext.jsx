@@ -2,6 +2,15 @@
 import { createContext, useContext, useState, useEffect, useCallback } from 'react'
 import { authService } from '../services/authService'
 
+export const VALID_ROLES = ['Admin', 'Student', 'Lecturer', 'LabStaff', 'InventoryManager']
+
+const rolesByKey = new Map(VALID_ROLES.map((role) => [role.toLowerCase(), role]))
+
+export function normalizeRole(role) {
+  if (typeof role !== 'string') return null
+  return rolesByKey.get(role.trim().toLowerCase()) || null
+}
+
 // Các tài khoản demo mặc định cho các Actor
 export const DEMO_ACCOUNTS = {
   ADMIN: {
@@ -32,7 +41,7 @@ export const DEMO_ACCOUNTS = {
     title: 'Giảng viên phụ trách môn',
     avatarBg: '#0284c7',
     badgeColor: '#0284c7',
-    defaultRoute: '/class-setup/lecturer/quotas',
+    defaultRoute: '/borrow/my-requests',
   },
   STUDENT: {
     userId: 'u-student-01',
@@ -55,8 +64,13 @@ export const DEMO_ACCOUNTS = {
 export function normalizeUser(rawUser) {
   if (!rawUser) return null
 
-  const roles = Array.isArray(rawUser.roles) ? rawUser.roles : []
-  const primaryRole = roles[0] || 'Admin'
+  const rawRoles = Array.isArray(rawUser.roles)
+    ? rawUser.roles
+    : [rawUser.role || rawUser.roleLabel].filter(Boolean)
+  const roles = [...new Set(rawRoles.map(normalizeRole).filter(Boolean))]
+  if (roles.length === 0) return null
+
+  const primaryRole = roles[0]
   const roleUpper = primaryRole.toUpperCase()
 
   let defaultRoute = '/class-setup'
@@ -68,7 +82,7 @@ export function normalizeUser(rawUser) {
     avatarBg = '#0058be'
     badgeColor = '#0058be'
   } else if (roleUpper === 'LECTURER') {
-    defaultRoute = '/class-setup/lecturer/quotas'
+    defaultRoute = '/borrow/my-requests'
     avatarBg = '#0284c7'
     badgeColor = '#0284c7'
   } else if (roleUpper === 'STUDENT') {
@@ -93,8 +107,10 @@ export function normalizeUser(rawUser) {
     email: rawUser.email || '',
     username: rawUser.username || '',
     roleLabel: roleUpper,
-    roles: roles.length > 0 ? roles : [primaryRole],
-    permissions: Array.isArray(rawUser.permissions) ? rawUser.permissions : [],
+    roles,
+    permissions: Array.isArray(rawUser.permissions)
+      ? rawUser.permissions.filter((permission) => typeof permission === 'string').map((permission) => permission.trim())
+      : [],
     avatarBg,
     badgeColor,
     defaultRoute,
@@ -105,17 +121,26 @@ const AuthContext = createContext(null)
 
 export function AuthProvider({ children }) {
   const [user, setUser] = useState(() => {
+    const token = localStorage.getItem('smartlabkit_token')
     const saved = localStorage.getItem('smartlabkit_user')
-    if (saved) {
-      try {
-        const parsed = JSON.parse(saved)
-        return normalizeUser(parsed)
-      } catch (e) {
-        console.error('Failed to parse saved user', e)
-      }
+    if (!token || !saved) {
+      localStorage.removeItem('smartlabkit_user')
+      return null
     }
-    // Mặc định đăng nhập Admin khi khởi chạy nếu chưa có
-    return DEMO_ACCOUNTS.ADMIN
+
+    try {
+      const restoredUser = normalizeUser(JSON.parse(saved))
+      if (!restoredUser) {
+        localStorage.removeItem('smartlabkit_user')
+        localStorage.removeItem('smartlabkit_token')
+      }
+      return restoredUser
+    } catch (error) {
+      console.error('Failed to parse saved user', error)
+      localStorage.removeItem('smartlabkit_user')
+      localStorage.removeItem('smartlabkit_token')
+      return null
+    }
   })
 
   const [loading, setLoading] = useState(false)
@@ -133,19 +158,30 @@ export function AuthProvider({ children }) {
   // Lấy thông tin user hiện tại nếu có token trên máy
   useEffect(() => {
     const token = localStorage.getItem('smartlabkit_token')
-    if (token && (!user || user.email === DEMO_ACCOUNTS.ADMIN.email)) {
+    if (token && !token.startsWith('mock-jwt-token-')) {
+      let active = true
       authService
         .getMe()
         .then((fetchedUser) => {
-          if (fetchedUser) {
-            setUser(normalizeUser(fetchedUser))
+          if (!active || localStorage.getItem('smartlabkit_token') !== token) return
+          const normalized = normalizeUser(fetchedUser)
+          if (!normalized) {
+            throw new Error('Tài khoản không có role hợp lệ')
           }
+          setUser(normalized)
         })
-        .catch(() => {
-          // Nếu không lấy được, giữ nguyên tài khoản hiện tại
+        .catch((error) => {
+          if (!active || localStorage.getItem('smartlabkit_token') !== token) return
+          console.error('Không thể xác thực phiên đăng nhập hiện tại', error)
+          setUser(null)
+          localStorage.removeItem('smartlabkit_user')
+          localStorage.removeItem('smartlabkit_token')
         })
+
+      return () => {
+        active = false
+      }
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   // Đăng nhập kết nối API
@@ -153,21 +189,39 @@ export function AuthProvider({ children }) {
     setLoading(true)
     try {
       const result = await authService.login({ identifier, password })
-      if (result && result.user) {
+      if (result?.accessToken && result.user) {
         const normalized = normalizeUser(result.user)
+        if (!normalized) {
+          localStorage.removeItem('smartlabkit_token')
+          setUser(null)
+          return { success: false, error: 'Tài khoản không có role hợp lệ' }
+        }
         setUser(normalized)
         return { success: true, user: normalized }
       }
-      return { success: false, error: 'Không nhận được dữ liệu người dùng' }
+      localStorage.removeItem('smartlabkit_token')
+      setUser(null)
+      return { success: false, error: 'Thông tin đăng nhập không hợp lệ hoặc tài khoản thiếu role' }
     } catch (err) {
-      // Fallback kiểm tra DEMO_ACCOUNTS nếu gõ tài khoản demo
-      const foundActorKey = Object.keys(DEMO_ACCOUNTS).find(
-        (key) => DEMO_ACCOUNTS[key].email.toLowerCase() === (identifier || '').toLowerCase()
+      const status = err.cause?.response?.status
+      const canUseDemoAccount = !status || status === 500
+      const normalizedIdentifier = (identifier || '').trim().toLowerCase()
+      const demoUser = canUseDemoAccount && Object.values(DEMO_ACCOUNTS).find(
+        (account) =>
+          (account.email.trim().toLowerCase() === normalizedIdentifier ||
+            account.username.trim().toLowerCase() === normalizedIdentifier) &&
+          account.password === password
       )
-      if (foundActorKey && DEMO_ACCOUNTS[foundActorKey].password === password) {
-        const demoUser = DEMO_ACCOUNTS[foundActorKey]
+
+      if (demoUser) {
+        localStorage.setItem('smartlabkit_token', 'mock-jwt-token-smartlabkit-demo-2026')
         setUser(demoUser)
         return { success: true, user: demoUser }
+      }
+
+      if (status === 401 || status === 403) {
+        localStorage.removeItem('smartlabkit_token')
+        setUser(null)
       }
 
       return { success: false, error: err.message || 'Đăng nhập không thành công' }
@@ -178,7 +232,9 @@ export function AuthProvider({ children }) {
 
   // Đăng nhập nhanh theo Role Demo
   const loginAsRole = (roleKey) => {
-    const actorAccount = DEMO_ACCOUNTS[roleKey] || DEMO_ACCOUNTS.ADMIN
+    const actorAccount = DEMO_ACCOUNTS[roleKey]
+    if (!actorAccount || !normalizeRole(actorAccount.roles[0])) return null
+    localStorage.setItem('smartlabkit_token', 'mock-jwt-token-smartlabkit-demo-2026')
     setUser(actorAccount)
     return actorAccount
   }
@@ -186,18 +242,19 @@ export function AuthProvider({ children }) {
   // Cập nhật thông tin người dùng trong state
   const updateUser = useCallback((updatedData) => {
     setUser((prev) => {
-      const merged = { ...prev, ...updatedData }
-      return normalizeUser(merged)
+      if (!prev) return null
+      return normalizeUser({ ...prev, ...updatedData })
     })
   }, [])
 
   // Kiểm tra quyền (Permission)
   const hasPermission = useCallback(
     (permissionCode) => {
-      if (!user) return false
-      // Admin luôn có toàn quyền
-      if (user.roles?.includes('Admin') || user.roleLabel === 'ADMIN') return true
-      return user.permissions?.includes(permissionCode) || false
+      if (!user || typeof permissionCode !== 'string') return false
+      const requestedPermission = permissionCode.trim().toLowerCase()
+      return user.permissions?.some(
+        (permission) => permission.toLowerCase() === requestedPermission
+      ) || false
     },
     [user]
   )
@@ -205,8 +262,8 @@ export function AuthProvider({ children }) {
   // Kiểm tra vai trò (Role)
   const hasRole = useCallback(
     (roleName) => {
-      if (!user) return false
-      return user.roles?.some((r) => r.toLowerCase() === roleName.toLowerCase()) || false
+      const normalizedRole = normalizeRole(roleName)
+      return Boolean(normalizedRole && user?.roles?.some((role) => normalizeRole(role) === normalizedRole))
     },
     [user]
   )
