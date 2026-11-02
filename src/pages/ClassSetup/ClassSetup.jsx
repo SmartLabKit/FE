@@ -6,7 +6,7 @@ import CourseManager from './CourseManager'
 import ImportRosterFaculty from './ImportRosterFaculty'
 import CourseQuotaSetting from './CourseQuotaSetting'
 import GroupInviteManager from './GroupInviteManager'
-import { useAuth } from '../../context/AuthContext'
+import { useAuth, DEMO_ACCOUNTS } from '../../context/AuthContext'
 
 /**
  * ClassSetup Component: Giao diện quản lý Học kỳ, Môn học, Lớp & Nhóm (MF2)
@@ -21,7 +21,7 @@ export default function ClassSetup() {
   const location = useLocation()
   const navigate = useNavigate()
 
-  const currentUser = user
+  const currentUser = user || DEMO_ACCOUNTS.ADMIN
 
   // Xác định sub-tab cho Admin (0: Kỳ học & Lớp, 1: Môn học, 2: Nhập roster & phân công)
   const getAdminTab = (path) => {
@@ -43,9 +43,9 @@ export default function ClassSetup() {
   }
 
   // Phân lập ranh giới vai trò dựa trên tài khoản đăng nhập & đường dẫn
-  const isLecturerRoute = currentUser?.roleLabel === 'LECTURER'
-  const isStudentRoute = currentUser?.roleLabel === 'STUDENT'
-  const isAdminRoute = currentUser?.roleLabel === 'ADMIN'
+  const isLecturerRoute = location.pathname.includes('/lecturer') || currentUser.roleLabel === 'LECTURER'
+  const isStudentRoute = location.pathname.includes('/student') || currentUser.roleLabel === 'STUDENT'
+  const isAdminRoute = !isLecturerRoute && !isStudentRoute
 
   return (
     <PortalLayout>
