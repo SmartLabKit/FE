@@ -1,12 +1,18 @@
 import axios from 'axios'
 
 // Khởi tạo instance Axios kết nối Backend API SmartLabKit (Railway Cloud / Local)
+// Trong môi trường dev (localhost), sử dụng relative path '' để mọi request đi qua Vite proxy (tránh hoàn toàn CORS).
+// Trong môi trường production, sử dụng biến môi trường VITE_API_URL hoặc mặc định domain Railway.
+const baseURL = import.meta.env.DEV
+  ? ''
+  : (import.meta.env.VITE_API_URL || 'https://smartlab-production-ea45.up.railway.app')
+
 const api = axios.create({
-  baseURL: import.meta.env.VITE_API_URL || 'https://smartlab-production-ea45.up.railway.app',
+  baseURL,
   headers: {
     'Content-Type': 'application/json',
   },
-  timeout: 15000,
+  timeout: 30000,
 })
 
 // Request Interceptor: Tự động đính kèm JWT Access Token nếu có
@@ -51,17 +57,38 @@ export function extractErrorMessage(error, defaultMsg = 'Đã có lỗi xảy ra
   if (error.response?.data) {
     const data = error.response.data
 
-    // Nếu backend trả về errors dạng object { field: [messages] }
-    if (data.errors && typeof data.errors === 'object') {
-      const firstKey = Object.keys(data.errors)[0]
-      if (firstKey && Array.isArray(data.errors[firstKey]) && data.errors[firstKey].length > 0) {
-        return data.errors[firstKey][0]
+    // Nếu backend trả về errors dạng object { field: [messages] } hoặc array
+    if (data.errors) {
+      if (Array.isArray(data.errors) && data.errors.length > 0) {
+        return typeof data.errors[0] === 'string' ? data.errors[0] : JSON.stringify(data.errors[0])
+      }
+      if (typeof data.errors === 'object') {
+        const firstKey = Object.keys(data.errors)[0]
+        if (firstKey) {
+          const val = data.errors[firstKey]
+          if (Array.isArray(val) && val.length > 0) {
+            return val[0]
+          }
+          if (typeof val === 'string') {
+            return val
+          }
+        }
       }
     }
 
     // Nếu backend trả về message
     if (data.message && typeof data.message === 'string') {
       return data.message
+    }
+
+    // Nếu backend trả về detail (RFC 7807)
+    if (data.detail && typeof data.detail === 'string') {
+      return data.detail
+    }
+
+    // Nếu backend trả về title
+    if (data.title && typeof data.title === 'string') {
+      return data.title
     }
   }
 

@@ -131,6 +131,12 @@ export default function Roles() {
   const handleTogglePermission = async (permCode, currentAssigned) => {
     if (!selectedRoleId) return
 
+    // Quy định: Role Admin bị khóa, không sửa được
+    if (selectedRole?.roleName === 'Admin') {
+      showToast('Vai trò Admin được khóa cố định nhằm đảm bảo an toàn hệ thống, không thể chỉnh sửa quyền.', 'warning')
+      return
+    }
+
     setTogglingCode(permCode)
     try {
       let updatedRole
@@ -512,20 +518,23 @@ export default function Roles() {
                                 {isProcessing ? (
                                   <CircularProgress size={20} sx={{ color: activeColor }} />
                                 ) : (
-                                  <Tooltip title={isAssigned ? 'Gỡ bỏ quyền này' : 'Cấp quyền này'}>
-                                    <Switch
-                                      size="small"
-                                      checked={isAssigned}
-                                      onChange={() => handleTogglePermission(p.permissionCode, isAssigned)}
-                                      sx={{
-                                        '& .MuiSwitch-switchBase.Mui-checked': {
-                                          color: activeColor,
-                                        },
-                                        '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
-                                          backgroundColor: activeColor,
-                                        },
-                                      }}
-                                    />
+                                  <Tooltip title={selectedRole?.roleName === 'Admin' ? 'Vai trò Admin được khóa cố định' : (isAssigned ? 'Gỡ bỏ quyền này' : 'Cấp quyền này')}>
+                                    <span>
+                                      <Switch
+                                        size="small"
+                                        checked={isAssigned}
+                                        disabled={selectedRole?.roleName === 'Admin'}
+                                        onChange={() => handleTogglePermission(p.permissionCode, isAssigned)}
+                                        sx={{
+                                          '& .MuiSwitch-switchBase.Mui-checked': {
+                                            color: activeColor,
+                                          },
+                                          '& .MuiSwitch-switchBase.Mui-checked + .MuiSwitch-track': {
+                                            backgroundColor: activeColor,
+                                          },
+                                        }}
+                                      />
+                                    </span>
                                   </Tooltip>
                                 )}
                               </Box>

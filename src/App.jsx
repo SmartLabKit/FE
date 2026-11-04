@@ -65,7 +65,7 @@ function App() {
           <Route path="/class-setup/admin/stock-inwards" element={<StockInwards />} />
           <Route path="/class-setup/admin/stock-receipts" element={<StockReceipts />} />
           <Route path="/class-setup/admin/stock-receipts/:receiptId" element={<StockReceiptDetail />} />
-          <Route path="/class-setup/admin/storage-allocation/:inwardId" element={<StockReceipts />} />
+          <Route path="/class-setup/admin/storage-allocation/:inwardId" element={<StorageAllocation />} />
           <Route path="/class-setup/lecturer/quotas" element={<ClassSetup />} />
           <Route path="/class-setup/student/groups" element={<ClassSetup />} />
 

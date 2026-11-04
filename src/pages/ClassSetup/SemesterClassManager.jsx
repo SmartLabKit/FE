@@ -318,7 +318,7 @@ export default function SemesterClassManager({ onNext }) {
 
       <Grid container spacing={3}>
         {/* CỘT TRÁI: DANH SÁCH & QUẢN LÝ KỲ HỌC */}
-        <Grid item xs={12} md={4}>
+        <Grid size={{ xs: 12, md: 4 }}>
           <Paper
             elevation={0}
             sx={{
@@ -439,7 +439,7 @@ export default function SemesterClassManager({ onNext }) {
         </Grid>
 
         {/* CỘT PHẢI: DANH SÁCH LỚP HỌC THUỘC KỲ ĐƯỢC CHỌN */}
-        <Grid item xs={12} md={8}>
+        <Grid size={{ xs: 12, md: 8 }}>
           <Paper
             elevation={0}
             sx={{

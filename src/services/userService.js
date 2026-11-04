@@ -1,8 +1,4 @@
 import api, { extractErrorMessage } from './api'
-import { MOCK_USERS } from './mockData'
-
-// Bộ nhớ đệm cục bộ cho mock users khi DB chưa kết nối
-let localMockUsers = [...MOCK_USERS]
 
 export const userService = {
   /**
@@ -23,46 +19,6 @@ export const userService = {
       const response = await api.get('/api/users', { params })
       return response.data?.data || response.data
     } catch (error) {
-      if (error.response?.status === 500 || !error.response) {
-        console.warn('API /api/users gặp lỗi server, sử dụng mock fallback')
-
-        // Lọc mock users
-        let filtered = [...localMockUsers]
-
-        if (search) {
-          const q = search.toLowerCase()
-          filtered = filtered.filter(
-            (u) =>
-              u.fullName.toLowerCase().includes(q) ||
-              u.email.toLowerCase().includes(q) ||
-              u.username.toLowerCase().includes(q)
-          )
-        }
-
-        if (role) {
-          filtered = filtered.filter((u) => u.roles && u.roles.includes(role))
-        }
-
-        if (isActive !== undefined && isActive !== '') {
-          const activeBool = isActive === true || isActive === 'true'
-          filtered = filtered.filter((u) => u.isActive === activeBool)
-        }
-
-        const totalItems = filtered.length
-        const totalPages = Math.ceil(totalItems / size) || 1
-        const startIndex = (page - 1) * size
-        const items = filtered.slice(startIndex, startIndex + size)
-
-        return {
-          items,
-          totalItems,
-          page,
-          size,
-          totalPages,
-          hasPreviousPage: page > 1,
-          hasNextPage: page < totalPages,
-        }
-      }
       throw new Error(extractErrorMessage(error, 'Không thể tải danh sách người dùng'), { cause: error })
     }
   },
@@ -78,16 +34,6 @@ export const userService = {
       const response = await api.get(`/api/users/${id}`)
       return response.data?.data || response.data
     } catch (error) {
-      if (error.response?.status === 500 || error.response?.status === 404 || !error.response) {
-        console.warn(`API /api/users/${id} gặp lỗi, tìm kiếm trong mock users`)
-        const user = localMockUsers.find((u) => u.userId === id)
-        if (user) {
-          return {
-            ...user,
-            updatedAt: '2026-10-27T18:00:00Z',
-          }
-        }
-      }
       throw new Error(extractErrorMessage(error, 'Không thể tải chi tiết người dùng'), { cause: error })
     }
   },
@@ -104,31 +50,6 @@ export const userService = {
       const response = await api.post('/api/users', data)
       return response.data?.data || response.data
     } catch (error) {
-      if (error.response?.status === 500 || !error.response) {
-        console.warn('API /api/users (POST) gặp lỗi server, thêm mới vào mock storage')
-        const newUser = {
-          userId: `u-${Date.now()}`,
-          username: data.username,
-          email: data.email,
-          fullName: data.fullName,
-          phoneNumber: data.phoneNumber || '',
-          avatarUrl: '',
-          isActive: true,
-          lastLoginAt: null,
-          createdAt: new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-          roles: [data.role],
-          instructorProfile:
-            data.role === 'Lecturer'
-              ? {
-                  instructorCode: data.instructorCode || `INS${Math.floor(100 + Math.random() * 900)}`,
-                  academicTitle: data.academicTitle || 'Giảng viên',
-                }
-              : null,
-        }
-        localMockUsers.unshift(newUser)
-        return newUser
-      }
       throw new Error(extractErrorMessage(error, 'Tạo tài khoản không thành công'), { cause: error })
     }
   },
@@ -145,19 +66,38 @@ export const userService = {
       const response = await api.put(`/api/users/${id}/roles`, { roles })
       return response.data?.data || response.data
     } catch (error) {
-      if (error.response?.status === 500 || !error.response) {
-        console.warn(`API /api/users/${id}/roles gặp lỗi, cập nhật trong mock users`)
-        const userIndex = localMockUsers.findIndex((u) => u.userId === id)
-        if (userIndex !== -1) {
-          localMockUsers[userIndex] = {
-            ...localMockUsers[userIndex],
-            roles: roles,
-            updatedAt: new Date().toISOString(),
-          }
-          return localMockUsers[userIndex]
-        }
-      }
       throw new Error(extractErrorMessage(error, 'Gán vai trò không thành công'), { cause: error })
+    }
+  },
+
+  /**
+   * Cập nhật thông tin người dùng
+   * PUT /api/users/{id}
+   * Quyền: USER_MANAGE (Admin)
+   * Body: UpdateUserRequest { fullName, phoneNumber, isActive }
+   * Trả về (200): UserDetailResponse
+   */
+  async updateUser(id, data) {
+    try {
+      const response = await api.put(`/api/users/${id}`, data)
+      return response.data?.data || response.data
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Cập nhật người dùng thất bại'), { cause: error })
+    }
+  },
+
+  /**
+   * Đặt lại mật khẩu người dùng (trả về mật khẩu tạm một lần duy nhất)
+   * POST /api/users/{id}/reset-password
+   * Quyền: USER_MANAGE (Admin)
+   * Trả về (200): ResetPasswordResponse { temporaryPassword }
+   */
+  async resetPassword(id) {
+    try {
+      const response = await api.post(`/api/users/${id}/reset-password`)
+      return response.data?.data || response.data
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Đặt lại mật khẩu thất bại'), { cause: error })
     }
   },
 }

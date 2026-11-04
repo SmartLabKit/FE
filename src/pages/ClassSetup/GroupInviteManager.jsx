@@ -197,14 +197,16 @@ export default function GroupInviteManager() {
     }
   }, [selectedClassId])
 
-  // Phản hồi lời mời (Chấp nhận / Từ chối)
+  // Phản hồi lời mời (Chấp nhận: Accepted / Từ chối: Rejected)
   const handleRespondInvitation = async (teamId, decision) => {
+    const isAccepted = decision === 'Accepted' || decision === 'Accept'
+    const payloadDecision = isAccepted ? 'Accepted' : 'Rejected'
     try {
-      await teamService.respondInvitation(teamId, decision)
+      await teamService.respondInvitation(teamId, payloadDecision)
       setToast({
         open: true,
-        message: decision === 'Accept' ? 'Bạn đã chấp nhận lời mời vào nhóm!' : 'Đã từ chối lời mời.',
-        severity: decision === 'Accept' ? 'success' : 'info',
+        message: isAccepted ? 'Bạn đã chấp nhận lời mời vào nhóm thành công!' : 'Đã từ chối lời mời.',
+        severity: isAccepted ? 'success' : 'info',
       })
       // Cập nhật lại danh sách lời mời và nhóm của lớp
       fetchMyInvitations()
@@ -398,7 +400,7 @@ export default function GroupInviteManager() {
                     />
                   </Box>
                   <Typography variant="caption" sx={{ color: '#6b7280' }}>
-                    Người mời: <strong>{inv.invitedBy}</strong> • Ngày gửi:{' '}
+                    Người mời: <strong>{inv.leaderFullName || inv.leaderStudentCode || inv.invitedBy || 'Trưởng nhóm'}</strong> • Ngày gửi:{' '}
                     {inv.invitedAt ? new Date(inv.invitedAt).toLocaleDateString('vi-VN') : 'Gần đây'}
                   </Typography>
                 </Box>
@@ -408,7 +410,7 @@ export default function GroupInviteManager() {
                     size="small"
                     variant="contained"
                     startIcon={<CheckIcon />}
-                    onClick={() => handleRespondInvitation(inv.teamId, 'Accept')}
+                    onClick={() => handleRespondInvitation(inv.teamId, 'Accepted')}
                     sx={{
                       bgcolor: '#16a34a',
                       color: '#ffffff',
@@ -424,7 +426,7 @@ export default function GroupInviteManager() {
                     size="small"
                     variant="outlined"
                     startIcon={<CloseIcon />}
-                    onClick={() => handleRespondInvitation(inv.teamId, 'Reject')}
+                    onClick={() => handleRespondInvitation(inv.teamId, 'Rejected')}
                     sx={{
                       color: '#dc2626',
                       borderColor: '#fca5a5',
@@ -586,7 +588,7 @@ export default function GroupInviteManager() {
       {currentTeam && !loadingTeam && (
         <Grid container spacing={3}>
           {/* Cột Trái: Thông tin nhóm & Danh sách thành viên (GET /api/teams/{teamId}) */}
-          <Grid item xs={12} md={7}>
+          <Grid size={{ xs: 12, md: 7 }}>
             <Paper
               elevation={0}
               sx={{
@@ -726,7 +728,7 @@ export default function GroupInviteManager() {
           </Grid>
 
           {/* Cột Phải: Mời thành viên cùng lớp (GET /api/classes/{id}/team-candidates & POST /api/teams/{id}/invitations) */}
-          <Grid item xs={12} md={5}>
+          <Grid size={{ xs: 12, md: 5 }}>
             <Paper
               elevation={0}
               sx={{

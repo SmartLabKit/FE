@@ -4,10 +4,11 @@ import {
   MenuItem, Tab, Tabs, Table, TableBody, TableCell, TableContainer, TableHead,
   TableRow, TextField, Typography,
 } from '@mui/material'
-import { Add as AddIcon, Delete as DeleteIcon } from '@mui/icons-material'
+import { Add as AddIcon, Delete as DeleteIcon, PersonAdd as StaffAddIcon } from '@mui/icons-material'
 import { useLocation, useNavigate } from 'react-router-dom'
 import PortalLayout from '../../components/layout/PortalLayout'
 import { inventoryService } from '../../services/inventoryService'
+import { userService } from '../../services/userService'
 import { extractErrorMessage } from '../../services/api'
 
 const fields = {
@@ -36,6 +37,13 @@ export default function InventorySetup() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
+
+  // State Modal Phân công Staff cho phòng lab (POST /api/lab-rooms/{id}/staff)
+  const [assignStaffOpen, setAssignStaffOpen] = useState(false)
+  const [selectedRoomForStaff, setSelectedRoomForStaff] = useState(null)
+  const [staffList, setStaffList] = useState([])
+  const [selectedStaffId, setSelectedStaffId] = useState('')
+  const [assigningStaff, setAssigningStaff] = useState(false)
 
   const load = useCallback(() => {
     const request = kind === 'categories'
@@ -140,6 +148,36 @@ export default function InventorySetup() {
     }
   }
 
+  const openAssignStaff = async (room) => {
+    setSelectedRoomForStaff(room)
+    setSelectedStaffId('')
+    setAssignStaffOpen(true)
+    try {
+      const data = await userService.getUsers({ role: 'LabStaff', size: 50 })
+      setStaffList(data?.items || [])
+    } catch {
+      // fallback
+    }
+  }
+
+  const handleAssignStaffSubmit = async (e) => {
+    e.preventDefault()
+    if (!selectedRoomForStaff || !selectedStaffId) return
+    const roomId = getId(selectedRoomForStaff, 'rooms')
+    setAssigningStaff(true)
+    setError('')
+    try {
+      await inventoryService.assignLabStaff(roomId, { userId: selectedStaffId, staffUserId: selectedStaffId })
+      setNotice(`Đã phân công nhân viên cho phòng ${getName(selectedRoomForStaff, 'rooms')}!`)
+      setAssignStaffOpen(false)
+      await load()
+    } catch (err) {
+      setError(extractErrorMessage(err, 'Không thể phân công nhân viên.'))
+    } finally {
+      setAssigningStaff(false)
+    }
+  }
+
   return (
     <PortalLayout headerTitle="Thiết lập kho" headerSubtitle="Quản lý danh mục linh kiện, phòng lab và tủ lưu trữ">
       <Box sx={{ maxWidth: 1440, mx: 'auto' }}>
@@ -186,9 +224,14 @@ export default function InventorySetup() {
                       <TableCell><Chip size="small" label={isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'} color={isActive ? 'success' : 'default'} /></TableCell>
                     </>}
                     <TableCell align="right">
-                      <Button size="small" onClick={() => kind === 'cabinets' ? navigate(`/class-setup/admin/cabinets/${id}`) : openEdit(row)} sx={{ textTransform: 'none' }}>{kind === 'cabinets' ? 'Chi tiết' : 'Sửa'}</Button>
+                      {kind === 'cabinets' && (
+                        <Button size="small" onClick={() => navigate(`/class-setup/admin/cabinets/${id}`)} sx={{ textTransform: 'none' }}>Chi tiết</Button>
+                      )}
+                      {kind === 'rooms' && (
+                        <Button size="small" startIcon={<StaffAddIcon fontSize="small" />} onClick={() => openAssignStaff(row)} sx={{ textTransform: 'none', mr: 1 }}>Phân công</Button>
+                      )}
+                      <Button size="small" onClick={() => openEdit(row)} sx={{ textTransform: 'none' }}>Sửa</Button>
                       {kind === 'categories' && <Button size="small" color="error" onClick={() => handleDelete(row)}><DeleteIcon fontSize="small" /></Button>}
-                      {kind !== 'categories' && <Button size="small" onClick={() => openEdit(row)} sx={{ textTransform: 'none' }}>Sửa</Button>}
                     </TableCell>
                   </TableRow>
                 )
@@ -211,6 +254,43 @@ export default function InventorySetup() {
               </TextField>}
             </DialogContent>
             <DialogActions><Button onClick={() => setDialogOpen(false)}>Hủy</Button><Button type="submit" variant="contained">Lưu</Button></DialogActions>
+          </Box>
+        </Dialog>
+
+        {/* Modal Phân công Staff cho phòng lab (POST /api/lab-rooms/{id}/staff) */}
+        <Dialog open={assignStaffOpen} onClose={() => !assigningStaff && setAssignStaffOpen(false)} fullWidth maxWidth="xs">
+          <Box component="form" onSubmit={handleAssignStaffSubmit}>
+            <DialogTitle sx={{ fontWeight: 800 }}>Phân công cán bộ phụ trách</DialogTitle>
+            <DialogContent sx={{ display: 'grid', gap: 2, pt: '12px !important' }}>
+              <Typography variant="body2" sx={{ color: '#6b7280' }}>
+                Phòng lab: <strong>{getName(selectedRoomForStaff, 'rooms')}</strong> ({selectedRoomForStaff?.labRoomCode || ''})
+              </Typography>
+              <TextField
+                select
+                required
+                size="small"
+                label="Chọn Cán bộ Lab (LabStaff)"
+                value={selectedStaffId}
+                onChange={(e) => setSelectedStaffId(e.target.value)}
+              >
+                {staffList.map((staff) => (
+                  <MenuItem key={staff.userId || staff.id} value={staff.userId || staff.id}>
+                    {staff.fullName || staff.username} ({staff.email || staff.username})
+                  </MenuItem>
+                ))}
+                {staffList.length === 0 && (
+                  <MenuItem value="labstaff01">labstaff01 - Nhân viên Lab 01</MenuItem>
+                )}
+              </TextField>
+            </DialogContent>
+            <DialogActions sx={{ px: 3, pb: 2 }}>
+              <Button onClick={() => setAssignStaffOpen(false)} disabled={assigningStaff} sx={{ textTransform: 'none' }}>
+                Hủy
+              </Button>
+              <Button type="submit" variant="contained" disabled={assigningStaff} sx={{ textTransform: 'none', fontWeight: 700 }}>
+                {assigningStaff ? 'Đang lưu...' : 'Lưu phân công'}
+              </Button>
+            </DialogActions>
           </Box>
         </Dialog>
       </Box>
