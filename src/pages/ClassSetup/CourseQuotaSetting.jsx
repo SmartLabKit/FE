@@ -110,7 +110,7 @@ export default function CourseQuotaSetting() {
         </Typography>
 
         <Grid container spacing={2}>
-          <Grid item xs={4}>
+          <Grid size={4}>
             <Box sx={{ p: 1.8, bgcolor: '#f8fafc', borderRadius: 1.5, border: '1px solid #edf2f7' }}>
               <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 600, display: 'block' }}>
                 SỐ NHÓM
@@ -120,7 +120,7 @@ export default function CourseQuotaSetting() {
               </Typography>
             </Box>
           </Grid>
-          <Grid item xs={4}>
+          <Grid size={4}>
             <Box sx={{ p: 1.8, bgcolor: '#f8fafc', borderRadius: 1.5, border: '1px solid #edf2f7' }}>
               <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 600, display: 'block' }}>
                 TỔNG LINH KIỆN DỰ KIẾN
@@ -130,7 +130,7 @@ export default function CourseQuotaSetting() {
               </Typography>
             </Box>
           </Grid>
-          <Grid item xs={4}>
+          <Grid size={4}>
             <Box sx={{ p: 1.8, bgcolor: '#f8fafc', borderRadius: 1.5, border: '1px solid #edf2f7' }}>
               <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 600, display: 'block' }}>
                 TỒN KHO HIỆN TẠI

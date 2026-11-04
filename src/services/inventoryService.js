@@ -34,6 +34,9 @@ export const inventoryService = {
   async updateLabRoom(id, data) {
     return unwrap(await api.put(`/api/lab-rooms/${id}`, data))
   },
+  async assignLabStaff(labRoomId, data) {
+    return unwrap(await api.post(`/api/lab-rooms/${labRoomId}/staff`, data))
+  },
   async getCabinets(params) {
     return asList(unwrap(await api.get('/api/cabinets', { params })), ['items', 'cabinets'])
   },

@@ -368,7 +368,7 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
       {/* Main Form Split */}
       <Grid container spacing={3}>
         {/* Left Column: Tải file danh sách sinh viên */}
-        <Grid item xs={12} md={7}>
+        <Grid size={{ xs: 12, md: 7 }}>
           <Paper
             elevation={0}
             sx={{
@@ -496,23 +496,20 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
                 <TableHead sx={{ bgcolor: '#fafbff' }}>
                   <TableRow>
                     <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>MÃ SV</TableCell>
-                    <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>HỌ VÀ TÊN</TableCell>
-                    <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>EMAIL TRƯỜNG</TableCell>
-                    <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>GHI CHÚ</TableCell>
+                    <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>HỌ TÊN</TableCell>
+                    <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>EMAIL</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
                   <TableRow hover>
-                    <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#0058be' }}>SE160245</TableCell>
-                    <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#131b2e' }}>Lê Hoàng Nam</TableCell>
-                    <TableCell sx={{ fontSize: 12, color: '#424754' }}>namlh.se16@fpt.edu.vn</TableCell>
-                    <TableCell sx={{ fontSize: 11, color: '#81899a' }}>K16 - SE</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#0058be' }}>STU204758A</TableCell>
+                    <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#131b2e' }}>Nguyen Van Nhom Truong</TableCell>
+                    <TableCell sx={{ fontSize: 12, color: '#424754' }}>stu204758a@smartlab.edu.vn</TableCell>
                   </TableRow>
                   <TableRow hover>
-                    <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#0058be' }}>SE160388</TableCell>
-                    <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#131b2e' }}>Trần Thị Thu</TableCell>
-                    <TableCell sx={{ fontSize: 12, color: '#424754' }}>thutt.se16@fpt.edu.vn</TableCell>
-                    <TableCell sx={{ fontSize: 11, color: '#81899a' }}>K16 - SE</TableCell>
+                    <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#0058be' }}>STU204758B</TableCell>
+                    <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#131b2e' }}>Tran Thi Thanh Vien</TableCell>
+                    <TableCell sx={{ fontSize: 12, color: '#424754' }}>stu204758b@smartlab.edu.vn</TableCell>
                   </TableRow>
                 </TableBody>
               </Table>
@@ -521,7 +518,7 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
         </Grid>
 
         {/* Right Column: Phân công giảng viên */}
-        <Grid item xs={12} md={5}>
+        <Grid size={{ xs: 12, md: 5 }}>
           <Paper
             elevation={0}
             sx={{

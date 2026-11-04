@@ -44,6 +44,9 @@ import {
   AdminPanelSettings as AdminIcon,
   CheckCircle as ActiveIcon,
   Block as BlockIcon,
+  Edit as EditIcon,
+  LockReset as LockResetIcon,
+  ContentCopy as ContentCopyIcon,
 } from '@mui/icons-material'
 import PortalLayout from '../../components/layout/PortalLayout'
 import { userService } from '../../services/userService'
@@ -90,6 +93,18 @@ export default function Users() {
   const [selectedUser, setSelectedUser] = useState(null)
   const [assignedRoles, setAssignedRoles] = useState([])
   const [roleSubmitting, setRoleSubmitting] = useState(false)
+
+  // State Modal Sửa thông tin user (PUT /api/users/{id})
+  const [editDialogOpen, setEditDialogOpen] = useState(false)
+  const [editingUser, setEditingUser] = useState(null)
+  const [editForm, setEditForm] = useState({ fullName: '', phoneNumber: '', isActive: true })
+  const [editSubmitting, setEditSubmitting] = useState(false)
+
+  // State Modal Reset mật khẩu tạm (POST /api/users/{id}/reset-password)
+  const [resetDialogOpen, setResetDialogOpen] = useState(false)
+  const [resetUserTarget, setResetUserTarget] = useState(null)
+  const [tempPassword, setTempPassword] = useState('')
+  const [resetSubmitting, setResetSubmitting] = useState(false)
 
   // Notification Toast
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
@@ -238,6 +253,57 @@ export default function Users() {
       showToast(err.message, 'error')
     } finally {
       setRoleSubmitting(false)
+    }
+  }
+
+  // Mở modal sửa thông tin người dùng
+  const handleOpenEditDialog = (user) => {
+    setEditingUser(user)
+    setEditForm({
+      fullName: user.fullName || '',
+      phoneNumber: user.phoneNumber || '',
+      isActive: user.isActive !== false,
+    })
+    setEditDialogOpen(true)
+  }
+
+  // Lưu thông tin người dùng cập nhật (PUT /api/users/{id})
+  const handleSaveEditUser = async (e) => {
+    e.preventDefault()
+    if (!editingUser) return
+    setEditSubmitting(true)
+    try {
+      await userService.updateUser(editingUser.userId, editForm)
+      showToast(`Đã cập nhật thông tin người dùng ${editForm.fullName || editingUser.username}!`, 'success')
+      setEditDialogOpen(false)
+      fetchUsers()
+    } catch (err) {
+      showToast(err.message, 'error')
+    } finally {
+      setEditSubmitting(false)
+    }
+  }
+
+  // Xử lý Admin reset mật khẩu cho người dùng (POST /api/users/{id}/reset-password)
+  const handleRequestResetPassword = async (user) => {
+    setResetUserTarget(user)
+    setResetSubmitting(true)
+    try {
+      const res = await userService.resetPassword(user.userId)
+      setTempPassword(res?.temporaryPassword || 'Temp@123456')
+      setResetDialogOpen(true)
+    } catch (err) {
+      showToast(err.message, 'error')
+    } finally {
+      setResetSubmitting(false)
+    }
+  }
+
+  // Sao chép mật khẩu tạm vào clipboard
+  const handleCopyTempPassword = () => {
+    if (tempPassword) {
+      navigator.clipboard.writeText(tempPassword)
+      showToast('Đã sao chép mật khẩu tạm vào clipboard!', 'success')
     }
   }
 
@@ -555,24 +621,63 @@ export default function Users() {
 
                       {/* Cột Thao tác */}
                       <TableCell align="right">
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          startIcon={<SecurityIcon fontSize="small" />}
-                          onClick={() => handleOpenRoleDialog(item)}
-                          sx={{
-                            borderRadius: 1.5,
-                            textTransform: 'none',
-                            fontWeight: 700,
-                            fontSize: 11,
-                            borderColor: '#0058be30',
-                            color: '#0058be',
-                            bgcolor: '#0058be08',
-                            '&:hover': { bgcolor: '#0058be15', borderColor: '#0058be' },
-                          }}
-                        >
-                          Phân vai trò
-                        </Button>
+                        <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<EditIcon fontSize="small" />}
+                            onClick={() => handleOpenEditDialog(item)}
+                            sx={{
+                              borderRadius: 1.5,
+                              textTransform: 'none',
+                              fontWeight: 700,
+                              fontSize: 11,
+                              borderColor: '#e4e6ef',
+                              color: '#131b2e',
+                              bgcolor: '#fafbff',
+                              '&:hover': { bgcolor: '#f0f4ff', borderColor: '#0058be' },
+                            }}
+                          >
+                            Sửa
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<LockResetIcon fontSize="small" />}
+                            disabled={resetSubmitting && resetUserTarget?.userId === item.userId}
+                            onClick={() => handleRequestResetPassword(item)}
+                            sx={{
+                              borderRadius: 1.5,
+                              textTransform: 'none',
+                              fontWeight: 700,
+                              fontSize: 11,
+                              borderColor: '#f59e0b40',
+                              color: '#b45309',
+                              bgcolor: '#fffbeb',
+                              '&:hover': { bgcolor: '#fef3c7', borderColor: '#d97706' },
+                            }}
+                          >
+                            Reset MK
+                          </Button>
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<SecurityIcon fontSize="small" />}
+                            onClick={() => handleOpenRoleDialog(item)}
+                            sx={{
+                              borderRadius: 1.5,
+                              textTransform: 'none',
+                              fontWeight: 700,
+                              fontSize: 11,
+                              borderColor: '#0058be30',
+                              color: '#0058be',
+                              bgcolor: '#0058be08',
+                              '&:hover': { bgcolor: '#0058be15', borderColor: '#0058be' },
+                            }}
+                          >
+                            Vai trò
+                          </Button>
+                        </Box>
                       </TableCell>
                     </TableRow>
                   ))
@@ -893,6 +998,155 @@ export default function Users() {
               }}
             >
               {roleSubmitting ? 'Đang lưu...' : 'Lưu vai trò'}
+            </Button>
+          </DialogActions>
+        </Dialog>
+
+        {/* Dialog 3: Sửa thông tin người dùng (PUT /api/users/{id}) */}
+        <Dialog
+          open={editDialogOpen}
+          onClose={() => !editSubmitting && setEditDialogOpen(false)}
+          maxWidth="sm"
+          fullWidth
+          PaperProps={{ sx: { borderRadius: 2 } }}
+        >
+          <form onSubmit={handleSaveEditUser}>
+            <DialogTitle sx={{ px: 3, pt: 3, pb: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 800, color: '#131b2e' }}>
+                  Cập nhật thông tin người dùng
+                </Typography>
+                <Typography variant="caption" sx={{ color: '#6b7280' }}>
+                  Tài khoản: <strong>{editingUser?.username}</strong> ({editingUser?.email})
+                </Typography>
+              </Box>
+              <IconButton size="small" onClick={() => setEditDialogOpen(false)}>
+                <CloseIcon fontSize="small" />
+              </IconButton>
+            </DialogTitle>
+            <Divider />
+            <DialogContent sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
+              <TextField
+                fullWidth
+                size="small"
+                label="Họ và tên"
+                value={editForm.fullName}
+                onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })}
+                required
+              />
+              <TextField
+                fullWidth
+                size="small"
+                label="Số điện thoại"
+                value={editForm.phoneNumber}
+                onChange={(e) => setEditForm({ ...editForm, phoneNumber: e.target.value })}
+                placeholder="VD: 0912345678"
+              />
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1.5, border: '1px solid #e4e6ef', borderRadius: 1.5 }}>
+                <Box>
+                  <Typography variant="body2" sx={{ fontWeight: 700, color: '#131b2e' }}>
+                    Trạng thái hoạt động
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: '#6b7280' }}>
+                    Cho phép người dùng đăng nhập vào hệ thống
+                  </Typography>
+                </Box>
+                <Checkbox
+                  checked={editForm.isActive}
+                  onChange={(e) => setEditForm({ ...editForm, isActive: e.target.checked })}
+                  color="primary"
+                />
+              </Box>
+            </DialogContent>
+            <Divider />
+            <DialogActions sx={{ px: 3, py: 1.5 }}>
+              <Button onClick={() => setEditDialogOpen(false)} disabled={editSubmitting} sx={{ textTransform: 'none' }}>
+                Hủy bỏ
+              </Button>
+              <Button
+                type="submit"
+                variant="contained"
+                disabled={editSubmitting}
+                startIcon={editSubmitting && <CircularProgress size={16} color="inherit" />}
+                sx={{ bgcolor: '#0058be', textTransform: 'none', fontWeight: 700 }}
+              >
+                {editSubmitting ? 'Đang lưu...' : 'Lưu thay đổi'}
+              </Button>
+            </DialogActions>
+          </form>
+        </Dialog>
+
+        {/* Dialog 4: Hiển thị mật khẩu tạm khi Reset mật khẩu (POST /api/users/{id}/reset-password) */}
+        <Dialog
+          open={resetDialogOpen}
+          onClose={() => setResetDialogOpen(false)}
+          maxWidth="xs"
+          fullWidth
+          PaperProps={{ sx: { borderRadius: 2 } }}
+        >
+          <DialogTitle sx={{ px: 3, pt: 3, pb: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <LockResetIcon sx={{ color: '#f59e0b', fontSize: 24 }} />
+              <Typography variant="h6" sx={{ fontWeight: 800, color: '#131b2e' }}>
+                Mật khẩu tạm thời
+              </Typography>
+            </Box>
+            <IconButton size="small" onClick={() => setResetDialogOpen(false)}>
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </DialogTitle>
+          <Divider />
+          <DialogContent sx={{ p: 3 }}>
+            <Alert severity="warning" sx={{ mb: 2, borderRadius: 1.5, fontSize: 12 }}>
+              Mật khẩu tạm chỉ hiển thị <strong>một lần duy nhất</strong>. Admin vui lòng copy và gửi cho người dùng.
+            </Alert>
+            <Typography variant="caption" sx={{ color: '#6b7280', display: 'block', mb: 0.5 }}>
+              Tài khoản được reset: <strong>{resetUserTarget?.fullName || resetUserTarget?.username}</strong>
+            </Typography>
+            <Paper
+              elevation={0}
+              sx={{
+                p: 2,
+                mt: 1.5,
+                bgcolor: '#fafbff',
+                border: '1.5px dashed #0058be',
+                borderRadius: 1.5,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 1,
+              }}
+            >
+              <Typography
+                sx={{
+                  fontFamily: 'monospace',
+                  fontSize: 16,
+                  fontWeight: 800,
+                  color: '#0058be',
+                  letterSpacing: 1.2,
+                }}
+              >
+                {tempPassword}
+              </Typography>
+              <Button
+                size="small"
+                variant="outlined"
+                startIcon={<ContentCopyIcon fontSize="small" />}
+                onClick={handleCopyTempPassword}
+                sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 1 }}
+              >
+                Copy
+              </Button>
+            </Paper>
+          </DialogContent>
+          <Divider />
+          <DialogActions sx={{ px: 3, py: 1.5 }}>
+            <Button
+              variant="contained"
+              onClick={() => setResetDialogOpen(false)}
+              sx={{ bgcolor: '#0058be', textTransform: 'none', fontWeight: 700 }}
+            >
+              Đã hiểu &amp; Đóng
             </Button>
           </DialogActions>
         </Dialog>

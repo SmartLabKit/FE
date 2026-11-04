@@ -1,284 +1,12 @@
 import api, { extractErrorMessage } from './api'
 
-// ===================== MOCK DATA BAN ĐẦU & FALLBACK =====================
-
-export const MOCK_SUPPLEMENTARY_REQUESTS = [
-  {
-    supplementaryId: 'BS-2026-014',
-    requestCode: 'BS-2026-014',
-    projectId: 'proj-001',
-    originalBorrowCode: 'BR-2026-1020',
-    originalBorrowId: 'br-001',
-    status: 'PendingLecturer', // 'Draft' | 'PendingLecturer' | 'Rejected' | 'Approved' | 'Preparing'
-    leaderName: 'Lê Hoàng Nam',
-    leaderCode: '20214589',
-    teamName: 'Nhóm 07 – IoT',
-    classCode: 'EE302 - IoT & Embedded',
-    lecturerName: 'Nguyễn Văn Minh',
-    lecturerEmail: 'minh.nv@smartlab.edu.vn',
-    reason: 'Bổ sung bộ điều khiển và cảm biến để hoàn thiện mô hình IoT của nhóm.',
-    submittedAt: '2026-10-22T09:15:00.000Z',
-    reviewedAt: null,
-    rejectReason: null,
-    dueDate: '2026-10-29',
-    components: [
-      {
-        componentId: 'comp-esp32',
-        componentCode: 'MCU-ESP32',
-        componentName: 'ESP32 DevKit',
-        quantity: 1,
-        availableQuantity: 12,
-        dueDate: '2026-10-29',
-      },
-      {
-        componentId: 'comp-dht22',
-        componentCode: 'SEN-DHT22',
-        componentName: 'Cảm biến DHT22',
-        quantity: 2,
-        availableQuantity: 20,
-        dueDate: '2026-10-29',
-      },
-    ],
-  },
-  {
-    supplementaryId: 'BS-2026-015',
-    requestCode: 'BS-2026-015',
-    projectId: 'proj-002',
-    originalBorrowCode: 'BR-2026-1020',
-    originalBorrowId: 'br-001',
-    status: 'Rejected',
-    leaderName: 'Lê Hoàng Nam',
-    leaderCode: '20214589',
-    teamName: 'Nhóm 07 – IoT',
-    classCode: 'EE302 - IoT & Embedded',
-    lecturerName: 'Nguyễn Văn Minh',
-    lecturerEmail: 'minh.nv@smartlab.edu.vn',
-    reason: 'Bổ sung bộ điều khiển và cảm biến để hoàn thiện mô hình IoT của nhóm.',
-    submittedAt: '2026-10-22T09:15:00.000Z',
-    reviewedAt: '2026-10-22T10:00:00.000Z',
-    rejectReason: 'Nhu cầu bổ sung chưa được giải trình rõ cho bài thực hành hiện tại.',
-    dueDate: '2026-10-29',
-    components: [
-      {
-        componentId: 'comp-esp32',
-        componentCode: 'MCU-ESP32',
-        componentName: 'ESP32 DevKit',
-        quantity: 1,
-        availableQuantity: 12,
-        dueDate: '2026-10-29',
-      },
-      {
-        componentId: 'comp-dht22',
-        componentCode: 'SEN-DHT22',
-        componentName: 'Cảm biến DHT22',
-        quantity: 2,
-        availableQuantity: 20,
-        dueDate: '2026-10-29',
-      },
-    ],
-  },
-]
-
-export const MOCK_AVAILABLE_COMPONENTS = [
-  {
-    componentId: 'comp-esp32',
-    componentCode: 'MCU-ESP32',
-    componentName: 'ESP32 DevKit',
-    packageType: 'Kit phát triển IoT',
-    availableQuantity: 12,
-    totalStock: 30,
-  },
-  {
-    componentId: 'comp-dht22',
-    componentCode: 'SEN-DHT22',
-    componentName: 'Cảm biến DHT22',
-    packageType: 'Cảm biến nhiệt độ & độ ẩm',
-    availableQuantity: 20,
-    totalStock: 50,
-  },
-  {
-    componentId: 'comp-relay4ch',
-    componentCode: 'MOD-RELAY-4',
-    componentName: 'Mô-đun Relay 4 kênh 5V',
-    packageType: 'Mô-đun đóng cắt',
-    availableQuantity: 15,
-    totalStock: 25,
-  },
-  {
-    componentId: 'comp-oled096',
-    componentCode: 'DISP-OLED-096',
-    componentName: 'Màn hình OLED 0.96 inch I2C',
-    packageType: 'Màn hình hiển thị',
-    availableQuantity: 8,
-    totalStock: 20,
-  },
-]
-
-export const MOCK_ORIGINAL_BORROWS = [
-  {
-    borrowRequestId: 'br-001',
-    requestCode: 'BR-2026-1020',
-    projectId: 'proj-001',
-    projectTitle: 'Dự án Hệ thống IoT Giám sát Môi trường',
-    classCode: 'EE302 - IoT & Embedded',
-    teamName: 'Nhóm 07 – IoT',
-    leaderName: 'Lê Hoàng Nam',
-    leaderCode: '20214589',
-    status: 'Borrowing', // 'Approved' | 'Ready' | 'Borrowing' | 'Returned' | 'Cancelled'
-    pickupRoomName: 'B1-302 · Phòng thực hành IoT',
-    borrowDate: '2026-10-15',
-    dueDate: '2026-10-29',
-    extensionCount: 0,
-    maxExtensions: 2,
-    lecturerName: 'Nguyễn Văn Minh',
-    lecturerCode: 'LEC-012',
-    items: [
-      {
-        borrowItemId: 'item-01',
-        componentCode: 'MCU-ESP32',
-        componentName: 'ESP32 DevKit',
-        quantity: 1,
-        status: 'Issued',
-        sourceRoom: 'B1-302',
-      },
-      {
-        borrowItemId: 'item-02',
-        componentCode: 'SEN-DHT22',
-        componentName: 'Cảm biến DHT22',
-        quantity: 2,
-        status: 'Issued',
-        sourceRoom: 'B1-302',
-      },
-    ],
-  },
-  {
-    borrowRequestId: 'br-002',
-    requestCode: 'BR-2026-1018',
-    projectId: 'proj-002',
-    projectTitle: 'Thiết kế Robot Dò đường Thông minh',
-    classCode: 'ME204 - Robotics',
-    teamName: 'Nhóm 03 – Robotics',
-    leaderName: 'Trần Văn An',
-    leaderCode: '20210045',
-    status: 'Ready',
-    pickupRoomName: 'B1-302 · Phòng thực hành IoT',
-    borrowDate: '2026-10-20',
-    dueDate: '2026-11-15',
-    extensionCount: 0,
-    maxExtensions: 2,
-    lecturerName: 'TS. Nguyễn Văn Thành',
-    lecturerCode: 'LEC-001',
-    items: [
-      {
-        borrowItemId: 'item-03',
-        componentCode: 'MCU-ARD-UNO',
-        componentName: 'Arduino Uno R3',
-        quantity: 1,
-        status: 'Ready',
-        sourceRoom: 'B1-302',
-      },
-    ],
-  },
-]
-
-export const MOCK_RETURN_REQUESTS = [
-  {
-    returnId: 'TR-2026-014',
-    requestCode: 'TR-2026-014',
-    borrowRequestId: 'br-001',
-    originalBorrowCode: 'BR-2026-1020',
-    status: 'PendingLab',
-    leaderName: 'Lê Hoàng Nam',
-    leaderCode: '20214589',
-    teamName: 'Nhóm 07 – IoT',
-    classCode: 'EE302 - IoT & Embedded',
-    returnDate: '2026-10-29',
-    returnLocation: 'Phòng thực hành IoT · B1-302',
-    note: 'Nhóm đã hoàn thành mô hình IoT, xin trả 1 ESP32 DevKit và 2 cảm biến DHT22 đã nhận.',
-    submittedAt: '2026-10-29T09:15:00.000Z',
-    confirmedAt: null,
-    confirmedByName: null,
-    evidencePhotos: ['photo-return-1.jpg', 'photo-handover.jpg'],
-    components: [
-      {
-        componentId: 'comp-esp32',
-        componentCode: 'MCU-ESP32',
-        componentName: 'ESP32 DevKit',
-        borrowedQuantity: 1,
-        returnQuantity: 1,
-        remainingQuantity: 0,
-        goodQuantity: 1,
-        damagedQuantity: 0,
-        dueDate: '2026-10-29',
-        statusResult: 'Normal',
-        stockBefore: 11,
-        stockReturned: 1,
-        stockAfter: 12,
-        storageLocation: 'Tủ A · Ngăn A1',
-      },
-      {
-        componentId: 'comp-dht22',
-        componentCode: 'SEN-DHT22',
-        componentName: 'Cảm biến DHT22',
-        borrowedQuantity: 2,
-        returnQuantity: 2,
-        remainingQuantity: 0,
-        goodQuantity: 2,
-        damagedQuantity: 0,
-        dueDate: '2026-10-29',
-        statusResult: 'Normal',
-        stockBefore: 18,
-        stockReturned: 2,
-        stockAfter: 20,
-        storageLocation: 'Tủ A · Ngăn A2',
-      },
-    ],
-  },
-]
-
-// Mock dữ liệu yêu cầu gia hạn (Borrow Extensions)
-export const MOCK_BORROW_EXTENSIONS = [
-  {
-    extensionId: 'ext-001',
-    borrowRequestId: 'br-001',
-    requestCode: 'BR-2026-1020',
-    projectTitle: 'Dự án Hệ thống IoT Giám sát Môi trường',
-    classCode: 'EE302 - IoT & Embedded',
-    studentName: 'Lê Hoàng Nam',
-    studentCode: '20214589',
-    currentDueDate: '2026-10-29',
-    requestedDays: 7,
-    newDueDate: '2026-11-05',
-    reason: 'Nhóm cần thêm 1 tuần để hiệu chuẩn cảm biến và hoàn thành báo cáo thử nghiệm thực tế.',
-    status: 'Pending', // 'Pending' | 'Approved' | 'Rejected'
-    submittedAt: '2026-10-27T08:30:00.000Z',
-    reviewedAt: null,
-    reviewComment: null,
-  },
-]
-
-// Mock danh sách chuyển hàng giữa các Lab (Transfers)
-export const MOCK_BORROW_TRANSFERS = [
-  {
-    transferId: 'trans-001',
-    borrowRequestId: 'br-001',
-    requestCode: 'BR-2026-1020',
-    projectTitle: 'Dự án Hệ thống IoT Giám sát Môi trường',
-    componentCode: 'MCU-ESP32',
-    componentName: 'ESP32 DevKit',
-    quantity: 1,
-    sourceRoom: 'A2-105 · Phòng Vi điều khiển',
-    destinationRoom: 'B1-302 · Phòng thực hành IoT',
-    status: 'InTransit', // 'Pending' | 'InTransit' | 'Received'
-    transferredAt: '2026-10-28T14:00:00.000Z',
-  },
-]
-
-let localReturnRequests = JSON.parse(JSON.stringify(MOCK_RETURN_REQUESTS))
-let localSupplementaryRequests = JSON.parse(JSON.stringify(MOCK_SUPPLEMENTARY_REQUESTS))
-let localBorrowRequests = JSON.parse(JSON.stringify(MOCK_ORIGINAL_BORROWS))
-let localExtensions = JSON.parse(JSON.stringify(MOCK_BORROW_EXTENSIONS))
-let localTransfers = JSON.parse(JSON.stringify(MOCK_BORROW_TRANSFERS))
+// Hằng số rỗng tương thích ngược cho các màn hình mượn trả (không chứa mock data)
+export const MOCK_SUPPLEMENTARY_REQUESTS = []
+export const MOCK_AVAILABLE_COMPONENTS = []
+export const MOCK_ORIGINAL_BORROWS = []
+export const MOCK_RETURN_REQUESTS = []
+export const MOCK_BORROW_EXTENSIONS = []
+export const MOCK_BORROW_TRANSFERS = []
 
 export const borrowService = {
   // ===================== 1. ĐƠN MƯỢN CỦA TÔI & CHI TIẾT ĐƠN =====================
@@ -295,13 +23,6 @@ export const borrowService = {
       const response = await api.get('/api/borrow-requests/my', { params })
       return response.data?.data || response.data
     } catch (error) {
-      if (error.response?.status === 500 || error.response?.status === 401 || !error.response) {
-        console.warn('API /api/borrow-requests/my gặp lỗi, sử dụng fallback')
-        return {
-          items: localBorrowRequests,
-          totalItems: localBorrowRequests.length,
-        }
-      }
       throw new Error(extractErrorMessage(error, 'Không thể tải danh sách đơn mượn của bạn'), { cause: error })
     }
   },
@@ -322,11 +43,7 @@ export const borrowService = {
       if (error.response?.status === 403) {
         throw new Error('Bạn không có quyền xem danh sách đơn Lab (Yêu cầu LabStaff hoặc Admin).', { cause: error })
       }
-      console.warn('API /api/borrow-requests lỗi, dùng fallback')
-      return {
-        items: localBorrowRequests,
-        totalItems: localBorrowRequests.length,
-      }
+      throw new Error(extractErrorMessage(error, 'Không thể tải danh sách đơn mượn Lab'), { cause: error })
     }
   },
 
@@ -343,8 +60,6 @@ export const borrowService = {
       const response = await api.get(`/api/borrow-requests/${id}`)
       return response.data?.data || response.data
     } catch (error) {
-      const found = localBorrowRequests.find((b) => b.borrowRequestId === id || b.requestCode === id)
-      if (found) return found
       throw new Error(extractErrorMessage(error, 'Không thể tải chi tiết đơn mượn'), { cause: error })
     }
   },
@@ -365,26 +80,6 @@ export const borrowService = {
       const response = await api.post(`/api/borrow-requests/${id}/extensions`, data)
       return response.data?.data || response.data
     } catch (error) {
-      if (error.response?.status === 500 || error.response?.status === 401 || !error.response) {
-        console.warn('API gia hạn lỗi, lưu vào mock fallback')
-        const newExt = {
-          extensionId: `ext-${Date.now()}`,
-          borrowRequestId: id,
-          requestCode: 'BR-2026-1020',
-          projectTitle: 'Dự án Hệ thống IoT Giám sát Môi trường',
-          classCode: 'EE302 - IoT & Embedded',
-          studentName: 'Lê Hoàng Nam',
-          studentCode: '20214589',
-          currentDueDate: '2026-10-29',
-          requestedDays: Number(data.requestedDays) || 7,
-          newDueDate: '2026-11-05',
-          reason: data.reason || 'Xin gia hạn thêm thời gian làm đồ án thực hành',
-          status: 'Pending',
-          submittedAt: new Date().toISOString(),
-        }
-        localExtensions.unshift(newExt)
-        return newExt
-      }
       throw new Error(extractErrorMessage(error, 'Xin gia hạn đơn thất bại'), { cause: error })
     }
   },
@@ -400,12 +95,8 @@ export const borrowService = {
     try {
       const response = await api.get('/api/borrow-extensions', { params })
       return response.data?.data || response.data
-    } catch {
-      console.warn('API /api/borrow-extensions lỗi, sử dụng fallback')
-      return {
-        items: localExtensions,
-        totalItems: localExtensions.length,
-      }
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Không thể tải danh sách yêu cầu gia hạn'), { cause: error })
     }
   },
 
@@ -423,13 +114,6 @@ export const borrowService = {
       const response = await api.post(`/api/borrow-extensions/${extensionId}/approve`, data)
       return response.data?.data || response.data
     } catch (error) {
-      const idx = localExtensions.findIndex((e) => e.extensionId === extensionId)
-      if (idx !== -1) {
-        localExtensions[idx].status = 'Approved'
-        localExtensions[idx].reviewedAt = new Date().toISOString()
-        localExtensions[idx].reviewComment = data.comment || 'Đã duyệt gia hạn'
-        return localExtensions[idx]
-      }
       throw new Error(extractErrorMessage(error, 'Duyệt gia hạn thất bại'), { cause: error })
     }
   },
@@ -448,13 +132,6 @@ export const borrowService = {
       const response = await api.post(`/api/borrow-extensions/${extensionId}/reject`, data)
       return response.data?.data || response.data
     } catch (error) {
-      const idx = localExtensions.findIndex((e) => e.extensionId === extensionId)
-      if (idx !== -1) {
-        localExtensions[idx].status = 'Rejected'
-        localExtensions[idx].reviewedAt = new Date().toISOString()
-        localExtensions[idx].reviewComment = data.reason || 'Không chấp nhận gia hạn'
-        return localExtensions[idx]
-      }
       throw new Error(extractErrorMessage(error, 'Từ chối gia hạn thất bại'), { cause: error })
     }
   },
@@ -477,10 +154,7 @@ export const borrowService = {
       if (error.response?.status === 403) {
         throw new Error('Bạn không có quyền truy cập luồng chuyển hàng (Yêu cầu LabStaff hoặc Admin).', { cause: error })
       }
-      return {
-        items: localTransfers,
-        totalItems: localTransfers.length,
-      }
+      throw new Error(extractErrorMessage(error, 'Không thể tải danh sách chuyển hàng'), { cause: error })
     }
   },
 
@@ -497,8 +171,8 @@ export const borrowService = {
     try {
       const response = await api.post(`/api/borrow-requests/${id}/receive`, data)
       return response.data?.data || response.data
-    } catch {
-      return { success: true, message: 'Đã xác nhận nhận linh kiện chuyển lab thành công' }
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Xác nhận nhận linh kiện chuyển lab thất bại'), { cause: error })
     }
   },
 
@@ -521,16 +195,8 @@ export const borrowService = {
         headers: { 'Content-Type': 'multipart/form-data' },
       })
       return response.data?.data || response.data
-    } catch {
-      console.warn('API upload ảnh gặp lỗi, trả về mock AI fallback')
-      return {
-        photoId: `photo-${Date.now()}`,
-        photoUrl: URL.createObjectURL(file),
-        photoType,
-        aiResult: 'Match',
-        detectedStudentCode: '20214589',
-        verified: true,
-      }
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Tải ảnh bàn giao thất bại'), { cause: error })
     }
   },
 
@@ -548,11 +214,6 @@ export const borrowService = {
       const response = await api.post(`/api/borrow-requests/${id}/issue`, data)
       return response.data?.data || response.data
     } catch (error) {
-      const idx = localBorrowRequests.findIndex((b) => b.borrowRequestId === id)
-      if (idx !== -1) {
-        localBorrowRequests[idx].status = 'Borrowing'
-        return localBorrowRequests[idx]
-      }
       throw new Error(extractErrorMessage(error, 'Bàn giao linh kiện thất bại'), { cause: error })
     }
   },
@@ -570,8 +231,8 @@ export const borrowService = {
     try {
       const response = await api.post(`/api/borrow-requests/${id}/return`, data)
       return response.data?.data || response.data
-    } catch {
-      return { success: true, message: 'Đã tiếp nhận trả linh kiện thành công' }
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Tiếp nhận trả linh kiện thất bại'), { cause: error })
     }
   },
 
@@ -590,12 +251,8 @@ export const borrowService = {
     try {
       const response = await api.post(`/api/borrow-requests/${id}/replace-damaged`, data)
       return response.data?.data || response.data
-    } catch {
-      return {
-        success: true,
-        message: 'Đã ghi nhận hỏng và tạo yêu cầu món thay thế thành công',
-        replacementBorrowItemId: `rep-${Date.now()}`,
-      }
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Ghi nhận linh kiện hỏng thất bại'), { cause: error })
     }
   },
 
@@ -612,8 +269,8 @@ export const borrowService = {
     try {
       const response = await api.post(`/api/borrow-requests/${id}/replacements/issue`, data)
       return response.data?.data || response.data
-    } catch {
-      return { success: true, message: 'Đã giao món thay thế cho sinh viên thành công' }
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Giao món thay thế thất bại'), { cause: error })
     }
   },
 
@@ -630,8 +287,8 @@ export const borrowService = {
     try {
       const response = await api.post(`/api/borrow-requests/${id}/replacements/cancel`, data)
       return response.data?.data || response.data
-    } catch {
-      return { success: true, message: 'Đã hủy món thay thế thành công' }
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Hủy món thay thế thất bại'), { cause: error })
     }
   },
 
@@ -649,12 +306,6 @@ export const borrowService = {
       const response = await api.post(`/api/borrow-requests/${id}/cancel`, data)
       return response.data?.data || response.data
     } catch (error) {
-      const idx = localBorrowRequests.findIndex((b) => b.borrowRequestId === id)
-      if (idx !== -1) {
-        localBorrowRequests[idx].status = 'Cancelled'
-        localBorrowRequests[idx].rejectReason = data?.reason || 'Hủy đơn mượn'
-        return localBorrowRequests[idx]
-      }
       throw new Error(extractErrorMessage(error, 'Hủy đơn mượn thất bại'), { cause: error })
     }
   },
@@ -664,15 +315,9 @@ export const borrowService = {
   async getAvailableComponents(search = '') {
     try {
       const response = await api.get('/api/components', { params: { search, isAvailable: true } })
-      const list = response.data?.data?.items || response.data?.items || response.data || []
-      return list.length > 0 ? list : MOCK_AVAILABLE_COMPONENTS
-    } catch {
-      return MOCK_AVAILABLE_COMPONENTS.filter(
-        (c) =>
-          !search ||
-          c.componentName.toLowerCase().includes(search.toLowerCase()) ||
-          c.componentCode.toLowerCase().includes(search.toLowerCase())
-      )
+      return response.data?.data?.items || response.data?.items || response.data || []
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Không thể tải danh sách linh kiện'), { cause: error })
     }
   },
 
@@ -680,25 +325,8 @@ export const borrowService = {
     try {
       const response = await api.post(`/api/projects/${projectId}/supplementary-borrow`, data)
       return response.data?.data || response.data
-    } catch {
-      const newReq = {
-        supplementaryId: `BS-2026-${String(localSupplementaryRequests.length + 15).padStart(3, '0')}`,
-        requestCode: `BS-2026-${String(localSupplementaryRequests.length + 15).padStart(3, '0')}`,
-        projectId,
-        originalBorrowCode: data.originalBorrowCode || 'BR-2026-1020',
-        status: 'PendingLecturer',
-        leaderName: data.leaderName || 'Lê Hoàng Nam',
-        leaderCode: data.leaderCode || '20214589',
-        teamName: data.teamName || 'Nhóm 07 – IoT',
-        classCode: data.classCode || 'EE302 - IoT & Embedded',
-        lecturerName: data.lecturerName || 'Nguyễn Văn Minh',
-        reason: data.reason,
-        submittedAt: new Date().toISOString(),
-        dueDate: data.dueDate || '2026-10-29',
-        components: data.components || [],
-      }
-      localSupplementaryRequests.unshift(newReq)
-      return newReq
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Tạo đơn mượn bổ sung thất bại'), { cause: error })
     }
   },
 
@@ -706,11 +334,8 @@ export const borrowService = {
     try {
       const response = await api.get(`/api/projects/${id}`)
       return response.data?.data || response.data
-    } catch {
-      const found = localSupplementaryRequests.find(
-        (r) => r.supplementaryId === id || r.requestCode === id || r.projectId === id
-      )
-      return found || localSupplementaryRequests[0]
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Không thể tải chi tiết đơn mượn'), { cause: error })
     }
   },
 
@@ -718,13 +343,8 @@ export const borrowService = {
     try {
       const response = await api.post(`/api/projects/${projectId}/supplementary-borrow/withdraw`)
       return response.data?.data || response.data
-    } catch {
-      const idx = localSupplementaryRequests.findIndex((r) => r.projectId === projectId)
-      if (idx !== -1) {
-        localSupplementaryRequests[idx].status = 'Draft'
-        return localSupplementaryRequests[idx]
-      }
-      return { success: true }
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Thu hồi đơn mượn thất bại'), { cause: error })
     }
   },
 
@@ -732,11 +352,8 @@ export const borrowService = {
     try {
       const response = await api.get('/api/projects/pending-approval')
       return response.data?.data || response.data
-    } catch {
-      return {
-        items: localSupplementaryRequests.filter((r) => r.status === 'PendingLecturer'),
-        totalItems: localSupplementaryRequests.filter((r) => r.status === 'PendingLecturer').length,
-      }
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Không thể tải danh sách đơn chờ duyệt'), { cause: error })
     }
   },
 
@@ -744,15 +361,8 @@ export const borrowService = {
     try {
       const response = await api.post(`/api/projects/${projectId}/approve`, { comment })
       return response.data?.data || response.data
-    } catch {
-      const idx = localSupplementaryRequests.findIndex((r) => r.projectId === projectId)
-      if (idx !== -1) {
-        localSupplementaryRequests[idx].status = 'Approved'
-        localSupplementaryRequests[idx].reviewedAt = new Date().toISOString()
-        localSupplementaryRequests[idx].reviewComment = comment
-        return localSupplementaryRequests[idx]
-      }
-      return { success: true }
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Duyệt đơn thất bại'), { cause: error })
     }
   },
 
@@ -760,72 +370,45 @@ export const borrowService = {
     try {
       const response = await api.post(`/api/projects/${projectId}/reject`, { reason })
       return response.data?.data || response.data
-    } catch {
-      const idx = localSupplementaryRequests.findIndex((r) => r.projectId === projectId)
-      if (idx !== -1) {
-        localSupplementaryRequests[idx].status = 'Rejected'
-        localSupplementaryRequests[idx].reviewedAt = new Date().toISOString()
-        localSupplementaryRequests[idx].rejectReason = reason
-        return localSupplementaryRequests[idx]
-      }
-      return { success: true }
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Từ chối đơn thất bại'), { cause: error })
     }
   },
 
   async getReturnRequests() {
-    return localReturnRequests
+    try {
+      const response = await api.get('/api/borrow-requests', { params: { status: 'Returned' } })
+      return response.data?.data?.items || response.data?.items || response.data || []
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Không thể tải danh sách phiếu trả'), { cause: error })
+    }
   },
 
   async getReturnRequestById(id) {
-    const found = localReturnRequests.find((r) => r.returnId === id || r.requestCode === id)
-    return found || localReturnRequests[0]
+    try {
+      const response = await api.get(`/api/borrow-requests/${id}`)
+      return response.data?.data || response.data
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Không thể tải chi tiết phiếu trả'), { cause: error })
+    }
   },
 
   async createReturnRequest(data) {
     try {
-      if (data.borrowRequestId) {
-        await api.post(`/api/borrow-requests/${data.borrowRequestId}/return`, data)
-      }
-    } catch (err) {
-      console.warn('API return gặp lỗi, lưu vào mock fallback', err)
+      const response = await api.post(`/api/borrow-requests/${data.borrowRequestId}/return`, data)
+      return response.data?.data || response.data
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Tạo phiếu trả linh kiện thất bại'), { cause: error })
     }
-
-    const newReturn = {
-      returnId: `TR-2026-${String(localReturnRequests.length + 14).padStart(3, '0')}`,
-      requestCode: `TR-2026-${String(localReturnRequests.length + 14).padStart(3, '0')}`,
-      borrowRequestId: data.borrowRequestId || 'br-001',
-      originalBorrowCode: data.originalBorrowCode || 'BR-2026-1020',
-      status: 'PendingLab',
-      leaderName: data.leaderName || 'Lê Hoàng Nam',
-      leaderCode: data.leaderCode || '20214589',
-      teamName: data.teamName || 'Nhóm 07 – IoT',
-      returnDate: data.returnDate || '2026-10-29',
-      returnLocation: data.returnLocation || 'Phòng thực hành IoT · B1-302',
-      note: data.note || '',
-      submittedAt: new Date().toISOString(),
-      components: data.components || [],
-    }
-    localReturnRequests.unshift(newReturn)
-    return newReturn
   },
 
   async confirmReturnRequest(id, data = {}) {
     try {
-      if (data.borrowRequestId) {
-        await api.post(`/api/borrow-requests/${data.borrowRequestId}/return`, data)
-      }
-    } catch (err) {
-      console.warn('API confirm return gặp lỗi, cập nhật mock fallback', err)
+      const response = await api.post(`/api/borrow-requests/${id}/return`, data)
+      return response.data?.data || response.data
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Xác nhận trả linh kiện thất bại'), { cause: error })
     }
-
-    const idx = localReturnRequests.findIndex((r) => r.returnId === id || r.requestCode === id)
-    if (idx !== -1) {
-      localReturnRequests[idx].status = 'Returned'
-      localReturnRequests[idx].confirmedAt = new Date().toISOString()
-      localReturnRequests[idx].confirmedByName = data.confirmedByName || 'Trần Thị Lan'
-      return localReturnRequests[idx]
-    }
-    return localReturnRequests[0]
   },
 }
 
