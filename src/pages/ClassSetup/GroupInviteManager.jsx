@@ -37,6 +37,13 @@ import {
 } from '@mui/icons-material'
 import { academicService } from '../../services/academicService'
 import { teamService } from '../../services/teamService'
+import { useNavigate } from 'react-router-dom'
+
+async function getClassesForCurrentSemester() {
+  const semesters = await academicService.getSemesters()
+  const semester = semesters.find((item) => item.isActive) || semesters[0]
+  return academicService.getMyClasses(semester?.semesterId)
+}
 
 /**
  * GroupInviteManager Component (Actor: STUDENT / GROUP LEADER)
@@ -52,10 +59,12 @@ import { teamService } from '../../services/teamService'
  * 9. DELETE /api/teams/{teamId}/invitations/{studentProfileId} - Hủy lời mời
  */
 export default function GroupInviteManager() {
+  const navigate = useNavigate()
   // State lớp học của sinh viên
   const [myClasses, setMyClasses] = useState([])
   const [selectedClassId, setSelectedClassId] = useState('')
   const [loadingClasses, setLoadingClasses] = useState(true)
+  const [classesError, setClassesError] = useState('')
 
   // State lời mời nhóm nhận được
   const [myInvitations, setMyInvitations] = useState([])
@@ -81,14 +90,15 @@ export default function GroupInviteManager() {
   // 1. Tải danh sách lớp học của sinh viên (GET /api/classes/my)
   const fetchMyClasses = useCallback(async () => {
     try {
-      const data = await academicService.getMyClasses()
+      const data = await getClassesForCurrentSemester()
       const list = Array.isArray(data) ? data : data?.items || []
       setMyClasses(list)
+      setClassesError('')
       if (list.length > 0 && !selectedClassId) {
         setSelectedClassId(list[0].classId)
       }
     } catch (err) {
-      console.warn('Lỗi khi tải lớp của tôi:', err)
+      setClassesError(err.message || 'Không thể tải lớp học của bạn.')
     } finally {
       setLoadingClasses(false)
     }
@@ -135,18 +145,20 @@ export default function GroupInviteManager() {
   // Initial load
   useEffect(() => {
     let ignore = false
-    academicService
-      .getMyClasses()
+    getClassesForCurrentSemester()
       .then((data) => {
         if (!ignore) {
           const list = Array.isArray(data) ? data : data?.items || []
           setMyClasses(list)
+          setClassesError('')
           if (list.length > 0) {
             setSelectedClassId(list[0].classId)
           }
         }
       })
-      .catch((err) => console.warn(err))
+      .catch((err) => {
+        if (!ignore) setClassesError(err.message || 'Không thể tải lớp học của bạn.')
+      })
       .finally(() => {
         if (!ignore) setLoadingClasses(false)
       })
@@ -514,6 +526,7 @@ export default function GroupInviteManager() {
           </Box>
         )}
       </Paper>
+      {classesError && <Alert severity="error" sx={{ mb: 3 }}>{classesError}</Alert>}
 
       {/* NẾU CHƯA CÓ NHÓM TRONG LỚP NÀY */}
       {!currentTeam && !loadingTeam && (
@@ -608,16 +621,26 @@ export default function GroupInviteManager() {
                     Mã nhóm: <code>{currentTeam.teamId}</code> • Lớp: {currentTeam.classCode || selectedClass?.classCode}
                   </Typography>
                 </Box>
-                <Chip
-                  label={currentTeam.isReadyForProject ? 'Đã đủ thành viên' : 'Đang tuyển thành viên'}
-                  size="small"
-                  sx={{
-                    bgcolor: currentTeam.isReadyForProject ? '#ecfdf5' : '#eff6ff',
-                    color: currentTeam.isReadyForProject ? '#047857' : '#1d4ed8',
-                    fontWeight: 700,
-                    fontSize: 11,
-                  }}
-                />
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  <Chip
+                    label={currentTeam.isReadyForProject ? 'Đã đủ thành viên' : 'Đang tuyển thành viên'}
+                    size="small"
+                    sx={{
+                      bgcolor: currentTeam.isReadyForProject ? '#ecfdf5' : '#eff6ff',
+                      color: currentTeam.isReadyForProject ? '#047857' : '#1d4ed8',
+                      fontWeight: 700,
+                      fontSize: 11,
+                    }}
+                  />
+                  <Button
+                    size="small"
+                    variant="contained"
+                    onClick={() => navigate(`/class-setup/student/project/${currentTeam.teamId}`)}
+                    sx={{ bgcolor: '#0058be', textTransform: 'none', fontWeight: 700, boxShadow: 'none' }}
+                  >
+                    Project của nhóm
+                  </Button>
+                </Box>
               </Box>
 
               <Divider sx={{ mb: 2 }} />
