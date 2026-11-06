@@ -35,7 +35,10 @@ export const teamService = {
         str === 'no' ||
         str === 'false'
       const normalizedDecision = isReject ? 'Rejected' : 'Accepted'
-      const response = await api.put(`/api/team-invitations/${teamId}/response`, { decision: normalizedDecision })
+      const response = await api.put(`/api/team-invitations/${teamId}/response`, {
+        decision: normalizedDecision,
+        Decision: normalizedDecision,
+      })
       return response.data?.data || response.data
     } catch (error) {
       throw new Error(extractErrorMessage(error, 'Phản hồi lời mời thất bại'), { cause: error })

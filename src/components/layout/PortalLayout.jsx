@@ -21,7 +21,6 @@ import {
   Typography,
 } from '@mui/material'
 import {
-  Dashboard as DashboardIcon,
   Category as CategoryIcon,
   CompareArrows as BorrowReturnIcon,
   AssignmentTurnedIn as ApprovalsIcon,
@@ -36,6 +35,7 @@ import {
   Groups as GroupsIcon,
   MenuBook as MenuBookIcon,
   Tune as TuneIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth, DEMO_ACCOUNTS } from '../../context/AuthContext'
@@ -99,20 +99,12 @@ export default function PortalLayout({
   const isLecturer = hasUserRole('Lecturer')
 
   const navItems = [
-    // 1. Trang chủ / Dashboard (điều hướng tới trang mặc định của từng role)
-    {
-      label: 'Dashboard',
-      icon: <DashboardIcon fontSize="small" />,
-      path: currentUser.defaultRoute || '/class-setup',
-      roles: ['Admin', 'Lecturer', 'Student', 'InventoryManager', 'LabStaff'],
-    },
-
-    // 2. Phân hệ SINH VIÊN (Student)
+    // 1. Phân hệ SINH VIÊN (Student)
     {
       label: 'Nhóm & Lời mời',
       icon: <GroupsIcon fontSize="small" />,
       path: '/class-setup/student/groups',
-      roles: ['Student', 'Admin'],
+      roles: ['Student'],
     },
     {
       label: 'Mượn / Trả linh kiện',
@@ -121,12 +113,12 @@ export default function PortalLayout({
       roles: ['Student'],
     },
 
-    // 3. Phân hệ GIẢNG VIÊN (Lecturer)
+    // 2. Phân hệ GIẢNG VIÊN (Lecturer)
     {
       label: 'Định mức môn học',
       icon: <SchoolIcon fontSize="small" />,
       path: '/class-setup/lecturer/quotas',
-      roles: ['Lecturer', 'Admin'],
+      roles: ['Lecturer'],
     },
     {
       label: 'Duyệt yêu cầu mượn',
@@ -135,7 +127,7 @@ export default function PortalLayout({
       roles: ['Lecturer'],
     },
 
-    // 4. Phân hệ HỌC VỤ & LỚP HỌC (Admin)
+    // 3. Phân hệ HỌC VỤ & LỚP HỌC (Admin)
     {
       label: 'Kỳ học & Lớp môn',
       icon: <SchoolIcon fontSize="small" />,
@@ -155,7 +147,7 @@ export default function PortalLayout({
       roles: ['Admin'],
     },
 
-    // 5. Phân hệ QUẢN LÝ KHO & LINH KIỆN (InventoryManager / LabStaff / Admin)
+    // 4. Phân hệ QUẢN LÝ KHO & LINH KIỆN (InventoryManager / LabStaff / Admin)
     {
       label: isStudent || isLecturer ? 'Tra cứu linh kiện' : 'Linh kiện kho',
       icon: <CategoryIcon fontSize="small" />,
@@ -166,42 +158,42 @@ export default function PortalLayout({
       label: 'Danh mục linh kiện',
       icon: <CategoryIcon fontSize="small" />,
       path: '/class-setup/admin/categories',
-      roles: ['Admin', 'InventoryManager'],
+      roles: ['InventoryManager'],
     },
     {
       label: 'Phòng lab',
       icon: <SchoolIcon fontSize="small" />,
       path: '/class-setup/admin/lab-rooms',
-      roles: ['Admin', 'InventoryManager', 'LabStaff'],
+      roles: ['InventoryManager', 'LabStaff'],
     },
     {
       label: 'Tủ lưu trữ',
       icon: <ApprovalsIcon fontSize="small" />,
       path: '/class-setup/admin/cabinets',
-      roles: ['Admin', 'InventoryManager', 'LabStaff'],
+      roles: ['InventoryManager', 'LabStaff'],
     },
     {
       label: 'Lập phiếu nhập',
       icon: <ApprovalsIcon fontSize="small" />,
       path: '/class-setup/admin/stock-inwards',
-      roles: ['Admin', 'InventoryManager'],
+      roles: ['InventoryManager'],
     },
     {
       label: 'Phiếu nhập kho',
       icon: <ApprovalsIcon fontSize="small" />,
       path: '/class-setup/admin/stock-receipts',
-      roles: ['Admin', 'InventoryManager'],
+      roles: ['InventoryManager'],
     },
 
-    // 6. Phân hệ BÀN GIAO & TRẢ ĐỒ (LabStaff / Admin)
+    // 5. Phân hệ BÀN GIAO & TRẢ ĐỒ (LabStaff)
     {
       label: 'Quản lý Mượn / Trả',
       icon: <BorrowReturnIcon fontSize="small" />,
       path: '/borrow/my-requests',
-      roles: ['LabStaff', 'Admin'],
+      roles: ['LabStaff'],
     },
 
-    // 7. Phân hệ QUẢN TRỊ HỆ THỐNG & TÀI KHOẢN (Admin)
+    // 6. Phân hệ QUẢN TRỊ HỆ THỐNG & TÀI KHOẢN (Admin)
     {
       label: 'Người dùng',
       icon: <PeopleIcon fontSize="small" />,
@@ -236,6 +228,7 @@ export default function PortalLayout({
         height: '100%',
         bgcolor: '#ffffff',
         borderRight: '1px solid #e4e6ef',
+        overflow: 'hidden',
       }}
     >
       {/* Brand Header */}
@@ -246,6 +239,7 @@ export default function PortalLayout({
           alignItems: 'center',
           gap: 1.5,
           borderBottom: '1px solid #f0f2f5',
+          flexShrink: 0,
         }}
       >
         <Box
@@ -265,7 +259,7 @@ export default function PortalLayout({
             LS
           </Typography>
         </Box>
-        <Box>
+        <Box sx={{ flexGrow: 1 }}>
           <Typography
             variant="subtitle1"
             sx={{ fontWeight: 800, color: '#0058be', lineHeight: 1.1, fontSize: 16 }}
@@ -279,10 +273,47 @@ export default function PortalLayout({
             PORTAL CORE V3.1
           </Typography>
         </Box>
+
+        {/* Nút đóng sidebar khi mở ở màn hình nhỏ / chia đôi cửa sổ */}
+        <IconButton
+          size="small"
+          onClick={() => setMobileOpen(false)}
+          sx={{
+            display: { md: 'none' },
+            color: '#808999',
+            '&:hover': { bgcolor: '#f4f6fa', color: '#131b2e' },
+          }}
+          aria-label="Đóng menu"
+        >
+          <CloseIcon fontSize="small" />
+        </IconButton>
       </Box>
 
-      {/* Main Navigation List */}
-      <List sx={{ px: 1.5, py: 2, flexGrow: 1 }}>
+      {/* Main Navigation List - Có thanh cuộn mượt mà khi menu dài */}
+      <List
+        sx={{
+          px: 1.5,
+          py: 1.5,
+          flexGrow: 1,
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          scrollbarWidth: 'thin',
+          scrollbarColor: '#cbd5e1 transparent',
+          '&::-webkit-scrollbar': {
+            width: '5px',
+          },
+          '&::-webkit-scrollbar-track': {
+            backgroundColor: 'transparent',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            backgroundColor: '#dcdfe6',
+            borderRadius: '4px',
+            '&:hover': {
+              backgroundColor: '#b4b9c8',
+            },
+          },
+        }}
+      >
         {visibleNavItems.map((item) => {
           const isComponentsRoute = location.pathname.startsWith('/class-setup/admin/components')
           const isStockInwardsRoute = location.pathname.startsWith('/class-setup/admin/stock-inwards')
@@ -332,18 +363,6 @@ export default function PortalLayout({
               ? isLecturerQuotasRoute
               : item.path === '/borrow/my-requests'
               ? isBorrowRoute
-              : item.path === '/class-setup'
-              ? location.pathname === '/class-setup' ||
-                (!isSemestersRoute &&
-                  !isCoursesRoute &&
-                  !isRosterRoute &&
-                  !isStudentGroupsRoute &&
-                  !isLecturerQuotasRoute &&
-                  !isBorrowRoute &&
-                  !isComponentsRoute &&
-                  !isStockInwardsRoute &&
-                  !isStorageAllocationRoute &&
-                  location.pathname.startsWith('/class-setup'))
               : location.pathname === item.path
 
           return (
@@ -388,7 +407,7 @@ export default function PortalLayout({
       </List>
 
       {/* Current Logged In Account Info Card on Sidebar Bottom */}
-      <Box sx={{ p: 2, borderTop: '1px solid #f0f2f5', bgcolor: '#fafbff' }}>
+      <Box sx={{ p: 2, borderTop: '1px solid #f0f2f5', bgcolor: '#fafbff', flexShrink: 0 }}>
         <Typography
           variant="caption"
           sx={{
@@ -526,7 +545,12 @@ export default function PortalLayout({
         ModalProps={{ keepMounted: true }}
         sx={{
           display: { xs: 'block', md: 'none' },
-          '& .MuiDrawer-paper': { boxSizing: 'border-box', width: 240 },
+          '& .MuiDrawer-paper': {
+            boxSizing: 'border-box',
+            width: 260,
+            overflow: 'hidden',
+            boxShadow: '4px 0 24px rgba(0, 0, 0, 0.12)',
+          },
         }}
       >
         {drawerContent}
@@ -541,7 +565,7 @@ export default function PortalLayout({
           display: { xs: 'none', md: 'block' },
         }}
       >
-        <Box sx={{ position: 'fixed', top: 0, bottom: 0, width: 240 }}>
+        <Box sx={{ position: 'fixed', top: 0, bottom: 0, width: 240, overflow: 'hidden' }}>
           {drawerContent}
         </Box>
       </Box>
