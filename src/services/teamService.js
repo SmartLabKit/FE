@@ -82,7 +82,7 @@ export const teamService = {
   /**
    * Danh sách sinh viên cùng lớp mà trưởng nhóm có thể mời
    * GET /api/classes/{classId}/team-candidates
-   * Quyền: Chỉ role Student
+   * Quyền: Chỉ role Student & phải là Trưởng nhóm của lớp đó
    * Path: classId (guid)
    * Trả về (200): TeamCandidateResponse[]
    */
@@ -91,6 +91,10 @@ export const teamService = {
       const response = await api.get(`/api/classes/${classId}/team-candidates`)
       return response.data?.data || response.data
     } catch (error) {
+      // 403 nghĩa là sinh viên không phải trưởng nhóm của lớp này (ForbiddenException từ backend)
+      if (error.response?.status === 403) {
+        return []
+      }
       throw new Error(extractErrorMessage(error, 'Không thể tải danh sách ứng viên'), { cause: error })
     }
   },
