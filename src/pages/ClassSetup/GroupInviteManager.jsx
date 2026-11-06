@@ -189,8 +189,6 @@ export default function GroupInviteManager() {
   useEffect(() => {
     if (!selectedClassId) return
     let ignore = false
-    setLoadingTeam(true)
-    setCandidates([])
 
     teamService
       .getMyTeam(selectedClassId)
