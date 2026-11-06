@@ -199,7 +199,11 @@ export default function GroupInviteManager() {
 
   // Phản hồi lời mời (Chấp nhận: Accepted / Từ chối: Rejected)
   const handleRespondInvitation = async (teamId, decision) => {
-    const isAccepted = decision === 'Accepted' || decision === 'Accept'
+    const isAccepted =
+      decision === 'Accepted' ||
+      decision === 'Accept' ||
+      decision === 'Chấp nhận' ||
+      decision === 'chap nhan'
     const payloadDecision = isAccepted ? 'Accepted' : 'Rejected'
     try {
       await teamService.respondInvitation(teamId, payloadDecision)
