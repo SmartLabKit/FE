@@ -37,6 +37,7 @@ import {
 } from '@mui/icons-material'
 import { academicService } from '../../services/academicService'
 import { teamService } from '../../services/teamService'
+import { useAuth } from '../../context/AuthContext'
 
 /**
  * GroupInviteManager Component (Actor: STUDENT / GROUP LEADER)
@@ -52,6 +53,8 @@ import { teamService } from '../../services/teamService'
  * 9. DELETE /api/teams/{teamId}/invitations/{studentProfileId} - Hủy lời mời
  */
 export default function GroupInviteManager() {
+  const { user } = useAuth()
+
   // State lớp học của sinh viên
   const [myClasses, setMyClasses] = useState([])
   const [selectedClassId, setSelectedClassId] = useState('')
@@ -104,23 +107,10 @@ export default function GroupInviteManager() {
     }
   }, [])
 
-  // 3. Tải nhóm của sinh viên trong lớp đang chọn (GET /api/classes/{classId}/team)
-  const fetchMyTeamInClass = useCallback(async (classId) => {
-    if (!classId) return
-    try {
-      const team = await teamService.getMyTeam(classId)
-      setCurrentTeam(team)
-    } catch (err) {
-      console.warn('Chưa có nhóm hoặc lỗi tải nhóm:', err)
-      setCurrentTeam(null)
-    } finally {
-      setLoadingTeam(false)
-    }
-  }, [])
-
   // 4. Tải danh sách ứng viên có thể mời (GET /api/classes/{classId}/team-candidates)
   const fetchCandidates = useCallback(async (classId) => {
     if (!classId) return
+    setLoadingCandidates(true)
     try {
       const list = await teamService.getTeamCandidates(classId)
       setCandidates(Array.isArray(list) ? list : [])
@@ -131,6 +121,38 @@ export default function GroupInviteManager() {
       setLoadingCandidates(false)
     }
   }, [])
+
+  // 3. Tải nhóm của sinh viên trong lớp đang chọn (GET /api/classes/{classId}/team)
+  const fetchMyTeamInClass = useCallback(async (classId) => {
+    if (!classId) return
+    setLoadingTeam(true)
+    try {
+      const team = await teamService.getMyTeam(classId)
+      setCurrentTeam(team)
+      if (team) {
+        const myRecord = team.members?.find(
+          (m) =>
+            (user?.studentCode && m.studentCode?.toUpperCase() === user.studentCode?.toUpperCase()) ||
+            (user?.username && m.studentCode?.toUpperCase() === user.username?.toUpperCase()) ||
+            (user?.email && m.studentCode?.toUpperCase() === user.email?.split('@')[0]?.toUpperCase()) ||
+            (user?.fullName && m.fullName?.toLowerCase() === user.fullName?.toLowerCase())
+        )
+        if (!myRecord || myRecord.isLeader) {
+          fetchCandidates(classId)
+        } else {
+          setCandidates([])
+        }
+      } else {
+        setCandidates([])
+      }
+    } catch (err) {
+      console.warn('Chưa có nhóm hoặc lỗi tải nhóm:', err)
+      setCurrentTeam(null)
+      setCandidates([])
+    } finally {
+      setLoadingTeam(false)
+    }
+  }, [user, fetchCandidates])
 
   // Initial load
   useEffect(() => {
@@ -171,31 +193,50 @@ export default function GroupInviteManager() {
     teamService
       .getMyTeam(selectedClassId)
       .then((team) => {
-        if (!ignore) setCurrentTeam(team)
+        if (ignore) return
+        setCurrentTeam(team)
+
+        // Chỉ khi sinh viên ĐÃ CÓ NHÓM và là TRƯỞNG NHÓM mới tải danh sách ứng viên (tránh 403 Forbidden từ backend)
+        if (team) {
+          const myRecord = team.members?.find(
+            (m) =>
+              (user?.studentCode && m.studentCode?.toUpperCase() === user.studentCode?.toUpperCase()) ||
+              (user?.username && m.studentCode?.toUpperCase() === user.username?.toUpperCase()) ||
+              (user?.email && m.studentCode?.toUpperCase() === user.email?.split('@')[0]?.toUpperCase()) ||
+              (user?.fullName && m.fullName?.toLowerCase() === user.fullName?.toLowerCase())
+          )
+          const definitelyNotLeader = myRecord && !myRecord.isLeader
+
+          if (!definitelyNotLeader) {
+            setLoadingCandidates(true)
+            teamService
+              .getTeamCandidates(selectedClassId)
+              .then((list) => {
+                if (!ignore) setCandidates(Array.isArray(list) ? list : [])
+              })
+              .catch(() => {
+                if (!ignore) setCandidates([])
+              })
+              .finally(() => {
+                if (!ignore) setLoadingCandidates(false)
+              })
+          }
+        }
       })
       .catch(() => {
-        if (!ignore) setCurrentTeam(null)
+        if (!ignore) {
+          setCurrentTeam(null)
+          setCandidates([])
+        }
       })
       .finally(() => {
         if (!ignore) setLoadingTeam(false)
       })
 
-    teamService
-      .getTeamCandidates(selectedClassId)
-      .then((list) => {
-        if (!ignore) setCandidates(Array.isArray(list) ? list : [])
-      })
-      .catch(() => {
-        if (!ignore) setCandidates([])
-      })
-      .finally(() => {
-        if (!ignore) setLoadingCandidates(false)
-      })
-
     return () => {
       ignore = true
     }
-  }, [selectedClassId])
+  }, [selectedClassId, user])
 
   // Phản hồi lời mời (Chấp nhận: Accepted / Từ chối: Rejected)
   const handleRespondInvitation = async (teamId, decision) => {
@@ -308,6 +349,18 @@ export default function GroupInviteManager() {
     }
   }
 
+  // Kiểm tra xem sinh viên hiện tại có phải là Trưởng nhóm của nhóm này hay không
+  const myMemberRecord = currentTeam?.members?.find(
+    (m) =>
+      (user?.studentCode && m.studentCode?.toUpperCase() === user.studentCode?.toUpperCase()) ||
+      (user?.username && m.studentCode?.toUpperCase() === user.username?.toUpperCase()) ||
+      (user?.email && m.studentCode?.toUpperCase() === user.email?.split('@')[0]?.toUpperCase()) ||
+      (user?.fullName && m.fullName?.toLowerCase() === user.fullName?.toLowerCase())
+  )
+  const isLeader = myMemberRecord
+    ? Boolean(myMemberRecord.isLeader)
+    : Boolean(candidates.length > 0 || currentTeam?.members?.length === 1)
+
   // Filter candidate students
   const filteredCandidates = candidates.filter(
     (s) =>
@@ -341,7 +394,6 @@ export default function GroupInviteManager() {
             fetchMyInvitations()
             if (selectedClassId) {
               fetchMyTeamInClass(selectedClassId)
-              fetchCandidates(selectedClassId)
             }
           }}
           sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 1.5, borderColor: '#dcdfe6' }}
@@ -703,7 +755,7 @@ export default function GroupInviteManager() {
                           />
                         </TableCell>
                         <TableCell sx={{ textAlign: 'right' }}>
-                          {m.status === 'Pending' && (
+                          {m.status === 'Pending' && isLeader && (
                             <Button
                               size="small"
                               color="error"
@@ -731,7 +783,7 @@ export default function GroupInviteManager() {
             </Paper>
           </Grid>
 
-          {/* Cột Phải: Mời thành viên cùng lớp (GET /api/classes/{id}/team-candidates & POST /api/teams/{id}/invitations) */}
+          {/* Cột Phải: Mời thành viên cùng lớp (Chỉ Trưởng nhóm mới có quyền) */}
           <Grid size={{ xs: 12, md: 5 }}>
             <Paper
               elevation={0}
@@ -743,101 +795,115 @@ export default function GroupInviteManager() {
                 height: '100%',
               }}
             >
-              <Typography variant="h6" sx={{ fontWeight: 800, fontSize: 16, color: '#131b2e', mb: 0.5 }}>
-                Mời thành viên cùng lớp
-              </Typography>
-              <Typography variant="caption" sx={{ color: '#6b7280', display: 'block', mb: 2 }}>
-                API: <code>GET /api/classes/{'{id}'}/team-candidates</code> &amp; <code>POST /api/teams/{'{id}'}/invitations</code>
-              </Typography>
+              {isLeader ? (
+                <>
+                  <Typography variant="h6" sx={{ fontWeight: 800, fontSize: 16, color: '#131b2e', mb: 0.5 }}>
+                    Mời thành viên cùng lớp
+                  </Typography>
+                  <Typography variant="caption" sx={{ color: '#6b7280', display: 'block', mb: 2 }}>
+                    API: <code>GET /api/classes/{'{id}'}/team-candidates</code> &amp; <code>POST /api/teams/{'{id}'}/invitations</code>
+                  </Typography>
 
-              {/* Tìm kiếm ứng viên */}
-              <TextField
-                fullWidth
-                size="small"
-                placeholder="Tìm bạn cùng lớp theo tên hoặc mã SV..."
-                value={candidateSearch}
-                onChange={(e) => setCandidateSearch(e.target.value)}
-                sx={{
-                  mb: 2,
-                  '& .MuiOutlinedInput-root': { borderRadius: 1.5, height: 38, fontSize: 12 },
-                }}
-                slotProps={{
-                  input: {
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon sx={{ color: '#81899a', fontSize: 18 }} />
-                      </InputAdornment>
-                    ),
-                  },
-                }}
-              />
+                  {/* Tìm kiếm ứng viên */}
+                  <TextField
+                    fullWidth
+                    size="small"
+                    placeholder="Tìm bạn cùng lớp theo tên hoặc mã SV..."
+                    value={candidateSearch}
+                    onChange={(e) => setCandidateSearch(e.target.value)}
+                    sx={{
+                      mb: 2,
+                      '& .MuiOutlinedInput-root': { borderRadius: 1.5, height: 38, fontSize: 12 },
+                    }}
+                    slotProps={{
+                      input: {
+                        startAdornment: (
+                          <InputAdornment position="start">
+                            <SearchIcon sx={{ color: '#81899a', fontSize: 18 }} />
+                          </InputAdornment>
+                        ),
+                      },
+                    }}
+                  />
 
-              {loadingCandidates ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                  <CircularProgress size={24} />
-                </Box>
-              ) : filteredCandidates.length === 0 ? (
-                <Alert severity="info" sx={{ fontSize: 12, borderRadius: 1.5 }}>
-                  {candidateSearch ? 'Không tìm thấy sinh viên phù hợp.' : 'Không có sinh viên nào trống trong lớp này.'}
-                </Alert>
+                  {loadingCandidates ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                      <CircularProgress size={24} />
+                    </Box>
+                  ) : filteredCandidates.length === 0 ? (
+                    <Alert severity="info" sx={{ fontSize: 12, borderRadius: 1.5 }}>
+                      {candidateSearch ? 'Không tìm thấy sinh viên phù hợp.' : 'Không có sinh viên nào trống trong lớp này.'}
+                    </Alert>
+                  ) : (
+                    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, maxHeight: 380, overflowY: 'auto' }}>
+                      {filteredCandidates.map((cand) => (
+                        <Paper
+                          key={cand.studentProfileId || cand.studentCode}
+                          elevation={0}
+                          sx={{
+                            p: 1.2,
+                            px: 1.5,
+                            borderRadius: 1.5,
+                            bgcolor: '#fafbff',
+                            border: '1px solid #eef2f6',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                          }}
+                        >
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+                            <Avatar sx={{ width: 32, height: 32, bgcolor: '#0284c7', fontSize: 11, fontWeight: 700 }}>
+                              {cand.fullName?.charAt(0) || 'S'}
+                            </Avatar>
+                            <Box>
+                              <Typography variant="body2" sx={{ fontWeight: 700, color: '#131b2e', fontSize: 12 }}>
+                                {cand.fullName}
+                              </Typography>
+                              <Typography variant="caption" sx={{ color: '#6b7280', fontSize: 11 }}>
+                                {cand.studentCode} • {cand.major || 'Kỹ thuật'} ({cand.cohort || 'K16'})
+                              </Typography>
+                            </Box>
+                          </Box>
+
+                          <Button
+                            size="small"
+                            variant="contained"
+                            disabled={invitingId === cand.studentProfileId}
+                            startIcon={
+                              invitingId === cand.studentProfileId ? (
+                                <CircularProgress size={12} color="inherit" />
+                              ) : (
+                                <PersonAddIcon sx={{ fontSize: 14 }} />
+                              )
+                            }
+                            onClick={() => handleInviteMember(cand.studentProfileId, cand.fullName)}
+                            sx={{
+                              height: 28,
+                              fontSize: 11,
+                              fontWeight: 700,
+                              textTransform: 'none',
+                              borderRadius: 1,
+                              bgcolor: '#0058be',
+                              boxShadow: 'none',
+                              '&:hover': { bgcolor: '#0049a3' },
+                            }}
+                          >
+                            {invitingId === cand.studentProfileId ? 'Đang gửi...' : 'Mời'}
+                          </Button>
+                        </Paper>
+                      ))}
+                    </Box>
+                  )}
+                </>
               ) : (
-                <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, maxHeight: 380, overflowY: 'auto' }}>
-                  {filteredCandidates.map((cand) => (
-                    <Paper
-                      key={cand.studentProfileId || cand.studentCode}
-                      elevation={0}
-                      sx={{
-                        p: 1.2,
-                        px: 1.5,
-                        borderRadius: 1.5,
-                        bgcolor: '#fafbff',
-                        border: '1px solid #eef2f6',
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'space-between',
-                      }}
-                    >
-                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
-                        <Avatar sx={{ width: 32, height: 32, bgcolor: '#0284c7', fontSize: 11, fontWeight: 700 }}>
-                          {cand.fullName?.charAt(0) || 'S'}
-                        </Avatar>
-                        <Box>
-                          <Typography variant="body2" sx={{ fontWeight: 700, color: '#131b2e', fontSize: 12 }}>
-                            {cand.fullName}
-                          </Typography>
-                          <Typography variant="caption" sx={{ color: '#6b7280', fontSize: 11 }}>
-                            {cand.studentCode} • {cand.major || 'Kỹ thuật'} ({cand.cohort || 'K16'})
-                          </Typography>
-                        </Box>
-                      </Box>
-
-                      <Button
-                        size="small"
-                        variant="contained"
-                        disabled={invitingId === cand.studentProfileId}
-                        startIcon={
-                          invitingId === cand.studentProfileId ? (
-                            <CircularProgress size={12} color="inherit" />
-                          ) : (
-                            <PersonAddIcon sx={{ fontSize: 14 }} />
-                          )
-                        }
-                        onClick={() => handleInviteMember(cand.studentProfileId, cand.fullName)}
-                        sx={{
-                          height: 28,
-                          fontSize: 11,
-                          fontWeight: 700,
-                          textTransform: 'none',
-                          borderRadius: 1,
-                          bgcolor: '#0058be',
-                          boxShadow: 'none',
-                          '&:hover': { bgcolor: '#0049a3' },
-                        }}
-                      >
-                        {invitingId === cand.studentProfileId ? 'Đang gửi...' : 'Mời'}
-                      </Button>
-                    </Paper>
-                  ))}
+                <Box sx={{ textAlign: 'center', py: 6, px: 2 }}>
+                  <GroupsIcon sx={{ fontSize: 48, color: '#94a3b8', mb: 1.5 }} />
+                  <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#131b2e', mb: 1 }}>
+                    Bạn là Thành viên của nhóm
+                  </Typography>
+                  <Typography variant="body2" sx={{ color: '#64748b', fontSize: 13, maxWidth: 320, mx: 'auto' }}>
+                    Theo quy định hệ thống, chỉ <strong>Trưởng nhóm</strong> mới có quyền xem danh sách ứng viên cùng lớp và gửi lời mời tham gia nhóm.
+                  </Typography>
                 </Box>
               )}
             </Paper>
