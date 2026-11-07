@@ -371,7 +371,7 @@ export default function GroupInviteManager() {
   const selectedClass = myClasses.find((c) => c.classId === selectedClassId) || null
 
   return (
-    <Box sx={{ maxWidth: 1200, mx: 'auto' }}>
+    <Box>
       {/* Header section */}
       <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
         <Box>

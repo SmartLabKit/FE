@@ -305,7 +305,7 @@ export default function SemesterClassManager({ onNext }) {
   const currentSemester = semesters.find((s) => s.semesterId === selectedSemesterId)
 
   return (
-    <Box sx={{ maxWidth: 1250, mx: 'auto' }}>
+    <Box>
       {/* Header section */}
       <Box sx={{ mb: 3 }}>
         <Typography variant="h5" sx={{ fontWeight: 800, color: '#131b2e', mb: 0.5 }}>

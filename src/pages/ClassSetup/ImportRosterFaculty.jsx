@@ -269,7 +269,7 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
   }
 
   return (
-    <Box sx={{ maxWidth: 1200, mx: 'auto' }}>
+    <Box>
       {/* Breadcrumb Header */}
       <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
         <Box>
