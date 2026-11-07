@@ -109,15 +109,43 @@ export default function StockReceiptDetail() {
             <CardContent>
               <Typography sx={{ mb: 1.5, fontWeight: 800 }}>Dòng hàng nhập</Typography>
               <TableContainer><Table size="small">
-                <TableHead><TableRow sx={{ bgcolor: '#faf9ff' }}>{['Linh kiện', 'Số lượng', 'Đơn giá', 'Thành tiền', 'Tủ cất', 'Serial / Version'].map((heading) => <TableCell key={heading}>{heading}</TableCell>)}</TableRow></TableHead>
-                <TableBody>{lines.map((line, index) => <TableRow key={line.receiptLineId || line.id || index}>
-                  <TableCell>{line.componentName || line.componentCode || line.componentId || '—'}</TableCell>
-                  <TableCell>{line.quantity ?? '—'}</TableCell>
-                  <TableCell>{money(line.unitPrice)} ₫</TableCell>
-                  <TableCell>{money(line.totalAmount ?? Number(line.quantity || 0) * Number(line.unitPrice || 0))} ₫</TableCell>
-                  <TableCell>{line.cabinetCode || line.cabinetName || '—'}</TableCell>
-                  <TableCell>{[...getSerials(line).map((item) => typeof item === 'string' ? item : item.serialNumber), line.version].filter(Boolean).join(' · ') || '—'}</TableCell>
-                </TableRow>)}</TableBody>
+                <TableHead><TableRow sx={{ bgcolor: '#faf9ff' }}>{['Linh kiện', 'Số lượng', 'Đơn giá', 'Thành tiền', 'Tủ cất', 'Serial / Version / Bảo hành'].map((heading) => <TableCell key={heading}>{heading}</TableCell>)}</TableRow></TableHead>
+                <TableBody>{lines.map((line, index) => {
+                  const units = line.units || line.Units || []
+                  const hasUnits = units.length > 0
+                  return <TableRow key={line.receiptLineId || line.id || index}>
+                    <TableCell>{line.componentName || line.componentCode || line.componentId || '—'}</TableCell>
+                    <TableCell>{line.quantity ?? '—'}</TableCell>
+                    <TableCell>{money(line.unitPrice)} ₫</TableCell>
+                    <TableCell>{money(line.totalAmount ?? Number(line.quantity || 0) * Number(line.unitPrice || 0))} ₫</TableCell>
+                    <TableCell>{line.cabinetCode || line.cabinetName || '—'}</TableCell>
+                    <TableCell>
+                      {hasUnits ? (
+                        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                          {units.map((u, uIdx) => (
+                            <Box key={u.itemId || u.serialNumber || uIdx} sx={{ fontSize: 12 }}>
+                              <strong>{u.serialNumber || u.SerialNumber || '—'}</strong>
+                              {(u.hardwareVersion || u.HardwareVersion) && (
+                                <Chip size="small" label={`v${u.hardwareVersion || u.HardwareVersion}`} sx={{ height: 18, fontSize: 10, ml: 0.5 }} />
+                              )}
+                              {(u.warrantyExpiresAt || u.WarrantyExpiresAt) && (
+                                <Chip
+                                  size="small"
+                                  color="info"
+                                  variant="outlined"
+                                  label={`BH đến: ${new Date(u.warrantyExpiresAt || u.WarrantyExpiresAt).toLocaleDateString('vi-VN')}`}
+                                  sx={{ height: 18, fontSize: 10, ml: 0.5 }}
+                                />
+                              )}
+                            </Box>
+                          ))}
+                        </Box>
+                      ) : (
+                        [...getSerials(line).map((item) => typeof item === 'string' ? item : item.serialNumber), line.version].filter(Boolean).join(' · ') || '—'
+                      )}
+                    </TableCell>
+                  </TableRow>
+                })}</TableBody>
               </Table></TableContainer>
             </CardContent>
           </Card>
