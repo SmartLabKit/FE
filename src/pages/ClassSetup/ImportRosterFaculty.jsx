@@ -46,6 +46,7 @@ import {
 } from '@mui/icons-material'
 import { academicService } from '../../services/academicService'
 import { userService } from '../../services/userService'
+import { authService } from '../../services/authService'
 
 /**
  * ImportRosterFaculty Component (Actor: ADMIN / LAB STAFF)
@@ -601,6 +602,8 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
     }
 
     setCreatingInstructor(true)
+    setNewInstructorErrors({})
+
     const newInst = {
       code: newInstructorForm.instructorCode.trim().toUpperCase(),
       name: newInstructorForm.fullName.trim(),
@@ -608,8 +611,9 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
       title: newInstructorForm.academicTitle?.trim() || 'Giảng viên',
     }
 
+    let isNewAccount
     try {
-      const username = newInst.email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '') || newInst.code.toLowerCase()
+      const username = newInst.email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '') || newInst.code.toLowerCase().replace(/[^a-zA-Z0-9]/g, '')
       await userService.createUser({
         username,
         email: newInst.email,
@@ -620,11 +624,51 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
         instructorCode: newInst.code,
         academicTitle: newInst.title,
       })
+      isNewAccount = true
     } catch (err) {
-      console.warn('Lưu tài khoản giảng viên vào hệ thống:', err.message)
-    } finally {
-      setCreatingInstructor(false)
+      const errMsg = err.message || ''
+      if (
+        errMsg.toLowerCase().includes('đã tồn tại') ||
+        errMsg.toLowerCase().includes('already exists') ||
+        errMsg.toLowerCase().includes('duplicate') ||
+        errMsg.toLowerCase().includes('đã được sử dụng')
+      ) {
+        isNewAccount = false
+      } else {
+        setNewInstructorErrors({ submit: errMsg || 'Không thể tạo tài khoản giảng viên trên hệ thống.' })
+        setCreatingInstructor(false)
+        return
+      }
     }
+
+    // Tự động kích hoạt gửi email thông báo / đặt lại mật khẩu cho giảng viên
+    let emailSent = false
+    try {
+      await authService.forgotPassword({ email: newInst.email })
+      emailSent = true
+    } catch (emailErr) {
+      console.warn('Gửi email thông báo cho giảng viên:', emailErr.message)
+    }
+
+    // Nếu lớp học đang được chọn, tự động phân công giảng viên cho lớp luôn
+    if (selectedClassId) {
+      try {
+        const assignPayload = {
+          classId: selectedClassId,
+          instructorCode: newInst.code,
+          fullName: newInst.name,
+          email: newInst.email,
+          academicTitle: newInst.title,
+        }
+        const assignRes = await academicService.assignInstructor(assignPayload)
+        setAssignedResult(assignRes)
+        fetchClasses()
+      } catch (assignErr) {
+        console.warn('Tự động phân công giảng viên vào lớp:', assignErr.message)
+      }
+    }
+
+    setCreatingInstructor(false)
 
     // Cập nhật danh sách giảng viên cục bộ (đặt lên đầu danh sách để dễ thấy)
     setInstructors((prev) => {
@@ -650,7 +694,13 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
     setOpenAssignDialog(false)
     setToast({
       open: true,
-      message: `Đã thêm giảng viên ${newInst.name} và tự động chọn để phân công!`,
+      message: `Đã lưu giảng viên ${newInst.name}! ${
+        emailSent
+          ? `Hệ thống đã gửi email kích hoạt tới ${newInst.email}.`
+          : isNewAccount
+            ? `Tài khoản đã tạo thành công với mật khẩu mặc định: Lecturer@123.`
+            : `Đã chọn giảng viên để phân công.`
+      }`,
       severity: 'success',
     })
   }
@@ -1443,15 +1493,22 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
         fullWidth
         slotProps={{ paper: { sx: { borderRadius: 2 } } }}
       >
-        <DialogTitle sx={{ fontWeight: 800, fontSize: 16, display: 'flex', alignItems: 'center', gap: 1 }}>
-          <PersonAddIcon sx={{ color: '#0058be' }} />
-          Thêm giảng viên mới
+        <DialogTitle sx={{ fontWeight: 800, fontSize: 16 }}>
+          Phân công giảng viên mới
         </DialogTitle>
         <DialogContent dividers>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
-            <Typography variant="body2" sx={{ color: '#6b7280', fontSize: 12 }}>
-              Nhập thông tin để tạo giảng viên mới vào hệ thống và tự động chọn để phân công cho lớp.
-            </Typography>
+            {newInstructorErrors.submit && (
+              <Alert severity="error" sx={{ mb: 1 }}>
+                {newInstructorErrors.submit}
+              </Alert>
+            )}
+
+            <Box sx={{ p: 1.5, bgcolor: '#f0f9ff', borderRadius: 1.5, border: '1px solid #bae6fd' }}>
+              <Typography variant="caption" sx={{ color: '#0369a1', display: 'block', lineHeight: 1.5 }}>
+                Tài khoản giảng viên sẽ được tạo trên hệ thống với mật khẩu khởi tạo (<strong>Lecturer@123</strong>) và hệ thống sẽ tự động gửi email kích hoạt/đặt lại mật khẩu tới hộp thư của giảng viên.
+              </Typography>
+            </Box>
 
             <Box>
               <Typography variant="caption" sx={{ fontWeight: 700, color: '#6b7280', display: 'block', mb: 0.5 }}>
@@ -1531,7 +1588,7 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
             onClick={() => setOpenAssignDialog(false)}
             sx={{ textTransform: 'none', fontWeight: 700, color: '#6b7280' }}
           >
-            Hủy bỏ
+            Đóng
           </Button>
           <Button
             variant="contained"
@@ -1540,7 +1597,7 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
             startIcon={creatingInstructor ? <CircularProgress size={16} color="inherit" /> : <CheckCircleIcon />}
             sx={{ bgcolor: '#0058be', textTransform: 'none', fontWeight: 700, '&:hover': { bgcolor: '#0049a3' } }}
           >
-            {creatingInstructor ? 'Đang thêm...' : 'Lưu & Chọn giảng viên này'}
+            {creatingInstructor ? 'Đang lưu...' : 'Lưu lựa chọn'}
           </Button>
         </DialogActions>
       </Dialog>
