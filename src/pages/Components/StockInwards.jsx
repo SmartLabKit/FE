@@ -13,7 +13,21 @@ import { extractErrorMessage } from '../../services/api'
 
 const now = new Date()
 const today = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}-${String(now.getDate()).padStart(2, '0')}`
-const newLine = () => ({ key: `${Date.now()}-${Math.random()}`, componentId: '', quantity: '1', unitPrice: '', cabinetId: '', serialsText: '', version: '' })
+const defaultWarrantyDate = () => {
+  const d = new Date()
+  d.setFullYear(d.getFullYear() + 1)
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`
+}
+const newLine = () => ({
+  key: `${Date.now()}-${Math.random()}`,
+  componentId: '',
+  quantity: '1',
+  unitPrice: '',
+  cabinetId: '',
+  serialsText: '',
+  version: '1.0',
+  warrantyExpiresAt: defaultWarrantyDate(),
+})
 const lineArray = (receipt) => receipt?.items || receipt?.lines || receipt?.receiptLines || []
 const serialList = (value) => Array.isArray(value) ? value : []
 
@@ -50,15 +64,24 @@ export default function StockInwards() {
           setSupplier(receipt.supplierName || '')
           setInvoiceNumber(receipt.invoiceNumber || '')
           setReceivedAt((receipt.receivedAt || today).slice(0, 10))
-          setLines(lineArray(receipt).map((line) => ({
-            ...newLine(),
-            componentId: line.componentId || '',
-            quantity: String(line.quantity ?? ''),
-            unitPrice: String(line.unitPrice ?? ''),
-            cabinetId: line.cabinetId || '',
-            serialsText: serialList(line.serialNumbers || line.serials).map((serial) => typeof serial === 'string' ? serial : serial.serialNumber).join('\n'),
-            version: line.version || '',
-          })))
+          setLines(lineArray(receipt).map((line) => {
+            const units = line.units || line.Units || []
+            const firstUnit = units[0] || {}
+            return {
+              ...newLine(),
+              componentId: line.componentId || '',
+              quantity: String(line.quantity ?? ''),
+              unitPrice: String(line.unitPrice ?? ''),
+              cabinetId: line.cabinetId || '',
+              serialsText: units.length > 0
+                ? units.map((u) => u.serialNumber || u.SerialNumber || '').filter(Boolean).join('\n')
+                : serialList(line.serialNumbers || line.serials).map((serial) => typeof serial === 'string' ? serial : serial.serialNumber).join('\n'),
+              version: firstUnit.hardwareVersion || firstUnit.HardwareVersion || line.version || '1.0',
+              warrantyExpiresAt: firstUnit.warrantyExpiresAt
+                ? firstUnit.warrantyExpiresAt.slice(0, 10)
+                : defaultWarrantyDate(),
+            }
+          }))
         }
       } catch (loadError) {
         if (active) setError(extractErrorMessage(loadError, 'Không thể tải dữ liệu nhập kho.'))
@@ -79,27 +102,63 @@ export default function StockInwards() {
     const preparedLines = lines.map((line) => {
       const quantity = Number(line.quantity)
       const component = selectedComponent(line)
+      const isHighValue = component?.trackingType === 'HIGH_VALUE'
       const serialNumbers = line.serialsText.split(/\r?\n/).map((item) => item.trim()).filter(Boolean)
-      return { line, component, quantity, unitPrice: Number(line.unitPrice), serialNumbers }
+      const units = isHighValue
+        ? serialNumbers.map((serial) => ({
+            serialNumber: serial,
+            SerialNumber: serial,
+            hardwareVersion: (line.version || '1.0').trim(),
+            HardwareVersion: (line.version || '1.0').trim(),
+            warrantyExpiresAt: line.warrantyExpiresAt ? `${line.warrantyExpiresAt}T00:00:00Z` : null,
+            WarrantyExpiresAt: line.warrantyExpiresAt ? `${line.warrantyExpiresAt}T00:00:00Z` : null,
+            note: null,
+          }))
+        : []
+      return { line, component, quantity, unitPrice: Number(line.unitPrice), serialNumbers, isHighValue, units }
     })
     if (!supplier.trim()) return setError('Vui lòng nhập nhà cung cấp.')
     if (!preparedLines.length || preparedLines.some(({ line, quantity, unitPrice }) => (
       !line.componentId || !line.cabinetId || !Number.isInteger(quantity) || quantity < 1 || !Number.isFinite(unitPrice) || unitPrice < 0
     ))) return setError('Mỗi dòng cần có linh kiện, số lượng nguyên dương, đơn giá hợp lệ và tủ lưu trữ.')
-    const invalidHighValue = preparedLines.find(({ line, component, quantity, serialNumbers }) => (
-      component?.trackingType === 'HIGH_VALUE' && (serialNumbers.length !== quantity || serialNumbers.some((serial) => !serial.trim()) || !line.version.trim())
-    ))
-    if (invalidHighValue) return setError(`Linh kiện ${invalidHighValue.component?.componentName || ''} cần đúng ${invalidHighValue.quantity} serial và có version.`)
+    const invalidHighValue = preparedLines.find(({ line, component, quantity, serialNumbers }) => {
+      if (component?.trackingType !== 'HIGH_VALUE') return false
+      return (
+        serialNumbers.length !== quantity ||
+        serialNumbers.some((serial) => !serial.trim()) ||
+        !line.version?.trim() ||
+        !line.warrantyExpiresAt
+      )
+    })
+    if (invalidHighValue) {
+      const compName = invalidHighValue.component?.componentName || invalidHighValue.component?.componentCode || 'HIGH_VALUE'
+      if (invalidHighValue.serialNumbers.length !== invalidHighValue.quantity) {
+        return setError(`Linh kiện ${compName} là thiết bị đắt tiền, cần nhập đủ ${invalidHighValue.quantity} số serial cho từng máy (hiện có ${invalidHighValue.serialNumbers.length}).`)
+      }
+      if (!invalidHighValue.line.version?.trim()) {
+        return setError(`Vui lòng nhập phiên bản (version) cho ${compName}.`)
+      }
+      if (!invalidHighValue.line.warrantyExpiresAt) {
+        return setError(`Vui lòng chọn ngày "Bảo hành đến" cho ${compName}.`)
+      }
+    }
     const payload = {
       supplierName: supplier.trim(),
       invoiceNumber: invoiceNumber.trim() || null,
       receivedAt: `${receivedAt}T00:00:00Z`,
-      items: preparedLines.map(({ line, quantity, unitPrice, serialNumbers, component }) => ({
+      items: preparedLines.map(({ line, quantity, unitPrice, serialNumbers, isHighValue, units }) => ({
         componentId: line.componentId,
         cabinetId: line.cabinetId,
         quantity,
         unitPrice,
-        ...(component?.trackingType === 'HIGH_VALUE' ? { serialNumbers, version: line.version.trim() } : {}),
+        units,
+        Units: units,
+        ...(isHighValue
+          ? {
+              serialNumbers,
+              version: (line.version || '1.0').trim(),
+            }
+          : {}),
       })),
     }
     setLoading(true)
@@ -140,7 +199,7 @@ export default function StockInwards() {
             </Box>
             <TableContainer sx={{ border: '1px solid #d8dced' }}>
               <Table size="small">
-                <TableHead><TableRow sx={{ bgcolor: '#faf9ff' }}>{['Linh kiện', 'Số lượng', 'Đơn giá', 'Tủ cất', 'Serial / Version', ''].map((head) => <TableCell key={head}>{head}</TableCell>)}</TableRow></TableHead>
+                <TableHead><TableRow sx={{ bgcolor: '#faf9ff' }}>{['Linh kiện', 'Số lượng', 'Đơn giá', 'Tủ cất', 'Thông tin máy (Serial / Version / Bảo hành)', ''].map((head) => <TableCell key={head}>{head}</TableCell>)}</TableRow></TableHead>
                 <TableBody>{lines.map((line) => {
                   const component = selectedComponent(line)
                   const isHighValue = component?.trackingType === 'HIGH_VALUE'
@@ -153,9 +212,35 @@ export default function StockInwards() {
                     <TableCell sx={{ minWidth: 210 }}><TextField fullWidth required select size="small" label="Tủ lưu trữ" value={line.cabinetId} onChange={(event) => updateLine(line.key, { cabinetId: event.target.value })}>
                       {cabinets.filter((cabinet) => cabinet.isActive !== false).map((cabinet) => <MenuItem key={cabinet.cabinetId} value={cabinet.cabinetId}>{cabinet.cabinetCode} — {cabinet.cabinetName || cabinet.name} {cabinet.labRoomName ? `(${cabinet.labRoomName})` : ''}</MenuItem>)}
                     </TextField></TableCell>
-                    <TableCell sx={{ minWidth: 230 }}>{isHighValue ? <Box sx={{ display: 'grid', gap: 1 }}>
-                      <TextField required size="small" label="Serial (mỗi dòng một serial)" multiline minRows={2} value={line.serialsText} onChange={(event) => updateLine(line.key, { serialsText: event.target.value })} />
-                      <TextField required size="small" label="Version" value={line.version} onChange={(event) => updateLine(line.key, { version: event.target.value })} />
+                    <TableCell sx={{ minWidth: 280 }}>{isHighValue ? <Box sx={{ display: 'grid', gap: 1 }}>
+                      <TextField
+                        required
+                        size="small"
+                        label={Number(line.quantity) > 1 ? `Serial (${line.quantity} máy, mỗi dòng 1 serial) *` : 'Số Serial *'}
+                        placeholder={Number(line.quantity) > 1 ? 'SN-001\nSN-002' : 'VD: SE2027_2351_2132'}
+                        multiline={Number(line.quantity) > 1}
+                        minRows={Number(line.quantity) > 1 ? 2 : 1}
+                        value={line.serialsText}
+                        onChange={(event) => updateLine(line.key, { serialsText: event.target.value })}
+                      />
+                      <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+                        <TextField
+                          required
+                          size="small"
+                          label="Version *"
+                          value={line.version}
+                          onChange={(event) => updateLine(line.key, { version: event.target.value })}
+                        />
+                        <TextField
+                          required
+                          type="date"
+                          size="small"
+                          label="Bảo hành đến *"
+                          value={line.warrantyExpiresAt}
+                          onChange={(event) => updateLine(line.key, { warrantyExpiresAt: event.target.value })}
+                          slotProps={{ inputLabel: { shrink: true } }}
+                        />
+                      </Box>
                     </Box> : <Typography color="text.secondary" fontSize={12}>{component ? component.trackingType : 'Chọn linh kiện'}</Typography>}</TableCell>
                     <TableCell><Button aria-label="Xóa dòng" color="error" onClick={() => setLines((current) => current.filter((item) => item.key !== line.key))}><DeleteIcon /></Button></TableCell>
                   </TableRow>

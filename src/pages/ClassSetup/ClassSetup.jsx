@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Box, Container, Tab, Tabs, Paper } from '@mui/material'
 import { useLocation, useNavigate } from 'react-router-dom'
 import PortalLayout from '../../components/layout/PortalLayout'
@@ -42,10 +43,27 @@ export default function ClassSetup() {
     }
   }
 
+  // Tự động điều hướng /class-setup về trang chính xác của từng role
+  useEffect(() => {
+    if (location.pathname === '/class-setup') {
+      if (currentUser.roleLabel === 'STUDENT') {
+        navigate('/class-setup/student/groups', { replace: true })
+      } else if (currentUser.roleLabel === 'LECTURER') {
+        navigate('/class-setup/lecturer/quotas', { replace: true })
+      } else if (currentUser.roleLabel === 'INVENTORYMANAGER') {
+        navigate('/class-setup/admin/stock-inwards', { replace: true })
+      } else if (currentUser.roleLabel === 'LABSTAFF') {
+        navigate('/class-setup/admin/lab-rooms', { replace: true })
+      } else {
+        navigate('/class-setup/admin/semesters', { replace: true })
+      }
+    }
+  }, [location.pathname, currentUser, navigate])
+
   // Phân lập ranh giới vai trò dựa trên tài khoản đăng nhập & đường dẫn
   const isLecturerRoute = location.pathname.includes('/lecturer') || currentUser.roleLabel === 'LECTURER'
   const isStudentRoute = location.pathname.includes('/student') || currentUser.roleLabel === 'STUDENT'
-  const isAdminRoute = !isLecturerRoute && !isStudentRoute
+  const isAdminRoute = !isLecturerRoute && !isStudentRoute && (currentUser.roleLabel === 'ADMIN' || !currentUser.roleLabel)
 
   return (
     <PortalLayout>
@@ -86,11 +104,11 @@ export default function ClassSetup() {
               </Tabs>
             </Paper>
 
-            {adminTab === 0 && <SemesterClassManager onNext={() => handleAdminTabChange(null, 1)} />}
+            {adminTab === 0 && <SemesterClassManager onNext={() => handleAdminTabChange(null, 2)} />}
             {adminTab === 1 && <CourseManager />}
             {adminTab === 2 && (
               <ImportRosterFaculty
-                onPrev={() => handleAdminTabChange(null, 1)}
+                onPrev={() => handleAdminTabChange(null, 0)}
               />
             )}
           </Box>

@@ -21,12 +21,9 @@ import {
   Typography,
 } from '@mui/material'
 import {
-  Dashboard as DashboardIcon,
   Category as CategoryIcon,
   CompareArrows as BorrowReturnIcon,
-  QrCodeScanner as QrCodeIcon,
   AssignmentTurnedIn as ApprovalsIcon,
-  Assessment as ReportsIcon,
   Search as SearchIcon,
   NotificationsOutlined as NotificationsIcon,
   Menu as MenuIcon,
@@ -38,6 +35,7 @@ import {
   Groups as GroupsIcon,
   MenuBook as MenuBookIcon,
   Tune as TuneIcon,
+  Close as CloseIcon,
 } from '@mui/icons-material'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth, DEMO_ACCOUNTS } from '../../context/AuthContext'
@@ -56,7 +54,7 @@ export default function PortalLayout({
   currentUser: propUser,
   activeMenuKey,
 }) {
-  const { user, logout, hasPermission, hasRole } = useAuth()
+  const { user, logout } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -91,101 +89,135 @@ export default function PortalLayout({
     navigate('/login')
   }
 
-  // Danh sách navigation ở menu bên trái
-  const isStudent = currentUser.roleLabel === 'STUDENT' || hasRole?.('Student')
-  const isLecturer = currentUser.roleLabel === 'LECTURER' || hasRole?.('Lecturer')
-  const isAdmin = currentUser.roleLabel === 'ADMIN' || hasRole?.('Admin')
+  // Danh sách navigation ở menu bên trái lọc nghiêm ngặt theo vai trò
+  const userRoles = (currentUser.roles || [currentUser.roleLabel || 'Admin']).map((r) => String(r).toUpperCase())
+  const hasUserRole = (...targetRoles) => {
+    return targetRoles.some((r) => userRoles.includes(r.toUpperCase()))
+  }
+
+  const isStudent = hasUserRole('Student')
+  const isLecturer = hasUserRole('Lecturer')
 
   const navItems = [
-    { label: 'Dashboard', icon: <DashboardIcon fontSize="small" />, path: '/class-setup' },
-    // MF2: Menu dành riêng cho Sinh viên
+    // 1. Phân hệ SINH VIÊN (Student)
     {
       label: 'Nhóm & Lời mời',
       icon: <GroupsIcon fontSize="small" />,
       path: '/class-setup/student/groups',
-      studentOnly: true,
+      roles: ['Student'],
     },
-    // MF2: Menu dành cho Giảng viên
+    {
+      label: 'Mượn / Trả linh kiện',
+      icon: <BorrowReturnIcon fontSize="small" />,
+      path: '/borrow/my-requests',
+      roles: ['Student'],
+    },
+
+    // 2. Phân hệ GIẢNG VIÊN (Lecturer)
     {
       label: 'Định mức môn học',
       icon: <SchoolIcon fontSize="small" />,
       path: '/class-setup/lecturer/quotas',
-      lecturerOnly: true,
+      roles: ['Lecturer'],
     },
-    // MF2: Menu dành cho Quản trị viên (Admin)
+    {
+      label: 'Duyệt yêu cầu mượn',
+      icon: <ApprovalsIcon fontSize="small" />,
+      path: '/borrow/my-requests',
+      roles: ['Lecturer'],
+    },
+
+    // 3. Phân hệ HỌC VỤ & LỚP HỌC (Admin)
     {
       label: 'Kỳ học & Lớp môn',
       icon: <SchoolIcon fontSize="small" />,
       path: '/class-setup/admin/semesters',
-      adminOnly: true,
+      roles: ['Admin'],
     },
     {
       label: 'Danh mục Môn học',
       icon: <MenuBookIcon fontSize="small" />,
       path: '/class-setup/admin/courses',
-      adminOnly: true,
+      roles: ['Admin'],
     },
     {
       label: 'Nhập Roster & Phân công',
       icon: <ApprovalsIcon fontSize="small" />,
       path: '/class-setup/admin/roster',
-      adminOnly: true,
+      roles: ['Admin'],
     },
-    { label: 'Components', icon: <CategoryIcon fontSize="small" />, path: '/class-setup/admin/components' },
-    { label: 'Danh mục linh kiện', icon: <CategoryIcon fontSize="small" />, path: '/class-setup/admin/categories' },
-    { label: 'Phòng lab', icon: <SchoolIcon fontSize="small" />, path: '/class-setup/admin/lab-rooms' },
-    { label: 'Tủ lưu trữ', icon: <ApprovalsIcon fontSize="small" />, path: '/class-setup/admin/cabinets' },
-    { label: 'Lập phiếu nhập', icon: <ApprovalsIcon fontSize="small" />, path: '/class-setup/admin/stock-inwards' },
-    { label: 'Phiếu nhập kho', icon: <ApprovalsIcon fontSize="small" />, path: '/class-setup/admin/stock-receipts' },
-    // Quản lý Tài khoản & Phân quyền dành cho Quản trị viên (Admin)
+
+    // 4. Phân hệ QUẢN LÝ KHO & LINH KIỆN (InventoryManager / LabStaff / Admin)
+    {
+      label: isStudent || isLecturer ? 'Tra cứu linh kiện' : 'Linh kiện kho',
+      icon: <CategoryIcon fontSize="small" />,
+      path: '/class-setup/admin/components',
+      roles: ['Admin', 'InventoryManager', 'LabStaff', 'Lecturer', 'Student'],
+    },
+    {
+      label: 'Danh mục linh kiện',
+      icon: <CategoryIcon fontSize="small" />,
+      path: '/class-setup/admin/categories',
+      roles: ['InventoryManager'],
+    },
+    {
+      label: 'Phòng lab',
+      icon: <SchoolIcon fontSize="small" />,
+      path: '/class-setup/admin/lab-rooms',
+      roles: ['InventoryManager', 'LabStaff'],
+    },
+    {
+      label: 'Tủ lưu trữ',
+      icon: <ApprovalsIcon fontSize="small" />,
+      path: '/class-setup/admin/cabinets',
+      roles: ['InventoryManager', 'LabStaff'],
+    },
+    {
+      label: 'Lập phiếu nhập',
+      icon: <ApprovalsIcon fontSize="small" />,
+      path: '/class-setup/admin/stock-inwards',
+      roles: ['InventoryManager'],
+    },
+    {
+      label: 'Phiếu nhập kho',
+      icon: <ApprovalsIcon fontSize="small" />,
+      path: '/class-setup/admin/stock-receipts',
+      roles: ['InventoryManager'],
+    },
+
+    // 5. Phân hệ BÀN GIAO & TRẢ ĐỒ (LabStaff)
+    {
+      label: 'Quản lý Mượn / Trả',
+      icon: <BorrowReturnIcon fontSize="small" />,
+      path: '/borrow/my-requests',
+      roles: ['LabStaff'],
+    },
+
+    // 6. Phân hệ QUẢN TRỊ HỆ THỐNG & TÀI KHOẢN (Admin)
     {
       label: 'Người dùng',
       icon: <PeopleIcon fontSize="small" />,
       path: '/admin/users',
-      adminOnly: true,
-      permission: 'USER_MANAGE',
+      roles: ['Admin'],
     },
     {
       label: 'Vai trò & Quyền',
       icon: <SecurityIcon fontSize="small" />,
       path: '/admin/roles',
-      adminOnly: true,
-      permission: 'ROLE_MANAGE',
+      roles: ['Admin'],
     },
     {
       label: 'Cài đặt hệ thống',
       icon: <TuneIcon fontSize="small" />,
       path: '/admin/system-settings',
-      adminOnly: true,
+      roles: ['Admin'],
     },
-    // MF5.1: Mượn / Trả dành cho Sinh viên & Duyệt yêu cầu cho Giảng viên
-    {
-      label: 'Duyệt yêu cầu',
-      icon: <BorrowReturnIcon fontSize="small" />,
-      path: '/borrow/my-requests',
-      lecturerOnly: true,
-    },
-    {
-      label: 'Mượn / Trả',
-      icon: <BorrowReturnIcon fontSize="small" />,
-      path: '/borrow/my-requests',
-      studentOnly: true,
-    },
-    { label: 'Borrow / Return', icon: <BorrowReturnIcon fontSize="small" />, path: '/borrow/my-requests', adminOnly: true },
-    { label: 'QR Codes', icon: <QrCodeIcon fontSize="small" />, path: '#' },
-    { label: 'Reports', icon: <ReportsIcon fontSize="small" />, path: '#' },
   ]
 
-  // Lọc navigation theo vai trò và quyền
+  // Lọc navigation theo đúng vai trò tài khoản đăng nhập (loại bỏ hoàn toàn tính năng không liên quan)
   const visibleNavItems = navItems.filter((item) => {
-    if (item.studentOnly) return isStudent
-    if (item.lecturerOnly) return isLecturer
-    if (item.adminOnly) {
-      if (isAdmin) return true
-      if (item.permission && hasPermission?.(item.permission)) return true
-      return false
-    }
-    return true
+    if (!item.roles || item.roles.length === 0) return true
+    return item.roles.some((r) => hasUserRole(r))
   })
 
   const drawerContent = (
@@ -196,6 +228,7 @@ export default function PortalLayout({
         height: '100%',
         bgcolor: '#ffffff',
         borderRight: '1px solid #e4e6ef',
+        overflow: 'hidden',
       }}
     >
       {/* Brand Header */}
@@ -206,6 +239,7 @@ export default function PortalLayout({
           alignItems: 'center',
           gap: 1.5,
           borderBottom: '1px solid #f0f2f5',
+          flexShrink: 0,
         }}
       >
         <Box
@@ -225,7 +259,7 @@ export default function PortalLayout({
             LS
           </Typography>
         </Box>
-        <Box>
+        <Box sx={{ flexGrow: 1 }}>
           <Typography
             variant="subtitle1"
             sx={{ fontWeight: 800, color: '#0058be', lineHeight: 1.1, fontSize: 16 }}
@@ -239,10 +273,47 @@ export default function PortalLayout({
             PORTAL CORE V3.1
           </Typography>
         </Box>
+
+        {/* Nút đóng sidebar khi mở ở màn hình nhỏ / chia đôi cửa sổ */}
+        <IconButton
+          size="small"
+          onClick={() => setMobileOpen(false)}
+          sx={{
+            display: { md: 'none' },
+            color: '#808999',
+            '&:hover': { bgcolor: '#f4f6fa', color: '#131b2e' },
+          }}
+          aria-label="Đóng menu"
+        >
+          <CloseIcon fontSize="small" />
+        </IconButton>
       </Box>
 
-      {/* Main Navigation List */}
-      <List sx={{ px: 1.5, py: 2, flexGrow: 1 }}>
+      {/* Main Navigation List - Có thanh cuộn mượt mà khi menu dài */}
+      <List
+        sx={{
+          px: 1.5,
+          py: 1.5,
+          flexGrow: 1,
+          overflowY: 'auto',
+          overflowX: 'hidden',
+          scrollbarWidth: 'thin',
+          scrollbarColor: '#cbd5e1 transparent',
+          '&::-webkit-scrollbar': {
+            width: '5px',
+          },
+          '&::-webkit-scrollbar-track': {
+            backgroundColor: 'transparent',
+          },
+          '&::-webkit-scrollbar-thumb': {
+            backgroundColor: '#dcdfe6',
+            borderRadius: '4px',
+            '&:hover': {
+              backgroundColor: '#b4b9c8',
+            },
+          },
+        }}
+      >
         {visibleNavItems.map((item) => {
           const isComponentsRoute = location.pathname.startsWith('/class-setup/admin/components')
           const isStockInwardsRoute = location.pathname.startsWith('/class-setup/admin/stock-inwards')
@@ -292,18 +363,6 @@ export default function PortalLayout({
               ? isLecturerQuotasRoute
               : item.path === '/borrow/my-requests'
               ? isBorrowRoute
-              : item.path === '/class-setup'
-              ? location.pathname === '/class-setup' ||
-                (!isSemestersRoute &&
-                  !isCoursesRoute &&
-                  !isRosterRoute &&
-                  !isStudentGroupsRoute &&
-                  !isLecturerQuotasRoute &&
-                  !isBorrowRoute &&
-                  !isComponentsRoute &&
-                  !isStockInwardsRoute &&
-                  !isStorageAllocationRoute &&
-                  location.pathname.startsWith('/class-setup'))
               : location.pathname === item.path
 
           return (
@@ -348,7 +407,7 @@ export default function PortalLayout({
       </List>
 
       {/* Current Logged In Account Info Card on Sidebar Bottom */}
-      <Box sx={{ p: 2, borderTop: '1px solid #f0f2f5', bgcolor: '#fafbff' }}>
+      <Box sx={{ p: 2, borderTop: '1px solid #f0f2f5', bgcolor: '#fafbff', flexShrink: 0 }}>
         <Typography
           variant="caption"
           sx={{
@@ -486,7 +545,12 @@ export default function PortalLayout({
         ModalProps={{ keepMounted: true }}
         sx={{
           display: { xs: 'block', md: 'none' },
-          '& .MuiDrawer-paper': { boxSizing: 'border-box', width: 240 },
+          '& .MuiDrawer-paper': {
+            boxSizing: 'border-box',
+            width: 260,
+            overflow: 'hidden',
+            boxShadow: '4px 0 24px rgba(0, 0, 0, 0.12)',
+          },
         }}
       >
         {drawerContent}
@@ -501,7 +565,7 @@ export default function PortalLayout({
           display: { xs: 'none', md: 'block' },
         }}
       >
-        <Box sx={{ position: 'fixed', top: 0, bottom: 0, width: 240 }}>
+        <Box sx={{ position: 'fixed', top: 0, bottom: 0, width: 240, overflow: 'hidden' }}>
           {drawerContent}
         </Box>
       </Box>
