@@ -38,6 +38,7 @@ import {
 import { academicService } from '../../services/academicService'
 import { teamService } from '../../services/teamService'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
 
 async function getClassesForCurrentSemester() {
   const semesters = await academicService.getSemesters()
@@ -59,6 +60,9 @@ async function getClassesForCurrentSemester() {
  * 9. DELETE /api/teams/{teamId}/invitations/{studentProfileId} - Hủy lời mời
  */
 export default function GroupInviteManager() {
+  const navigate = useNavigate()
+  const { user } = useAuth()
+
   // State lớp học của sinh viên
   const [myClasses, setMyClasses] = useState([])
   const [selectedClassId, setSelectedClassId] = useState('')
@@ -652,6 +656,46 @@ export default function GroupInviteManager() {
       {/* NẾU ĐÃ CÓ NHÓM TRONG LỚP */}
       {currentTeam && !loadingTeam && (
         <Grid container spacing={3}>
+          <Grid size={{ xs: 12 }}>
+            <Paper
+              elevation={0}
+              sx={{
+                p: { xs: 2, sm: 2.5 },
+                borderRadius: 2,
+                border: '1px solid #bfdbfe',
+                bgcolor: '#eff6ff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: 2,
+              }}
+            >
+              <Box>
+                <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#131b2e' }}>
+                  Đồ án của {currentTeam.teamName}
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#475569', fontSize: 13 }}>
+                  Tạo hoặc xem project và danh sách linh kiện của nhóm.
+                </Typography>
+              </Box>
+              <Button
+                size="medium"
+                variant="contained"
+                onClick={() => navigate(`/class-setup/student/project/${currentTeam.teamId}`)}
+                sx={{
+                  bgcolor: '#0058be',
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  boxShadow: 'none',
+                  whiteSpace: 'nowrap',
+                  '&:hover': { bgcolor: '#0049a3' },
+                }}
+              >
+                Project của nhóm
+              </Button>
+            </Paper>
+          </Grid>
           {/* Cột Trái: Thông tin nhóm & Danh sách thành viên (GET /api/teams/{teamId}) */}
           <Grid size={{ xs: 12, md: 7 }}>
             <Paper
@@ -684,14 +728,6 @@ export default function GroupInviteManager() {
                       fontSize: 11,
                     }}
                   />
-                  <Button
-                    size="small"
-                    variant="contained"
-                    onClick={() => navigate(`/class-setup/student/project/${currentTeam.teamId}`)}
-                    sx={{ bgcolor: '#0058be', textTransform: 'none', fontWeight: 700, boxShadow: 'none' }}
-                  >
-                    Project của nhóm
-                  </Button>
                 </Box>
               </Box>
 
