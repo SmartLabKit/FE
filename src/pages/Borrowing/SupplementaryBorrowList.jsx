@@ -30,10 +30,10 @@ import {
   AssignmentReturn as AssignmentReturnIcon,
   Check as CheckIcon,
   Update as UpdateIcon,
-  Close as CloseIcon,
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import PortalLayout from '../../components/layout/PortalLayout'
+import ProjectApprovalDialog from './ProjectApprovalDialog'
 import {
   borrowService,
   MOCK_SUPPLEMENTARY_REQUESTS,
@@ -41,6 +41,7 @@ import {
   MOCK_RETURN_REQUESTS,
   MOCK_BORROW_EXTENSIONS,
 } from '../../services/borrowService'
+import { projectService } from '../../services/projectService'
 import { useAuth } from '../../context/AuthContext'
 
 /**
@@ -53,10 +54,13 @@ export default function SupplementaryBorrowList() {
 
   const isLecturer = user?.roleLabel === 'LECTURER' || user?.roles?.includes('Lecturer')
 
-  const [supplementaryRequests, setSupplementaryRequests] = useState(MOCK_SUPPLEMENTARY_REQUESTS)
+  const [supplementaryRequests] = useState(MOCK_SUPPLEMENTARY_REQUESTS)
   const [returnRequests, setReturnRequests] = useState(MOCK_RETURN_REQUESTS)
   const [borrowRequests, setBorrowRequests] = useState(MOCK_ORIGINAL_BORROWS)
   const [extensions, setExtensions] = useState(MOCK_BORROW_EXTENSIONS)
+  const [pendingProjects, setPendingProjects] = useState([])
+  const [pendingProjectsError, setPendingProjectsError] = useState('')
+  const [selectedProject, setSelectedProject] = useState(null)
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
 
   // State Modal xin gia hạn (POST /api/borrow-requests/{id}/extensions)
@@ -77,14 +81,12 @@ export default function SupplementaryBorrowList() {
     let isMounted = true
 
     Promise.all([
-      isLecturer ? borrowService.getPendingApprovalProjects() : Promise.resolve(null),
       borrowService.getReturnRequests(),
       borrowService.getMyBorrowRequests(),
       borrowService.getBorrowExtensions(),
     ])
-      .then(([suppData, retData, myBorrows, extData]) => {
+      .then(([retData, myBorrows, extData]) => {
         if (!isMounted) return
-        if (suppData?.items) setSupplementaryRequests(suppData.items)
         if (retData) setReturnRequests(retData)
         if (myBorrows?.items) setBorrowRequests(myBorrows.items)
         if (extData?.items) setExtensions(extData.items)
@@ -93,21 +95,41 @@ export default function SupplementaryBorrowList() {
         console.warn('Lỗi tải dữ liệu mượn trả:', err)
       })
 
+    if (isLecturer) {
+      projectService.getPendingApprovalProjects()
+        .then((data) => {
+          if (!isMounted) return
+          setPendingProjects(Array.isArray(data) ? data : data?.items || [])
+          setPendingProjectsError('')
+        })
+        .catch((err) => {
+          if (!isMounted) return
+          setPendingProjectsError(err.message || 'Không thể tải project chờ duyệt.')
+        })
+    }
+
     return () => {
       isMounted = false
     }
   }, [isLecturer])
 
   const refreshData = async () => {
+    if (isLecturer) {
+      try {
+        const projects = await projectService.getPendingApprovalProjects()
+        setPendingProjects(Array.isArray(projects) ? projects : projects?.items || [])
+        setPendingProjectsError('')
+      } catch (err) {
+        setPendingProjectsError(err.message || 'Không thể tải project chờ duyệt.')
+      }
+    }
     try {
-      const [suppData, retData, myBorrows, extData] = await Promise.all([
-        isLecturer ? borrowService.getPendingApprovalProjects() : Promise.resolve(null),
+      const [retData, myBorrows, extData] = await Promise.all([
         borrowService.getReturnRequests(),
         borrowService.getMyBorrowRequests(),
         borrowService.getBorrowExtensions(),
       ])
 
-      if (suppData?.items) setSupplementaryRequests(suppData.items)
       if (retData) setReturnRequests(retData)
       if (myBorrows?.items) setBorrowRequests(myBorrows.items)
       if (extData?.items) setExtensions(extData.items)
@@ -280,18 +302,6 @@ export default function SupplementaryBorrowList() {
     }
   }
 
-  // Hủy đơn mượn (POST /api/borrow-requests/{id}/cancel)
-  const handleCancelBorrow = async (borrow) => {
-    if (!window.confirm(`Bạn có chắc chắn muốn hủy đơn mượn ${borrow.requestCode}?`)) return
-    try {
-      await borrowService.cancelBorrowRequest(borrow.borrowRequestId, { reason: 'Nhóm chủ động hủy đơn' })
-      setToast({ open: true, message: `Đã hủy đơn mượn ${borrow.requestCode} thành công`, severity: 'success' })
-      await refreshData()
-    } catch (err) {
-      setToast({ open: true, message: err.message || 'Hủy đơn thất bại', severity: 'error' })
-    }
-  }
-
   return (
     <PortalLayout
       headerTitle="Quản lý mượn linh kiện"
@@ -348,6 +358,81 @@ export default function SupplementaryBorrowList() {
             </Box>
           )}
         </Box>
+
+        {isLecturer && (
+          <Paper
+            elevation={0}
+            sx={{ p: 3, mb: 3, borderRadius: 2, border: '1px solid #e4e6ef', bgcolor: '#ffffff' }}
+          >
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, gap: 1 }}>
+              <Box>
+                <Typography variant="h6" sx={{ fontWeight: 800, color: '#131b2e' }}>
+                  Project chờ duyệt
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  GET /api/projects/pending-approval
+                </Typography>
+              </Box>
+              <Chip
+                label={`${pendingProjects.length} project`}
+                size="small"
+                sx={{ bgcolor: '#fff7ed', color: '#c2410c', fontWeight: 800 }}
+              />
+            </Box>
+            {pendingProjectsError && <Alert severity="error" sx={{ mb: 2 }}>{pendingProjectsError}</Alert>}
+            <TableContainer sx={{ border: '1px solid #f0f2f5', borderRadius: 1.5 }}>
+              <Table size="small">
+                <TableHead sx={{ bgcolor: '#fafbff' }}>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 800, fontSize: 11 }}>PROJECT</TableCell>
+                    <TableCell sx={{ fontWeight: 800, fontSize: 11 }}>NHÓM / LỚP</TableCell>
+                    <TableCell sx={{ fontWeight: 800, fontSize: 11 }}>NGÀY GỬI</TableCell>
+                    <TableCell sx={{ fontWeight: 800, fontSize: 11 }}>NGÀY MƯỢN / TRẢ</TableCell>
+                    <TableCell sx={{ fontWeight: 800, fontSize: 11 }}>LOẠI</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 800, fontSize: 11 }}>THAO TÁC</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {pendingProjects.length === 0 ? (
+                    <TableRow>
+                      <TableCell colSpan={6} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                        Không có project chờ duyệt.
+                      </TableCell>
+                    </TableRow>
+                  ) : pendingProjects.map((project) => (
+                    <TableRow key={project.projectId} hover>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 800 }}>{project.title}</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          {project.requestCode || '—'} · {project.ownerName || '—'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell>{project.teamName} · {project.classCode}</TableCell>
+                      <TableCell>{project.submittedAt ? new Date(project.submittedAt).toLocaleDateString('vi-VN') : '—'}</TableCell>
+                      <TableCell>
+                        {project.borrowDate ? new Date(project.borrowDate).toLocaleDateString('vi-VN') : '—'}
+                        {' / '}
+                        {project.dueDate ? new Date(project.dueDate).toLocaleDateString('vi-VN') : '—'}
+                      </TableCell>
+                      <TableCell>
+                        {project.isSupplementary ? (
+                          <Chip label="Mượn thêm" size="small" color="warning" />
+                        ) : (
+                          <Chip label="Project mới" size="small" color="primary" variant="outlined" />
+                        )}
+                      </TableCell>
+                      <TableCell align="right">
+                        <Button size="small" variant="contained" onClick={() => setSelectedProject(project)} sx={{ textTransform: 'none' }}>
+                          Chi tiết / Duyệt
+                        </Button>
+                      </TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Paper>
+        )}
 
         {/* ===================== BẢNG 1: ĐƠN MƯỢN CHÍNH HIỆN TẠI & XIN GIA HẠN ===================== */}
         {!isLecturer && (
@@ -457,24 +542,15 @@ export default function SupplementaryBorrowList() {
                             Trả linh kiện
                           </Button>
 
-                          {/* Nút Hủy đơn nếu chưa nhận */}
-                          {b.status === 'Ready' && (
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              color="error"
-                              startIcon={<CloseIcon sx={{ fontSize: 13 }} />}
-                              onClick={() => handleCancelBorrow(b)}
-                              sx={{
-                                textTransform: 'none',
-                                fontWeight: 700,
-                                fontSize: 11,
-                                borderRadius: 1,
-                              }}
-                            >
-                              Hủy đơn
-                            </Button>
-                          )}
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            onClick={() => navigate(`/borrow/requests/${b.borrowRequestId}`)}
+                            sx={{ textTransform: 'none', fontWeight: 700, fontSize: 11, borderRadius: 1 }}
+                          >
+                            Chi tiết
+                          </Button>
+
                         </Box>
                       </TableCell>
                     </TableRow>
@@ -705,6 +781,7 @@ export default function SupplementaryBorrowList() {
         </Paper>
 
         {/* ===================== BẢNG 4: PHIẾU MƯỢN BỔ SUNG (MF5.1) ===================== */}
+        {!isLecturer && (
         <Paper
           elevation={0}
           sx={{
@@ -807,6 +884,7 @@ export default function SupplementaryBorrowList() {
             </Table>
           </TableContainer>
         </Paper>
+        )}
 
         {/* ===================== MODAL XIN GIA HẠN ĐƠN MƯỢN ===================== */}
         <Dialog open={extDialogOpen} onClose={() => setExtDialogOpen(false)} maxWidth="sm" fullWidth>
@@ -916,6 +994,17 @@ export default function SupplementaryBorrowList() {
             {toast.message}
           </Alert>
         </Snackbar>
+        <ProjectApprovalDialog
+          key={selectedProject?.projectId || 'closed'}
+          project={selectedProject}
+          open={Boolean(selectedProject)}
+          onClose={() => setSelectedProject(null)}
+          onReviewed={(message) => {
+            setSelectedProject(null)
+            setToast({ open: true, message, severity: 'success' })
+            refreshData()
+          }}
+        />
       </Container>
     </PortalLayout>
   )

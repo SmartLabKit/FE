@@ -20,11 +20,13 @@ import SupplementaryBorrowList from './pages/Borrowing/SupplementaryBorrowList.j
 import CreateReturnRequest from './pages/Borrowing/CreateReturnRequest.jsx'
 import ReturnRequestDetail from './pages/Borrowing/ReturnRequestDetail.jsx'
 import ConfirmReturnRequest from './pages/Borrowing/ConfirmReturnRequest.jsx'
+import BorrowRequestDetail from './pages/Borrowing/BorrowRequestDetail.jsx'
 
 import InventorySetup from './pages/Components/InventorySetup.jsx'
 import CabinetDetail from './pages/Components/CabinetDetail.jsx'
 import StockReceipts from './pages/Components/StockReceipts.jsx'
 import StockReceiptDetail from './pages/Components/StockReceiptDetail.jsx'
+import ProjectManagement from './pages/Projects/ProjectManagement.jsx'
 
 import { AuthProvider } from './context/AuthContext'
 
@@ -68,9 +70,11 @@ function App() {
           <Route path="/class-setup/admin/storage-allocation/:inwardId" element={<StorageAllocation />} />
           <Route path="/class-setup/lecturer/quotas" element={<ClassSetup />} />
           <Route path="/class-setup/student/groups" element={<ClassSetup />} />
+          <Route path="/class-setup/student/project/:teamId" element={<ProjectManagement />} />
 
           {/* MF5.1: Mượn Bổ Sung (Supplementary Borrowing) */}
           <Route path="/borrow/my-requests" element={<SupplementaryBorrowList />} />
+          <Route path="/borrow/requests/:id" element={<BorrowRequestDetail />} />
           <Route path="/borrow/supplementary" element={<SupplementaryBorrowList />} />
           <Route path="/borrow/supplementary/create" element={<CreateSupplementaryBorrow />} />
           <Route path="/borrow/supplementary/:id" element={<SupplementaryBorrowDetail />} />

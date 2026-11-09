@@ -38,7 +38,14 @@ import {
 } from '@mui/icons-material'
 import { academicService } from '../../services/academicService'
 import { teamService } from '../../services/teamService'
+import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+
+async function getClassesForCurrentSemester() {
+  const semesters = await academicService.getSemesters()
+  const semester = semesters.find((item) => item.isActive) || semesters[0]
+  return academicService.getMyClasses(semester?.semesterId)
+}
 
 /**
  * GroupInviteManager Component (Actor: STUDENT / GROUP LEADER)
@@ -71,6 +78,7 @@ function getSemesterWeight(semCode = '') {
 }
 
 export default function GroupInviteManager() {
+  const navigate = useNavigate()
   const { user } = useAuth()
 
   // State lớp học của sinh viên
@@ -78,6 +86,7 @@ export default function GroupInviteManager() {
   const [selectedClassId, setSelectedClassId] = useState('')
   const [loadingClasses, setLoadingClasses] = useState(true)
   const [selectedSemester, setSelectedSemester] = useState('ALL')
+  const [classesError, setClassesError] = useState('')
 
   // State lời mời nhóm nhận được
   const [myInvitations, setMyInvitations] = useState([])
@@ -170,7 +179,7 @@ export default function GroupInviteManager() {
   // 1. Tải danh sách lớp học của sinh viên (GET /api/classes/my)
   const fetchMyClasses = useCallback(async () => {
     try {
-      const data = await academicService.getMyClasses()
+      const data = await getClassesForCurrentSemester()
       const list = Array.isArray(data) ? data : data?.items || []
       list.sort((a, b) => {
         const weightDiff = getSemesterWeight(b.semesterCode) - getSemesterWeight(a.semesterCode)
@@ -178,11 +187,12 @@ export default function GroupInviteManager() {
         return (a.classCode || '').localeCompare(b.classCode || '')
       })
       setMyClasses(list)
+      setClassesError('')
       if (list.length > 0 && !selectedClassId) {
         setSelectedClassId(list[0].classId)
       }
     } catch (err) {
-      console.warn('Lỗi khi tải lớp của tôi:', err)
+      setClassesError(err.message || 'Không thể tải lớp học của bạn.')
     } finally {
       setLoadingClasses(false)
     }
@@ -248,8 +258,7 @@ export default function GroupInviteManager() {
   // Initial load
   useEffect(() => {
     let ignore = false
-    academicService
-      .getMyClasses()
+    getClassesForCurrentSemester()
       .then((data) => {
         if (!ignore) {
           const list = Array.isArray(data) ? data : data?.items || []
@@ -259,12 +268,15 @@ export default function GroupInviteManager() {
             return (a.classCode || '').localeCompare(b.classCode || '')
           })
           setMyClasses(list)
+          setClassesError('')
           if (list.length > 0) {
             setSelectedClassId(list[0].classId)
           }
         }
       })
-      .catch((err) => console.warn(err))
+      .catch((err) => {
+        if (!ignore) setClassesError(err.message || 'Không thể tải lớp học của bạn.')
+      })
       .finally(() => {
         if (!ignore) setLoadingClasses(false)
       })
@@ -717,6 +729,7 @@ export default function GroupInviteManager() {
           </Box>
         )}
       </Paper>
+      {classesError && <Alert severity="error" sx={{ mb: 3 }}>{classesError}</Alert>}
 
       {/* NẾU CHƯA CÓ NHÓM TRONG LỚP NÀY */}
       {!currentTeam && !loadingTeam && (
@@ -790,6 +803,46 @@ export default function GroupInviteManager() {
       {/* NẾU ĐÃ CÓ NHÓM TRONG LỚP */}
       {currentTeam && !loadingTeam && (
         <Grid container spacing={3}>
+          <Grid size={{ xs: 12 }}>
+            <Paper
+              elevation={0}
+              sx={{
+                p: { xs: 2, sm: 2.5 },
+                borderRadius: 2,
+                border: '1px solid #bfdbfe',
+                bgcolor: '#eff6ff',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                flexWrap: 'wrap',
+                gap: 2,
+              }}
+            >
+              <Box>
+                <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#131b2e' }}>
+                  Đồ án của {currentTeam.teamName}
+                </Typography>
+                <Typography variant="body2" sx={{ color: '#475569', fontSize: 13 }}>
+                  Tạo hoặc xem project và danh sách linh kiện của nhóm.
+                </Typography>
+              </Box>
+              <Button
+                size="medium"
+                variant="contained"
+                onClick={() => navigate(`/class-setup/student/project/${currentTeam.teamId}`)}
+                sx={{
+                  bgcolor: '#0058be',
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  boxShadow: 'none',
+                  whiteSpace: 'nowrap',
+                  '&:hover': { bgcolor: '#0049a3' },
+                }}
+              >
+                Project của nhóm
+              </Button>
+            </Paper>
+          </Grid>
           {/* Cột Trái: Thông tin nhóm & Danh sách thành viên (GET /api/teams/{teamId}) */}
           <Grid size={{ xs: 12, md: 7 }}>
             <Paper
@@ -811,16 +864,18 @@ export default function GroupInviteManager() {
                     Mã nhóm: <code>{currentTeam.teamId}</code> • Lớp: {currentTeam.classCode || selectedClass?.classCode}
                   </Typography>
                 </Box>
-                <Chip
-                  label={currentTeam.isReadyForProject ? 'Đã đủ thành viên' : 'Đang tuyển thành viên'}
-                  size="small"
-                  sx={{
-                    bgcolor: currentTeam.isReadyForProject ? '#ecfdf5' : '#eff6ff',
-                    color: currentTeam.isReadyForProject ? '#047857' : '#1d4ed8',
-                    fontWeight: 700,
-                    fontSize: 11,
-                  }}
-                />
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
+                  <Chip
+                    label={currentTeam.isReadyForProject ? 'Đã đủ thành viên' : 'Đang tuyển thành viên'}
+                    size="small"
+                    sx={{
+                      bgcolor: currentTeam.isReadyForProject ? '#ecfdf5' : '#eff6ff',
+                      color: currentTeam.isReadyForProject ? '#047857' : '#1d4ed8',
+                      fontWeight: 700,
+                      fontSize: 11,
+                    }}
+                  />
+                </Box>
               </Box>
 
               <Divider sx={{ mb: 2 }} />
