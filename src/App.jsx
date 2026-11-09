@@ -20,6 +20,7 @@ import SupplementaryBorrowList from './pages/Borrowing/SupplementaryBorrowList.j
 import CreateReturnRequest from './pages/Borrowing/CreateReturnRequest.jsx'
 import ReturnRequestDetail from './pages/Borrowing/ReturnRequestDetail.jsx'
 import ConfirmReturnRequest from './pages/Borrowing/ConfirmReturnRequest.jsx'
+import BorrowRequestDetail from './pages/Borrowing/BorrowRequestDetail.jsx'
 
 import InventorySetup from './pages/Components/InventorySetup.jsx'
 import CabinetDetail from './pages/Components/CabinetDetail.jsx'
@@ -73,6 +74,7 @@ function App() {
 
           {/* MF5.1: Mượn Bổ Sung (Supplementary Borrowing) */}
           <Route path="/borrow/my-requests" element={<SupplementaryBorrowList />} />
+          <Route path="/borrow/requests/:id" element={<BorrowRequestDetail />} />
           <Route path="/borrow/supplementary" element={<SupplementaryBorrowList />} />
           <Route path="/borrow/supplementary/create" element={<CreateSupplementaryBorrow />} />
           <Route path="/borrow/supplementary/:id" element={<SupplementaryBorrowDetail />} />

@@ -5,6 +5,16 @@ function unwrap(response) {
 }
 
 export const projectService = {
+  async getPendingApprovalProjects(params = { page: 1, size: 100 }) {
+    try {
+      return unwrap(await api.get('/api/projects/pending-approval', { params }))
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Không thể tải danh sách project chờ duyệt'), {
+        cause: error,
+      })
+    }
+  },
+
   async getProjectsByClass(classId) {
     try {
       const response = await api.get('/api/projects', {
@@ -67,6 +77,22 @@ export const projectService = {
       return unwrap(await api.post(`/api/projects/${projectId}/withdraw`))
     } catch (error) {
       throw new Error(extractErrorMessage(error, 'Không thể rút lại project'), { cause: error })
+    }
+  },
+
+  async approveProject(projectId, comment = '') {
+    try {
+      return unwrap(await api.post(`/api/projects/${projectId}/approve`, { comment }))
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Không thể duyệt project'), { cause: error })
+    }
+  },
+
+  async rejectProject(projectId, reason) {
+    try {
+      return unwrap(await api.post(`/api/projects/${projectId}/reject`, { reason }))
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Không thể từ chối project'), { cause: error })
     }
   },
 }
