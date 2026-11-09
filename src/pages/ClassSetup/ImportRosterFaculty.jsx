@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
   Alert,
   Avatar,
@@ -11,6 +11,7 @@ import {
   DialogContent,
   DialogTitle,
   Grid,
+  ListSubheader,
   MenuItem,
   Paper,
   Select,
@@ -110,11 +111,30 @@ function getRealErrors(result) {
     })
 }
 
+/**
+ * Tính trọng số học kỳ để sắp xếp niên khóa từ mới nhất đến cũ nhất.
+ * Năm càng lớn trọng số càng cao; trong cùng năm: Fall (FA) > Summer (SU) > Spring (SP) > Winter (WI).
+ */
+function getSemesterWeight(semCode = '') {
+  const str = String(semCode || '').trim().toUpperCase()
+  const matchYear = str.match(/(?:20)?(\d{2})$/)
+  const year = matchYear ? parseInt(matchYear[1], 10) + 2000 : 2000
+
+  let termScore = 0
+  if (str.includes('FA') || str.includes('FALL')) termScore = 3
+  else if (str.includes('SU') || str.includes('SUMMER')) termScore = 2
+  else if (str.includes('SP') || str.includes('SPRING')) termScore = 1
+  else if (str.includes('WI') || str.includes('WINTER')) termScore = 0
+
+  return year * 10 + termScore
+}
+
 export default function ImportRosterFaculty({ onNext, onPrev }) {
   // State danh sách lớp học
   const [classes, setClasses] = useState([])
   const [selectedClassId, setSelectedClassId] = useState('')
   const [loadingClasses, setLoadingClasses] = useState(true)
+  const [selectedSemester, setSelectedSemester] = useState('ALL')
 
   // State upload file Excel
   const [selectedFile, setSelectedFile] = useState(null)
@@ -135,12 +155,84 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
   // Toast alert
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
 
+  // Danh sách các học kỳ phân loại từ classes, sắp xếp từ mới nhất đến cũ nhất
+  const semestersList = useMemo(() => {
+    const semMap = new Map()
+    classes.forEach((cls) => {
+      const code = cls.semesterCode || 'Chưa phân kỳ'
+      if (!semMap.has(code)) {
+        semMap.set(code, {
+          code,
+          weight: getSemesterWeight(code),
+          count: 1,
+        })
+      } else {
+        semMap.get(code).count += 1
+      }
+    })
+    return Array.from(semMap.values()).sort((a, b) => b.weight - a.weight)
+  }, [classes])
+
+  // Phân nhóm lớp theo từng học kỳ và sắp xếp
+  const groupedClassesBySemester = useMemo(() => {
+    const groups = {}
+    classes.forEach((cls) => {
+      const sem = cls.semesterCode || 'Khác'
+      if (!groups[sem]) groups[sem] = []
+      groups[sem].push(cls)
+    })
+
+    // Sắp xếp các lớp trong mỗi kỳ theo mã lớp
+    Object.keys(groups).forEach((sem) => {
+      groups[sem].sort((a, b) => (a.classCode || '').localeCompare(b.classCode || ''))
+    })
+
+    // Sắp xếp các kỳ từ mới nhất đến cũ nhất
+    const sortedSemesters = Object.keys(groups).sort(
+      (a, b) => getSemesterWeight(b) - getSemesterWeight(a)
+    )
+
+    return sortedSemesters.map((sem) => ({
+      semesterCode: sem,
+      classes: groups[sem],
+    }))
+  }, [classes])
+
+  // Lọc danh sách lớp theo học kỳ được chọn
+  const filteredClasses = useMemo(() => {
+    if (selectedSemester === 'ALL') {
+      return groupedClassesBySemester.flatMap((g) => g.classes)
+    }
+    const found = groupedClassesBySemester.find((g) => g.semesterCode === selectedSemester)
+    return found ? found.classes : []
+  }, [selectedSemester, groupedClassesBySemester])
+
+  const handleSemesterChange = (e) => {
+    const sem = e.target.value
+    setSelectedSemester(sem)
+    if (sem === 'ALL') {
+      if (classes.length > 0 && !classes.some((c) => c.classId === selectedClassId)) {
+        setSelectedClassId(classes[0].classId)
+      }
+    } else {
+      const inSem = classes.filter((c) => c.semesterCode === sem)
+      if (inSem.length > 0 && !inSem.some((c) => c.classId === selectedClassId)) {
+        setSelectedClassId(inSem[0].classId)
+      }
+    }
+  }
+
   // Tải danh sách lớp
   const fetchClasses = useCallback(async () => {
     setLoadingClasses(true)
     try {
       const data = await academicService.getClasses()
       const classList = Array.isArray(data) ? data : data?.items || []
+      classList.sort((a, b) => {
+        const weightDiff = getSemesterWeight(b.semesterCode) - getSemesterWeight(a.semesterCode)
+        if (weightDiff !== 0) return weightDiff
+        return (a.classCode || '').localeCompare(b.classCode || '')
+      })
       setClasses(classList)
       if (classList.length > 0 && !selectedClassId) {
         setSelectedClassId(classList[0].classId)
@@ -170,6 +262,11 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
       .then((data) => {
         if (!ignore) {
           const classList = Array.isArray(data) ? data : data?.items || []
+          classList.sort((a, b) => {
+            const weightDiff = getSemesterWeight(b.semesterCode) - getSemesterWeight(a.semesterCode)
+            if (weightDiff !== 0) return weightDiff
+            return (a.classCode || '').localeCompare(b.classCode || '')
+          })
           setClasses(classList)
           if (classList.length > 0) {
             setSelectedClassId(classList[0].classId)
@@ -381,34 +478,82 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
           flexWrap: 'wrap',
         }}
       >
-        <SchoolIcon sx={{ color: '#0058be', fontSize: 28 }} />
-        <Box sx={{ minWidth: 260, flex: 1 }}>
-          <Typography variant="caption" sx={{ fontWeight: 700, color: '#6b7280', display: 'block', mb: 0.5 }}>
-            CHỌN LỚP CẦN NẠP SINH VIÊN HOẶC PHÂN CÔNG GIẢNG VIÊN:
-          </Typography>
-          {loadingClasses ? (
-            <CircularProgress size={20} />
-          ) : (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, minWidth: 320, flexWrap: 'wrap' }}>
+          <SchoolIcon sx={{ color: '#0058be', fontSize: 28 }} />
+
+          {/* Phân loại theo kỳ học */}
+          <Box sx={{ minWidth: 190 }}>
+            <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 10, mb: 0.5 }}>
+              PHÂN LOẠI THEO HỌC KỲ:
+            </Typography>
             <Select
               fullWidth
               size="small"
-              value={selectedClassId}
-              onChange={handleClassChange}
+              value={selectedSemester}
+              onChange={handleSemesterChange}
               sx={{ borderRadius: 1.5, height: 40, fontSize: 13, bgcolor: '#fafbff' }}
-              displayEmpty
             >
-              {classes.length === 0 && (
-                <MenuItem value="" disabled>
-                  Chưa có lớp nào, vui lòng tạo lớp trước
-                </MenuItem>
-              )}
-              {classes.map((cls) => (
-                <MenuItem key={cls.classId} value={cls.classId} sx={{ fontSize: 13 }}>
-                  <strong>{cls.classCode}</strong> - {cls.courseName || cls.courseCode} ({cls.semesterCode || 'Học kỳ'}) | Sĩ số: {cls.currentStudents || 0}/{cls.maxStudents || 30}
+              <MenuItem value="ALL" sx={{ fontSize: 13, fontWeight: 700 }}>
+                Tất cả các kỳ ({classes.length} lớp)
+              </MenuItem>
+              {semestersList.map((sem) => (
+                <MenuItem key={sem.code} value={sem.code} sx={{ fontSize: 13 }}>
+                  Kỳ {sem.code} ({sem.count} lớp)
                 </MenuItem>
               ))}
             </Select>
-          )}
+          </Box>
+
+          {/* Chọn lớp môn học */}
+          <Box sx={{ flex: 1, minWidth: 260 }}>
+            <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 10, mb: 0.5 }}>
+              CHỌN LỚP CẦN NẠP SINH VIÊN HOẶC PHÂN CÔNG GIẢNG VIÊN:
+            </Typography>
+            {loadingClasses ? (
+              <CircularProgress size={20} />
+            ) : (
+              <Select
+                fullWidth
+                size="small"
+                value={selectedClassId}
+                onChange={handleClassChange}
+                sx={{ borderRadius: 1.5, height: 40, fontSize: 13, bgcolor: '#fafbff' }}
+                displayEmpty
+              >
+                {filteredClasses.length === 0 && (
+                  <MenuItem value="" disabled>
+                    Không có lớp nào trong kỳ này
+                  </MenuItem>
+                )}
+                {selectedSemester === 'ALL'
+                  ? groupedClassesBySemester.map((group) => [
+                      <ListSubheader
+                        key={`header-${group.semesterCode}`}
+                        sx={{
+                          bgcolor: '#f1f5f9',
+                          color: '#0058be',
+                          fontWeight: 800,
+                          fontSize: 11,
+                          lineHeight: '32px',
+                          borderBottom: '1px solid #e2e8f0',
+                        }}
+                      >
+                        📅 HỌC KỲ {group.semesterCode} ({group.classes.length} LỚP)
+                      </ListSubheader>,
+                      ...group.classes.map((cls) => (
+                        <MenuItem key={cls.classId} value={cls.classId} sx={{ fontSize: 13, pl: 3 }}>
+                          <strong>{cls.classCode}</strong> - {cls.courseName || cls.courseCode} | Sĩ số: {cls.currentStudents || 0}/{cls.maxStudents || 30}
+                        </MenuItem>
+                      )),
+                    ])
+                  : filteredClasses.map((cls) => (
+                      <MenuItem key={cls.classId} value={cls.classId} sx={{ fontSize: 13 }}>
+                        <strong>{cls.classCode}</strong> - {cls.courseName || cls.courseCode} ({cls.semesterCode || 'Học kỳ'}) | Sĩ số: {cls.currentStudents || 0}/{cls.maxStudents || 30}
+                      </MenuItem>
+                    ))}
+              </Select>
+            )}
+          </Box>
         </Box>
 
         {currentClass && (
