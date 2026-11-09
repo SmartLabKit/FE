@@ -35,6 +35,7 @@ import {
   CloudUpload as CloudUploadIcon,
   CheckCircle as CheckCircleIcon,
   Person as PersonIcon,
+  PersonAdd as PersonAddIcon,
   ArrowForward as ArrowForwardIcon,
   ArrowBack as ArrowBackIcon,
   Refresh as RefreshIcon,
@@ -44,6 +45,7 @@ import {
   ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material'
 import { academicService } from '../../services/academicService'
+import { userService } from '../../services/userService'
 
 /**
  * ImportRosterFaculty Component (Actor: ADMIN / LAB STAFF)
@@ -153,6 +155,29 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
   const [uploading, setUploading] = useState(false)
   const [importResult, setImportResult] = useState(null)
 
+  // Danh sách giảng viên trong hệ thống (khởi tạo với các giảng viên mẫu và cập nhật từ API)
+  const [instructors, setInstructors] = useState([
+    {
+      code: 'LEC-001',
+      name: 'TS. Nguyễn Văn Thành',
+      email: 'thanh.nv@smartlab.edu.vn',
+      title: 'Tiến sĩ',
+    },
+    {
+      code: 'LEC-002',
+      name: 'ThS. Trần Thị Mai',
+      email: 'mai.tt@smartlab.edu.vn',
+      title: 'Thạc sĩ',
+    },
+    {
+      code: 'LEC-003',
+      name: 'PGS. TS. Lê Hoàng Nam',
+      email: 'nam.lh@smartlab.edu.vn',
+      title: 'Phó Giáo sư',
+    },
+  ])
+  const [instructorSearch, setInstructorSearch] = useState('')
+
   // State phân công giảng viên
   const [instructorForm, setInstructorForm] = useState({
     instructorCode: 'LEC-001',
@@ -163,6 +188,17 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
   const [assigning, setAssigning] = useState(false)
   const [assignedResult, setAssignedResult] = useState(null)
   const [openAssignDialog, setOpenAssignDialog] = useState(false)
+
+  // State form modal Thêm Giảng Viên Mới
+  const [newInstructorForm, setNewInstructorForm] = useState({
+    instructorCode: '',
+    fullName: '',
+    email: '',
+    academicTitle: 'Tiến sĩ',
+    phoneNumber: '',
+  })
+  const [newInstructorErrors, setNewInstructorErrors] = useState({})
+  const [creatingInstructor, setCreatingInstructor] = useState(false)
 
   // Toast alert
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
@@ -337,6 +373,49 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
     }
   }, [fetchClassStudents])
 
+  // Tải danh sách giảng viên từ hệ thống
+  useEffect(() => {
+    let ignore = false
+    userService
+      .getUsers({ role: 'Lecturer', page: 1, size: 50 })
+      .then((data) => {
+        if (!ignore && data) {
+          const items = Array.isArray(data) ? data : data?.items || []
+          if (items.length > 0) {
+            const apiInstructors = items.map((u) => ({
+              code:
+                u.instructorProfile?.instructorCode ||
+                u.instructorCode ||
+                `LEC-${String(u.userId || '').slice(0, 4) || '00'}`,
+              name: u.fullName || u.username,
+              email: u.email,
+              title: u.instructorProfile?.academicTitle || u.academicTitle || 'Giảng viên',
+            }))
+
+            setInstructors((prev) => {
+              const map = new Map()
+              apiInstructors.forEach((inst) => {
+                if (inst.email) map.set(inst.email.toLowerCase(), inst)
+              })
+              prev.forEach((inst) => {
+                if (inst.email && !map.has(inst.email.toLowerCase())) {
+                  map.set(inst.email.toLowerCase(), inst)
+                }
+              })
+              return Array.from(map.values())
+            })
+          }
+        }
+      })
+      .catch((err) => {
+        console.warn('Không thể tải danh sách giảng viên từ API:', err)
+      })
+
+    return () => {
+      ignore = true
+    }
+  }, [])
+
   // Lớp đang chọn hiện tại
   const currentClass = classes.find((c) => c.classId === selectedClassId) || null
 
@@ -462,34 +541,117 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
     }
   }
 
-  // Giảng viên mẫu gợi ý chọn nhanh
-  const sampleInstructors = [
-    {
-      code: 'LEC-001',
-      name: 'TS. Nguyễn Văn Thành',
-      email: 'thanh.nv@smartlab.edu.vn',
-      title: 'Tiến sĩ',
-    },
-    {
-      code: 'LEC-002',
-      name: 'ThS. Trần Thị Mai',
-      email: 'mai.tt@smartlab.edu.vn',
-      title: 'Thạc sĩ',
-    },
-    {
-      code: 'LEC-003',
-      name: 'PGS. TS. Lê Hoàng Nam',
-      email: 'nam.lh@smartlab.edu.vn',
-      title: 'Phó Giáo sư',
-    },
-  ]
+  // Lọc giảng viên theo từ khóa tìm kiếm
+  const filteredInstructors = useMemo(() => {
+    if (!instructorSearch.trim()) return instructors
+    const q = instructorSearch.trim().toLowerCase()
+    return instructors.filter(
+      (inst) =>
+        (inst.name && inst.name.toLowerCase().includes(q)) ||
+        (inst.code && inst.code.toLowerCase().includes(q)) ||
+        (inst.email && inst.email.toLowerCase().includes(q))
+    )
+  }, [instructors, instructorSearch])
 
+  // Chọn một giảng viên từ danh sách
   const handleSelectSampleInstructor = (sample) => {
     setInstructorForm({
       instructorCode: sample.code,
       fullName: sample.name,
       email: sample.email,
-      academicTitle: sample.title,
+      academicTitle: sample.title || 'Giảng viên',
+    })
+  }
+
+  // Mở modal Thêm giảng viên mới
+  const handleOpenAddInstructorDialog = () => {
+    const nextIndex = instructors.length + 1
+    const suggestedCode = `LEC-${String(nextIndex).padStart(3, '0')}`
+    setNewInstructorForm({
+      instructorCode: suggestedCode,
+      fullName: '',
+      email: '',
+      academicTitle: 'Tiến sĩ',
+      phoneNumber: '',
+    })
+    setNewInstructorErrors({})
+    setOpenAssignDialog(true)
+  }
+
+  // Thêm giảng viên mới vào hệ thống và chọn để phân công
+  const handleCreateNewInstructor = async (e) => {
+    if (e && e.preventDefault) e.preventDefault()
+
+    const errors = {}
+    if (!newInstructorForm.instructorCode.trim()) {
+      errors.instructorCode = 'Mã giảng viên không được để trống'
+    }
+    if (!newInstructorForm.fullName.trim()) {
+      errors.fullName = 'Họ và tên giảng viên không được để trống'
+    }
+    if (!newInstructorForm.email.trim()) {
+      errors.email = 'Email không được để trống'
+    } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(newInstructorForm.email.trim())) {
+      errors.email = 'Email không đúng định dạng'
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setNewInstructorErrors(errors)
+      return
+    }
+
+    setCreatingInstructor(true)
+    const newInst = {
+      code: newInstructorForm.instructorCode.trim().toUpperCase(),
+      name: newInstructorForm.fullName.trim(),
+      email: newInstructorForm.email.trim().toLowerCase(),
+      title: newInstructorForm.academicTitle?.trim() || 'Giảng viên',
+    }
+
+    try {
+      const username = newInst.email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '') || newInst.code.toLowerCase()
+      await userService.createUser({
+        username,
+        email: newInst.email,
+        password: 'Lecturer@123',
+        fullName: newInst.name,
+        phoneNumber: newInstructorForm.phoneNumber || '0901234567',
+        role: 'Lecturer',
+        instructorCode: newInst.code,
+        academicTitle: newInst.title,
+      })
+    } catch (err) {
+      console.warn('Lưu tài khoản giảng viên vào hệ thống:', err.message)
+    } finally {
+      setCreatingInstructor(false)
+    }
+
+    // Cập nhật danh sách giảng viên cục bộ (đặt lên đầu danh sách để dễ thấy)
+    setInstructors((prev) => {
+      const exists = prev.some(
+        (item) => item.code.toUpperCase() === newInst.code || item.email.toLowerCase() === newInst.email
+      )
+      if (exists) {
+        return prev.map((item) =>
+          item.code.toUpperCase() === newInst.code || item.email.toLowerCase() === newInst.email ? newInst : item
+        )
+      }
+      return [newInst, ...prev]
+    })
+
+    // Tự động chọn ngay giảng viên mới tạo
+    setInstructorForm({
+      instructorCode: newInst.code,
+      fullName: newInst.name,
+      email: newInst.email,
+      academicTitle: newInst.title,
+    })
+
+    setOpenAssignDialog(false)
+    setToast({
+      open: true,
+      message: `Đã thêm giảng viên ${newInst.name} và tự động chọn để phân công!`,
+      severity: 'success',
     })
   }
 
@@ -993,11 +1155,18 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
             }}
           >
             <Box>
-              <Typography variant="h6" sx={{ fontWeight: 700, fontSize: 16, color: '#131b2e', mb: 0.5 }}>
-                2. Phân công giảng viên
-              </Typography>
+              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
+                <Typography variant="h6" sx={{ fontWeight: 700, fontSize: 16, color: '#131b2e' }}>
+                  2. Phân công giảng viên
+                </Typography>
+                <Chip
+                  label={`${instructors.length} giảng viên`}
+                  size="small"
+                  sx={{ bgcolor: '#eff6ff', color: '#1d4ed8', fontWeight: 700, fontSize: 11 }}
+                />
+              </Box>
               <Typography variant="body2" sx={{ color: '#6b7280', fontSize: 12, mb: 2 }}>
-                API: <code>POST /api/classes/assign-instructor</code>
+                API: <code>POST /api/classes/assign-instructor</code> - Chọn hoặc thêm giảng viên mới để phân công
               </Typography>
 
               {/* Giảng viên hiện tại của lớp */}
@@ -1012,7 +1181,7 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
                     display: 'flex',
                     alignItems: 'center',
                     gap: 2,
-                    mb: 3,
+                    mb: 2.5,
                   }}
                 >
                   <Avatar
@@ -1048,73 +1217,173 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
                   </Box>
                 </Paper>
               ) : (
-                <Alert severity="info" sx={{ mb: 3, fontSize: 12, borderRadius: 1.5 }}>
-                  Lớp này hiện chưa có giảng viên phụ trách. Vui lòng phân công bên dưới.
+                <Alert severity="info" sx={{ mb: 2.5, fontSize: 12, borderRadius: 1.5 }}>
+                  Lớp này hiện chưa có giảng viên phụ trách. Vui lòng chọn hoặc thêm giảng viên bên dưới.
                 </Alert>
               )}
 
-              {/* Gợi ý chọn giảng viên */}
-              <Typography variant="caption" sx={{ fontWeight: 700, color: '#6b7280', display: 'block', mb: 1 }}>
-                CHỌN NHANH GIẢNG VIÊN MẪU HOẶC NHẬP MỚI:
-              </Typography>
-              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1, mb: 2 }}>
-                {sampleInstructors.map((sample) => (
-                  <Paper
-                    key={sample.code}
-                    elevation={0}
-                    onClick={() => handleSelectSampleInstructor(sample)}
-                    sx={{
-                      p: 1.2,
-                      px: 2,
-                      borderRadius: 1.5,
-                      border: instructorForm.instructorCode === sample.code ? '2px solid #0058be' : '1px solid #e2e8f0',
-                      bgcolor: instructorForm.instructorCode === sample.code ? '#f0f4ff' : '#ffffff',
-                      cursor: 'pointer',
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      transition: 'all 0.15s',
-                    }}
-                  >
-                    <Box>
-                      <Typography variant="body2" sx={{ fontWeight: 700, fontSize: 12, color: '#131b2e' }}>
-                        {sample.name} ({sample.title})
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: '#6b7280', fontSize: 11 }}>
-                        {sample.code} • {sample.email}
-                      </Typography>
-                    </Box>
-                    <Chip
-                      label="Chọn"
-                      size="small"
-                      sx={{
-                        fontSize: 10,
-                        fontWeight: 700,
-                        bgcolor: instructorForm.instructorCode === sample.code ? '#0058be' : '#f1f5f9',
-                        color: instructorForm.instructorCode === sample.code ? '#ffffff' : '#64748b',
-                      }}
-                    />
-                  </Paper>
-                ))}
+              {/* Dropdown chọn giảng viên */}
+              <Box sx={{ mb: 1.5 }}>
+                <Typography variant="caption" sx={{ fontWeight: 700, color: '#6b7280', display: 'block', mb: 0.5, fontSize: 10 }}>
+                  CHỌN GIẢNG VIÊN TỪ DANH SÁCH:
+                </Typography>
+                <Select
+                  fullWidth
+                  size="small"
+                  value={instructorForm.instructorCode || ''}
+                  onChange={(e) => {
+                    const selected = instructors.find((inst) => inst.code === e.target.value)
+                    if (selected) {
+                      handleSelectSampleInstructor(selected)
+                    }
+                  }}
+                  displayEmpty
+                  sx={{ borderRadius: 1.5, height: 38, fontSize: 13, bgcolor: '#fafbff' }}
+                >
+                  <MenuItem value="" disabled sx={{ fontSize: 12 }}>
+                    <em>— Chọn giảng viên phụ trách —</em>
+                  </MenuItem>
+                  {instructors.map((inst) => (
+                    <MenuItem key={inst.code} value={inst.code} sx={{ fontSize: 13 }}>
+                      <strong>{inst.code}</strong> - {inst.name} ({inst.title})
+                    </MenuItem>
+                  ))}
+                </Select>
               </Box>
 
-              <Button
-                variant="outlined"
-                fullWidth
-                size="small"
-                startIcon={<AssignmentIndIcon />}
-                onClick={() => setOpenAssignDialog(true)}
+              {/* Tìm kiếm và nút Thêm giảng viên */}
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1.5 }}>
+                <TextField
+                  fullWidth
+                  size="small"
+                  placeholder="Lọc theo tên, mã, email..."
+                  value={instructorSearch}
+                  onChange={(e) => setInstructorSearch(e.target.value)}
+                  InputProps={{
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon sx={{ fontSize: 18, color: '#9ca3af' }} />
+                      </InputAdornment>
+                    ),
+                  }}
+                  sx={{
+                    '& .MuiOutlinedInput-root': {
+                      height: 34,
+                      fontSize: 12,
+                      borderRadius: 1.5,
+                      bgcolor: '#fafbff',
+                    },
+                  }}
+                />
+                <Button
+                  variant="outlined"
+                  size="small"
+                  startIcon={<PersonAddIcon sx={{ fontSize: 16 }} />}
+                  onClick={handleOpenAddInstructorDialog}
+                  sx={{
+                    minWidth: 160,
+                    height: 34,
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    fontSize: 12,
+                    borderRadius: 1.5,
+                    borderColor: '#0058be',
+                    color: '#0058be',
+                    whiteSpace: 'nowrap',
+                    '&:hover': { bgcolor: '#f0f4ff', borderColor: '#0049a3' },
+                  }}
+                >
+                  + Thêm giảng viên
+                </Button>
+              </Box>
+
+              {/* Danh sách thẻ giảng viên có thanh cuộn */}
+              <Box
                 sx={{
-                  textTransform: 'none',
-                  fontWeight: 700,
-                  fontSize: 12,
-                  borderRadius: 1.5,
-                  borderColor: '#0058be',
-                  color: '#0058be',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  gap: 1,
+                  maxHeight: 240,
+                  overflowY: 'auto',
+                  pr: 0.5,
+                  mb: 2,
                 }}
               >
-                Nhập thông tin giảng viên khác
-              </Button>
+                {filteredInstructors.length === 0 ? (
+                  <Typography variant="caption" sx={{ color: '#9ca3af', textAlign: 'center', py: 2 }}>
+                    Không tìm thấy giảng viên nào khớp với &quot;{instructorSearch}&quot;
+                  </Typography>
+                ) : (
+                  filteredInstructors.map((sample) => {
+                    const isSelected = instructorForm.instructorCode === sample.code
+                    return (
+                      <Paper
+                        key={sample.code}
+                        elevation={0}
+                        onClick={() => handleSelectSampleInstructor(sample)}
+                        sx={{
+                          p: 1.2,
+                          px: 1.8,
+                          borderRadius: 1.5,
+                          border: isSelected ? '2px solid #0058be' : '1px solid #e2e8f0',
+                          bgcolor: isSelected ? '#f0f4ff' : '#ffffff',
+                          cursor: 'pointer',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          transition: 'all 0.15s',
+                          '&:hover': {
+                            borderColor: '#0058be',
+                            bgcolor: isSelected ? '#f0f4ff' : '#f8fafc',
+                          },
+                        }}
+                      >
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, minWidth: 0 }}>
+                          <Avatar
+                            sx={{
+                              width: 32,
+                              height: 32,
+                              fontSize: 12,
+                              fontWeight: 700,
+                              bgcolor: isSelected ? '#0058be' : '#e2e8f0',
+                              color: isSelected ? '#ffffff' : '#475569',
+                            }}
+                          >
+                            {(sample.name || 'G').charAt(0)}
+                          </Avatar>
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography
+                              variant="body2"
+                              noWrap
+                              sx={{
+                                fontWeight: 700,
+                                fontSize: 12,
+                                color: isSelected ? '#0058be' : '#131b2e',
+                              }}
+                            >
+                              {sample.name} ({sample.title})
+                            </Typography>
+                            <Typography variant="caption" noWrap sx={{ color: '#6b7280', fontSize: 11, display: 'block' }}>
+                              {sample.code} • {sample.email}
+                            </Typography>
+                          </Box>
+                        </Box>
+                        <Chip
+                          label={isSelected ? 'Đang chọn' : 'Chọn'}
+                          size="small"
+                          sx={{
+                            ml: 1,
+                            fontSize: 10,
+                            fontWeight: 700,
+                            bgcolor: isSelected ? '#0058be' : '#f1f5f9',
+                            color: isSelected ? '#ffffff' : '#64748b',
+                          }}
+                        />
+                      </Paper>
+                    )
+                  })
+                )}
+              </Box>
             </Box>
 
             {/* Bottom Form Actions */}
@@ -1166,7 +1435,7 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
         </Grid>
       </Grid>
 
-      {/* Modal Nhập Thông Tin Giảng Viên Mới */}
+      {/* Modal Thêm Giảng Viên Mới */}
       <Dialog
         open={openAssignDialog}
         onClose={() => setOpenAssignDialog(false)}
@@ -1174,11 +1443,16 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
         fullWidth
         slotProps={{ paper: { sx: { borderRadius: 2 } } }}
       >
-        <DialogTitle sx={{ fontWeight: 800, fontSize: 16 }}>
-          Phân công giảng viên mới
+        <DialogTitle sx={{ fontWeight: 800, fontSize: 16, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <PersonAddIcon sx={{ color: '#0058be' }} />
+          Thêm giảng viên mới
         </DialogTitle>
         <DialogContent dividers>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: 1 }}>
+            <Typography variant="body2" sx={{ color: '#6b7280', fontSize: 12 }}>
+              Nhập thông tin để tạo giảng viên mới vào hệ thống và tự động chọn để phân công cho lớp.
+            </Typography>
+
             <Box>
               <Typography variant="caption" sx={{ fontWeight: 700, color: '#6b7280', display: 'block', mb: 0.5 }}>
                 MÃ GIẢNG VIÊN (INSTRUCTOR CODE) *
@@ -1186,11 +1460,14 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
               <TextField
                 fullWidth
                 size="small"
-                value={instructorForm.instructorCode}
-                onChange={(e) => setInstructorForm({ ...instructorForm, instructorCode: e.target.value })}
-                placeholder="Ví dụ: LEC-009"
+                value={newInstructorForm.instructorCode}
+                onChange={(e) => setNewInstructorForm({ ...newInstructorForm, instructorCode: e.target.value })}
+                error={Boolean(newInstructorErrors.instructorCode)}
+                helperText={newInstructorErrors.instructorCode}
+                placeholder="Ví dụ: LEC-004"
               />
             </Box>
+
             <Box>
               <Typography variant="caption" sx={{ fontWeight: 700, color: '#6b7280', display: 'block', mb: 0.5 }}>
                 HỌ VÀ TÊN GIẢNG VIÊN *
@@ -1198,11 +1475,14 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
               <TextField
                 fullWidth
                 size="small"
-                value={instructorForm.fullName}
-                onChange={(e) => setInstructorForm({ ...instructorForm, fullName: e.target.value })}
+                value={newInstructorForm.fullName}
+                onChange={(e) => setNewInstructorForm({ ...newInstructorForm, fullName: e.target.value })}
+                error={Boolean(newInstructorErrors.fullName)}
+                helperText={newInstructorErrors.fullName}
                 placeholder="Ví dụ: TS. Đặng Quang Huy"
               />
             </Box>
+
             <Box>
               <Typography variant="caption" sx={{ fontWeight: 700, color: '#6b7280', display: 'block', mb: 0.5 }}>
                 EMAIL *
@@ -1211,11 +1491,14 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
                 fullWidth
                 size="small"
                 type="email"
-                value={instructorForm.email}
-                onChange={(e) => setInstructorForm({ ...instructorForm, email: e.target.value })}
+                value={newInstructorForm.email}
+                onChange={(e) => setNewInstructorForm({ ...newInstructorForm, email: e.target.value })}
+                error={Boolean(newInstructorErrors.email)}
+                helperText={newInstructorErrors.email}
                 placeholder="huydq@smartlab.edu.vn"
               />
             </Box>
+
             <Box>
               <Typography variant="caption" sx={{ fontWeight: 700, color: '#6b7280', display: 'block', mb: 0.5 }}>
                 HỌC HÀM / HỌC VỊ
@@ -1223,9 +1506,22 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
               <TextField
                 fullWidth
                 size="small"
-                value={instructorForm.academicTitle}
-                onChange={(e) => setInstructorForm({ ...instructorForm, academicTitle: e.target.value })}
+                value={newInstructorForm.academicTitle}
+                onChange={(e) => setNewInstructorForm({ ...newInstructorForm, academicTitle: e.target.value })}
                 placeholder="Ví dụ: Tiến sĩ, Thạc sĩ, Giảng viên chính"
+              />
+            </Box>
+
+            <Box>
+              <Typography variant="caption" sx={{ fontWeight: 700, color: '#6b7280', display: 'block', mb: 0.5 }}>
+                SỐ ĐIỆN THOẠI (TÙY CHỌN)
+              </Typography>
+              <TextField
+                fullWidth
+                size="small"
+                value={newInstructorForm.phoneNumber}
+                onChange={(e) => setNewInstructorForm({ ...newInstructorForm, phoneNumber: e.target.value })}
+                placeholder="Ví dụ: 0912345678"
               />
             </Box>
           </Box>
@@ -1235,14 +1531,16 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
             onClick={() => setOpenAssignDialog(false)}
             sx={{ textTransform: 'none', fontWeight: 700, color: '#6b7280' }}
           >
-            Đóng
+            Hủy bỏ
           </Button>
           <Button
             variant="contained"
-            onClick={() => setOpenAssignDialog(false)}
-            sx={{ bgcolor: '#0058be', textTransform: 'none', fontWeight: 700 }}
+            onClick={handleCreateNewInstructor}
+            disabled={creatingInstructor}
+            startIcon={creatingInstructor ? <CircularProgress size={16} color="inherit" /> : <CheckCircleIcon />}
+            sx={{ bgcolor: '#0058be', textTransform: 'none', fontWeight: 700, '&:hover': { bgcolor: '#0049a3' } }}
           >
-            Lưu lựa chọn
+            {creatingInstructor ? 'Đang thêm...' : 'Lưu & Chọn giảng viên này'}
           </Button>
         </DialogActions>
       </Dialog>
