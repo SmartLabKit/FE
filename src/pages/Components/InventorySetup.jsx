@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
-  Alert, Box, Button, Chip, Dialog, DialogActions, DialogContent, DialogTitle,
+  Alert, Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle,
   MenuItem, Tab, Tabs, Table, TableBody, TableCell, TableContainer, TableHead,
   TableRow, TextField, Typography,
 } from '@mui/material'
@@ -10,11 +10,30 @@ import PortalLayout from '../../components/layout/PortalLayout'
 import { inventoryService } from '../../services/inventoryService'
 import { userService } from '../../services/userService'
 import { extractErrorMessage } from '../../services/api'
+import { useAuth } from '../../context/AuthContext'
 
 const fields = {
-  categories: { title: 'Danh mục', singular: 'danh mục', name: 'categoryName', id: 'categoryId', columns: ['Tên danh mục', 'Số linh kiện'] },
-  rooms: { title: 'Phòng lab', singular: 'phòng lab', name: 'roomName', id: 'roomId', columns: ['Mã phòng', 'Tên phòng', 'Trạng thái', 'Số tủ'] },
-  cabinets: { title: 'Tủ lưu trữ', singular: 'tủ', name: 'cabinetName', id: 'cabinetId', columns: ['Mã tủ', 'Tên tủ', 'Phòng lab', 'Trạng thái'] },
+  categories: {
+    title: 'Danh mục linh kiện',
+    singular: 'danh mục',
+    name: 'categoryName',
+    id: 'categoryId',
+    columns: ['Tên danh mục', 'Số linh kiện'],
+  },
+  rooms: {
+    title: 'Phòng lab',
+    singular: 'phòng lab',
+    name: 'roomName',
+    id: 'roomId',
+    columns: ['Mã phòng', 'Tên phòng', 'Trạng thái', 'Số tủ'],
+  },
+  cabinets: {
+    title: 'Tủ lưu trữ',
+    singular: 'tủ',
+    name: 'cabinetName',
+    id: 'cabinetId',
+    columns: ['Mã tủ', 'Tên tủ', 'Phòng lab', 'Trạng thái'],
+  },
 }
 
 const getId = (row, kind) => {
@@ -34,13 +53,13 @@ const getId = (row, kind) => {
 const getName = (row, kind) => {
   if (!row) return ''
   if (kind === 'rooms') {
-    return row.roomName || row.name || row.RoomName || ''
+    return row.roomName || row.labRoomName || row.name || row.RoomName || row.LabRoomName || ''
   }
   if (kind === 'cabinets') {
     return row.cabinetName || row.name || row.CabinetName || ''
   }
   if (kind === 'categories') {
-    return row.categoryName || row.name || row.CategoryName || ''
+    return row.categoryName || row.name || row.CategoryName || row.title || ''
   }
   return row[fields[kind]?.name] || row.name || ''
 }
@@ -53,11 +72,81 @@ const getActive = (row) => {
   return true
 }
 
+const sanitizeRows = (items, targetKind) => {
+  if (!Array.isArray(items)) return []
+  return items.filter((row) => {
+    if (!row) return false
+    if (targetKind === 'categories') {
+      const catName = row.categoryName || row.name || row.CategoryName || row.title
+      return Boolean(catName && String(catName).trim().length > 0)
+    }
+    if (targetKind === 'rooms') {
+      const roomName = row.roomName || row.labRoomName || row.name || row.RoomName
+      const roomCode = row.labRoomCode || row.roomCode || row.code
+      return Boolean(
+        (roomName && String(roomName).trim().length > 0) ||
+        (roomCode && String(roomCode).trim().length > 0)
+      )
+    }
+    if (targetKind === 'cabinets') {
+      const cabName = row.cabinetName || row.name || row.CabinetName
+      const cabCode = row.cabinetCode || row.code
+      return Boolean(
+        (cabName && String(cabName).trim().length > 0) ||
+        (cabCode && String(cabCode).trim().length > 0)
+      )
+    }
+    return true
+  })
+}
+
 export default function InventorySetup() {
   const location = useLocation()
   const navigate = useNavigate()
-  const kind = location.pathname.endsWith('/categories') ? 'categories'
-    : location.pathname.endsWith('/lab-rooms') ? 'rooms' : 'cabinets'
+  const { hasRole, hasPermission } = useAuth()
+
+  // Phân quyền theo vai trò
+  const isLabStaff = hasRole('LabStaff') && !hasRole('Admin') && !hasRole('InventoryManager')
+  const isStudent = hasRole('Student') && !hasRole('Admin') && !hasRole('InventoryManager') && !hasRole('LabStaff')
+  const canManageCategories = hasRole('Admin') || hasRole('InventoryManager') || hasPermission('COMPONENT_MANAGE')
+  const canManageStaff = hasRole('Admin') || hasRole('InventoryManager') || hasPermission('USER_MANAGE')
+  const canEditInventory = (hasRole('Admin') || hasRole('InventoryManager') || hasRole('LabStaff')) && !isStudent
+
+  // Xác định các Tabs hiển thị phù hợp với quyền người dùng
+  const tabs = useMemo(() => {
+    if (isStudent) {
+      return [
+        ['/class-setup/admin/lab-rooms', 'Phòng lab'],
+      ]
+    }
+    if (isLabStaff) {
+      return [
+        ['/class-setup/admin/lab-rooms', 'Phòng lab'],
+        ['/class-setup/admin/cabinets', 'Tủ lưu trữ'],
+      ]
+    }
+    return [
+      ['/class-setup/admin/categories', 'Danh mục'],
+      ['/class-setup/admin/lab-rooms', 'Phòng lab'],
+      ['/class-setup/admin/cabinets', 'Tủ lưu trữ'],
+    ]
+  }, [isLabStaff, isStudent])
+
+  // Nếu Student hoặc LabStaff cố tình truy cập tab không có quyền thì tự động điều hướng sang /lab-rooms
+  useEffect(() => {
+    if (isStudent && !location.pathname.endsWith('/lab-rooms')) {
+      navigate('/class-setup/admin/lab-rooms', { replace: true })
+    } else if (isLabStaff && location.pathname.endsWith('/categories')) {
+      navigate('/class-setup/admin/lab-rooms', { replace: true })
+    }
+  }, [isStudent, isLabStaff, location.pathname, navigate])
+
+  const kind = location.pathname.endsWith('/categories')
+    ? 'categories'
+    : location.pathname.endsWith('/lab-rooms')
+      ? 'rooms'
+      : 'cabinets'
+
   const [rows, setRows] = useState([])
   const [rooms, setRooms] = useState([])
   const [roomFilter, setRoomFilter] = useState('')
@@ -78,53 +167,84 @@ export default function InventorySetup() {
   const [assigningStaff, setAssigningStaff] = useState(false)
 
   const load = useCallback(() => {
+    setLoading(true)
     const request = kind === 'categories'
-      ? inventoryService.getCategories().then((items) => ({ rows: items }))
+      ? inventoryService.getCategories().then((items) => ({ rows: sanitizeRows(items, 'categories') }))
       : kind === 'rooms'
-        ? inventoryService.getLabRooms().then((items) => ({ rows: items }))
+        ? inventoryService.getLabRooms().then((items) => ({ rows: sanitizeRows(items, 'rooms') }))
         : Promise.all([
             inventoryService.getCabinets(roomFilter ? { roomId: roomFilter, labRoomId: roomFilter } : undefined),
             inventoryService.getLabRooms(),
-          ]).then(([items, labRooms]) => ({ rows: items, rooms: labRooms }))
-    return request.then((result) => {
-      setRows(result.rows)
-      if (result.rooms) setRooms(result.rooms)
-      setLoading(false)
-    }).catch((loadError) => {
-      setError(extractErrorMessage(loadError, `Không thể tải ${fields[kind].title.toLowerCase()}.`))
-      setLoading(false)
-    })
+          ]).then(([items, labRooms]) => ({
+            rows: sanitizeRows(items, 'cabinets'),
+            rooms: sanitizeRows(labRooms, 'rooms'),
+          }))
+
+    return request
+      .then((result) => {
+        setRows(result.rows || [])
+        if (result.rooms) setRooms(result.rooms)
+        setLoading(false)
+      })
+      .catch((loadError) => {
+        setError(extractErrorMessage(loadError, `Không thể tải dữ liệu ${fields[kind].title.toLowerCase()}.`))
+        setLoading(false)
+      })
   }, [kind, roomFilter])
 
+  // Reset state và tải dữ liệu mới khi chuyển tab hoặc đổi bộ lọc
   useEffect(() => {
-    let active = true
-    const request = kind === 'categories'
-      ? inventoryService.getCategories().then((items) => ({ rows: items }))
-      : kind === 'rooms'
-        ? inventoryService.getLabRooms().then((items) => ({ rows: items }))
-        : Promise.all([
-            inventoryService.getCabinets(roomFilter ? { roomId: roomFilter, labRoomId: roomFilter } : undefined),
-            inventoryService.getLabRooms(),
-          ]).then(([items, labRooms]) => ({ rows: items, rooms: labRooms }))
-    request.then((result) => {
-      if (!active) return
-      setRows(result.rows)
-      if (result.rooms) setRooms(result.rooms)
-      setLoading(false)
-    }).catch((loadError) => {
-      if (!active) return
-      setError(extractErrorMessage(loadError, `Không thể tải ${fields[kind].title.toLowerCase()}.`))
-      setLoading(false)
-    })
-    return () => { active = false }
-  }, [kind, roomFilter])
+    let isSubscribed = true
 
-  const tabs = useMemo(() => [
-    ['/class-setup/admin/categories', 'Danh mục'],
-    ['/class-setup/admin/lab-rooms', 'Phòng lab'],
-    ['/class-setup/admin/cabinets', 'Tủ'],
-  ], [])
-  const tabValue = tabs.findIndex(([path]) => path === location.pathname)
+    const executeFetch = async () => {
+      setRows([])
+      setError('')
+      setNotice('')
+      setLoading(true)
+
+      // Nếu không có quyền truy cập categories thì không gọi API
+      if (kind === 'categories' && !canManageCategories) {
+        if (isSubscribed) {
+          setLoading(false)
+        }
+        return
+      }
+
+      try {
+        const result = kind === 'categories'
+          ? await inventoryService.getCategories().then((items) => ({ rows: sanitizeRows(items, 'categories') }))
+          : kind === 'rooms'
+            ? await inventoryService.getLabRooms().then((items) => ({ rows: sanitizeRows(items, 'rooms') }))
+            : await Promise.all([
+                inventoryService.getCabinets(roomFilter ? { roomId: roomFilter, labRoomId: roomFilter } : undefined),
+                inventoryService.getLabRooms(),
+              ]).then(([items, labRooms]) => ({
+                rows: sanitizeRows(items, 'cabinets'),
+                rooms: sanitizeRows(labRooms, 'rooms'),
+              }))
+
+        if (isSubscribed) {
+          setRows(result.rows || [])
+          if (result.rooms) setRooms(result.rooms)
+          setLoading(false)
+        }
+      } catch (loadError) {
+        if (isSubscribed) {
+          setError(extractErrorMessage(loadError, `Không thể tải dữ liệu ${fields[kind].title.toLowerCase()}.`))
+          setRows([])
+          setLoading(false)
+        }
+      }
+    }
+
+    executeFetch()
+
+    return () => {
+      isSubscribed = false
+    }
+  }, [kind, roomFilter, canManageCategories])
+
+  const tabIndex = Math.max(tabs.findIndex(([path]) => path === location.pathname), 0)
 
   const openCreate = () => {
     setEditing(null)
@@ -147,18 +267,31 @@ export default function InventorySetup() {
   const handleSave = async (event) => {
     event.preventDefault()
     setError('')
+
+    const trimmedName = name.trim()
+    if (!trimmedName) {
+      setError(`Vui lòng nhập tên ${fields[kind].singular}.`)
+      return
+    }
+
+    if (kind === 'cabinets' && !selectedRoom) {
+      setError('Vui lòng chọn phòng lab chứa tủ.')
+      return
+    }
+
     const id = editing && getId(editing, kind)
+
     try {
       const body = kind === 'categories'
-        ? { categoryName: name.trim() }
+        ? { categoryName: trimmedName }
         : kind === 'rooms'
           ? {
-              roomName: name.trim(),
+              roomName: trimmedName,
               status: active ? 'Active' : 'Inactive',
               isActive: active,
             }
           : {
-              cabinetName: name.trim(),
+              cabinetName: trimmedName,
               roomId: selectedRoom,
               labRoomId: selectedRoom,
               status: active ? 'Active' : 'Inactive',
@@ -180,13 +313,14 @@ export default function InventorySetup() {
   }
 
   const handleDelete = async (row) => {
-    if (!window.confirm(`Xóa ${fields[kind].singular} "${getName(row, kind)}"?`)) return
+    const itemName = getName(row, kind)
+    if (!window.confirm(`Bạn có chắc chắn muốn xóa ${fields[kind].singular} "${itemName}"?`)) return
     try {
       await inventoryService.deleteCategory(getId(row, kind))
-      setNotice('Đã xóa danh mục.')
+      setNotice(`Đã xóa danh mục "${itemName}".`)
       await load()
     } catch (deleteError) {
-      setError(extractErrorMessage(deleteError, 'Không thể xóa. Hãy kiểm tra dữ liệu đang tham chiếu.'))
+      setError(extractErrorMessage(deleteError, 'Không thể xóa. Hãy kiểm tra xem danh mục có linh kiện trực thuộc không.'))
     }
   }
 
@@ -221,78 +355,208 @@ export default function InventorySetup() {
   }
 
   return (
-    <PortalLayout headerTitle="Thiết lập kho" headerSubtitle="Quản lý danh mục linh kiện, phòng lab và tủ lưu trữ">
+    <PortalLayout
+      headerTitle={isStudent ? 'Danh sách Phòng Lab' : 'Thiết lập kho'}
+      headerSubtitle={isStudent ? 'Tra cứu thông tin các phòng lab thực hành trong hệ thống' : 'Quản lý danh mục linh kiện, phòng lab và tủ lưu trữ'}
+    >
       <Box sx={{ maxWidth: 1440, mx: 'auto' }}>
-        <Tabs value={Math.max(tabValue, 0)} onChange={(_, index) => navigate(tabs[index][0])} sx={{ mb: 2 }}>
-          {tabs.map(([, label]) => <Tab key={label} label={label} />)}
-        </Tabs>
+        {tabs.length > 1 && (
+          <Tabs value={tabIndex} onChange={(_, index) => navigate(tabs[index][0])} sx={{ mb: 2 }}>
+            {tabs.map(([, label]) => <Tab key={label} label={label} sx={{ fontWeight: 700 }} />)}
+          </Tabs>
+        )}
+
         {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
         {notice && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setNotice('')}>{notice}</Alert>}
+
         <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: '#fff', border: '1px solid #d8dced', borderRadius: '6px 6px 0 0' }}>
-          <Typography sx={{ fontWeight: 800, color: '#182238' }}>{fields[kind].title}</Typography>
+          <Typography sx={{ fontWeight: 800, color: '#182238', fontSize: 16 }}>{fields[kind].title}</Typography>
           <Box sx={{ display: 'flex', gap: 1 }}>
             {kind === 'cabinets' && (
-              <TextField select size="small" label="Lọc phòng lab" value={roomFilter} onChange={(event) => setRoomFilter(event.target.value)} sx={{ minWidth: 180 }}>
-                <MenuItem value="">Tất cả phòng</MenuItem>
-                {rooms.map((room) => <MenuItem key={getId(room, 'rooms')} value={getId(room, 'rooms')}>{room.roomName || room.labRoomCode || room.roomCode}</MenuItem>)}
+              <TextField
+                select
+                size="small"
+                label="Lọc phòng lab"
+                value={roomFilter}
+                onChange={(event) => setRoomFilter(event.target.value)}
+                sx={{ minWidth: 200 }}
+              >
+                <MenuItem value="">Tất cả phòng lab</MenuItem>
+                {rooms.map((room) => (
+                  <MenuItem key={getId(room, 'rooms')} value={getId(room, 'rooms')}>
+                    {room.roomName || room.labRoomCode || room.roomCode}
+                  </MenuItem>
+                ))}
               </TextField>
             )}
-            <Button startIcon={<AddIcon />} variant="contained" onClick={openCreate} sx={{ textTransform: 'none' }}>Thêm mới</Button>
+            {canEditInventory && (
+              <Button
+                startIcon={<AddIcon />}
+                variant="contained"
+                onClick={openCreate}
+                sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#0058be' }}
+              >
+                Thêm mới
+              </Button>
+            )}
           </Box>
         </Box>
+
         <TableContainer sx={{ bgcolor: '#fff', border: '1px solid #d8dced', borderTop: 0 }}>
           <Table size="small">
-            <TableHead><TableRow sx={{ bgcolor: '#faf9ff' }}>{fields[kind].columns.map((column) => <TableCell key={column}>{column}</TableCell>)}<TableCell align="right">Thao tác</TableCell></TableRow></TableHead>
+            <TableHead>
+              <TableRow sx={{ bgcolor: '#faf9ff' }}>
+                {fields[kind].columns.map((column) => (
+                  <TableCell key={column} sx={{ fontWeight: 700, color: '#334155' }}>
+                    {column}
+                  </TableCell>
+                ))}
+                {canEditInventory && (
+                  <TableCell align="right" sx={{ fontWeight: 700, color: '#334155' }}>
+                    Thao tác
+                  </TableCell>
+                )}
+              </TableRow>
+            </TableHead>
             <TableBody>
-              {rows.map((row) => {
+              {loading && (
+                <TableRow>
+                  <TableCell colSpan={fields[kind].columns.length + (canEditInventory ? 1 : 0)} align="center" sx={{ py: 4 }}>
+                    <CircularProgress size={24} sx={{ mr: 1, verticalAlign: 'middle' }} />
+                    <Typography variant="body2" component="span" sx={{ color: 'text.secondary' }}>
+                      Đang tải danh sách {fields[kind].title.toLowerCase()}...
+                    </Typography>
+                  </TableCell>
+                </TableRow>
+              )}
+
+              {!loading && rows.map((row) => {
                 const id = getId(row, kind)
                 const isActive = getActive(row)
                 return (
                   <TableRow key={id} hover>
-                    {kind === 'categories' && <>
-                      <TableCell>{getName(row, kind)}</TableCell>
-                      <TableCell>{row.componentCount ?? row.componentsCount ?? 0}</TableCell>
-                    </>}
-                    {kind === 'rooms' && <>
-                      <TableCell>{row.labRoomCode || row.roomCode || 'Tự sinh khi tạo'}</TableCell>
-                      <TableCell>{getName(row, kind)}</TableCell>
-                      <TableCell><Chip size="small" label={isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'} color={isActive ? 'success' : 'default'} /></TableCell>
-                      <TableCell>{row.cabinetCount ?? row.activeCabinetCount ?? 0}</TableCell>
-                    </>}
-                    {kind === 'cabinets' && <>
-                      <TableCell>{row.cabinetCode || 'Tự sinh khi tạo'}</TableCell>
-                      <TableCell>{getName(row, kind)}</TableCell>
-                      <TableCell>{row.labRoomName || row.roomName || rooms.find((room) => getId(room, 'rooms') === (row.roomId || row.labRoomId))?.roomName || '—'}</TableCell>
-                      <TableCell><Chip size="small" label={isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'} color={isActive ? 'success' : 'default'} /></TableCell>
-                    </>}
-                    <TableCell align="right">
-                      {kind === 'cabinets' && (
-                        <Button size="small" onClick={() => navigate(`/class-setup/admin/cabinets/${id}`)} sx={{ textTransform: 'none' }}>Chi tiết</Button>
-                      )}
-                      {kind === 'rooms' && (
-                        <Button size="small" startIcon={<StaffAddIcon fontSize="small" />} onClick={() => openAssignStaff(row)} sx={{ textTransform: 'none', mr: 1 }}>Phân công</Button>
-                      )}
-                      <Button size="small" onClick={() => openEdit(row)} sx={{ textTransform: 'none' }}>Sửa</Button>
-                      {kind === 'categories' && <Button size="small" color="error" onClick={() => handleDelete(row)}><DeleteIcon fontSize="small" /></Button>}
-                    </TableCell>
+                    {kind === 'categories' && (
+                      <>
+                        <TableCell sx={{ fontWeight: 600 }}>{getName(row, kind) || '—'}</TableCell>
+                        <TableCell>{row.componentCount ?? row.componentsCount ?? 0}</TableCell>
+                      </>
+                    )}
+                    {kind === 'rooms' && (
+                      <>
+                        <TableCell sx={{ fontWeight: 600, color: '#0058be' }}>
+                          {row.labRoomCode || row.roomCode || '—'}
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>{getName(row, kind) || '—'}</TableCell>
+                        <TableCell>
+                          <Chip
+                            size="small"
+                            label={isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
+                            color={isActive ? 'success' : 'default'}
+                            variant="outlined"
+                            sx={{ fontWeight: 600, fontSize: 11 }}
+                          />
+                        </TableCell>
+                        <TableCell>{row.cabinetCount ?? row.activeCabinetCount ?? row.cabinetsCount ?? 0}</TableCell>
+                      </>
+                    )}
+                    {kind === 'cabinets' && (
+                      <>
+                        <TableCell sx={{ fontWeight: 600, color: '#0058be' }}>
+                          {row.cabinetCode || '—'}
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>{getName(row, kind) || '—'}</TableCell>
+                        <TableCell>
+                          {row.labRoomName ||
+                            row.roomName ||
+                            rooms.find((room) => getId(room, 'rooms') === (row.roomId || row.labRoomId))?.roomName ||
+                            '—'}
+                        </TableCell>
+                        <TableCell>
+                          <Chip
+                            size="small"
+                            label={isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'}
+                            color={isActive ? 'success' : 'default'}
+                            variant="outlined"
+                            sx={{ fontWeight: 600, fontSize: 11 }}
+                          />
+                        </TableCell>
+                      </>
+                    )}
+                    {canEditInventory && (
+                      <TableCell align="right">
+                        {kind === 'cabinets' && (
+                          <Button
+                            size="small"
+                            onClick={() => navigate(`/class-setup/admin/cabinets/${id}`)}
+                            sx={{ textTransform: 'none', mr: 0.5, fontWeight: 600 }}
+                          >
+                            Chi tiết
+                          </Button>
+                        )}
+                        {kind === 'rooms' && canManageStaff && (
+                          <Button
+                            size="small"
+                            startIcon={<StaffAddIcon fontSize="small" />}
+                            onClick={() => openAssignStaff(row)}
+                            sx={{ textTransform: 'none', mr: 0.5, fontWeight: 600 }}
+                          >
+                            Phân công
+                          </Button>
+                        )}
+                        <Button
+                          size="small"
+                          onClick={() => openEdit(row)}
+                          sx={{ textTransform: 'none', mr: 0.5, fontWeight: 600 }}
+                        >
+                          Sửa
+                        </Button>
+                        {kind === 'categories' && canManageCategories && (
+                          <Button
+                            size="small"
+                            color="error"
+                            onClick={() => handleDelete(row)}
+                            title="Xóa danh mục"
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </Button>
+                        )}
+                      </TableCell>
+                    )}
                   </TableRow>
                 )
               })}
-              {!loading && rows.length === 0 && <TableRow><TableCell colSpan={fields[kind].columns.length + 1} align="center">Chưa có dữ liệu.</TableCell></TableRow>}
+
+              {!loading && rows.length === 0 && (
+                <TableRow>
+                  <TableCell colSpan={fields[kind].columns.length + (canEditInventory ? 1 : 0)} align="center" sx={{ py: 5, color: 'text.secondary' }}>
+                    Chưa có dữ liệu {fields[kind].singular}.
+                  </TableCell>
+                </TableRow>
+              )}
             </TableBody>
           </Table>
         </TableContainer>
+
+        {/* Modal Thêm / Cập nhật Danh mục, Phòng Lab, Tủ */}
         <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} fullWidth maxWidth="sm">
           <Box component="form" onSubmit={handleSave}>
-            <DialogTitle>{editing ? `Cập nhật ${fields[kind].singular}` : `Thêm ${fields[kind].singular}`}</DialogTitle>
+            <DialogTitle sx={{ fontWeight: 800 }}>
+              {editing ? `Cập nhật ${fields[kind].singular}` : `Thêm ${fields[kind].singular} mới`}
+            </DialogTitle>
             <DialogContent sx={{ display: 'grid', gap: 2, pt: '12px !important' }}>
               {error && <Alert severity="error">{error}</Alert>}
-              <TextField required autoFocus label={kind === 'rooms' ? 'Tên phòng lab' : kind === 'cabinets' ? 'Tên tủ' : 'Tên danh mục'} value={name} onChange={(event) => setName(event.target.value)} />
+              <TextField
+                required
+                autoFocus
+                label={kind === 'rooms' ? 'Tên phòng lab' : kind === 'cabinets' ? 'Tên tủ' : 'Tên danh mục'}
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+              />
               {kind === 'cabinets' && (
                 <TextField
                   required
                   select
-                  label="Phòng lab"
+                  label="Phòng lab chứa tủ"
                   value={selectedRoom}
                   onChange={(event) => setSelectedRoom(event.target.value)}
                 >
@@ -308,11 +572,26 @@ export default function InventorySetup() {
                     })}
                 </TextField>
               )}
-              {kind !== 'categories' && <TextField select label="Trạng thái" value={active ? 'true' : 'false'} onChange={(event) => setActive(event.target.value === 'true')}>
-                <MenuItem value="true">Đang hoạt động</MenuItem><MenuItem value="false">Ngừng hoạt động</MenuItem>
-              </TextField>}
+              {kind !== 'categories' && (
+                <TextField
+                  select
+                  label="Trạng thái"
+                  value={active ? 'true' : 'false'}
+                  onChange={(event) => setActive(event.target.value === 'true')}
+                >
+                  <MenuItem value="true">Đang hoạt động</MenuItem>
+                  <MenuItem value="false">Ngừng hoạt động</MenuItem>
+                </TextField>
+              )}
             </DialogContent>
-            <DialogActions><Button onClick={() => setDialogOpen(false)}>Hủy</Button><Button type="submit" variant="contained">Lưu</Button></DialogActions>
+            <DialogActions sx={{ px: 3, pb: 2 }}>
+              <Button onClick={() => setDialogOpen(false)} sx={{ textTransform: 'none' }}>
+                Hủy
+              </Button>
+              <Button type="submit" variant="contained" sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#0058be' }}>
+                {editing ? 'Cập nhật' : 'Tạo mới'}
+              </Button>
+            </DialogActions>
           </Box>
         </Dialog>
 
@@ -346,7 +625,7 @@ export default function InventorySetup() {
               <Button onClick={() => setAssignStaffOpen(false)} disabled={assigningStaff} sx={{ textTransform: 'none' }}>
                 Hủy
               </Button>
-              <Button type="submit" variant="contained" disabled={assigningStaff} sx={{ textTransform: 'none', fontWeight: 700 }}>
+              <Button type="submit" variant="contained" disabled={assigningStaff} sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#0058be' }}>
                 {assigningStaff ? 'Đang lưu...' : 'Lưu phân công'}
               </Button>
             </DialogActions>
