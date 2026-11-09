@@ -113,7 +113,7 @@ function getRealErrors(result) {
 
 /**
  * Tính trọng số học kỳ để sắp xếp niên khóa từ mới nhất đến cũ nhất.
- * Năm càng lớn trọng số càng cao; trong cùng năm: Fall (FA) > Summer (SU) > Spring (SP) > Winter (WI).
+ * Năm càng lớn trọng số càng cao; trong cùng năm: Fall (FA) > Summer (SU) > Spring (SP).
  */
 function getSemesterWeight(semCode = '') {
   const str = String(semCode || '').trim().toUpperCase()
@@ -124,7 +124,6 @@ function getSemesterWeight(semCode = '') {
   if (str.includes('FA') || str.includes('FALL')) termScore = 3
   else if (str.includes('SU') || str.includes('SUMMER')) termScore = 2
   else if (str.includes('SP') || str.includes('SPRING')) termScore = 1
-  else if (str.includes('WI') || str.includes('WINTER')) termScore = 0
 
   return year * 10 + termScore
 }
