@@ -1,5 +1,8 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Alert,
   Avatar,
   Box,
@@ -11,6 +14,8 @@ import {
   DialogContent,
   DialogTitle,
   Grid,
+  IconButton,
+  InputAdornment,
   ListSubheader,
   MenuItem,
   Paper,
@@ -23,6 +28,7 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material'
 import {
@@ -34,6 +40,8 @@ import {
   Refresh as RefreshIcon,
   School as SchoolIcon,
   AssignmentInd as AssignmentIndIcon,
+  Search as SearchIcon,
+  ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material'
 import { academicService } from '../../services/academicService'
 
@@ -135,6 +143,11 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
   const [loadingClasses, setLoadingClasses] = useState(true)
   const [selectedSemester, setSelectedSemester] = useState('ALL')
 
+  // State danh sách sinh viên thực tế trong lớp
+  const [students, setStudents] = useState([])
+  const [loadingStudents, setLoadingStudents] = useState(false)
+  const [studentSearch, setStudentSearch] = useState('')
+
   // State upload file Excel
   const [selectedFile, setSelectedFile] = useState(null)
   const [uploading, setUploading] = useState(false)
@@ -206,17 +219,39 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
     return found ? found.classes : []
   }, [selectedSemester, groupedClassesBySemester])
 
+  // Tải danh sách sinh viên thực tế của lớp
+  const fetchClassStudents = useCallback(async (classId) => {
+    if (!classId) {
+      setStudents([])
+      return
+    }
+    setLoadingStudents(true)
+    try {
+      const data = await academicService.getClassStudents(classId)
+      setStudents(Array.isArray(data) ? data : [])
+    } catch (err) {
+      console.warn('Không thể tải danh sách sinh viên của lớp:', err)
+      setStudents([])
+    } finally {
+      setLoadingStudents(false)
+    }
+  }, [])
+
   const handleSemesterChange = (e) => {
     const sem = e.target.value
     setSelectedSemester(sem)
     if (sem === 'ALL') {
       if (classes.length > 0 && !classes.some((c) => c.classId === selectedClassId)) {
-        setSelectedClassId(classes[0].classId)
+        const nextId = classes[0].classId
+        setSelectedClassId(nextId)
+        fetchClassStudents(nextId)
       }
     } else {
       const inSem = classes.filter((c) => c.semesterCode === sem)
       if (inSem.length > 0 && !inSem.some((c) => c.classId === selectedClassId)) {
-        setSelectedClassId(inSem[0].classId)
+        const nextId = inSem[0].classId
+        setSelectedClassId(nextId)
+        fetchClassStudents(nextId)
       }
     }
   }
@@ -233,11 +268,14 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
         return (a.classCode || '').localeCompare(b.classCode || '')
       })
       setClasses(classList)
-      if (classList.length > 0 && !selectedClassId) {
-        setSelectedClassId(classList[0].classId)
-        if (classList[0].instructorName) {
+      const targetId = selectedClassId || (classList.length > 0 ? classList[0].classId : '')
+      if (targetId) {
+        if (!selectedClassId) setSelectedClassId(targetId)
+        fetchClassStudents(targetId)
+        const targetCls = classList.find((c) => c.classId === targetId)
+        if (targetCls?.instructorName) {
           setAssignedResult({
-            fullName: classList[0].instructorName,
+            fullName: targetCls.instructorName,
             email: 'gv@smartlab.edu.vn',
             academicTitle: 'Giảng viên',
           })
@@ -252,7 +290,7 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
     } finally {
       setLoadingClasses(false)
     }
-  }, [selectedClassId])
+  }, [selectedClassId, fetchClassStudents])
 
   useEffect(() => {
     let ignore = false
@@ -268,7 +306,9 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
           })
           setClasses(classList)
           if (classList.length > 0) {
-            setSelectedClassId(classList[0].classId)
+            const firstId = classList[0].classId
+            setSelectedClassId(firstId)
+            fetchClassStudents(firstId)
             if (classList[0].instructorName) {
               setAssignedResult({
                 fullName: classList[0].instructorName,
@@ -295,7 +335,7 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
     return () => {
       ignore = true
     }
-  }, [])
+  }, [fetchClassStudents])
 
   // Lớp đang chọn hiện tại
   const currentClass = classes.find((c) => c.classId === selectedClassId) || null
@@ -305,6 +345,8 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
     const newClassId = e.target.value
     setSelectedClassId(newClassId)
     setImportResult(null)
+    setStudentSearch('')
+    fetchClassStudents(newClassId)
     const cls = classes.find((c) => c.classId === newClassId)
     if (cls?.instructorName) {
       setAssignedResult({
@@ -316,6 +358,18 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
       setAssignedResult(null)
     }
   }
+
+  // Danh sách sinh viên sau khi lọc theo từ khóa tìm kiếm
+  const filteredStudents = useMemo(() => {
+    if (!studentSearch.trim()) return students
+    const query = studentSearch.trim().toLowerCase()
+    return students.filter((s) => {
+      const code = String(s.studentCode || s.StudentCode || s.code || s.studentId || '').toLowerCase()
+      const name = String(s.fullName || s.FullName || s.name || s.studentName || '').toLowerCase()
+      const email = String(s.email || s.Email || s.userEmail || '').toLowerCase()
+      return code.includes(query) || name.includes(query) || email.includes(query)
+    })
+  }, [students, studentSearch])
 
   // Chọn file Excel
   const handleFileChange = (e) => {
@@ -351,8 +405,11 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
           : `Import thành công! Đã ghi danh ${res?.enrolledStudents ?? 0} sinh viên vào lớp.${skippedNote}`,
         severity: hasErrors ? 'warning' : 'success',
       })
-      // Cập nhật lại số sinh viên trong danh sách lớp
-      fetchClasses()
+      // Cập nhật lại số sinh viên trong danh sách lớp và tải lại danh sách sinh viên thực tế
+      await Promise.all([
+        fetchClasses(),
+        fetchClassStudents(selectedClassId),
+      ])
     } catch (err) {
       setToast({
         open: true,
@@ -563,7 +620,7 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
               sx={{ bgcolor: '#eaedff', color: '#0058be', fontWeight: 700, fontSize: 11 }}
             />
             <Chip
-              label={`Sĩ số: ${currentClass.currentStudents || 0}/${currentClass.maxStudents || 30}`}
+              label={`Sĩ số: ${students.length > 0 ? students.length : (currentClass.currentStudents || 0)}/${currentClass.maxStudents || 30}`}
               size="small"
               sx={{ bgcolor: '#ecfdf5', color: '#047857', fontWeight: 700, fontSize: 11 }}
             />
@@ -713,33 +770,210 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
               )
             })()}
 
-            {/* Template Sample Table */}
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#131b2e', mt: 3, mb: 1 }}>
-              Mẫu cấu trúc file Excel chuẩn:
-            </Typography>
-            <TableContainer sx={{ border: '1px solid #f0f2f5', borderRadius: 1.5 }}>
-              <Table size="small">
-                <TableHead sx={{ bgcolor: '#fafbff' }}>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>MÃ SV</TableCell>
-                    <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>HỌ TÊN</TableCell>
-                    <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>EMAIL</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  <TableRow hover>
-                    <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#0058be' }}>STU204758A</TableCell>
-                    <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#131b2e' }}>Nguyen Van Nhom Truong</TableCell>
-                    <TableCell sx={{ fontSize: 12, color: '#424754' }}>stu204758a@smartlab.edu.vn</TableCell>
-                  </TableRow>
-                  <TableRow hover>
-                    <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#0058be' }}>STU204758B</TableCell>
-                    <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#131b2e' }}>Tran Thi Thanh Vien</TableCell>
-                    <TableCell sx={{ fontSize: 12, color: '#424754' }}>stu204758b@smartlab.edu.vn</TableCell>
-                  </TableRow>
-                </TableBody>
-              </Table>
-            </TableContainer>
+            {/* Danh sách sinh viên thực tế trong lớp */}
+            <Box sx={{ mt: 3, pt: 2.5, borderTop: '1px solid #f0f2f5' }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  flexWrap: 'wrap',
+                  gap: 1.5,
+                  mb: 1.5,
+                }}
+              >
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 15 }}>
+                    Danh sách sinh viên trong lớp
+                  </Typography>
+                  <Chip
+                    label={`${students.length} sinh viên`}
+                    size="small"
+                    sx={{
+                      bgcolor: students.length > 0 ? '#ecfdf5' : '#f1f5f9',
+                      color: students.length > 0 ? '#047857' : '#64748b',
+                      fontWeight: 700,
+                      fontSize: 11,
+                      height: 22,
+                    }}
+                  />
+                </Box>
+
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <TextField
+                    size="small"
+                    placeholder="Tìm theo Mã SV, Tên, Email..."
+                    value={studentSearch}
+                    onChange={(e) => setStudentSearch(e.target.value)}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon sx={{ fontSize: 18, color: '#9ca3af' }} />
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={{
+                      width: { xs: '100%', sm: 220 },
+                      '& .MuiOutlinedInput-root': {
+                        height: 34,
+                        fontSize: 12,
+                        borderRadius: 1.5,
+                        bgcolor: '#fafbff',
+                      },
+                    }}
+                  />
+                  <Tooltip title="Làm mới danh sách sinh viên">
+                    <span>
+                      <IconButton
+                        size="small"
+                        onClick={() => fetchClassStudents(selectedClassId)}
+                        disabled={loadingStudents || !selectedClassId}
+                        sx={{ border: '1px solid #e4e6ef', borderRadius: 1.5, width: 34, height: 34 }}
+                      >
+                        {loadingStudents ? <CircularProgress size={16} /> : <RefreshIcon sx={{ fontSize: 18 }} />}
+                      </IconButton>
+                    </span>
+                  </Tooltip>
+                </Box>
+              </Box>
+
+              {loadingStudents ? (
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 4, gap: 1.5 }}>
+                  <CircularProgress size={22} />
+                  <Typography variant="body2" sx={{ color: '#6b7280', fontSize: 13 }}>
+                    Đang tải danh sách sinh viên của lớp...
+                  </Typography>
+                </Box>
+              ) : students.length === 0 ? (
+                <Alert severity="info" sx={{ borderRadius: 1.5, fontSize: 12 }}>
+                  Lớp hiện chưa có sinh viên nào được ghi danh. Vui lòng chọn file Excel và bấm <strong>Tải lên &amp; Ghi danh</strong> ở trên.
+                </Alert>
+              ) : (
+                <>
+                  <TableContainer
+                    sx={{
+                      border: '1px solid #e4e6ef',
+                      borderRadius: 1.5,
+                      maxHeight: 380,
+                      overflowY: 'auto',
+                    }}
+                  >
+                    <Table size="small" stickyHeader>
+                      <TableHead>
+                        <TableRow sx={{ '& th': { bgcolor: '#f8fafc', fontWeight: 800, fontSize: 11, color: '#475569' } }}>
+                          <TableCell align="center" sx={{ width: 50 }}>STT</TableCell>
+                          <TableCell sx={{ minWidth: 110 }}>MÃ SINH VIÊN</TableCell>
+                          <TableCell sx={{ minWidth: 160 }}>HỌ VÀ TÊN</TableCell>
+                          <TableCell sx={{ minWidth: 180 }}>EMAIL</TableCell>
+                          <TableCell align="center" sx={{ minWidth: 100 }}>NGÀY GHI DANH</TableCell>
+                        </TableRow>
+                      </TableHead>
+                      <TableBody>
+                        {filteredStudents.length === 0 ? (
+                          <TableRow>
+                            <TableCell colSpan={5} align="center" sx={{ py: 3, color: '#9ca3af', fontSize: 12 }}>
+                              Không tìm thấy sinh viên nào khớp với từ khóa &quot;{studentSearch}&quot;
+                            </TableCell>
+                          </TableRow>
+                        ) : (
+                          filteredStudents.map((s, index) => {
+                            const code = s.studentCode || s.StudentCode || s.code || s.studentId || '—'
+                            const name = s.fullName || s.FullName || s.name || s.studentName || '—'
+                            const email = s.email || s.Email || s.userEmail || '—'
+                            const enrolledDate = s.enrolledAt || s.EnrolledAt
+                            const formattedDate = enrolledDate ? new Date(enrolledDate).toLocaleDateString('vi-VN') : '—'
+
+                            return (
+                              <TableRow key={s.studentProfileId || s.id || `${code}-${index}`} hover>
+                                <TableCell align="center" sx={{ fontSize: 12, color: '#64748b' }}>
+                                  {index + 1}
+                                </TableCell>
+                                <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#0058be' }}>
+                                  <Chip
+                                    label={code}
+                                    size="small"
+                                    sx={{
+                                      height: 22,
+                                      fontSize: 11,
+                                      fontWeight: 700,
+                                      bgcolor: '#eff6ff',
+                                      color: '#1d4ed8',
+                                      borderRadius: 1,
+                                    }}
+                                  />
+                                </TableCell>
+                                <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#1e293b' }}>
+                                  {name}
+                                </TableCell>
+                                <TableCell sx={{ fontSize: 12, color: '#475569' }}>
+                                  {email}
+                                </TableCell>
+                                <TableCell align="center" sx={{ fontSize: 11, color: '#64748b' }}>
+                                  {formattedDate}
+                                </TableCell>
+                              </TableRow>
+                            )
+                          })
+                        )}
+                      </TableBody>
+                    </Table>
+                  </TableContainer>
+
+                  {studentSearch && filteredStudents.length > 0 && (
+                    <Typography variant="caption" sx={{ color: '#64748b', display: 'block', mt: 0.5, fontSize: 11 }}>
+                      Hiển thị {filteredStudents.length} / {students.length} sinh viên khớp kết quả tìm kiếm
+                    </Typography>
+                  )}
+                </>
+              )}
+            </Box>
+
+            {/* Accordion Mẫu cấu trúc file Excel chuẩn */}
+            <Accordion
+              disableGutters
+              elevation={0}
+              sx={{
+                mt: 2,
+                border: '1px solid #e4e6ef',
+                borderRadius: '8px !important',
+                '&:before': { display: 'none' },
+                bgcolor: '#fafbff',
+              }}
+            >
+              <AccordionSummary expandIcon={<ExpandMoreIcon sx={{ fontSize: 20, color: '#0058be' }} />}>
+                <Typography variant="caption" sx={{ fontWeight: 700, color: '#0058be', fontSize: 12 }}>
+                  📄 Xem hướng dẫn &amp; cấu trúc file Excel chuẩn để import (.xlsx, .csv)
+                </Typography>
+              </AccordionSummary>
+              <AccordionDetails sx={{ pt: 0 }}>
+                <Typography variant="caption" sx={{ color: '#6b7280', fontSize: 11, display: 'block', mb: 1 }}>
+                  File Excel cần chứa các cột: <strong>Mã SV</strong>, <strong>Họ tên</strong>, <strong>Email trường</strong>. Các dòng trùng lặp sẽ được hệ thống tự động bỏ qua an toàn.
+                </Typography>
+                <TableContainer sx={{ border: '1px solid #e2e8f0', borderRadius: 1.5, bgcolor: '#ffffff' }}>
+                  <Table size="small">
+                    <TableHead sx={{ bgcolor: '#f8fafc' }}>
+                      <TableRow>
+                        <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>MÃ SV</TableCell>
+                        <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>HỌ TÊN</TableCell>
+                        <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>EMAIL</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      <TableRow hover>
+                        <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#0058be' }}>STU204758A</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#131b2e' }}>Nguyen Van Nhom Truong</TableCell>
+                        <TableCell sx={{ fontSize: 12, color: '#424754' }}>stu204758a@smartlab.edu.vn</TableCell>
+                      </TableRow>
+                      <TableRow hover>
+                        <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#0058be' }}>STU204758B</TableCell>
+                        <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#131b2e' }}>Tran Thi Thanh Vien</TableCell>
+                        <TableCell sx={{ fontSize: 12, color: '#424754' }}>stu204758b@smartlab.edu.vn</TableCell>
+                      </TableRow>
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              </AccordionDetails>
+            </Accordion>
           </Paper>
         </Grid>
 
