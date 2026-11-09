@@ -107,11 +107,18 @@ export default function InventorySetup() {
 
   // Phân quyền theo vai trò
   const isLabStaff = hasRole('LabStaff') && !hasRole('Admin') && !hasRole('InventoryManager')
+  const isStudent = hasRole('Student') && !hasRole('Admin') && !hasRole('InventoryManager') && !hasRole('LabStaff')
   const canManageCategories = hasRole('Admin') || hasRole('InventoryManager') || hasPermission('COMPONENT_MANAGE')
   const canManageStaff = hasRole('Admin') || hasRole('InventoryManager') || hasPermission('USER_MANAGE')
+  const canEditInventory = (hasRole('Admin') || hasRole('InventoryManager') || hasRole('LabStaff')) && !isStudent
 
   // Xác định các Tabs hiển thị phù hợp với quyền người dùng
   const tabs = useMemo(() => {
+    if (isStudent) {
+      return [
+        ['/class-setup/admin/lab-rooms', 'Phòng lab'],
+      ]
+    }
     if (isLabStaff) {
       return [
         ['/class-setup/admin/lab-rooms', 'Phòng lab'],
@@ -123,14 +130,16 @@ export default function InventorySetup() {
       ['/class-setup/admin/lab-rooms', 'Phòng lab'],
       ['/class-setup/admin/cabinets', 'Tủ lưu trữ'],
     ]
-  }, [isLabStaff])
+  }, [isLabStaff, isStudent])
 
-  // Nếu LabStaff cố tình truy cập /categories thì tự động điều hướng sang /lab-rooms
+  // Nếu Student hoặc LabStaff cố tình truy cập tab không có quyền thì tự động điều hướng sang /lab-rooms
   useEffect(() => {
-    if (isLabStaff && location.pathname.endsWith('/categories')) {
+    if (isStudent && !location.pathname.endsWith('/lab-rooms')) {
+      navigate('/class-setup/admin/lab-rooms', { replace: true })
+    } else if (isLabStaff && location.pathname.endsWith('/categories')) {
       navigate('/class-setup/admin/lab-rooms', { replace: true })
     }
-  }, [isLabStaff, location.pathname, navigate])
+  }, [isStudent, isLabStaff, location.pathname, navigate])
 
   const kind = location.pathname.endsWith('/categories')
     ? 'categories'
@@ -346,11 +355,16 @@ export default function InventorySetup() {
   }
 
   return (
-    <PortalLayout headerTitle="Thiết lập kho" headerSubtitle="Quản lý danh mục linh kiện, phòng lab và tủ lưu trữ">
+    <PortalLayout
+      headerTitle={isStudent ? 'Danh sách Phòng Lab' : 'Thiết lập kho'}
+      headerSubtitle={isStudent ? 'Tra cứu thông tin các phòng lab thực hành trong hệ thống' : 'Quản lý danh mục linh kiện, phòng lab và tủ lưu trữ'}
+    >
       <Box sx={{ maxWidth: 1440, mx: 'auto' }}>
-        <Tabs value={tabIndex} onChange={(_, index) => navigate(tabs[index][0])} sx={{ mb: 2 }}>
-          {tabs.map(([, label]) => <Tab key={label} label={label} sx={{ fontWeight: 700 }} />)}
-        </Tabs>
+        {tabs.length > 1 && (
+          <Tabs value={tabIndex} onChange={(_, index) => navigate(tabs[index][0])} sx={{ mb: 2 }}>
+            {tabs.map(([, label]) => <Tab key={label} label={label} sx={{ fontWeight: 700 }} />)}
+          </Tabs>
+        )}
 
         {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
         {notice && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setNotice('')}>{notice}</Alert>}
@@ -375,14 +389,16 @@ export default function InventorySetup() {
                 ))}
               </TextField>
             )}
-            <Button
-              startIcon={<AddIcon />}
-              variant="contained"
-              onClick={openCreate}
-              sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#0058be' }}
-            >
-              Thêm mới
-            </Button>
+            {canEditInventory && (
+              <Button
+                startIcon={<AddIcon />}
+                variant="contained"
+                onClick={openCreate}
+                sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#0058be' }}
+              >
+                Thêm mới
+              </Button>
+            )}
           </Box>
         </Box>
 
@@ -395,15 +411,17 @@ export default function InventorySetup() {
                     {column}
                   </TableCell>
                 ))}
-                <TableCell align="right" sx={{ fontWeight: 700, color: '#334155' }}>
-                  Thao tác
-                </TableCell>
+                {canEditInventory && (
+                  <TableCell align="right" sx={{ fontWeight: 700, color: '#334155' }}>
+                    Thao tác
+                  </TableCell>
+                )}
               </TableRow>
             </TableHead>
             <TableBody>
               {loading && (
                 <TableRow>
-                  <TableCell colSpan={fields[kind].columns.length + 1} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={fields[kind].columns.length + (canEditInventory ? 1 : 0)} align="center" sx={{ py: 4 }}>
                     <CircularProgress size={24} sx={{ mr: 1, verticalAlign: 'middle' }} />
                     <Typography variant="body2" component="span" sx={{ color: 'text.secondary' }}>
                       Đang tải danh sách {fields[kind].title.toLowerCase()}...
@@ -464,51 +482,53 @@ export default function InventorySetup() {
                         </TableCell>
                       </>
                     )}
-                    <TableCell align="right">
-                      {kind === 'cabinets' && (
+                    {canEditInventory && (
+                      <TableCell align="right">
+                        {kind === 'cabinets' && (
+                          <Button
+                            size="small"
+                            onClick={() => navigate(`/class-setup/admin/cabinets/${id}`)}
+                            sx={{ textTransform: 'none', mr: 0.5, fontWeight: 600 }}
+                          >
+                            Chi tiết
+                          </Button>
+                        )}
+                        {kind === 'rooms' && canManageStaff && (
+                          <Button
+                            size="small"
+                            startIcon={<StaffAddIcon fontSize="small" />}
+                            onClick={() => openAssignStaff(row)}
+                            sx={{ textTransform: 'none', mr: 0.5, fontWeight: 600 }}
+                          >
+                            Phân công
+                          </Button>
+                        )}
                         <Button
                           size="small"
-                          onClick={() => navigate(`/class-setup/admin/cabinets/${id}`)}
+                          onClick={() => openEdit(row)}
                           sx={{ textTransform: 'none', mr: 0.5, fontWeight: 600 }}
                         >
-                          Chi tiết
+                          Sửa
                         </Button>
-                      )}
-                      {kind === 'rooms' && canManageStaff && (
-                        <Button
-                          size="small"
-                          startIcon={<StaffAddIcon fontSize="small" />}
-                          onClick={() => openAssignStaff(row)}
-                          sx={{ textTransform: 'none', mr: 0.5, fontWeight: 600 }}
-                        >
-                          Phân công
-                        </Button>
-                      )}
-                      <Button
-                        size="small"
-                        onClick={() => openEdit(row)}
-                        sx={{ textTransform: 'none', mr: 0.5, fontWeight: 600 }}
-                      >
-                        Sửa
-                      </Button>
-                      {kind === 'categories' && canManageCategories && (
-                        <Button
-                          size="small"
-                          color="error"
-                          onClick={() => handleDelete(row)}
-                          title="Xóa danh mục"
-                        >
-                          <DeleteIcon fontSize="small" />
-                        </Button>
-                      )}
-                    </TableCell>
+                        {kind === 'categories' && canManageCategories && (
+                          <Button
+                            size="small"
+                            color="error"
+                            onClick={() => handleDelete(row)}
+                            title="Xóa danh mục"
+                          >
+                            <DeleteIcon fontSize="small" />
+                          </Button>
+                        )}
+                      </TableCell>
+                    )}
                   </TableRow>
                 )
               })}
 
               {!loading && rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={fields[kind].columns.length + 1} align="center" sx={{ py: 5, color: 'text.secondary' }}>
+                  <TableCell colSpan={fields[kind].columns.length + (canEditInventory ? 1 : 0)} align="center" sx={{ py: 5, color: 'text.secondary' }}>
                     Chưa có dữ liệu {fields[kind].singular}.
                   </TableCell>
                 </TableRow>
