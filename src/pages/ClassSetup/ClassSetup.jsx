@@ -104,11 +104,11 @@ export default function ClassSetup() {
               </Tabs>
             </Paper>
 
-            {adminTab === 0 && <SemesterClassManager onNext={() => handleAdminTabChange(null, 1)} />}
+            {adminTab === 0 && <SemesterClassManager onNext={() => handleAdminTabChange(null, 2)} />}
             {adminTab === 1 && <CourseManager />}
             {adminTab === 2 && (
               <ImportRosterFaculty
-                onPrev={() => handleAdminTabChange(null, 1)}
+                onPrev={() => handleAdminTabChange(null, 0)}
               />
             )}
           </Box>

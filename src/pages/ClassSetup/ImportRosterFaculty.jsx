@@ -43,6 +43,73 @@ import { academicService } from '../../services/academicService'
  * 2. POST /api/classes/{id}/roster - Import danh sách sinh viên bằng file Excel
  * 3. POST /api/classes/assign-instructor - Phân công giảng viên cho lớp
  */
+
+/**
+ * Lọc và chuẩn hóa danh sách lỗi thực sự từ kết quả import roster.
+ * Loại bỏ các dòng trùng lặp / bỏ qua hoặc các dòng trống không có nội dung lỗi.
+ */
+function getRealErrors(result) {
+  if (!result?.errors || !Array.isArray(result.errors)) return []
+  return result.errors
+    .map((err) => {
+      const row =
+        err?.row ??
+        err?.Row ??
+        err?.rowNumber ??
+        err?.RowNumber ??
+        err?.lineNumber ??
+        err?.LineNumber ??
+        err?.line ??
+        err?.Line ??
+        null
+
+      let message = ''
+      if (typeof err === 'string') {
+        message = err.trim()
+      } else if (err && typeof err === 'object') {
+        message = (
+          err.message ||
+          err.Message ||
+          err.errorMessage ||
+          err.ErrorMessage ||
+          err.error ||
+          err.Error ||
+          err.description ||
+          err.Description ||
+          err.reason ||
+          err.Reason ||
+          ''
+        ).trim()
+      }
+
+      return { row, message, raw: err }
+    })
+    .filter((err) => {
+      // Bỏ qua nếu hoàn toàn không có nội dung lỗi
+      if (!err.message && !err.row) return false
+
+      // Bỏ qua nếu được đánh dấu rõ ràng là trùng lặp hoặc warning từ server
+      const raw = err.raw
+      if (raw && typeof raw === 'object') {
+        if (raw.isDuplicate || raw.isSkipped || raw.type === 'Duplicate' || raw.type === 'Warning') {
+          return false
+        }
+      }
+
+      // Bỏ qua nếu nội dung thông báo chứa các từ khóa trùng lặp / đã tồn tại / đã có trong lớp
+      if (/trùng|tồn tại|already exist|duplicate|đã có|bỏ qua|skipped/i.test(err.message)) {
+        return false
+      }
+
+      // Bỏ qua nếu không có thông báo chi tiết mà hệ thống đã ghi nhận số dòng bỏ qua
+      if (!err.message && (result.skippedRows ?? 0) > 0) {
+        return false
+      }
+
+      return true
+    })
+}
+
 export default function ImportRosterFaculty({ onNext, onPrev }) {
   // State danh sách lớp học
   const [classes, setClasses] = useState([])
@@ -178,10 +245,15 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
     try {
       const res = await academicService.importRoster(selectedClassId, selectedFile)
       setImportResult(res)
+      const realErrors = getRealErrors(res)
+      const hasErrors = realErrors.length > 0
+      const skippedNote = res?.skippedRows > 0 ? ` (Bỏ qua ${res.skippedRows} dòng trùng lặp)` : ''
       setToast({
         open: true,
-        message: `Import thành công! Đã ghi danh ${res?.enrolledStudents ?? 0} sinh viên vào lớp.`,
-        severity: 'success',
+        message: hasErrors
+          ? `Đã xử lý file: ghi danh ${res?.enrolledStudents ?? 0} sinh viên, phát hiện ${realErrors.length} lỗi dòng.`
+          : `Import thành công! Đã ghi danh ${res?.enrolledStudents ?? 0} sinh viên vào lớp.${skippedNote}`,
+        severity: hasErrors ? 'warning' : 'success',
       })
       // Cập nhật lại số sinh viên trong danh sách lớp
       fetchClasses()
@@ -269,7 +341,7 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
   }
 
   return (
-    <Box sx={{ maxWidth: 1200, mx: 'auto' }}>
+    <Box>
       {/* Breadcrumb Header */}
       <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
         <Box>
@@ -459,33 +531,43 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
             </Box>
 
             {/* Import Result Notification */}
-            {importResult && (
-              <Box sx={{ mt: 3 }}>
-                <Alert
-                  severity={importResult.errors && importResult.errors.length > 0 ? 'warning' : 'success'}
-                  icon={<CheckCircleIcon fontSize="inherit" />}
-                  sx={{ borderRadius: 1.5, fontSize: 13, fontWeight: 600 }}
-                >
-                  Kết quả import: Đã xử lý <strong>{importResult.totalRows ?? 0}</strong> dòng.
-                  Ghi danh thành công: <strong>{importResult.enrolledStudents ?? 0}</strong> sinh viên.
-                  Tạo tài khoản mới: <strong>{importResult.createdUsers ?? 0}</strong>.
-                  {importResult.skippedRows > 0 && ` Bỏ qua: ${importResult.skippedRows} dòng trùng lặp.`}
-                </Alert>
+            {importResult && (() => {
+              const realErrors = getRealErrors(importResult)
+              const hasErrors = realErrors.length > 0
 
-                {importResult.errors && importResult.errors.length > 0 && (
-                  <Box sx={{ mt: 1.5, p: 1.5, bgcolor: '#fef2f2', borderRadius: 1.5, border: '1px solid #fee2e2' }}>
-                    <Typography variant="caption" sx={{ color: '#b91c1c', fontWeight: 700, display: 'block', mb: 0.5 }}>
-                      Các dòng gặp lỗi:
-                    </Typography>
-                    {importResult.errors.map((err, i) => (
-                      <Typography key={i} variant="caption" sx={{ display: 'block', color: '#ef4444', fontSize: 11 }}>
-                        • Dòng {err.row}: {err.message}
+              let alertSeverity = 'success'
+              if (hasErrors) {
+                alertSeverity = (importResult.enrolledStudents ?? 0) > 0 ? 'warning' : 'error'
+              }
+
+              return (
+                <Box sx={{ mt: 3 }}>
+                  <Alert
+                    severity={alertSeverity}
+                    icon={<CheckCircleIcon fontSize="inherit" />}
+                    sx={{ borderRadius: 1.5, fontSize: 13, fontWeight: 600 }}
+                  >
+                    Kết quả import: Đã xử lý <strong>{importResult.totalRows ?? 0}</strong> dòng.
+                    Ghi danh thành công: <strong>{importResult.enrolledStudents ?? 0}</strong> sinh viên.
+                    Tạo tài khoản mới: <strong>{importResult.createdUsers ?? 0}</strong>.
+                    {importResult.skippedRows > 0 && ` Bỏ qua: ${importResult.skippedRows} dòng trùng lặp.`}
+                  </Alert>
+
+                  {hasErrors && (
+                    <Box sx={{ mt: 1.5, p: 1.5, bgcolor: '#fef2f2', borderRadius: 1.5, border: '1px solid #fee2e2' }}>
+                      <Typography variant="caption" sx={{ color: '#b91c1c', fontWeight: 700, display: 'block', mb: 0.5 }}>
+                        Các dòng gặp lỗi:
                       </Typography>
-                    ))}
-                  </Box>
-                )}
-              </Box>
-            )}
+                      {realErrors.map((err, i) => (
+                        <Typography key={i} variant="caption" sx={{ display: 'block', color: '#ef4444', fontSize: 11 }}>
+                          • {err.row ? `Dòng ${err.row}: ` : ''}{err.message || 'Lỗi không xác định'}
+                        </Typography>
+                      ))}
+                    </Box>
+                  )}
+                </Box>
+              )
+            })()}
 
             {/* Template Sample Table */}
             <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#131b2e', mt: 3, mb: 1 }}>

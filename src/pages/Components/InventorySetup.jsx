@@ -13,13 +13,45 @@ import { extractErrorMessage } from '../../services/api'
 
 const fields = {
   categories: { title: 'Danh mục', singular: 'danh mục', name: 'categoryName', id: 'categoryId', columns: ['Tên danh mục', 'Số linh kiện'] },
-  rooms: { title: 'Phòng lab', singular: 'phòng lab', name: 'roomName', id: 'labRoomId', columns: ['Mã phòng', 'Tên phòng', 'Trạng thái', 'Số tủ'] },
+  rooms: { title: 'Phòng lab', singular: 'phòng lab', name: 'roomName', id: 'roomId', columns: ['Mã phòng', 'Tên phòng', 'Trạng thái', 'Số tủ'] },
   cabinets: { title: 'Tủ lưu trữ', singular: 'tủ', name: 'cabinetName', id: 'cabinetId', columns: ['Mã tủ', 'Tên tủ', 'Phòng lab', 'Trạng thái'] },
 }
 
-const getId = (row, kind) => row?.[fields[kind].id] || row?.id
-const getName = (row, kind) => row?.[fields[kind].name] || row?.name || ''
-const getActive = (row) => row?.isActive ?? row?.active ?? true
+const getId = (row, kind) => {
+  if (!row) return ''
+  if (kind === 'rooms') {
+    return row.roomId || row.labRoomId || row.id || row.RoomId || row.LabRoomId || ''
+  }
+  if (kind === 'cabinets') {
+    return row.cabinetId || row.id || row.CabinetId || ''
+  }
+  if (kind === 'categories') {
+    return row.categoryId || row.id || row.CategoryId || ''
+  }
+  return row[fields[kind]?.id] || row.id || ''
+}
+
+const getName = (row, kind) => {
+  if (!row) return ''
+  if (kind === 'rooms') {
+    return row.roomName || row.name || row.RoomName || ''
+  }
+  if (kind === 'cabinets') {
+    return row.cabinetName || row.name || row.CabinetName || ''
+  }
+  if (kind === 'categories') {
+    return row.categoryName || row.name || row.CategoryName || ''
+  }
+  return row[fields[kind]?.name] || row.name || ''
+}
+
+const getActive = (row) => {
+  if (!row) return false
+  if (row.isActive !== undefined) return Boolean(row.isActive)
+  if (row.active !== undefined) return Boolean(row.active)
+  if (row.status) return String(row.status).toLowerCase() === 'active'
+  return true
+}
 
 export default function InventorySetup() {
   const location = useLocation()
@@ -51,7 +83,7 @@ export default function InventorySetup() {
       : kind === 'rooms'
         ? inventoryService.getLabRooms().then((items) => ({ rows: items }))
         : Promise.all([
-            inventoryService.getCabinets(roomFilter ? { labRoomId: roomFilter } : undefined),
+            inventoryService.getCabinets(roomFilter ? { roomId: roomFilter, labRoomId: roomFilter } : undefined),
             inventoryService.getLabRooms(),
           ]).then(([items, labRooms]) => ({ rows: items, rooms: labRooms }))
     return request.then((result) => {
@@ -71,7 +103,7 @@ export default function InventorySetup() {
       : kind === 'rooms'
         ? inventoryService.getLabRooms().then((items) => ({ rows: items }))
         : Promise.all([
-            inventoryService.getCabinets(roomFilter ? { labRoomId: roomFilter } : undefined),
+            inventoryService.getCabinets(roomFilter ? { roomId: roomFilter, labRoomId: roomFilter } : undefined),
             inventoryService.getLabRooms(),
           ]).then(([items, labRooms]) => ({ rows: items, rooms: labRooms }))
     request.then((result) => {
@@ -106,7 +138,7 @@ export default function InventorySetup() {
   const openEdit = (row) => {
     setEditing(row)
     setName(getName(row, kind))
-    setSelectedRoom(row.labRoomId || row.roomId || '')
+    setSelectedRoom(row.roomId || row.labRoomId || '')
     setActive(getActive(row))
     setError('')
     setDialogOpen(true)
@@ -120,8 +152,18 @@ export default function InventorySetup() {
       const body = kind === 'categories'
         ? { categoryName: name.trim() }
         : kind === 'rooms'
-          ? { roomName: name.trim(), isActive: active }
-          : { cabinetName: name.trim(), labRoomId: selectedRoom, isActive: active }
+          ? {
+              roomName: name.trim(),
+              status: active ? 'Active' : 'Inactive',
+              isActive: active,
+            }
+          : {
+              cabinetName: name.trim(),
+              roomId: selectedRoom,
+              labRoomId: selectedRoom,
+              status: active ? 'Active' : 'Inactive',
+              isActive: active,
+            }
       if (editing) {
         if (kind === 'categories') await inventoryService.updateCategory(id, body)
         else if (kind === 'rooms') await inventoryService.updateLabRoom(id, body)
@@ -220,7 +262,7 @@ export default function InventorySetup() {
                     {kind === 'cabinets' && <>
                       <TableCell>{row.cabinetCode || 'Tự sinh khi tạo'}</TableCell>
                       <TableCell>{getName(row, kind)}</TableCell>
-                      <TableCell>{row.labRoomName || row.roomName || rooms.find((room) => getId(room, 'rooms') === row.labRoomId)?.roomName || '—'}</TableCell>
+                      <TableCell>{row.labRoomName || row.roomName || rooms.find((room) => getId(room, 'rooms') === (row.roomId || row.labRoomId))?.roomName || '—'}</TableCell>
                       <TableCell><Chip size="small" label={isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'} color={isActive ? 'success' : 'default'} /></TableCell>
                     </>}
                     <TableCell align="right">
@@ -246,9 +288,26 @@ export default function InventorySetup() {
             <DialogContent sx={{ display: 'grid', gap: 2, pt: '12px !important' }}>
               {error && <Alert severity="error">{error}</Alert>}
               <TextField required autoFocus label={kind === 'rooms' ? 'Tên phòng lab' : kind === 'cabinets' ? 'Tên tủ' : 'Tên danh mục'} value={name} onChange={(event) => setName(event.target.value)} />
-              {kind === 'cabinets' && <TextField required select label="Phòng lab" value={selectedRoom} onChange={(event) => setSelectedRoom(event.target.value)}>
-                {rooms.filter((room) => getActive(room)).map((room) => <MenuItem key={getId(room, 'rooms')} value={getId(room, 'rooms')}>{room.roomName || room.labRoomCode}</MenuItem>)}
-              </TextField>}
+              {kind === 'cabinets' && (
+                <TextField
+                  required
+                  select
+                  label="Phòng lab"
+                  value={selectedRoom}
+                  onChange={(event) => setSelectedRoom(event.target.value)}
+                >
+                  {rooms
+                    .filter((room) => getActive(room) || getId(room, 'rooms') === selectedRoom)
+                    .map((room) => {
+                      const rId = getId(room, 'rooms')
+                      return (
+                        <MenuItem key={rId} value={rId}>
+                          {room.roomName || room.labRoomCode || room.roomCode}
+                        </MenuItem>
+                      )
+                    })}
+                </TextField>
+              )}
               {kind !== 'categories' && <TextField select label="Trạng thái" value={active ? 'true' : 'false'} onChange={(event) => setActive(event.target.value === 'true')}>
                 <MenuItem value="true">Đang hoạt động</MenuItem><MenuItem value="false">Ngừng hoạt động</MenuItem>
               </TextField>}
