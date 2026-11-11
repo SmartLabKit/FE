@@ -12,6 +12,12 @@ export default defineConfig({
         changeOrigin: true,
         secure: false,
       },
+      '/hubs': {
+        target: 'https://smartlab-production-ea45.up.railway.app',
+        changeOrigin: true,
+        secure: false,
+        ws: true,
+      },
     },
   },
 })

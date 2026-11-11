@@ -193,9 +193,9 @@ export default function PortalLayout({
 
     // 5. Phân hệ BÀN GIAO & TRẢ ĐỒ (LabStaff)
     {
-      label: 'Quản lý Mượn / Trả',
+      label: 'Đơn mượn tại Lab',
       icon: <BorrowReturnIcon fontSize="small" />,
-      path: '/borrow/my-requests',
+      path: '/borrow/lab-orders',
       roles: ['LabStaff'],
     },
 

@@ -21,6 +21,7 @@ import CreateReturnRequest from './pages/Borrowing/CreateReturnRequest.jsx'
 import ReturnRequestDetail from './pages/Borrowing/ReturnRequestDetail.jsx'
 import ConfirmReturnRequest from './pages/Borrowing/ConfirmReturnRequest.jsx'
 import BorrowRequestDetail from './pages/Borrowing/BorrowRequestDetail.jsx'
+import LabBorrowManagement from './pages/Borrowing/LabBorrowManagement.jsx'
 
 import InventorySetup from './pages/Components/InventorySetup.jsx'
 import CabinetDetail from './pages/Components/CabinetDetail.jsx'
@@ -74,6 +75,7 @@ function App() {
           <Route path="/class-setup/student/project/:teamId" element={<ProjectManagement />} />
 
           {/* MF5.1: Mượn Bổ Sung (Supplementary Borrowing) */}
+          <Route path="/borrow/lab-orders" element={<LabBorrowManagement />} />
           <Route path="/borrow/my-requests" element={<SupplementaryBorrowList />} />
           <Route path="/borrow/requests/:id" element={<BorrowRequestDetail />} />
           <Route path="/borrow/supplementary" element={<SupplementaryBorrowList />} />

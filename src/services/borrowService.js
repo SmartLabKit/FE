@@ -159,6 +159,19 @@ export const borrowService = {
   },
 
   /**
+   * Lab xuất xác nhận đã gửi một dòng linh kiện chuyển sang lab nhận
+   * POST /api/borrow-requests/{id}/dispatch
+   */
+  async dispatchTransfer(id, data) {
+    try {
+      const response = await api.post(`/api/borrow-requests/${id}/dispatch`, data)
+      return response.data?.data || response.data
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Xác nhận gửi linh kiện chuyển lab thất bại'), { cause: error })
+    }
+  },
+
+  /**
    * Nhân viên lab nhận đồ xác nhận đã nhận 1 dòng mang từ lab khác về
    * POST /api/borrow-requests/{id}/receive
    * Quyền: BORROW_ISSUE (Admin, LabStaff)
@@ -173,6 +186,19 @@ export const borrowService = {
       return response.data?.data || response.data
     } catch (error) {
       throw new Error(extractErrorMessage(error, 'Xác nhận nhận linh kiện chuyển lab thất bại'), { cause: error })
+    }
+  },
+
+  /**
+   * Lab nhận xác nhận đã đủ điều kiện giao đơn cho sinh viên
+   * POST /api/borrow-requests/{id}/lab-accept
+   */
+  async labAcceptBorrowRequest(id) {
+    try {
+      const response = await api.post(`/api/borrow-requests/${id}/lab-accept`, {})
+      return response.data?.data || response.data
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Chấp nhận đơn mượn thất bại'), { cause: error })
     }
   },
 

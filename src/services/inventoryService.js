@@ -43,6 +43,9 @@ export const inventoryService = {
   async getCabinet(id) {
     return unwrap(await api.get(`/api/cabinets/${id}`))
   },
+  async getComponentItems(params) {
+    return unwrap(await api.get('/api/component-items', { params }))
+  },
   async createCabinet(data) {
     return unwrap(await api.post('/api/cabinets', data))
   },
