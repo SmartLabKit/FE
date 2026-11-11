@@ -70,6 +70,7 @@ function App() {
           <Route path="/class-setup/admin/storage-allocation/:inwardId" element={<StorageAllocation />} />
           <Route path="/class-setup/lecturer/quotas" element={<ClassSetup />} />
           <Route path="/class-setup/student/groups" element={<ClassSetup />} />
+          <Route path="/class-setup/student/project" element={<ProjectManagement />} />
           <Route path="/class-setup/student/project/:teamId" element={<ProjectManagement />} />
 
           {/* MF5.1: Mượn Bổ Sung (Supplementary Borrowing) */}

@@ -31,6 +31,7 @@ import {
 import { useNavigate, useParams } from 'react-router-dom'
 import PortalLayout from '../../components/layout/PortalLayout'
 import { useAuth } from '../../context/AuthContext'
+import { academicService } from '../../services/academicService'
 import { inventoryService } from '../../services/inventoryService'
 import { projectService } from '../../services/projectService'
 import { teamService } from '../../services/teamService'
@@ -97,9 +98,25 @@ function formatStatus(status) {
   return labels[status] || status || 'Chưa xác định'
 }
 
-function localDateValue(date = new Date()) {
-  const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
-  return local.toISOString().slice(0, 10)
+function dateInVietnam(value) {
+  if (!value) return ''
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date(value))
+  const dateParts = Object.fromEntries(parts.map(({ type, value: part }) => [type, part]))
+  return `${dateParts.year}-${dateParts.month}-${dateParts.day}`
+}
+
+function localDateValue() {
+  return dateInVietnam(new Date())
+}
+
+function formatVietnamDate(value) {
+  const date = dateInVietnam(value)
+  return date ? `${date.slice(8, 10)}/${date.slice(5, 7)}/${date.slice(0, 4)}` : '—'
 }
 
 function ProjectStatus({ status }) {
@@ -123,6 +140,7 @@ export default function ProjectManagement() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const [team, setTeam] = useState(null)
+  const [teamChoices, setTeamChoices] = useState([])
   const [project, setProject] = useState(null)
   const [form, setForm] = useState(emptyForm)
   const [componentTypes, setComponentTypes] = useState([])
@@ -134,7 +152,9 @@ export default function ProjectManagement() {
   const [suggestions, setSuggestions] = useState(null)
   const [submitDialogOpen, setSubmitDialogOpen] = useState(false)
   const [borrowDate, setBorrowDate] = useState(localDateValue())
-  const [dueDate, setDueDate] = useState(localDateValue())
+  const [borrowDeadline, setBorrowDeadline] = useState(null)
+  const [loadingDeadline, setLoadingDeadline] = useState(false)
+  const [deadlineError, setDeadlineError] = useState('')
   const [loadError, setLoadError] = useState('')
   const [componentError, setComponentError] = useState('')
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
@@ -165,15 +185,60 @@ export default function ProjectManagement() {
   }, [team, user])
 
   const canEdit = isLeader && (!project || ['Draft', 'Rejected'].includes(project.status))
+  const requiresBorrow = form.components.length > 0
 
   const showToast = (message, severity = 'success') => {
     setToast({ open: true, message, severity })
+  }
+
+  const openSubmitDialog = async () => {
+    if (!project?.projectId) return
+    setBorrowDeadline(null)
+    setDeadlineError('')
+    setBorrowDate(localDateValue())
+    setSubmitDialogOpen(true)
+    if (!requiresBorrow) {
+      setLoadingDeadline(false)
+      return
+    }
+
+    setLoadingDeadline(true)
+    try {
+      setBorrowDeadline(await projectService.getBorrowDeadline(project.projectId))
+    } catch (error) {
+      setDeadlineError(error.message || 'Không thể tải hạn trả theo học kỳ.')
+    } finally {
+      setLoadingDeadline(false)
+    }
   }
 
   const loadData = useCallback(async () => {
     setLoading(true)
     setLoadError('')
     try {
+      if (!teamId) {
+        const classResponse = await academicService.getMyClasses()
+        const classes = Array.isArray(classResponse) ? classResponse : classResponse?.items || []
+        const teamResults = await Promise.all(
+          classes.map(async (classItem) => ({
+            classItem,
+            team: await teamService.getMyTeam(classItem.classId),
+          }))
+        )
+        setTeamChoices(
+          teamResults
+            .filter(({ team: teamInClass }) => teamInClass)
+            .map(({ classItem, team: teamInClass }) => ({
+              ...teamInClass,
+              classCode: teamInClass.classCode || classItem.classCode,
+              courseName: classItem.courseName,
+              semesterCode: classItem.semesterCode,
+            }))
+        )
+        return
+      }
+
+      setTeamChoices([])
       const teamData = await teamService.getTeamById(teamId)
       if (!teamData?.classId) {
         throw new Error('Không tìm thấy lớp của nhóm để tải project.')
@@ -321,8 +386,21 @@ export default function ProjectManagement() {
   }
 
   const submitProject = async () => {
-    if (!project?.projectId || !borrowDate || !dueDate || dueDate < borrowDate) {
-      showToast('Ngày trả phải bằng hoặc sau ngày mượn.', 'warning')
+    if (!project?.projectId) {
+      showToast('Không tìm thấy project để gửi duyệt.', 'error')
+      return
+    }
+    if (requiresBorrow && (!borrowDeadline || deadlineError)) {
+      showToast('Chưa tải được hạn trả theo học kỳ. Vui lòng thử lại.', 'warning')
+      return
+    }
+    if (requiresBorrow && !borrowDeadline.canBorrow) {
+      showToast('Học kỳ hiện không cho phép mượn linh kiện.', 'warning')
+      return
+    }
+    const deadlineDate = dateInVietnam(borrowDeadline?.dueDate)
+    if (requiresBorrow && (!borrowDate || !deadlineDate || borrowDate < localDateValue() || deadlineDate <= borrowDate)) {
+      showToast('Ngày mượn phải từ hôm nay trở đi và trước hạn trả của học kỳ.', 'warning')
       return
     }
     const validationError = getFormError(form)
@@ -337,8 +415,8 @@ export default function ProjectManagement() {
         toProjectPayload(form)
       )
       const result = await projectService.submitProject(updatedProject.projectId, {
-        borrowDate: `${borrowDate}T00:00:00Z`,
-        dueDate: `${dueDate}T00:00:00Z`,
+        borrowDate: requiresBorrow ? borrowDate : null,
+        dueDate: requiresBorrow ? deadlineDate : null,
       })
       setProject(result)
       setSubmitDialogOpen(false)
@@ -370,7 +448,7 @@ export default function ProjectManagement() {
     ''
 
   return (
-    <PortalLayout headerTitle="Project của nhóm" headerSubtitle={team?.teamName || 'Quản lý đồ án nhóm'}>
+    <PortalLayout headerTitle="Thiết lập dự án" headerSubtitle={team?.teamName || 'Quản lý đồ án nhóm'}>
       <Container maxWidth="lg" disableGutters sx={{ pb: 5 }}>
         <Button
           size="small"
@@ -383,14 +461,59 @@ export default function ProjectManagement() {
 
         <Box sx={{ mb: 3 }}>
           <Typography variant="h4" sx={{ fontSize: { xs: 24, sm: 30 }, fontWeight: 800, color: '#131b2e' }}>
-            Project của nhóm
+            Thiết lập dự án
           </Typography>
           <Typography variant="body2" color="text.secondary">
             {team ? `${team.teamName} · Lớp ${team.classCode}` : 'Tạo, cập nhật và gửi duyệt project của nhóm.'}
           </Typography>
         </Box>
 
-        {loading ? (
+        {!teamId && loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}>
+            <CircularProgress />
+          </Box>
+        ) : !teamId && loadError ? (
+          <Alert severity="error" action={<Button onClick={loadData}>Thử lại</Button>}>{loadError}</Alert>
+        ) : !teamId ? (
+          <Stack spacing={2}>
+            <Typography variant="h6" sx={{ fontWeight: 800 }}>Chọn nhóm để thiết lập dự án</Typography>
+            {teamChoices.length === 0 ? (
+              <Alert severity="info">
+                Bạn chưa tham gia nhóm nào trong các lớp hiện tại. Hãy tham gia hoặc tạo nhóm trước.
+              </Alert>
+            ) : teamChoices.map((teamChoice) => (
+              <Paper
+                key={teamChoice.teamId}
+                elevation={0}
+                sx={{
+                  p: 2,
+                  border: '1px solid #e4e6ef',
+                  borderRadius: 2,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'space-between',
+                  gap: 2,
+                  flexWrap: 'wrap',
+                }}
+              >
+                <Box>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>{teamChoice.teamName}</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    {teamChoice.classCode}{teamChoice.courseName ? ` · ${teamChoice.courseName}` : ''}
+                    {teamChoice.semesterCode ? ` · ${teamChoice.semesterCode}` : ''}
+                  </Typography>
+                </Box>
+                <Button
+                  variant="contained"
+                  onClick={() => navigate(`/class-setup/student/project/${teamChoice.teamId}`)}
+                  sx={{ textTransform: 'none', fontWeight: 700 }}
+                >
+                  Mở dự án
+                </Button>
+              </Paper>
+            ))}
+          </Stack>
+        ) : loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}>
             <CircularProgress />
           </Box>
@@ -639,7 +762,7 @@ export default function ProjectManagement() {
                   Ngày mượn và ngày trả sẽ được backend kiểm tra theo quy định lớp và tồn kho.
                 </Typography>
                 {isLeader && ['Draft', 'Rejected'].includes(project.status) && (
-                  <Button variant="contained" startIcon={<SendIcon />} onClick={() => setSubmitDialogOpen(true)} sx={{ textTransform: 'none', fontWeight: 700 }}>
+                  <Button variant="contained" startIcon={<SendIcon />} onClick={openSubmitDialog} sx={{ textTransform: 'none', fontWeight: 700 }}>
                     Gửi duyệt
                   </Button>
                 )}
@@ -662,40 +785,94 @@ export default function ProjectManagement() {
         )}
       </Container>
 
-      <Dialog open={submitDialogOpen} onClose={() => !submitting && setSubmitDialogOpen(false)} fullWidth maxWidth="xs">
-        <DialogTitle sx={{ fontWeight: 800 }}>Gửi project để duyệt</DialogTitle>
+      <Dialog open={submitDialogOpen} onClose={() => !submitting && !loadingDeadline && setSubmitDialogOpen(false)} fullWidth maxWidth="sm">
+        <DialogTitle sx={{ fontWeight: 800 }}>Xác nhận gửi duyệt đề tài</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
-            <TextField
-              label="Ngày mượn"
-              type="date"
-              value={borrowDate}
-              onChange={(event) => setBorrowDate(event.target.value)}
-              inputProps={{ min: localDateValue() }}
-              InputLabelProps={{ shrink: true }}
-              required
-            />
-            <TextField
-              label="Ngày trả"
-              type="date"
-              value={dueDate}
-              onChange={(event) => setDueDate(event.target.value)}
-              inputProps={{ min: borrowDate || localDateValue() }}
-              InputLabelProps={{ shrink: true }}
-              required
-            />
-            <Alert severity="info">Hàng chưa được giữ khi gửi project; đơn mượn sẽ ở trạng thái chờ duyệt.</Alert>
+            {loadingDeadline && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
+                <CircularProgress size={24} />
+              </Box>
+            )}
+            {deadlineError && <Alert severity="error">{deadlineError}</Alert>}
+            {requiresBorrow && !loadingDeadline && borrowDeadline && (
+              <>
+                <Box
+                  sx={{
+                    bgcolor: '#f8fafc',
+                    border: '1px solid #e2e8f0',
+                    borderRadius: 2,
+                    p: 2,
+                    display: 'grid',
+                    gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(3, minmax(0, 1fr))' },
+                    gap: 1.5,
+                  }}
+                >
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" display="block">Kỳ học</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 700, color: '#1e293b' }}>
+                      {borrowDeadline.semesterCode || '—'}
+                    </Typography>
+                  </Box>
+                  <Box>
+                    <Typography variant="caption" color="text.secondary" display="block">Hạn trả thiết bị</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 700, color: '#1e293b' }}>
+                      {formatVietnamDate(borrowDeadline.dueDate)}
+                    </Typography>
+                  </Box>
+                  <Box sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}>
+                    <Typography variant="caption" color="text.secondary" display="block">Thời gian còn lại</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 700, color: borrowDeadline.daysLeft < 0 ? '#b91c1c' : '#1d4ed8' }}>
+                      {borrowDeadline.daysLeft} ngày
+                    </Typography>
+                  </Box>
+                </Box>
+                {!borrowDeadline.canBorrow && (
+                  <Alert severity="error" sx={{ py: 0 }}>
+                    Học kỳ đã kết thúc hoặc hiện không còn trong thời gian cho phép mượn linh kiện.
+                  </Alert>
+                )}
+                <TextField
+                  label="Ngày dự kiến nhận đồ"
+                  type="date"
+                  value={borrowDate}
+                  onChange={(event) => setBorrowDate(event.target.value)}
+                  inputProps={{ min: localDateValue() }}
+                  InputLabelProps={{ shrink: true }}
+                  required
+                  disabled={!borrowDeadline.canBorrow}
+                  fullWidth
+                />
+              </>
+            )}
+            {!requiresBorrow && !loadingDeadline && !deadlineError && (
+              <Typography variant="body2" color="text.secondary">
+                Project chỉ bao gồm linh kiện tự chuẩn bị, hệ thống sẽ gửi đề tài cho Giảng viên duyệt mà không tạo đơn mượn kho.
+              </Typography>
+            )}
           </Stack>
         </DialogContent>
         <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setSubmitDialogOpen(false)} disabled={submitting}>Đóng</Button>
+          <Button onClick={() => setSubmitDialogOpen(false)} disabled={submitting || loadingDeadline}>Đóng</Button>
           <Button
             variant="contained"
             onClick={submitProject}
-            disabled={submitting || !borrowDate || !dueDate || dueDate < borrowDate || borrowDate < localDateValue()}
+            disabled={
+              submitting ||
+              loadingDeadline ||
+              (requiresBorrow && (
+                Boolean(deadlineError) ||
+                !borrowDeadline ||
+                !borrowDeadline.canBorrow ||
+                !borrowDate ||
+                borrowDate < localDateValue() ||
+                !borrowDeadline.dueDate ||
+                dateInVietnam(borrowDeadline.dueDate) <= borrowDate
+              ))
+            }
             startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : <SendIcon />}
           >
-            {submitting ? 'Đang gửi...' : 'Gửi duyệt'}
+            {submitting ? 'Đang gửi...' : 'Xác nhận gửi'}
           </Button>
         </DialogActions>
       </Dialog>

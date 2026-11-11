@@ -35,6 +35,17 @@ export const projectService = {
     }
   },
 
+  /** @returns {Promise<import('./projectTypes').BorrowDeadlineResponse>} */
+  async getBorrowDeadline(projectId) {
+    try {
+      return unwrap(await api.get(`/api/projects/${projectId}/borrow-deadline`))
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Không thể tải hạn trả theo học kỳ'), {
+        cause: error,
+      })
+    }
+  },
+
   async createProject(teamId, data) {
     try {
       return unwrap(await api.post(`/api/teams/${teamId}/project`, data))
@@ -64,6 +75,7 @@ export const projectService = {
     }
   },
 
+  /** @param {import('./projectTypes').SubmitProjectRequest} data */
   async submitProject(projectId, data) {
     try {
       return unwrap(await api.post(`/api/projects/${projectId}/submit`, data))

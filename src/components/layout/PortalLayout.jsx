@@ -107,6 +107,12 @@ export default function PortalLayout({
       roles: ['Student'],
     },
     {
+      label: 'Thiết lập dự án',
+      icon: <MenuBookIcon fontSize="small" />,
+      path: '/class-setup/student/project',
+      roles: ['Student'],
+    },
+    {
       label: 'Mượn / Trả linh kiện',
       icon: <BorrowReturnIcon fontSize="small" />,
       path: '/borrow/my-requests',
@@ -328,7 +334,8 @@ export default function PortalLayout({
           const isSemestersRoute = location.pathname === '/class-setup/admin/semesters'
           const isCoursesRoute = location.pathname === '/class-setup/admin/courses'
           const isRosterRoute = location.pathname === '/class-setup/admin/roster'
-          const isStudentGroupsRoute = location.pathname.startsWith('/class-setup/student')
+          const isStudentGroupsRoute = location.pathname === '/class-setup/student/groups'
+          const isStudentProjectRoute = location.pathname.startsWith('/class-setup/student/project')
           const isLecturerQuotasRoute = location.pathname.startsWith('/class-setup/lecturer')
           const isBorrowRoute = location.pathname.startsWith('/borrow') || activeMenuKey === 'borrow' || activeMenuKey === 'handover'
 
@@ -359,6 +366,8 @@ export default function PortalLayout({
               ? isRosterRoute
               : item.path === '/class-setup/student/groups'
               ? isStudentGroupsRoute
+              : item.path === '/class-setup/student/project'
+              ? isStudentProjectRoute
               : item.path === '/class-setup/lecturer/quotas'
               ? isLecturerQuotasRoute
               : item.path === '/borrow/my-requests'
