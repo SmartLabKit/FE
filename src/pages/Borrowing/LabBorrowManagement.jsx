@@ -31,19 +31,11 @@ import {
 import RefreshIcon from '@mui/icons-material/Refresh'
 import SearchIcon from '@mui/icons-material/Search'
 import PortalLayout from '../../components/layout/PortalLayout'
+import ReceiveTransferModal from '../../components/borrowing/ReceiveTransferModal'
 import { useLabBorrowRequests } from '../../hooks/useLabBorrowRequests'
-import { extractErrorMessage } from '../../services/api'
 import { borrowService } from '../../services/borrowService'
-import { inventoryService } from '../../services/inventoryService'
 
 const PAGE_SIZE = 20
-
-function getRows(result) {
-  if (Array.isArray(result)) return result
-  if (Array.isArray(result?.items)) return result.items
-  if (Array.isArray(result?.data?.items)) return result.data.items
-  return []
-}
 
 function getId(row) {
   return row?.borrowRequestId || row?.id
@@ -53,10 +45,6 @@ function formatDate(value) {
   if (!value) return '—'
   const date = new Date(value)
   return Number.isNaN(date.getTime()) ? '—' : new Intl.DateTimeFormat('vi-VN').format(date)
-}
-
-function isConsumable(trackingType) {
-  return String(trackingType || '').toLowerCase() === 'consumable'
 }
 
 function statusColor(status) {
@@ -90,13 +78,6 @@ export default function LabBorrowManagement() {
   const [actionError, setActionError] = useState('')
   const [actionLoading, setActionLoading] = useState('')
   const [receiveLine, setReceiveLine] = useState(null)
-  const [cabinets, setCabinets] = useState([])
-  const [cabinetId, setCabinetId] = useState('')
-  const [cabinetLoading, setCabinetLoading] = useState(false)
-  const [scanCode, setScanCode] = useState('')
-  const [scannedItems, setScannedItems] = useState([])
-  const [scanLoading, setScanLoading] = useState(false)
-  const [receiveError, setReceiveError] = useState('')
   const [cancelOpen, setCancelOpen] = useState(false)
   const [cancelReason, setCancelReason] = useState('')
 
@@ -143,89 +124,14 @@ export default function LabBorrowManagement() {
     }
   }
 
-  const openReceiveDialog = async (line) => {
+  const receiveTransfer = (payload) => runAction(
+    `receive-${payload.borrowItemId}`,
+    () => borrowService.receiveTransfer(receiveLine.borrowRequestId, payload),
+    'Xác nhận nhận hàng thất bại.',
+  )
+
+  const openReceiveDialog = (line) => {
     setReceiveLine(line)
-    setCabinets([])
-    setCabinetId('')
-    setScannedItems([])
-    setScanCode('')
-    setReceiveError('')
-    setCabinetLoading(true)
-    try {
-      const availableCabinets = await inventoryService.getCabinets({
-        roomId: line.pickupRoomId,
-        page: 1,
-        size: 100,
-      })
-      setCabinets(availableCabinets.filter((cabinet) => cabinet.roomId === line.pickupRoomId))
-    } catch (loadError) {
-      setReceiveError(extractErrorMessage(loadError, 'Không thể tải danh sách tủ của lab nhận.'))
-    } finally {
-      setCabinetLoading(false)
-    }
-  }
-
-  const handleScanItem = async (event) => {
-    event.preventDefault()
-    const code = scanCode.trim()
-    if (!code || !receiveLine) return
-    if (scannedItems.length >= receiveLine.quantity) {
-      setReceiveError(`Chỉ được quét đúng ${receiveLine.quantity} item cho dòng linh kiện này.`)
-      return
-    }
-    setScanLoading(true)
-    setReceiveError('')
-    try {
-      const result = await inventoryService.getComponentItems({
-        search: code,
-        componentId: receiveLine.componentId,
-        page: 1,
-        size: 50,
-      })
-      const matches = getRows(result).filter((item) => {
-        const sameComponent = item.componentId === receiveLine.componentId
-        const normalizedCode = code.toLocaleLowerCase()
-        return sameComponent && [item.itemCode, item.serialNumber]
-          .some((value) => String(value || '').trim().toLocaleLowerCase() === normalizedCode)
-      })
-      if (matches.length !== 1) {
-        throw new Error(matches.length
-          ? 'Mã quét khớp với nhiều item. Vui lòng nhập mã con duy nhất.'
-          : 'Không tìm thấy mã item chính xác thuộc linh kiện này.')
-      }
-      const item = matches[0]
-      if (!item.itemId) throw new Error('Dữ liệu item tra cứu không có itemId.')
-      if (scannedItems.some((scanned) => scanned.itemId === item.itemId)) {
-        throw new Error('Item này đã được quét; không thể thêm trùng.')
-      }
-      setScannedItems((current) => [...current, item])
-      setScanCode('')
-    } catch (scanError) {
-      setReceiveError(extractErrorMessage(scanError, 'Tra cứu mã item thất bại.'))
-    } finally {
-      setScanLoading(false)
-    }
-  }
-
-  const submitReceive = async () => {
-    if (!receiveLine || !cabinetId) return
-    const requiresItemIds = !isConsumable(receiveLine.trackingType)
-    if (requiresItemIds && scannedItems.length !== receiveLine.quantity) {
-      setReceiveError(`Cần quét đủ ${receiveLine.quantity} item trước khi xác nhận nhận hàng.`)
-      return
-    }
-    const success = await runAction(
-      `receive-${receiveLine.borrowItemId}`,
-      () => borrowService.receiveTransfer(receiveLine.borrowRequestId, {
-        borrowItemId: receiveLine.borrowItemId,
-        toCabinetId: cabinetId,
-        itemIds: requiresItemIds ? scannedItems.map((item) => item.itemId) : [],
-      }),
-      'Xác nhận nhận hàng thất bại.',
-    )
-    if (success) {
-      setReceiveLine(null)
-    }
   }
 
   const pendingTransfers = useMemo(() => {
@@ -449,7 +355,7 @@ export default function LabBorrowManagement() {
                   <Grid item xs={12} sm={4}><Typography variant="caption" color="text.secondary">Hạn trả</Typography><Typography>{formatDate(requestDetail.dueDate)}</Typography></Grid>
                 </Grid>
                 <Divider />
-                <Typography fontWeight={600}>Linh kiện trong đơn</Typography>
+                <Typography fontWeight={600}>Danh sách linh kiện yêu cầu:</Typography>
                 {pendingTransfers.length > 0 && (
                   <Alert severity="warning">Còn linh kiện đang chuyển về lab. Chưa thể chấp nhận đơn.</Alert>
                 )}
@@ -495,7 +401,7 @@ export default function LabBorrowManagement() {
                           disabled={pendingTransfers.length > 0 || Boolean(actionLoading)}
                           onClick={acceptRequest}
                         >
-                          Chấp nhận, báo SV đến nhận
+                          Hoàn tất
                         </Button>
                       </span>
                     </Tooltip>
@@ -512,86 +418,13 @@ export default function LabBorrowManagement() {
         )}
       </Container>
 
-      <Dialog open={Boolean(receiveLine)} onClose={() => { if (!actionLoading && !scanLoading) setReceiveLine(null) }} fullWidth maxWidth="sm">
-        <DialogTitle>Xác nhận nhận hàng chuyển Lab</DialogTitle>
-        <DialogContent>
-          {receiveLine && (
-            <Stack spacing={2} sx={{ pt: 1 }}>
-              <Alert severity="info">
-                {receiveLine.componentName} · cần nhận đúng {receiveLine.quantity} {receiveLine.unit || 'item'}.
-              </Alert>
-              {receiveError && <Alert severity="error">{receiveError}</Alert>}
-              <TextField
-                select
-                fullWidth
-                label="Tủ lưu tại lab nhận"
-                value={cabinetId}
-                onChange={(event) => setCabinetId(event.target.value)}
-                disabled={cabinetLoading}
-              >
-                {cabinets.map((cabinet) => (
-                  <MenuItem key={cabinet.cabinetId} value={cabinet.cabinetId}>
-                    {cabinet.cabinetCode} · {cabinet.cabinetName}
-                  </MenuItem>
-                ))}
-              </TextField>
-              {cabinetLoading && <CircularProgress size={22} />}
-              {!cabinetLoading && !cabinets.length && <Alert severity="warning">Lab nhận chưa có tủ phù hợp để lưu linh kiện.</Alert>}
-              {isConsumable(receiveLine.trackingType) ? (
-                <Typography variant="body2" color="text.secondary">
-                  Linh kiện tiêu hao không cần quét mã từng con.
-                </Typography>
-              ) : (
-                <>
-                  <Box component="form" onSubmit={handleScanItem}>
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1}>
-                      <TextField
-                        autoFocus
-                        fullWidth
-                        label="Quét hoặc nhập itemCode / serialNumber"
-                        value={scanCode}
-                        onChange={(event) => setScanCode(event.target.value)}
-                        disabled={scanLoading || scannedItems.length >= receiveLine.quantity}
-                      />
-                      <Button type="submit" variant="outlined" disabled={!scanCode.trim() || scanLoading || scannedItems.length >= receiveLine.quantity}>
-                        {scanLoading ? <CircularProgress size={20} /> : 'Thêm'}
-                      </Button>
-                    </Stack>
-                  </Box>
-                  <Typography variant="body2" color="text.secondary">
-                    Đã quét {scannedItems.length}/{receiveLine.quantity}. Mã item không được quét trùng.
-                  </Typography>
-                  <Stack direction="row" useFlexGap flexWrap="wrap" spacing={1}>
-                    {scannedItems.map((item) => (
-                      <Chip
-                        key={item.itemId}
-                        label={item.itemCode || item.serialNumber}
-                        onDelete={() => setScannedItems((current) => current.filter((entry) => entry.itemId !== item.itemId))}
-                      />
-                    ))}
-                  </Stack>
-                </>
-              )}
-            </Stack>
-          )}
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setReceiveLine(null)} disabled={Boolean(actionLoading) || scanLoading}>Đóng</Button>
-          <Button
-            variant="contained"
-            disabled={
-              !receiveLine ||
-              !cabinetId ||
-              cabinetLoading ||
-              Boolean(actionLoading) ||
-              (!isConsumable(receiveLine?.trackingType) && scannedItems.length !== receiveLine?.quantity)
-            }
-            onClick={submitReceive}
-          >
-            Xác nhận đã nhận
-          </Button>
-        </DialogActions>
-      </Dialog>
+      <ReceiveTransferModal
+        open={Boolean(receiveLine)}
+        line={receiveLine}
+        loading={Boolean(actionLoading)}
+        onClose={() => setReceiveLine(null)}
+        onReceive={receiveTransfer}
+      />
 
       <Dialog open={cancelOpen} onClose={() => { if (!actionLoading) setCancelOpen(false) }} fullWidth maxWidth="sm">
         <DialogTitle>Hủy đơn mượn</DialogTitle>
