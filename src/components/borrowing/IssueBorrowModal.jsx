@@ -53,6 +53,30 @@ function isAvailable(item) {
   return normalize(item.status) === 'available'
 }
 
+function getAiDetail(photo) {
+  if (!photo?.aiDetail) return {}
+  if (typeof photo.aiDetail === 'object') return photo.aiDetail
+  try {
+    const parsed = JSON.parse(photo.aiDetail)
+    return parsed && typeof parsed === 'object' ? parsed : {}
+  } catch {
+    return {}
+  }
+}
+
+function getAiStatusLabel(aiResult) {
+  switch (normalize(aiResult)) {
+    case 'match':
+      return 'Thẻ sinh viên khớp'
+    case 'mismatch':
+      return 'Thẻ không khớp'
+    case 'unreadable':
+      return 'Không đọc được thẻ'
+    default:
+      return 'Không xác thực được thẻ'
+  }
+}
+
 export default function IssueBorrowModal({ request, open, submitting, onClose, onIssue }) {
   const [step, setStep] = useState(0)
   const [photo, setPhoto] = useState(null)
@@ -72,6 +96,9 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
   const lineControllersRef = useRef(new Map())
   const items = useMemo(() => request?.items || [], [request?.items])
   const needsOverride = photo && normalize(photo.aiResult) !== 'match'
+  const parsedAiDetail = getAiDetail(photo)
+  const expectedStudentCode = parsedAiDetail.expectedStudentCode || request?.studentCode || 'Không xác định'
+  const detectedStudentCode = parsedAiDetail.studentCode || 'Không xác định'
   const selectedIds = Object.values(selectedByLine).flat().map((item) => item.itemId)
   const selectedIdSet = new Set(selectedIds)
   const itemSelectionValid = items.every((line) =>
@@ -351,11 +378,27 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
               />
             </Button>
             {photo && (
-              <Alert severity={normalize(photo.aiResult) === 'match' ? 'success' : 'warning'}>
-                <Typography fontWeight={600}>
-                  Kết quả AI: {photo.aiResult}
-                </Typography>
-                {photo.aiDetail && <Typography variant="body2">{photo.aiDetail}</Typography>}
+              <Alert severity={needsOverride ? 'warning' : 'success'}>
+                <Stack spacing={0.5}>
+                  <Typography fontWeight={600}>
+                    Trạng thái: {getAiStatusLabel(photo.aiResult)}
+                  </Typography>
+                  {needsOverride && (
+                    <>
+                      <Typography variant="body2">
+                        Mã sinh viên trên đơn (cần tìm): <strong>{expectedStudentCode}</strong>
+                      </Typography>
+                      <Typography variant="body2">
+                        Mã sinh viên AI quét được: <strong>{detectedStudentCode}</strong>
+                      </Typography>
+                    </>
+                  )}
+                  {!needsOverride && detectedStudentCode !== 'Không xác định' && (
+                    <Typography variant="body2">
+                      Mã sinh viên AI quét được: <strong>{detectedStudentCode}</strong>
+                    </Typography>
+                  )}
+                </Stack>
               </Alert>
             )}
             {needsOverride && (
@@ -364,7 +407,7 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
                 fullWidth
                 multiline
                 minRows={2}
-                label="Lý do AI không nhận diện khớp thẻ SV"
+                label="Lý do xác nhận thủ công / Override Reason"
                 value={overrideReason}
                 onChange={(event) => setOverrideReason(event.target.value.slice(0, 500))}
                 helperText={`${overrideReason.length}/500 ký tự`}
