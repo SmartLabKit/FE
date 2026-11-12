@@ -87,6 +87,29 @@ export interface CancelBorrowRequest {
   reason: string
 }
 
+export interface StudentCardReadResponse {
+  aiAvailable: boolean
+  studentCode: string | null
+  isStudentCard: boolean
+}
+
+export interface HandoverPhotoResponse {
+  photoId: string
+  aiResult: 'Match' | 'Mismatch' | 'Unreadable' | string
+  aiDetail: string
+}
+
+export interface IssueBorrowUnitRequest {
+  borrowItemId: string
+  itemIds: string[]
+}
+
+export interface IssueBorrowRequest {
+  photoId: string
+  overrideReason?: string | null
+  units: IssueBorrowUnitRequest[]
+}
+
 export interface ComponentItemResponse {
   itemId: string
   itemCode: string

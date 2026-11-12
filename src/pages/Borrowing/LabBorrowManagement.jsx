@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useMemo, useRef, useState } from 'react'
 import {
   Alert,
   Box,
@@ -12,6 +12,8 @@ import {
   DialogTitle,
   Divider,
   Grid,
+  IconButton,
+  InputAdornment,
   MenuItem,
   Paper,
   Stack,
@@ -29,11 +31,14 @@ import {
   Typography,
 } from '@mui/material'
 import RefreshIcon from '@mui/icons-material/Refresh'
+import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
 import SearchIcon from '@mui/icons-material/Search'
 import PortalLayout from '../../components/layout/PortalLayout'
+import IssueBorrowModal from '../../components/borrowing/IssueBorrowModal'
 import ReceiveTransferModal from '../../components/borrowing/ReceiveTransferModal'
 import { useLabBorrowRequests } from '../../hooks/useLabBorrowRequests'
 import { borrowService } from '../../services/borrowService'
+import { extractErrorMessage } from '../../services/api'
 
 const PAGE_SIZE = 20
 
@@ -78,6 +83,10 @@ export default function LabBorrowManagement() {
   const [actionError, setActionError] = useState('')
   const [actionLoading, setActionLoading] = useState('')
   const [receiveLine, setReceiveLine] = useState(null)
+  const [issueRequest, setIssueRequest] = useState(null)
+  const [cardLoading, setCardLoading] = useState(false)
+  const [cardMessage, setCardMessage] = useState(null)
+  const cardInputRef = useRef(null)
   const [cancelOpen, setCancelOpen] = useState(false)
   const [cancelReason, setCancelReason] = useState('')
 
@@ -107,6 +116,50 @@ export default function LabBorrowManagement() {
     event.preventDefault()
     setPage(1)
     setSearch(searchInput.trim())
+  }
+
+  const handleStudentCardPhoto = async (event) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      setCardMessage({ severity: 'error', text: 'Vui lòng chọn ảnh thẻ sinh viên.' })
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      setCardMessage({ severity: 'error', text: 'Ảnh thẻ không được vượt quá 5 MB.' })
+      return
+    }
+
+    setCardLoading(true)
+    setCardMessage(null)
+    try {
+      const result = await borrowService.readStudentCard(file)
+      setTab(2)
+      setStatus('Ready')
+      setPage(1)
+      if (result.aiAvailable && result.studentCode) {
+        setSearchInput(result.studentCode)
+        setSearch(result.studentCode)
+        setCardMessage({
+          severity: result.isStudentCard ? 'success' : 'warning',
+          text: result.isStudentCard
+            ? `Đã nhận diện MSSV ${result.studentCode}; đang tìm đơn sẵn sàng giao.`
+            : `AI đọc được MSSV ${result.studentCode} nhưng chưa xác nhận đây là thẻ sinh viên. Đang tìm đơn; vui lòng đối chiếu thông tin.`,
+        })
+      } else {
+        setCardMessage({
+          severity: 'warning',
+          text: result.aiAvailable
+            ? 'Không đọc được MSSV từ ảnh. Vui lòng nhập MSSV để tìm thủ công.'
+            : 'AI nhận diện thẻ hiện không khả dụng. Vui lòng nhập MSSV để tìm thủ công.',
+        })
+      }
+    } catch (readError) {
+      setCardMessage({ severity: 'error', text: extractErrorMessage(readError, 'Không thể nhận diện thẻ sinh viên.') })
+    } finally {
+      setCardLoading(false)
+    }
   }
 
   const runAction = async (actionKey, operation, fallbackMessage) => {
@@ -144,7 +197,7 @@ export default function LabBorrowManagement() {
     )
   }, [requestDetail])
 
-  const pageInfo = tab === 0 ? requestResult : transferResult
+  const pageInfo = tab === 1 ? transferResult : requestResult
   const totalCount = Number(pageInfo?.totalCount ?? pageInfo?.total ?? 0)
   const detailItems = requestDetail?.items || []
   const detailRoomId = requestDetail?.roomId
@@ -180,6 +233,16 @@ export default function LabBorrowManagement() {
     )
   }
 
+  const issueBorrow = async (payload) => {
+    const success = await runAction(
+      'issue',
+      () => borrowService.issueBorrowRequest(issueRequest.borrowRequestId, payload),
+      'Bàn giao linh kiện thất bại.',
+    )
+    if (success) setIssueRequest(null)
+    return success
+  }
+
   return (
     <PortalLayout
       headerTitle="Đơn mượn tại Lab"
@@ -202,9 +265,19 @@ export default function LabBorrowManagement() {
         {actionError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setActionError('')}>{actionError}</Alert>}
 
         <Paper variant="outlined" sx={{ mb: 2 }}>
-          <Tabs value={tab} onChange={(_, value) => { setTab(value); setPage(1) }} aria-label="Danh sách đơn Lab">
+          <Tabs
+            value={tab}
+            onChange={(_, value) => {
+              setTab(value)
+              setPage(1)
+              if (value === 2) setStatus('Ready')
+              else if (value === 0 && tab === 2) setStatus('Approved')
+            }}
+            aria-label="Danh sách đơn Lab"
+          >
             <Tab label="Đơn mượn" />
             <Tab label={`Chuyển liên lab (${transfers.length})`} />
+            <Tab label="Quầy giao đồ" />
           </Tabs>
           <Box component="form" onSubmit={handleSearch} sx={{ p: 2 }}>
             <Grid container spacing={1.5} alignItems="center">
@@ -212,10 +285,34 @@ export default function LabBorrowManagement() {
                 <TextField
                   fullWidth
                   size="small"
-                  label="Tìm mã đơn, sinh viên, đề tài"
+                  label={tab === 2 ? 'Tìm đơn sẵn sàng · MSSV / mã đơn' : 'Tìm mã đơn, sinh viên, đề tài'}
                   value={searchInput}
                   onChange={(event) => setSearchInput(event.target.value)}
+                  InputProps={tab === 2 ? {
+                    endAdornment: (
+                      <InputAdornment position="end">
+                        <IconButton
+                          aria-label="Chụp thẻ sinh viên"
+                          onClick={() => cardInputRef.current?.click()}
+                          disabled={cardLoading}
+                          edge="end"
+                        >
+                          {cardLoading ? <CircularProgress size={20} /> : <PhotoCameraIcon />}
+                        </IconButton>
+                      </InputAdornment>
+                    ),
+                  } : undefined}
                 />
+                {tab === 2 && (
+                  <input
+                    ref={cardInputRef}
+                    hidden
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handleStudentCardPhoto}
+                  />
+                )}
               </Grid>
               {tab === 0 && (
                 <Grid item xs={12} sm={3} md={2}>
@@ -237,11 +334,14 @@ export default function LabBorrowManagement() {
                 <Button type="submit" variant="contained" startIcon={<SearchIcon />}>Tìm kiếm</Button>
               </Grid>
             </Grid>
+            {tab === 2 && cardMessage && (
+              <Alert severity={cardMessage.severity} sx={{ mt: 1.5 }}>{cardMessage.text}</Alert>
+            )}
           </Box>
           <Divider />
           {loading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}><CircularProgress /></Box>
-          ) : tab === 0 ? (
+          ) : tab !== 1 ? (
             <TableContainer>
               <Table size="small">
                 <TableHead>
@@ -275,7 +375,7 @@ export default function LabBorrowManagement() {
                       <TableCell><Chip size="small" label={request.status} color={statusColor(request.status)} /></TableCell>
                     </TableRow>
                   ))}
-                  {!requests.length && <TableRow><TableCell colSpan={6} align="center">Không có đơn phù hợp.</TableCell></TableRow>}
+                  {!requests.length && <TableRow><TableCell colSpan={6} align="center">{tab === 2 ? 'Không tìm thấy đơn sẵn sàng giao.' : 'Không có đơn phù hợp.'}</TableCell></TableRow>}
                 </TableBody>
               </Table>
             </TableContainer>
@@ -330,7 +430,7 @@ export default function LabBorrowManagement() {
           />
         </Paper>
 
-        {tab === 0 && (
+        {(tab === 0 || tab === 2) && (
           <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
             {!selectedRequestId ? (
               <Typography color="text.secondary">Chọn một đơn để xem chi tiết và xử lý.</Typography>
@@ -406,6 +506,15 @@ export default function LabBorrowManagement() {
                       </span>
                     </Tooltip>
                   )}
+                  {requestDetail.status === 'Ready' && (
+                    <Button
+                      variant="contained"
+                      disabled={Boolean(actionLoading)}
+                      onClick={() => setIssueRequest(requestDetail)}
+                    >
+                      Giao đồ
+                    </Button>
+                  )}
                   {canCancel && (
                     <Button color="error" variant="outlined" onClick={() => setCancelOpen(true)} disabled={Boolean(actionLoading)}>
                       Hủy đơn
@@ -424,6 +533,15 @@ export default function LabBorrowManagement() {
         loading={Boolean(actionLoading)}
         onClose={() => setReceiveLine(null)}
         onReceive={receiveTransfer}
+      />
+
+      <IssueBorrowModal
+        key={issueRequest?.borrowRequestId || 'issue-modal'}
+        open={Boolean(issueRequest)}
+        request={issueRequest}
+        submitting={actionLoading === 'issue'}
+        onClose={() => setIssueRequest(null)}
+        onIssue={issueBorrow}
       />
 
       <Dialog open={cancelOpen} onClose={() => { if (!actionLoading) setCancelOpen(false) }} fullWidth maxWidth="sm">

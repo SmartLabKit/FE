@@ -214,8 +214,8 @@ export const borrowService = {
   async uploadHandoverPhoto(id, file, photoType = 'Issue') {
     try {
       const formData = new FormData()
-      formData.append('File', file)
-      formData.append('PhotoType', photoType)
+      formData.append('file', file)
+      formData.append('photoType', photoType)
 
       const response = await api.post(`/api/borrow-requests/${id}/photos`, formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
@@ -223,6 +223,23 @@ export const borrowService = {
       return response.data?.data || response.data
     } catch (error) {
       throw new Error(extractErrorMessage(error, 'Tải ảnh bàn giao thất bại'), { cause: error })
+    }
+  },
+
+  /**
+   * Nhận diện thẻ sinh viên từ ảnh chụp/tải lên
+   * POST /api/borrow-requests/read-student-card
+   */
+  async readStudentCard(file) {
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const response = await api.post('/api/borrow-requests/read-student-card', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      return response.data?.data || response.data
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Không thể nhận diện thẻ sinh viên.'), { cause: error })
     }
   },
 
