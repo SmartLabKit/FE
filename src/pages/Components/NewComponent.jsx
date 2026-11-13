@@ -16,6 +16,7 @@ const blankForm = {
   unit: '',
   trackingType: 'CONSUMABLE',
   datasheetUrl: '',
+  isActive: true,
 }
 
 export default function NewComponent() {
@@ -50,10 +51,13 @@ export default function NewComponent() {
               categoryId: component.categoryId || '',
               manufacturer: component.manufacturer || '',
               description: component.description || '',
-              specifications: component.specifications || '',
+              specifications: Array.isArray(component.specs)
+                ? component.specs.join(', ')
+                : component.specifications || '',
               unit: component.unit || '',
               trackingType: component.trackingType || 'CONSUMABLE',
               datasheetUrl: component.datasheetUrl || '',
+              isActive: component.isActive !== false,
             })
             setSavedImages(component.images || [])
             setSavedDatasheetUrl(component.datasheetUrl || component.datasheet?.url || '')
@@ -140,9 +144,10 @@ export default function NewComponent() {
         componentName: form.componentName.trim(),
         manufacturer: form.manufacturer.trim(),
         description: form.description.trim(),
-        specifications: form.specifications.trim(),
+        specs: form.specifications.trim() ? [form.specifications.trim()] : [],
         unit: form.unit.trim(),
         datasheetUrl: form.datasheetUrl.trim() || null,
+        isActive: form.isActive,
       }
       const saved = componentId
         ? await inventoryService.updateComponent(componentId, payload)
