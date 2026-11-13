@@ -21,6 +21,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
+import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import { alpha } from '@mui/material/styles'
 import { extractErrorMessage } from '../../services/api'
 import { borrowService } from '../../services/borrowService'
@@ -48,7 +49,6 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState('')
   const [cabinets, setCabinets] = useState([])
   const [cabinetId, setCabinetId] = useState('')
-  const [selectedItems, setSelectedItems] = useState({})
   const [conditions, setConditions] = useState({})
   const [consumableQuantities, setConsumableQuantities] = useState({})
   const [loadingData, setLoadingData] = useState(false)
@@ -62,16 +62,13 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
   const hasReturnedConsumables = openConsumables.some(
     (item) => Number(consumableQuantities[item.borrowItemId] || 0) > 0,
   )
-  const trackedLinesToReturn = lines.filter((item) => !isConsumable(item) && selectedItems[item.borrowItemId])
-  const trackedSelectionsValid = lines.filter((item) => !isConsumable(item)).every(
-    (item) =>
-      selectedItems[item.borrowItemId] &&
-      ['Good', 'Damaged', 'Lost'].includes(conditions[item.borrowItemId]),
-  )
+  const trackedSelectionsValid = lines
+    .filter((item) => !isConsumable(item))
+    .every((item) => ['Good', 'Damaged', 'Lost'].includes(conditions[item.borrowItemId] || 'Good'))
   const canSubmit = Boolean(
     photo?.photoId &&
     trackedSelectionsValid &&
-    (trackedLinesToReturn.length + openConsumables.length > 0) &&
+    lines.length > 0 &&
     (!hasReturnedConsumables || cabinetId) &&
     !loadingData &&
     !uploading &&
@@ -87,7 +84,6 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
       setPhoto(null)
       setPhotoPreviewUrl('')
       setCabinetId('')
-      setSelectedItems({})
       setConditions({})
       setConsumableQuantities({})
       setError('')
@@ -146,30 +142,9 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
     if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl)
   }, [photoPreviewUrl])
 
-  const toggleTrackedItem = (item) => {
-    setError('')
-    setSelectedItems((current) => {
-      const selected = !current[item.borrowItemId]
-      if (!selected) {
-        setConditions((currentConditions) => {
-          const next = { ...currentConditions }
-          delete next[item.borrowItemId]
-          return next
-        })
-      } else {
-        setConditions((currentConditions) => ({ ...currentConditions, [item.borrowItemId]: 'Good' }))
-      }
-      return { ...current, [item.borrowItemId]: selected }
-    })
-  }
-
   const submitReturn = async () => {
     if (!photo?.photoId) {
       setError('Cần chụp ảnh đồ trả trước khi xác nhận.')
-      return
-    }
-    if (!trackedSelectionsValid) {
-      setError('Vui lòng chọn tình trạng cho từng thiết bị được trả.')
       return
     }
     if (hasReturnedConsumables && !cabinetId) {
@@ -184,10 +159,9 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
           returnedQuantity: Number(consumableQuantities[item.borrowItemId] || 0),
         }
       }
-      if (!selectedItems[item.borrowItemId]) return null
       return {
         borrowItemId: item.borrowItemId,
-        condition: conditions[item.borrowItemId],
+        condition: conditions[item.borrowItemId] || 'Good',
       }
     }).filter(Boolean)
 
@@ -227,7 +201,12 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
                 sx={{ width: '100%', minWidth: 0 }}
               >
                 <Box sx={{ flex: '1 1 auto', minWidth: 0 }}>
-                  <Typography fontWeight={700}>Ảnh linh kiện trả</Typography>
+                  <Stack direction="row" spacing={0.75} alignItems="center">
+                    <Typography fontWeight={700}>Ảnh linh kiện trả</Typography>
+                    {photo?.photoId && (
+                      <CheckCircleIcon color="success" sx={{ fontSize: 18 }} aria-label="Ảnh đã tải lên" />
+                    )}
+                  </Stack>
                   <Typography variant="body2" color="text.secondary">
                     Chụp linh kiện nhận trả để lưu hồ sơ · Tối đa 5 MB
                   </Typography>
@@ -268,11 +247,6 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
                     bgcolor: (theme) => alpha(theme.palette.common.black, 0.04),
                   }}
                 />
-              )}
-              {photo?.photoId && (
-                <Alert severity="success" sx={{ py: 0 }}>
-                  Ảnh đã tải lên và sẵn sàng gắn với phiếu nhận trả.
-                </Alert>
               )}
             </Stack>
           </Paper>
@@ -359,14 +333,13 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
                         <Box>
                           <Typography fontWeight={700}>Thiết bị cần kiểm tra</Typography>
                           <Typography variant="body2" color="text.secondary">
-                            Chọn từng thiết bị trả trong đợt này, sau đó xác nhận tình trạng.
+                            Các thiết bị được ghi nhận trong đợt trả này. Điều chỉnh tình trạng nếu cần.
                           </Typography>
                         </Box>
                         <TableContainer>
                           <Table size="small">
                             <TableHead>
                               <TableRow>
-                                <TableCell>Chọn trả</TableCell>
                                 <TableCell>Thiết bị</TableCell>
                                 <TableCell>Mã cá thể</TableCell>
                                 <TableCell>Tình trạng</TableCell>
@@ -375,15 +348,6 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
                             <TableBody>
                               {lines.filter((item) => !isConsumable(item)).map((item) => (
                                 <TableRow key={item.borrowItemId}>
-                                  <TableCell>
-                                    <Button
-                                      size="small"
-                                      variant={selectedItems[item.borrowItemId] ? 'contained' : 'outlined'}
-                                      onClick={() => toggleTrackedItem(item)}
-                                    >
-                                      {selectedItems[item.borrowItemId] ? 'Đã chọn' : 'Chọn'}
-                                    </Button>
-                                  </TableCell>
                                   <TableCell>
                                     {item.componentName}
                                     <Typography variant="caption" display="block" color="text.secondary">
@@ -399,7 +363,6 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
                                         ...current,
                                         [item.borrowItemId]: event.target.value,
                                       }))}
-                                      disabled={!selectedItems[item.borrowItemId]}
                                       sx={{ minWidth: 150 }}
                                     >
                                       <MenuItem value="Good">Bình thường</MenuItem>
@@ -423,7 +386,7 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={onClose} disabled={submitting || uploading}>Đóng</Button>
         <Button variant="contained" disabled={!canSubmit} onClick={submitReturn}>
-          {submitting ? <CircularProgress size={20} color="inherit" /> : 'Xác nhận nhận trả'}
+          {submitting ? <CircularProgress size={20} color="inherit" /> : 'Xác nhận'}
         </Button>
       </DialogActions>
     </Dialog>

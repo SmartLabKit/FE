@@ -28,6 +28,7 @@ import {
   Typography,
 } from '@mui/material'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import { alpha } from '@mui/material/styles'
 import { extractErrorMessage } from '../../services/api'
 import { borrowService } from '../../services/borrowService'
 import { inventoryService } from '../../services/inventoryService'
@@ -372,34 +373,63 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
 
         {step === 0 ? (
           <Stack spacing={2}>
-            <Alert severity="info">
-              Chụp ảnh các linh kiện đặt cùng thẻ sinh viên để xác thực bàn giao. Ảnh tối đa 5 MB.
-            </Alert>
-            <Button component="label" variant="outlined" disabled={uploading || submitting}>
-              {uploading ? <CircularProgress size={20} /> : photo ? 'Chụp lại / Đổi ảnh khác' : 'Chụp ảnh bàn giao'}
-              <input
-                hidden
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={handlePhotoSelected}
-              />
-            </Button>
-            {photoPreviewUrl && photo?.photoId && (
-              <Box
-                component="img"
-                src={photoPreviewUrl}
-                alt="Ảnh bàn giao đã tải lên"
-                sx={{
-                  display: 'block',
-                  width: '100%',
-                  maxHeight: 240,
-                  objectFit: 'contain',
-                  borderRadius: 1,
-                  bgcolor: 'action.hover',
-                }}
-              />
-            )}
+            <Paper
+              variant="outlined"
+              sx={{ p: { xs: 1.5, sm: 2 }, width: '100%', minWidth: 0, boxSizing: 'border-box' }}
+            >
+              <Stack spacing={1.5} sx={{ width: '100%', minWidth: 0 }}>
+                <Stack
+                  direction={{ xs: 'column', sm: 'row' }}
+                  justifyContent="space-between"
+                  alignItems={{ xs: 'stretch', sm: 'center' }}
+                  spacing={1.5}
+                  sx={{ width: '100%', minWidth: 0 }}
+                >
+                  <Box sx={{ flex: '1 1 auto', minWidth: 0 }}>
+                    <Typography fontWeight={700}>Ảnh bàn giao</Typography>
+                    <Typography variant="body2" color="text.secondary">
+                      Chụp linh kiện đặt cùng thẻ sinh viên để xác thực · Tối đa 5 MB
+                    </Typography>
+                  </Box>
+                  <Button
+                    component="label"
+                    variant="outlined"
+                    disabled={uploading || submitting}
+                    sx={{ flex: '0 0 auto', alignSelf: { xs: 'stretch', sm: 'center' }, maxWidth: '100%' }}
+                  >
+                    {uploading ? <CircularProgress size={20} /> : photo ? 'Chụp lại / Đổi ảnh khác' : 'Chụp / Tải ảnh'}
+                    <input
+                      hidden
+                      type="file"
+                      accept="image/*"
+                      capture="environment"
+                      onChange={handlePhotoSelected}
+                    />
+                  </Button>
+                </Stack>
+                {uploading && (
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <CircularProgress size={18} />
+                    <Typography variant="body2" color="text.secondary">Đang tải ảnh lên…</Typography>
+                  </Box>
+                )}
+                {photoPreviewUrl && photo?.photoId && (
+                  <Box
+                    component="img"
+                    src={photoPreviewUrl}
+                    alt="Ảnh bàn giao đã tải lên"
+                    sx={{
+                      display: 'block',
+                      width: '100%',
+                      maxHeight: 240,
+                      objectFit: 'contain',
+                      borderRadius: 1,
+                      bgcolor: (theme) => alpha(theme.palette.common.black, 0.04),
+                    }}
+                  />
+                )}
+              </Stack>
+            </Paper>
             {photo && (
               <Alert severity={needsOverride ? 'warning' : 'success'}>
                 <Stack spacing={0.5}>
