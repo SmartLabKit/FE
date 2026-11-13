@@ -21,6 +21,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
+import { alpha } from '@mui/material/styles'
 import { extractErrorMessage } from '../../services/api'
 import { borrowService } from '../../services/borrowService'
 import { inventoryService } from '../../services/inventoryService'
@@ -43,8 +44,8 @@ function getOpenReturnLines(items) {
 }
 
 export default function ReturnBorrowModal({ request, open, submitting, onClose, onReturn }) {
-  const [step, setStep] = useState(0)
   const [photo, setPhoto] = useState(null)
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState('')
   const [cabinets, setCabinets] = useState([])
   const [cabinetId, setCabinetId] = useState('')
   const [selectedItems, setSelectedItems] = useState({})
@@ -81,8 +82,8 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
     let active = true
     const timer = window.setTimeout(async () => {
       setLoadingData(true)
-      setStep(0)
       setPhoto(null)
+      setPhotoPreviewUrl('')
       setCabinetId('')
       setSelectedItems({})
       setConditions({})
@@ -125,16 +126,23 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
 
     setUploading(true)
     setError('')
+    setPhoto(null)
+    setPhotoPreviewUrl('')
     try {
       const result = await borrowService.uploadHandoverPhoto(request.borrowRequestId, file, 'Return')
       if (!result?.photoId) throw new Error('Phản hồi ảnh trả đồ không có photoId.')
       setPhoto(result)
+      setPhotoPreviewUrl(URL.createObjectURL(file))
     } catch (uploadError) {
       setError(extractErrorMessage(uploadError, 'Không thể tải ảnh đồ trả.'))
     } finally {
       setUploading(false)
     }
   }
+
+  useEffect(() => () => {
+    if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl)
+  }, [photoPreviewUrl])
 
   const toggleTrackedItem = (item) => {
     setError('')
@@ -156,7 +164,6 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
   const submitReturn = async () => {
     if (!photo?.photoId) {
       setError('Cần chụp ảnh đồ trả trước khi xác nhận.')
-      setStep(0)
       return
     }
     if (!trackedSelectionsValid) {
@@ -201,44 +208,79 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
       onClose={() => { if (!submitting && !uploading) onClose() }}
       fullWidth
       maxWidth="md"
+      scroll="paper"
+      PaperProps={{ sx: { maxHeight: 'calc(100% - 32px)' } }}
     >
-      <DialogTitle>Nhận trả đồ · {request?.requestCode}</DialogTitle>
-      <DialogContent>
-        <Stack spacing={2} sx={{ pt: 1 }}>
+      <DialogTitle sx={{ pb: 1 }}>Nhận trả đồ · {request?.requestCode}</DialogTitle>
+      <DialogContent dividers sx={{ overflowY: 'auto' }}>
+        <Stack spacing={2} sx={{ py: 1 }}>
           {error && <Alert severity="error">{error}</Alert>}
-          {step === 0 ? (
-            <Stack spacing={2}>
-              <Alert severity="info">
-                Chụp ảnh linh kiện mang trả để lưu nhận trả. Ảnh tối đa 5 MB.
-              </Alert>
-              <Button component="label" variant="outlined" disabled={uploading || submitting}>
-                {uploading ? <CircularProgress size={20} /> : photo ? 'Chụp lại ảnh trả đồ' : 'Chụp ảnh đồ trả'}
-                <input
-                  hidden
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  onChange={handlePhotoSelected}
+          <Paper variant="outlined" sx={{ p: 2 }}>
+            <Stack spacing={1.5}>
+              <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }} spacing={1}>
+                <Box>
+                  <Typography fontWeight={700}>Ảnh linh kiện trả</Typography>
+                  <Typography variant="body2" color="text.secondary">
+                    Chụp linh kiện nhận trả để lưu hồ sơ · Tối đa 5 MB
+                  </Typography>
+                </Box>
+                <Button component="label" variant="outlined" disabled={uploading || submitting} sx={{ flexShrink: 0 }}>
+                  {uploading ? <CircularProgress size={20} /> : photo ? 'Chụp lại / Đổi ảnh khác' : 'Chụp / Tải ảnh'}
+                  <input
+                    hidden
+                    type="file"
+                    accept="image/*"
+                    capture="environment"
+                    onChange={handlePhotoSelected}
+                  />
+                </Button>
+              </Stack>
+              {uploading && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <CircularProgress size={18} />
+                  <Typography variant="body2" color="text.secondary">Đang tải ảnh lên…</Typography>
+                </Box>
+              )}
+              {photoPreviewUrl && photo?.photoId && (
+                <Box
+                  component="img"
+                  src={photoPreviewUrl}
+                  alt="Ảnh linh kiện trả đã tải lên"
+                  sx={{
+                    display: 'block',
+                    width: '100%',
+                    maxHeight: 240,
+                    objectFit: 'contain',
+                    borderRadius: 1,
+                    bgcolor: (theme) => alpha(theme.palette.common.black, 0.04),
+                  }}
                 />
-              </Button>
-              {photo && (
-                <Alert severity="success">
-                  Ảnh trả đồ đã tải lên thành công. Có thể tiếp tục phân loại tình trạng.
+              )}
+              {photo?.photoId && (
+                <Alert severity="success" sx={{ py: 0 }}>
+                  Ảnh đã tải lên và sẵn sàng gắn với phiếu nhận trả.
                 </Alert>
               )}
             </Stack>
-          ) : (
-            <Stack spacing={2}>
-              {loadingData ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                  <CircularProgress />
-                </Box>
-              ) : (
-                <>
-                  {!lines.length && (
-                    <Alert severity="info">Đơn không còn linh kiện nào đang chờ trả.</Alert>
-                  )}
-                  {openConsumables.length > 0 && (
+          </Paper>
+
+          {!photo?.photoId && (
+            <Alert severity="info">
+              Tải ảnh lên để kích hoạt danh sách thiết bị và xác nhận nhận trả.
+            </Alert>
+          )}
+
+          <Box sx={!photo?.photoId ? { opacity: 0.55, pointerEvents: 'none' } : undefined}>
+            {loadingData ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                <CircularProgress />
+              </Box>
+            ) : (
+              <Stack spacing={2}>
+                {!lines.length && (
+                  <Alert severity="info">Đơn không còn linh kiện nào đang chờ trả.</Alert>
+                )}
+                {openConsumables.length > 0 && (
                     <Paper variant="outlined" sx={{ p: 2 }}>
                       <Stack spacing={1.5}>
                         <Typography fontWeight={700}>Vật tư tiêu hao</Typography>
@@ -302,9 +344,9 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
                         )}
                       </Stack>
                     </Paper>
-                  )}
+                )}
 
-                  {lines.some((item) => !isConsumable(item)) && (
+                {lines.some((item) => !isConsumable(item)) && (
                     <Paper variant="outlined" sx={{ p: 2 }}>
                       <Stack spacing={1}>
                         <Box>
@@ -364,33 +406,17 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
                         </TableContainer>
                       </Stack>
                     </Paper>
-                  )}
-                </>
-              )}
-            </Stack>
-          )}
+                )}
+              </Stack>
+            )}
+          </Box>
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={onClose} disabled={submitting || uploading}>Đóng</Button>
-        {step === 1 && (
-          <Button onClick={() => { setError(''); setStep(0) }} disabled={submitting || uploading}>
-            Quay lại
-          </Button>
-        )}
-        {step === 0 ? (
-          <Button
-            variant="contained"
-            disabled={!photo?.photoId || uploading || loadingData || submitting}
-            onClick={() => { setError(''); setStep(1) }}
-          >
-            Tiếp tục
-          </Button>
-        ) : (
-          <Button variant="contained" disabled={!canSubmit} onClick={submitReturn}>
-            {submitting ? <CircularProgress size={20} color="inherit" /> : 'Xác nhận nhận trả'}
-          </Button>
-        )}
+        <Button variant="contained" disabled={!canSubmit} onClick={submitReturn}>
+          {submitting ? <CircularProgress size={20} color="inherit" /> : 'Xác nhận nhận trả'}
+        </Button>
       </DialogActions>
     </Dialog>
   )
