@@ -110,6 +110,18 @@ export interface IssueBorrowRequest {
   units: IssueBorrowUnitRequest[]
 }
 
+export interface ReturnLineRequest {
+  borrowItemId: string
+  condition?: 'Good' | 'Damaged' | 'Lost' | null
+  returnedQuantity?: number | null
+}
+
+export interface ReturnBorrowRequest {
+  photoId: string
+  cabinetId?: string | null
+  lines: ReturnLineRequest[]
+}
+
 export interface ComponentItemResponse {
   itemId: string
   itemCode: string

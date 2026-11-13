@@ -17,6 +17,7 @@ import {
   MenuItem,
   Paper,
   Stack,
+  Snackbar,
   Tab,
   Table,
   TableBody,
@@ -36,6 +37,7 @@ import SearchIcon from '@mui/icons-material/Search'
 import PortalLayout from '../../components/layout/PortalLayout'
 import IssueBorrowModal from '../../components/borrowing/IssueBorrowModal'
 import ReceiveTransferModal from '../../components/borrowing/ReceiveTransferModal'
+import ReturnBorrowModal from '../../components/borrowing/ReturnBorrowModal'
 import { useLabBorrowRequests } from '../../hooks/useLabBorrowRequests'
 import { borrowService } from '../../services/borrowService'
 import { extractErrorMessage } from '../../services/api'
@@ -52,10 +54,25 @@ function formatDate(value) {
   return Number.isNaN(date.getTime()) ? '—' : new Intl.DateTimeFormat('vi-VN').format(date)
 }
 
+function getDaysOverdue(dueDate) {
+  if (!dueDate) return 0
+  const dateOnly = String(dueDate).slice(0, 10)
+  const [year, month, day] = dateOnly.split('-').map(Number)
+  if (!year || !month || !day) return 0
+  const due = new Date(year, month - 1, day)
+  const today = new Date()
+  today.setHours(0, 0, 0, 0)
+  return Math.max(0, Math.floor((today - due) / 86400000))
+}
+
+function isOverdue(request) {
+  return Boolean(request?.isOverdue) || request?.status === 'Overdue'
+}
+
 function statusColor(status) {
   if (status === 'Ready') return 'success'
   if (status === 'Approved') return 'warning'
-  if (status === 'Cancelled' || status === 'Rejected') return 'error'
+  if (status === 'Cancelled' || status === 'Rejected' || status === 'Overdue') return 'error'
   return 'default'
 }
 
@@ -84,6 +101,8 @@ export default function LabBorrowManagement() {
   const [actionLoading, setActionLoading] = useState('')
   const [receiveLine, setReceiveLine] = useState(null)
   const [issueRequest, setIssueRequest] = useState(null)
+  const [returnRequest, setReturnRequest] = useState(null)
+  const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
   const [cardLoading, setCardLoading] = useState(false)
   const [cardMessage, setCardMessage] = useState(null)
   const cardInputRef = useRef(null)
@@ -243,6 +262,39 @@ export default function LabBorrowManagement() {
     return success
   }
 
+  const returnBorrow = async (payload) => {
+    let updatedRequest = null
+    const success = await runAction(
+      'return',
+      async () => {
+        updatedRequest = await borrowService.returnBorrowRequest(returnRequest.borrowRequestId, payload)
+        return updatedRequest
+      },
+      'Tiếp nhận trả đồ thất bại.',
+    )
+    if (success) {
+      const updatedItems = updatedRequest?.items
+      const stillOutstanding = Array.isArray(updatedItems) && updatedItems.some((item) => {
+        if (String(item.trackingType || '').toLowerCase() === 'consumable') {
+          return Number(item.returnedQuantity || 0) < Number(item.quantity || 0)
+        }
+        return !item.returnedAt && String(item.status || '').toLowerCase() !== 'returned'
+      })
+      const message = !Array.isArray(updatedItems)
+        ? 'Đã ghi nhận nhận trả linh kiện.'
+        : stillOutstanding
+          ? 'Đã ghi nhận đợt trả. Đơn vẫn còn linh kiện đang mượn.'
+          : 'Đã nhận đủ linh kiện. Đơn chuyển sang trạng thái Đã trả.'
+      setReturnRequest(null)
+      setToast({
+        open: true,
+        severity: 'success',
+        message,
+      })
+    }
+    return success
+  }
+
   return (
     <PortalLayout
       headerTitle="Đơn mượn tại Lab"
@@ -271,13 +323,15 @@ export default function LabBorrowManagement() {
               setTab(value)
               setPage(1)
               if (value === 2) setStatus('Ready')
-              else if (value === 0 && tab === 2) setStatus('Approved')
+              else if (value === 3) setStatus('Borrowing')
+              else if (value === 0 && (tab === 2 || tab === 3)) setStatus('Approved')
             }}
             aria-label="Danh sách đơn Lab"
           >
             <Tab label="Đơn mượn" />
             <Tab label={`Chuyển liên lab (${transfers.length})`} />
             <Tab label="Quầy giao đồ" />
+            <Tab label="Quầy nhận trả" />
           </Tabs>
           <Box component="form" onSubmit={handleSearch} sx={{ p: 2 }}>
             <Grid container spacing={1.5} alignItems="center">
@@ -314,7 +368,7 @@ export default function LabBorrowManagement() {
                   />
                 )}
               </Grid>
-              {tab === 0 && (
+              {(tab === 0 || tab === 3) && (
                 <Grid item xs={12} sm={3} md={2}>
                   <TextField
                     select
@@ -324,9 +378,18 @@ export default function LabBorrowManagement() {
                     value={status}
                     onChange={(event) => { setPage(1); setStatus(event.target.value) }}
                   >
-                    <MenuItem value="Approved">Đã duyệt</MenuItem>
-                    <MenuItem value="Ready">Sẵn sàng giao</MenuItem>
-                    <MenuItem value="">Tất cả</MenuItem>
+                    {tab === 3 ? (
+                      <>
+                        <MenuItem value="Borrowing">Đang mượn</MenuItem>
+                        <MenuItem value="Overdue">Quá hạn</MenuItem>
+                      </>
+                    ) : (
+                      <>
+                        <MenuItem value="Approved">Đã duyệt</MenuItem>
+                        <MenuItem value="Ready">Sẵn sàng giao</MenuItem>
+                        <MenuItem value="">Tất cả</MenuItem>
+                      </>
+                    )}
                   </TextField>
                 </Grid>
               )}
@@ -372,10 +435,24 @@ export default function LabBorrowManagement() {
                       <TableCell>{request.projectTitle || '—'}</TableCell>
                       <TableCell>{request.roomName || request.roomCode || '—'}</TableCell>
                       <TableCell>{formatDate(request.borrowDate)}</TableCell>
-                      <TableCell><Chip size="small" label={request.status} color={statusColor(request.status)} /></TableCell>
+                      <TableCell>
+                        <Stack spacing={0.5} alignItems="flex-start">
+                          <Chip size="small" label={request.status} color={statusColor(request.status)} />
+                          {isOverdue(request) && (
+                            <Stack direction="row" spacing={0.75} alignItems="center">
+                              <Chip size="small" color="error" label="Quá hạn" />
+                              {getDaysOverdue(request.dueDate) > 0 && (
+                                <Typography variant="caption" color="error.main" fontWeight={600}>
+                                  Trễ {getDaysOverdue(request.dueDate)} ngày
+                                </Typography>
+                              )}
+                            </Stack>
+                          )}
+                        </Stack>
+                      </TableCell>
                     </TableRow>
                   ))}
-                  {!requests.length && <TableRow><TableCell colSpan={6} align="center">{tab === 2 ? 'Không tìm thấy đơn sẵn sàng giao.' : 'Không có đơn phù hợp.'}</TableCell></TableRow>}
+                  {!requests.length && <TableRow><TableCell colSpan={6} align="center">{tab === 2 ? 'Không tìm thấy đơn sẵn sàng giao.' : tab === 3 ? 'Không có đơn đang mượn cần nhận trả.' : 'Không có đơn phù hợp.'}</TableCell></TableRow>}
                 </TableBody>
               </Table>
             </TableContainer>
@@ -430,7 +507,7 @@ export default function LabBorrowManagement() {
           />
         </Paper>
 
-        {(tab === 0 || tab === 2) && (
+        {(tab === 0 || tab === 2 || tab === 3) && (
           <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
             {!selectedRequestId ? (
               <Typography color="text.secondary">Chọn một đơn để xem chi tiết và xử lý.</Typography>
@@ -515,6 +592,16 @@ export default function LabBorrowManagement() {
                       Giao đồ
                     </Button>
                   )}
+                  {['Borrowing', 'Overdue'].includes(requestDetail.status) && (
+                    <Button
+                      variant="contained"
+                      color="primary"
+                      disabled={Boolean(actionLoading)}
+                      onClick={() => setReturnRequest(requestDetail)}
+                    >
+                      Nhận trả đồ
+                    </Button>
+                  )}
                   {canCancel && (
                     <Button color="error" variant="outlined" onClick={() => setCancelOpen(true)} disabled={Boolean(actionLoading)}>
                       Hủy đơn
@@ -544,6 +631,15 @@ export default function LabBorrowManagement() {
         onIssue={issueBorrow}
       />
 
+      <ReturnBorrowModal
+        key={returnRequest?.borrowRequestId || 'return-modal'}
+        open={Boolean(returnRequest)}
+        request={returnRequest}
+        submitting={actionLoading === 'return'}
+        onClose={() => setReturnRequest(null)}
+        onReturn={returnBorrow}
+      />
+
       <Dialog open={cancelOpen} onClose={() => { if (!actionLoading) setCancelOpen(false) }} fullWidth maxWidth="sm">
         <DialogTitle>Hủy đơn mượn</DialogTitle>
         <DialogContent>
@@ -570,6 +666,20 @@ export default function LabBorrowManagement() {
           </Button>
         </DialogActions>
       </Dialog>
+      <Snackbar
+        open={toast.open}
+        autoHideDuration={6000}
+        onClose={() => setToast((current) => ({ ...current, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      >
+        <Alert
+          severity={toast.severity}
+          variant="filled"
+          onClose={() => setToast((current) => ({ ...current, open: false }))}
+        >
+          {toast.message}
+        </Alert>
+      </Snackbar>
     </PortalLayout>
   )
 }
