@@ -397,7 +397,7 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
                     disabled={uploading || submitting}
                     sx={{ flex: '0 0 auto', alignSelf: { xs: 'stretch', sm: 'center' }, maxWidth: '100%' }}
                   >
-                    {uploading ? <CircularProgress size={20} /> : photo ? 'Chụp lại / Đổi ảnh khác' : 'Chụp / Tải ảnh'}
+                    {uploading ? <CircularProgress size={20} /> : photo ? 'Chụp lại' : 'Tải ảnh'}
                     <input
                       hidden
                       type="file"
