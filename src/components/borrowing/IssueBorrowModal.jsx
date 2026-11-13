@@ -80,6 +80,7 @@ function getAiStatusLabel(aiResult) {
 export default function IssueBorrowModal({ request, open, submitting, onClose, onIssue }) {
   const [step, setStep] = useState(0)
   const [photo, setPhoto] = useState(null)
+  const [photoPreviewUrl, setPhotoPreviewUrl] = useState('')
   const [overrideReason, setOverrideReason] = useState('')
   const [availableByLine, setAvailableByLine] = useState({})
   const [cabinetIds, setCabinetIds] = useState([])
@@ -121,6 +122,7 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
       setSelectedByLine({})
       setBarcodeByLine({})
       setPhoto(null)
+      setPhotoPreviewUrl('')
       setOverrideReason('')
       setStep(0)
       lineLoadsRef.current.clear()
@@ -159,6 +161,10 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
       lineControllers.clear()
     }
   }, [items, open, request])
+
+  useEffect(() => () => {
+    if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl)
+  }, [photoPreviewUrl])
 
   const loadLineItems = async (line) => {
     const lineId = line.borrowItemId
@@ -297,6 +303,7 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
     setUploading(true)
     setError('')
     setPhoto(null)
+    setPhotoPreviewUrl('')
     setOverrideReason('')
     try {
       const result = await borrowService.uploadHandoverPhoto(request.borrowRequestId, file, 'Issue')
@@ -304,6 +311,7 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
         throw new Error('Phản hồi ảnh bàn giao thiếu photoId hoặc kết quả nhận diện.')
       }
       setPhoto(result)
+      setPhotoPreviewUrl(URL.createObjectURL(file))
     } catch (uploadError) {
       setError(extractErrorMessage(uploadError, 'Không thể tải ảnh bàn giao.'))
     } finally {
@@ -368,7 +376,7 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
               Chụp ảnh các linh kiện đặt cùng thẻ sinh viên để xác thực bàn giao. Ảnh tối đa 5 MB.
             </Alert>
             <Button component="label" variant="outlined" disabled={uploading || submitting}>
-              {uploading ? <CircularProgress size={20} /> : photo ? 'Chụp lại ảnh bàn giao' : 'Chụp ảnh bàn giao'}
+              {uploading ? <CircularProgress size={20} /> : photo ? 'Chụp lại / Đổi ảnh khác' : 'Chụp ảnh bàn giao'}
               <input
                 hidden
                 type="file"
@@ -377,6 +385,21 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
                 onChange={handlePhotoSelected}
               />
             </Button>
+            {photoPreviewUrl && photo?.photoId && (
+              <Box
+                component="img"
+                src={photoPreviewUrl}
+                alt="Ảnh bàn giao đã tải lên"
+                sx={{
+                  display: 'block',
+                  width: '100%',
+                  maxHeight: 240,
+                  objectFit: 'contain',
+                  borderRadius: 1,
+                  bgcolor: 'action.hover',
+                }}
+              />
+            )}
             {photo && (
               <Alert severity={needsOverride ? 'warning' : 'success'}>
                 <Stack spacing={0.5}>

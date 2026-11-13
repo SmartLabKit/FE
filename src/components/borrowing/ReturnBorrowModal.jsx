@@ -3,7 +3,6 @@ import {
   Alert,
   Box,
   Button,
-  Checkbox,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -11,6 +10,7 @@ import {
   DialogTitle,
   MenuItem,
   Paper,
+  Select,
   Stack,
   Table,
   TableBody,
@@ -63,13 +63,15 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
     (item) => Number(consumableQuantities[item.borrowItemId] || 0) > 0,
   )
   const trackedLinesToReturn = lines.filter((item) => !isConsumable(item) && selectedItems[item.borrowItemId])
-  const trackedSelectionsValid = trackedLinesToReturn.every(
-    (item) => ['Good', 'Damaged', 'Lost'].includes(conditions[item.borrowItemId]),
+  const trackedSelectionsValid = lines.filter((item) => !isConsumable(item)).every(
+    (item) =>
+      selectedItems[item.borrowItemId] &&
+      ['Good', 'Damaged', 'Lost'].includes(conditions[item.borrowItemId]),
   )
   const canSubmit = Boolean(
     photo?.photoId &&
-    trackedLinesToReturn.length + openConsumables.length > 0 &&
     trackedSelectionsValid &&
+    (trackedLinesToReturn.length + openConsumables.length > 0) &&
     (!hasReturnedConsumables || cabinetId) &&
     !loadingData &&
     !uploading &&
@@ -215,16 +217,27 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
       <DialogContent dividers sx={{ overflowY: 'auto' }}>
         <Stack spacing={2} sx={{ py: 1 }}>
           {error && <Alert severity="error">{error}</Alert>}
-          <Paper variant="outlined" sx={{ p: 2 }}>
-            <Stack spacing={1.5}>
-              <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" alignItems={{ xs: 'stretch', sm: 'center' }} spacing={1}>
-                <Box>
+          <Paper variant="outlined" sx={{ p: { xs: 1.5, sm: 2 }, width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
+            <Stack spacing={1.5} sx={{ width: '100%', minWidth: 0 }}>
+              <Stack
+                direction={{ xs: 'column', sm: 'row' }}
+                justifyContent="space-between"
+                alignItems={{ xs: 'stretch', sm: 'center' }}
+                spacing={1.5}
+                sx={{ width: '100%', minWidth: 0 }}
+              >
+                <Box sx={{ flex: '1 1 auto', minWidth: 0 }}>
                   <Typography fontWeight={700}>Ảnh linh kiện trả</Typography>
                   <Typography variant="body2" color="text.secondary">
                     Chụp linh kiện nhận trả để lưu hồ sơ · Tối đa 5 MB
                   </Typography>
                 </Box>
-                <Button component="label" variant="outlined" disabled={uploading || submitting} sx={{ flexShrink: 0 }}>
+                <Button
+                  component="label"
+                  variant="outlined"
+                  disabled={uploading || submitting}
+                  sx={{ flex: '0 0 auto', alignSelf: { xs: 'stretch', sm: 'center' }, maxWidth: '100%' }}
+                >
                   {uploading ? <CircularProgress size={20} /> : photo ? 'Chụp lại / Đổi ảnh khác' : 'Chụp / Tải ảnh'}
                   <input
                     hidden
@@ -264,13 +277,7 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
             </Stack>
           </Paper>
 
-          {!photo?.photoId && (
-            <Alert severity="info">
-              Tải ảnh lên để kích hoạt danh sách thiết bị và xác nhận nhận trả.
-            </Alert>
-          )}
-
-          <Box sx={!photo?.photoId ? { opacity: 0.55, pointerEvents: 'none' } : undefined}>
+          <Box>
             {loadingData ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
                 <CircularProgress />
@@ -359,7 +366,7 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
                           <Table size="small">
                             <TableHead>
                               <TableRow>
-                                <TableCell padding="checkbox" />
+                                <TableCell>Chọn trả</TableCell>
                                 <TableCell>Thiết bị</TableCell>
                                 <TableCell>Mã cá thể</TableCell>
                                 <TableCell>Tình trạng</TableCell>
@@ -368,11 +375,14 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
                             <TableBody>
                               {lines.filter((item) => !isConsumable(item)).map((item) => (
                                 <TableRow key={item.borrowItemId}>
-                                  <TableCell padding="checkbox">
-                                    <Checkbox
-                                      checked={Boolean(selectedItems[item.borrowItemId])}
-                                      onChange={() => toggleTrackedItem(item)}
-                                    />
+                                  <TableCell>
+                                    <Button
+                                      size="small"
+                                      variant={selectedItems[item.borrowItemId] ? 'contained' : 'outlined'}
+                                      onClick={() => toggleTrackedItem(item)}
+                                    >
+                                      {selectedItems[item.borrowItemId] ? 'Đã chọn' : 'Chọn'}
+                                    </Button>
                                   </TableCell>
                                   <TableCell>
                                     {item.componentName}
@@ -382,22 +392,20 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
                                   </TableCell>
                                   <TableCell>{item.itemCode || item.serialNumber || '—'}</TableCell>
                                   <TableCell>
-                                    <TextField
-                                      select
+                                    <Select
                                       size="small"
-                                      value={conditions[item.borrowItemId] || ''}
+                                      value={conditions[item.borrowItemId] || 'Good'}
                                       onChange={(event) => setConditions((current) => ({
                                         ...current,
                                         [item.borrowItemId]: event.target.value,
                                       }))}
                                       disabled={!selectedItems[item.borrowItemId]}
-                                      label={selectedItems[item.borrowItemId] ? 'Tình trạng' : 'Chọn thiết bị'}
                                       sx={{ minWidth: 150 }}
                                     >
                                       <MenuItem value="Good">Bình thường</MenuItem>
                                       <MenuItem value="Damaged">Hỏng hóc</MenuItem>
                                       <MenuItem value="Lost">Bị mất</MenuItem>
-                                    </TextField>
+                                    </Select>
                                   </TableCell>
                                 </TableRow>
                               ))}
