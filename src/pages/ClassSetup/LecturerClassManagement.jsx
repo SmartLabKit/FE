@@ -25,6 +25,7 @@ import {
   Typography,
 } from '@mui/material'
 import {
+  ChevronRight as ChevronRightIcon,
   Groups as GroupsIcon,
   Refresh as RefreshIcon,
   SwapHoriz as TransferIcon,
@@ -78,6 +79,11 @@ function isAccepted(student) {
   return String(student?.status || student?.memberStatus || student?.invitationStatus || '').toLowerCase() === 'accepted'
 }
 
+function isInTeam(student) {
+  const status = String(student?.status || student?.memberStatus || student?.invitationStatus || '').toLowerCase()
+  return Boolean(teamIdOf(student)) && !['pending', 'invited', 'rejected'].includes(status)
+}
+
 function hasRegisteredProject(team) {
   return Boolean(
     team?.hasProject ||
@@ -112,6 +118,7 @@ export default function LecturerClassManagement() {
   const [selectedTeam, setSelectedTeam] = useState(null)
   const [selectedLeaderId, setSelectedLeaderId] = useState('')
   const [studentSearch, setStudentSearch] = useState('')
+  const [studentStatusFilter, setStudentStatusFilter] = useState('all')
   const [loadingClasses, setLoadingClasses] = useState(true)
   const [loadingStudents, setLoadingStudents] = useState(false)
   const [loadingTeam, setLoadingTeam] = useState(false)
@@ -222,18 +229,26 @@ export default function LecturerClassManagement() {
 
   const filteredStudents = useMemo(() => {
     const search = studentSearch.trim().toLowerCase()
-    if (!search) return students
-    return students.filter((student) =>
-      [studentName(student), student.studentCode, student.email, teamNameOf(student)]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(search))
-    )
-  }, [students, studentSearch])
+    return students.filter((student) => {
+      const matchesSearch = !search ||
+        [studentName(student), student.studentCode, student.email, teamNameOf(student)]
+          .filter(Boolean)
+          .some((value) => String(value).toLowerCase().includes(search))
+      const hasTeam = isInTeam(student)
+      const matchesStatus = studentStatusFilter === 'all' ||
+        (studentStatusFilter === 'grouped' && hasTeam) ||
+        (studentStatusFilter === 'ungrouped' && !hasTeam)
+      return matchesSearch && matchesStatus
+    })
+  }, [students, studentSearch, studentStatusFilter])
 
   const visibleTeamIds = useMemo(
-    () => new Set(filteredStudents.map(teamIdOf).filter(Boolean)),
+    () => new Set(filteredStudents.filter(isInTeam).map(teamIdOf)),
     [filteredStudents],
   )
+
+  const groupedStudentCount = students.filter(isInTeam).length
+  const ungroupedStudentCount = students.length - groupedStudentCount
 
   const openTeamDetail = async (teamId) => {
     setSelectedTeam(null)
@@ -242,7 +257,15 @@ export default function LecturerClassManagement() {
     setTransferError(null)
     setLoadingTeam(true)
     try {
-      setSelectedTeam(await teamService.getTeamById(teamId))
+      const team = await teamService.getTeamById(teamId)
+      setSelectedTeam(team)
+      const members = asArray(team?.members || team?.students)
+      const leader = members.find((member) => member.isTeamLeader || member.isLeader) ||
+        members.find((member) => String(member.studentProfileId) === String(team?.leaderId))
+      const firstEligibleMember = members.find(
+        (member) => isAccepted(member) && String(member.studentProfileId) !== String(leader?.studentProfileId),
+      )
+      setSelectedLeaderId(firstEligibleMember?.studentProfileId || '')
     } catch (error) {
       const details = getErrorDetails(error)
       setTeamError(details.status === 403
@@ -314,7 +337,7 @@ export default function LecturerClassManagement() {
   }
 
   return (
-    <Stack spacing={2.5}>
+    <Stack spacing={2.5} sx={{ width: '100%', maxWidth: 1600, minWidth: 0, mx: 'auto' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' }, gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
         <Box>
           <Typography variant="h5" fontWeight={800}>Lớp giảng dạy & nhóm</Typography>
@@ -329,8 +352,8 @@ export default function LecturerClassManagement() {
 
       {pageError && <Alert severity="error">{pageError}</Alert>}
       {semesterError && <Alert severity="warning">Không tải được danh sách học kỳ: {semesterError}. Danh sách lớp vẫn được tải không lọc.</Alert>}
-      <Paper variant="outlined" sx={{ p: 2 }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
+      <Paper variant="outlined" sx={{ p: { xs: 1.5, sm: 2 }, borderColor: 'grey.200', borderRadius: 2 }}>
+        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }} justifyContent="space-between">
           <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 280 } }}>
             <InputLabel id="lecturer-semester-label">Học kỳ</InputLabel>
             <Select
@@ -347,9 +370,7 @@ export default function LecturerClassManagement() {
               ))}
             </Select>
           </FormControl>
-          <Typography variant="body2" color="text.secondary">
-            {classes.length} lớp được phân công
-          </Typography>
+          
         </Stack>
       </Paper>
 
@@ -358,46 +379,94 @@ export default function LecturerClassManagement() {
       ) : !classes.length ? (
         <Alert severity="info">Không có lớp được phân công trong học kỳ này.</Alert>
       ) : (
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'minmax(240px, 0.8fr) minmax(0, 2fr)' }, gap: 2 }}>
-          <Stack spacing={1}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'minmax(250px, 0.78fr) minmax(0, 2.22fr)' }, gap: { xs: 1.5, md: 2.5 }, alignItems: 'start', minWidth: 0 }}>
+          <Stack spacing={1.25}>
+            <Box sx={{ px: 0.5 }}>
+              <Typography variant="overline" color="text.secondary" fontWeight={800}>Lớp của tôi</Typography>
+              <Typography variant="caption" display="block" color="text.secondary">{classes.length} lớp</Typography>
+            </Box>
             {classes.map((classItem) => (
               <Paper
                 key={classItem.classId}
                 variant="outlined"
+                component="button"
+                type="button"
+                aria-pressed={selectedClassId === classItem.classId}
                 onClick={() => handleSelectClass(classItem.classId)}
                 sx={{
                   p: 2,
                   cursor: 'pointer',
+                  width: '100%',
+                  minWidth: 0,
+                  textAlign: 'left',
+                  font: 'inherit',
+                  color: 'inherit',
+                  borderRadius: 2,
                   borderColor: selectedClassId === classItem.classId ? 'primary.main' : 'divider',
-                  bgcolor: selectedClassId === classItem.classId ? 'action.selected' : 'background.paper',
+                  bgcolor: selectedClassId === classItem.classId ? 'primary.50' : 'background.paper',
+                  transition: 'background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease',
+                  '&:hover': {
+                    bgcolor: selectedClassId === classItem.classId ? 'primary.50' : 'grey.50',
+                    borderColor: 'primary.light',
+                    boxShadow: 1,
+                  },
+                  '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 },
                 }}
               >
-                <Typography fontWeight={800}>{classItem.classCode}</Typography>
-                <Typography variant="body2">{classItem.courseName || classItem.courseCode || 'Môn học'}</Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {classItem.semesterCode || '—'} · Sĩ số {classItem.currentStudents ?? classItem.studentCount ?? 0}
-                  {classItem.maxStudents ? `/${classItem.maxStudents}` : ''}
-                </Typography>
+                <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+                  <Box sx={{ minWidth: 0 }}>
+                    <Typography fontWeight={800} noWrap>{classItem.classCode}</Typography>
+                    <Typography
+                      variant="body2"
+                      color="text.secondary"
+                      noWrap
+                      title={classItem.courseName || classItem.courseCode || 'Môn học'}
+                      sx={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                    >
+                      {classItem.courseName || classItem.courseCode || 'Môn học'}
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary">
+                      {classItem.semesterCode || '—'} · {classItem.currentStudents ?? classItem.studentCount ?? 0}
+                      {classItem.maxStudents ? `/${classItem.maxStudents} SV` : ' SV'}
+                    </Typography>
+                  </Box>
+                  <ChevronRightIcon fontSize="small" color={selectedClassId === classItem.classId ? 'primary' : 'disabled'} />
+                </Stack>
               </Paper>
             ))}
           </Stack>
 
-          <Paper variant="outlined" sx={{ p: { xs: 1.5, sm: 2 }, minWidth: 0 }}>
+          <Paper variant="outlined" sx={{ p: { xs: 1.25, sm: 2.25 }, minWidth: 0, borderColor: 'grey.200', borderRadius: 2 }}>
             <Stack spacing={2}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
                 <Box>
                   <Typography variant="h6" fontWeight={800}>{selectedClass?.classCode || 'Danh sách sinh viên'}</Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {selectedClass?.courseName || selectedClass?.courseCode || ''} · {students.length} sinh viên
+                    {selectedClass?.courseName || selectedClass?.courseCode || ''} · {filteredStudents.length} / {students.length} sinh viên
                   </Typography>
                 </Box>
-                <TextField
-                  size="small"
-                  placeholder="Tìm sinh viên hoặc nhóm"
-                  value={studentSearch}
-                  onChange={(event) => setStudentSearch(event.target.value)}
-                  sx={{ width: { xs: '100%', sm: 260 } }}
-                />
+                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ width: { xs: '100%', sm: 'auto' } }}>
+                  <TextField
+                    size="small"
+                    placeholder="Tìm sinh viên hoặc nhóm"
+                    value={studentSearch}
+                    onChange={(event) => setStudentSearch(event.target.value)}
+                    sx={{ width: { xs: '100%', sm: 240 } }}
+                  />
+                  <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 190 } }}>
+                    <InputLabel id="student-status-filter-label">Trạng thái nhóm</InputLabel>
+                    <Select
+                      labelId="student-status-filter-label"
+                      label="Trạng thái nhóm"
+                      value={studentStatusFilter}
+                      onChange={(event) => setStudentStatusFilter(event.target.value)}
+                    >
+                      <MenuItem value="all">Tất cả sinh viên ({students.length})</MenuItem>
+                      <MenuItem value="grouped">Đã vào nhóm ({groupedStudentCount})</MenuItem>
+                      <MenuItem value="ungrouped">Chưa vào nhóm ({ungroupedStudentCount})</MenuItem>
+                    </Select>
+                  </FormControl>
+                </Stack>
               </Box>
 
               {studentError && <Alert severity="error">{studentError}</Alert>}
@@ -406,27 +475,59 @@ export default function LecturerClassManagement() {
               ) : (
                 <>
                   {studentGroups.filter((group) => visibleTeamIds.has(group.teamId)).map((group) => (
-                    <Paper key={group.teamId} variant="outlined" sx={{ overflow: 'hidden' }}>
-                      <Box sx={{ p: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1, bgcolor: 'action.hover' }}>
+                    <Paper key={group.teamId} variant="outlined" sx={{ overflow: 'hidden', borderColor: 'grey.200', borderRadius: 1.75 }}>
+                      <Box
+                        component="button"
+                        type="button"
+                        onClick={() => openTeamDetail(group.teamId)}
+                        aria-label={`Xem chi tiết nhóm ${group.teamName}`}
+                        sx={{
+                          width: '100%',
+                          minWidth: 0,
+                          border: 0,
+                          textAlign: 'left',
+                          font: 'inherit',
+                          color: 'inherit',
+                          cursor: 'pointer',
+                          p: 1.5,
+                          display: 'flex',
+                          justifyContent: 'space-between',
+                          alignItems: 'center',
+                          gap: 1,
+                          bgcolor: 'grey.50',
+                          transition: 'background-color 160ms ease',
+                          '&:hover': { bgcolor: 'primary.50' },
+                          '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: -2 },
+                        }}
+                      >
                         <Stack direction="row" spacing={1} alignItems="center">
                           <GroupsIcon color="primary" fontSize="small" />
                           <Box>
                             <Typography fontWeight={700}>{group.teamName}</Typography>
-                            <Typography variant="caption" color="text.secondary">{group.students.length} sinh viên trong roster</Typography>
+                            <Typography variant="caption" color="text.secondary">
+                              {group.students.filter(isInTeam).length} thành viên · Nhấn để xem chi tiết
+                            </Typography>
                           </Box>
                         </Stack>
-                        <Button size="small" onClick={() => openTeamDetail(group.teamId)}>Xem nhóm</Button>
+                        <ChevronRightIcon color="action" />
                       </Box>
-                      <TableContainer>
-                        <Table size="small">
-                          <TableHead><TableRow><TableCell>Sinh viên</TableCell><TableCell>MSSV</TableCell><TableCell>Vai trò nhóm</TableCell><TableCell>Trạng thái</TableCell></TableRow></TableHead>
+                      <TableContainer sx={{ overflowX: 'auto' }}>
+                        <Table size="small" sx={{ minWidth: 560 }}>
+                          <TableHead>
+                            <TableRow sx={{ bgcolor: 'background.default' }}>
+                              <TableCell sx={{ py: 1.1, fontSize: 11, fontWeight: 800, color: 'text.secondary' }}>SINH VIÊN</TableCell>
+                              <TableCell align="center" sx={{ py: 1.1, fontSize: 11, fontWeight: 800, color: 'text.secondary' }}>MSSV</TableCell>
+                              <TableCell align="center" sx={{ py: 1.1, fontSize: 11, fontWeight: 800, color: 'text.secondary' }}>VAI TRÒ</TableCell>
+                              <TableCell align="center" sx={{ py: 1.1, fontSize: 11, fontWeight: 800, color: 'text.secondary' }}>TRẠNG THÁI</TableCell>
+                            </TableRow>
+                          </TableHead>
                           <TableBody>
                             {group.students.filter((student) => filteredStudents.includes(student)).map((student) => (
-                              <TableRow key={student.studentProfileId || student.studentCode}>
-                                <TableCell>{studentName(student)}</TableCell>
-                                <TableCell>{student.studentCode || '—'}</TableCell>
-                                <TableCell>{student.isTeamLeader ? 'Trưởng nhóm' : 'Thành viên'}</TableCell>
-                                <TableCell>{statusLabel(student.status || student.memberStatus)}</TableCell>
+                              <TableRow key={student.studentProfileId || student.studentCode} sx={{ '&:last-child td': { borderBottom: 0 } }}>
+                                <TableCell sx={{ py: 1.2, fontWeight: 600 }}>{studentName(student)}</TableCell>
+                                <TableCell align="center" sx={{ py: 1.2, fontFamily: 'monospace' }}>{student.studentCode || '—'}</TableCell>
+                                <TableCell align="center" sx={{ py: 1.2 }}>{student.isTeamLeader ? 'Trưởng nhóm' : 'Thành viên'}</TableCell>
+                                <TableCell align="center" sx={{ py: 1.2 }}>{statusLabel(student.status || student.memberStatus)}</TableCell>
                               </TableRow>
                             ))}
                           </TableBody>
@@ -435,21 +536,28 @@ export default function LecturerClassManagement() {
                     </Paper>
                   ))}
 
-                  {filteredStudents.filter((student) => !teamIdOf(student)).length > 0 && (
-                    <Paper variant="outlined" sx={{ overflow: 'hidden' }}>
-                      <Box sx={{ p: 1.5, bgcolor: 'action.hover' }}>
+                  {filteredStudents.filter((student) => !isInTeam(student)).length > 0 && (
+                    <Paper variant="outlined" sx={{ overflow: 'hidden', borderColor: 'grey.200', borderRadius: 1.75 }}>
+                      <Box sx={{ p: 1.5, bgcolor: 'grey.50' }}>
                         <Typography fontWeight={700}>Chưa vào nhóm</Typography>
                       </Box>
-                      <TableContainer>
-                        <Table size="small">
-                          <TableHead><TableRow><TableCell>Sinh viên</TableCell><TableCell>MSSV</TableCell><TableCell>Email</TableCell><TableCell>Trạng thái</TableCell></TableRow></TableHead>
+                      <TableContainer sx={{ overflowX: 'auto' }}>
+                        <Table size="small" sx={{ minWidth: 540 }}>
+                          <TableHead>
+                            <TableRow sx={{ bgcolor: 'background.default' }}>
+                              <TableCell sx={{ py: 1.1, fontSize: 11, fontWeight: 800, color: 'text.secondary' }}>SINH VIÊN</TableCell>
+                              <TableCell align="center" sx={{ py: 1.1, fontSize: 11, fontWeight: 800, color: 'text.secondary' }}>MSSV</TableCell>
+                              <TableCell sx={{ py: 1.1, fontSize: 11, fontWeight: 800, color: 'text.secondary' }}>EMAIL</TableCell>
+                              <TableCell align="center" sx={{ py: 1.1, fontSize: 11, fontWeight: 800, color: 'text.secondary' }}>TRẠNG THÁI</TableCell>
+                            </TableRow>
+                          </TableHead>
                           <TableBody>
-                            {filteredStudents.filter((student) => !teamIdOf(student)).map((student) => (
-                              <TableRow key={student.studentProfileId || student.studentCode}>
-                                <TableCell>{studentName(student)}</TableCell>
-                                <TableCell>{student.studentCode || '—'}</TableCell>
+                            {filteredStudents.filter((student) => !isInTeam(student)).map((student) => (
+                              <TableRow key={student.studentProfileId || student.studentCode} sx={{ '&:last-child td': { borderBottom: 0 } }}>
+                                <TableCell sx={{ py: 1.2, fontWeight: 600 }}>{studentName(student)}</TableCell>
+                                <TableCell align="center" sx={{ py: 1.2, fontFamily: 'monospace' }}>{student.studentCode || '—'}</TableCell>
                                 <TableCell>{student.email || '—'}</TableCell>
-                                <TableCell>{statusLabel(student.status)}</TableCell>
+                                <TableCell align="center">{statusLabel(student.status)}</TableCell>
                               </TableRow>
                             ))}
                           </TableBody>
@@ -504,15 +612,22 @@ export default function LecturerClassManagement() {
                 </Box>
               </Stack>
               <TableContainer>
-                <Table size="small">
-                  <TableHead><TableRow><TableCell>Sinh viên</TableCell><TableCell>MSSV</TableCell><TableCell>Vai trò</TableCell><TableCell>Trạng thái</TableCell></TableRow></TableHead>
+                <Table size="small" sx={{ minWidth: 560 }}>
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: 'background.default' }}>
+                      <TableCell sx={{ py: 1.1, fontSize: 11, fontWeight: 800, color: 'text.secondary' }}>SINH VIÊN</TableCell>
+                      <TableCell align="center" sx={{ py: 1.1, fontSize: 11, fontWeight: 800, color: 'text.secondary' }}>MSSV</TableCell>
+                      <TableCell align="center" sx={{ py: 1.1, fontSize: 11, fontWeight: 800, color: 'text.secondary' }}>VAI TRÒ</TableCell>
+                      <TableCell align="center" sx={{ py: 1.1, fontSize: 11, fontWeight: 800, color: 'text.secondary' }}>TRẠNG THÁI</TableCell>
+                    </TableRow>
+                  </TableHead>
                   <TableBody>
                     {teamMembers.map((member) => (
-                      <TableRow key={member.studentProfileId || member.studentCode}>
-                        <TableCell>{studentName(member)}</TableCell>
-                        <TableCell>{member.studentCode || '—'}</TableCell>
-                        <TableCell>{member.isTeamLeader || member.isLeader ? 'Trưởng nhóm' : 'Thành viên'}</TableCell>
-                        <TableCell>{statusLabel(member.status || member.memberStatus)}</TableCell>
+                      <TableRow key={member.studentProfileId || member.studentCode} sx={{ '&:last-child td': { borderBottom: 0 } }}>
+                        <TableCell sx={{ py: 1.2, fontWeight: 600 }}>{studentName(member)}</TableCell>
+                        <TableCell align="center" sx={{ py: 1.2, fontFamily: 'monospace' }}>{member.studentCode || '—'}</TableCell>
+                        <TableCell align="center" sx={{ py: 1.2 }}>{member.isTeamLeader || member.isLeader ? 'Trưởng nhóm' : 'Thành viên'}</TableCell>
+                        <TableCell align="center" sx={{ py: 1.2 }}>{statusLabel(member.status || member.memberStatus)}</TableCell>
                       </TableRow>
                     ))}
                     {!teamMembers.length && <TableRow><TableCell colSpan={4}>Nhóm chưa có danh sách thành viên.</TableCell></TableRow>}
@@ -520,40 +635,59 @@ export default function LecturerClassManagement() {
                 </Table>
               </TableContainer>
               {isLecturer && !projectRegistered && (
-                <Paper variant="outlined" sx={{ p: 2 }}>
-                  <Typography fontWeight={700} sx={{ mb: 1 }}>Chuyển quyền trưởng nhóm</Typography>
+                <Box sx={{ pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
                   {eligibleLeaders.length ? (
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5}>
-                      <FormControl size="small" fullWidth>
-                        <InputLabel id="new-team-leader-label">Trưởng nhóm mới</InputLabel>
-                        <Select
-                          labelId="new-team-leader-label"
-                          label="Trưởng nhóm mới"
-                          value={selectedLeaderId}
-                          onChange={(event) => setSelectedLeaderId(event.target.value)}
+                    <Box>
+                      <Typography variant="caption" fontWeight={700} color="text.secondary" sx={{ display: 'block', mb: 0.75 }}>
+                        CHUYỂN TRƯỞNG NHÓM
+                      </Typography>
+                      <Stack direction="row" spacing={1} alignItems="center">
+                        <FormControl size="small" sx={{ minWidth: 0, flex: 1 }}>
+                          <InputLabel id="new-team-leader-label">Thành viên mới</InputLabel>
+                          <Select
+                            labelId="new-team-leader-label"
+                            label="Thành viên mới"
+                            value={selectedLeaderId}
+                            onChange={(event) => setSelectedLeaderId(event.target.value)}
+                          >
+                            {eligibleLeaders.map((member) => (
+                              <MenuItem key={member.studentProfileId} value={member.studentProfileId}>
+                                {studentName(member)} · {member.studentCode || '—'}
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                        <Button
+                          size="small"
+                          variant="contained"
+                          aria-label="Chuyển trưởng nhóm"
+                          title="Chuyển trưởng nhóm"
+                          startIcon={transferring ? <CircularProgress size={16} color="inherit" /> : <TransferIcon />}
+                          disabled={!selectedLeaderId || transferring}
+                          onClick={handleTransferLeader}
+                          sx={{
+                            minWidth: { xs: 44, sm: 184 },
+                            px: { xs: 1, sm: 1.5 },
+                            py: 1,
+                            whiteSpace: 'nowrap',
+                            textTransform: 'uppercase',
+                            fontSize: 11,
+                            letterSpacing: 0.2,
+                            '& .MuiButton-startIcon': { mr: { xs: 0, sm: 0.75 } },
+                          }}
                         >
-                          {eligibleLeaders.map((member) => (
-                            <MenuItem key={member.studentProfileId} value={member.studentProfileId}>
-                              {studentName(member)} · {member.studentCode || '—'}
-                            </MenuItem>
-                          ))}
-                        </Select>
-                      </FormControl>
-                      <Button
-                        variant="contained"
-                        startIcon={transferring ? <CircularProgress size={16} color="inherit" /> : <TransferIcon />}
-                        disabled={!selectedLeaderId || transferring}
-                        onClick={handleTransferLeader}
-                      >
-                        Chuyển trưởng nhóm
-                      </Button>
-                    </Stack>
+                          <Box component="span" sx={{ display: { xs: 'none', sm: 'inline' } }}>
+                            Chuyển trưởng nhóm
+                          </Box>
+                        </Button>
+                      </Stack>
+                    </Box>
                   ) : (
                     <Typography variant="body2" color="text.secondary">
                       Không có thành viên Accepted đủ điều kiện để nhận quyền trưởng nhóm.
                     </Typography>
                   )}
-                </Paper>
+                </Box>
               )}
             </Stack>
           ) : null}

@@ -32,7 +32,7 @@ export const DEMO_ACCOUNTS = {
     title: 'Giảng viên phụ trách môn',
     avatarBg: '#0284c7',
     badgeColor: '#0284c7',
-    defaultRoute: '/class-setup/lecturer/quotas',
+    defaultRoute: '/class-setup/lecturer/classes',
   },
   STUDENT: {
     userId: 'u-student-01',
@@ -68,7 +68,7 @@ export function normalizeUser(rawUser) {
     avatarBg = '#0058be'
     badgeColor = '#0058be'
   } else if (roleUpper === 'LECTURER') {
-    defaultRoute = '/class-setup/lecturer/quotas'
+    defaultRoute = '/class-setup/lecturer/classes'
     avatarBg = '#0284c7'
     badgeColor = '#0284c7'
   } else if (roleUpper === 'STUDENT') {

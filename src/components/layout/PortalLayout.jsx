@@ -342,7 +342,8 @@ export default function PortalLayout({
           const isRosterRoute = location.pathname === '/class-setup/admin/roster'
           const isStudentGroupsRoute = location.pathname === '/class-setup/student/groups'
           const isStudentProjectRoute = location.pathname.startsWith('/class-setup/student/project')
-          const isLecturerQuotasRoute = location.pathname.startsWith('/class-setup/lecturer')
+          const isLecturerClassesRoute = location.pathname.startsWith('/class-setup/lecturer/classes')
+          const isLecturerQuotasRoute = location.pathname.startsWith('/class-setup/lecturer/quotas')
           const isBorrowRoute = location.pathname.startsWith('/borrow') || activeMenuKey === 'borrow' || activeMenuKey === 'handover'
 
           const isActive =
@@ -376,6 +377,8 @@ export default function PortalLayout({
               ? isStudentProjectRoute
               : item.path === '/class-setup/lecturer/quotas'
               ? isLecturerQuotasRoute
+              : item.path === '/class-setup/lecturer/classes'
+              ? isLecturerClassesRoute
               : item.path === '/borrow/my-requests'
               ? isBorrowRoute
               : location.pathname === item.path
@@ -591,6 +594,8 @@ export default function PortalLayout({
         sx={{
           flexGrow: 1,
           width: { md: `calc(100% - 240px)` },
+          minWidth: 0,
+          boxSizing: 'border-box',
           display: 'flex',
           flexDirection: 'column',
           minHeight: '100vh',
@@ -744,7 +749,18 @@ export default function PortalLayout({
         </Menu>
 
         {/* Page Content */}
-        <Box sx={{ p: { xs: 2, sm: 3, md: 4 }, flexGrow: 1 }}>{children}</Box>
+        <Box
+          sx={{
+            px: { xs: 2, sm: 3, md: 3 },
+            py: { xs: 2, sm: 3, md: 4 },
+            flexGrow: 1,
+            width: '100%',
+            minWidth: 0,
+            boxSizing: 'border-box',
+          }}
+        >
+          {children}
+        </Box>
       </Box>
     </Box>
   )

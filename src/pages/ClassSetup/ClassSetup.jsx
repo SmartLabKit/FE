@@ -32,12 +32,7 @@ export default function ClassSetup() {
     return 0
   }
 
-  const handleLecturerTabChange = (event, newValue) => {
-    navigate(newValue === 0 ? '/class-setup/lecturer/classes' : '/class-setup/lecturer/quotas')
-  }
-
   const adminTab = getAdminTab(location.pathname)
-  const lecturerTab = location.pathname.includes('/lecturer/quotas') ? 1 : 0
 
   const handleAdminTabChange = (event, newValue) => {
     if (newValue === 0) {
@@ -75,7 +70,11 @@ export default function ClassSetup() {
 
   return (
     <PortalLayout>
-      <Container maxWidth="xl" disableGutters>
+      <Container
+        maxWidth="xl"
+        disableGutters
+        sx={{ width: '100%', maxWidth: 1600, minWidth: 0, mx: 'auto', boxSizing: 'border-box' }}
+      >
         {/* Vai trò ADMIN: Hiển thị 3 tính năng dành riêng cho Admin */}
         {isAdminRoute && (
           <Box>
@@ -125,16 +124,9 @@ export default function ClassSetup() {
         {/* Vai trò GIẢNG VIÊN (Lecturer) */}
         {isLecturerRoute && (
           <Box>
-            <Paper
-              elevation={0}
-              sx={{ bgcolor: '#ffffff', border: '1px solid #e4e6ef', borderRadius: 2, px: 2, py: 0.5, mb: 3 }}
-            >
-              <Tabs value={lecturerTab} onChange={handleLecturerTabChange}>
-                <Tab label="Lớp giảng dạy & nhóm" />
-                <Tab label="Định mức môn học" />
-              </Tabs>
-            </Paper>
-            {lecturerTab === 0 ? <LecturerClassManagement /> : <CourseQuotaSetting />}
+            {location.pathname.includes('/lecturer/quotas')
+              ? <CourseQuotaSetting />
+              : <LecturerClassManagement />}
           </Box>
         )}
 
