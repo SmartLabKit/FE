@@ -32,7 +32,6 @@ import {
   Close as CloseIcon,
   Groups as GroupsIcon,
   Mail as MailIcon,
-  Refresh as RefreshIcon,
   School as SchoolIcon,
   Star as StarIcon,
 } from '@mui/icons-material'
@@ -175,28 +174,6 @@ export default function GroupInviteManager() {
       }
     }
   }
-
-  // 1. Tải danh sách lớp học của sinh viên (GET /api/classes/my)
-  const fetchMyClasses = useCallback(async () => {
-    try {
-      const data = await getClassesForCurrentSemester()
-      const list = Array.isArray(data) ? data : data?.items || []
-      list.sort((a, b) => {
-        const weightDiff = getSemesterWeight(b.semesterCode) - getSemesterWeight(a.semesterCode)
-        if (weightDiff !== 0) return weightDiff
-        return (a.classCode || '').localeCompare(b.classCode || '')
-      })
-      setMyClasses(list)
-      setClassesError('')
-      if (list.length > 0 && !selectedClassId) {
-        setSelectedClassId(list[0].classId)
-      }
-    } catch (err) {
-      setClassesError(err.message || 'Không thể tải lớp học của bạn.')
-    } finally {
-      setLoadingClasses(false)
-    }
-  }, [selectedClassId])
 
   // 2. Tải danh sách lời mời nhóm gửi tới tôi (GET /api/team-invitations/me)
   const fetchMyInvitations = useCallback(async () => {
@@ -493,21 +470,6 @@ export default function GroupInviteManager() {
             Dành cho Sinh viên: Chọn lớp môn học đang tham gia để tạo nhóm đồ án hoặc phản hồi lời mời.
           </Typography>
         </Box>
-        <Button
-          variant="outlined"
-          size="small"
-          startIcon={<RefreshIcon />}
-          onClick={() => {
-            fetchMyClasses()
-            fetchMyInvitations()
-            if (selectedClassId) {
-              fetchMyTeamInClass(selectedClassId)
-            }
-          }}
-          sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 1.5, borderColor: '#dcdfe6' }}
-        >
-          Làm mới
-        </Button>
       </Box>
 
       {/* 1. LỜI MỜI NHẬN ĐƯỢC SECTION (GET /api/team-invitations/me) */}

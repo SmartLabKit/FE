@@ -31,7 +31,6 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material'
-import RefreshIcon from '@mui/icons-material/Refresh'
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
 import SearchIcon from '@mui/icons-material/Search'
 import PortalLayout from '../../components/layout/PortalLayout'
@@ -304,14 +303,11 @@ export default function LabBorrowManagement() {
       <Container maxWidth="xl" sx={{ py: 3 }}>
         <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={2} sx={{ mb: 2 }}>
           <Typography variant="h5" fontWeight={700}>Quản lý đơn mượn</Typography>
-          <Button startIcon={<RefreshIcon />} variant="outlined" onClick={reloadData} disabled={loading}>
-            Làm mới
-          </Button>
         </Stack>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         {realtimeUnavailable && (
           <Alert severity="info" sx={{ mb: 2 }}>
-            Kết nối cập nhật tự động đang không khả dụng. Bạn vẫn có thể làm mới danh sách thủ công.
+            Kết nối cập nhật tự động đang không khả dụng.
           </Alert>
         )}
         {actionError && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setActionError('')}>{actionError}</Alert>}

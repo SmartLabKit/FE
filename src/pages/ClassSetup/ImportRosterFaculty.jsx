@@ -14,7 +14,6 @@ import {
   DialogContent,
   DialogTitle,
   Grid,
-  IconButton,
   InputAdornment,
   ListSubheader,
   MenuItem,
@@ -28,7 +27,6 @@ import {
   TableHead,
   TableRow,
   TextField,
-  Tooltip,
   Typography,
 } from '@mui/material'
 import {
@@ -38,7 +36,6 @@ import {
   PersonAdd as PersonAddIcon,
   ArrowForward as ArrowForwardIcon,
   ArrowBack as ArrowBackIcon,
-  Refresh as RefreshIcon,
   School as SchoolIcon,
   AssignmentInd as AssignmentIndIcon,
   Search as SearchIcon,
@@ -720,15 +717,6 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
             Quản lý sĩ số lớp qua file Excel và chỉ định giảng viên phụ trách chuyên môn
           </Typography>
         </Box>
-        <Button
-          variant="outlined"
-          size="small"
-          startIcon={<RefreshIcon />}
-          onClick={fetchClasses}
-          sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 1.5, borderColor: '#dcdfe6' }}
-        >
-          Làm mới dữ liệu
-        </Button>
       </Box>
 
       {/* Class Selector Bar */}
@@ -1034,18 +1022,6 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
                       },
                     }}
                   />
-                  <Tooltip title="Làm mới danh sách sinh viên">
-                    <span>
-                      <IconButton
-                        size="small"
-                        onClick={() => fetchClassStudents(selectedClassId)}
-                        disabled={loadingStudents || !selectedClassId}
-                        sx={{ border: '1px solid #e4e6ef', borderRadius: 1.5, width: 34, height: 34 }}
-                      >
-                        {loadingStudents ? <CircularProgress size={16} /> : <RefreshIcon sx={{ fontSize: 18 }} />}
-                      </IconButton>
-                    </span>
-                  </Tooltip>
                 </Box>
               </Box>
 

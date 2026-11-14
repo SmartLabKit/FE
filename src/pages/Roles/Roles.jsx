@@ -4,7 +4,6 @@ import {
   Chip,
   Container,
   Divider,
-  IconButton,
   InputAdornment,
   Paper,
   Switch,
@@ -17,7 +16,6 @@ import {
 } from '@mui/material'
 import {
   Search as SearchIcon,
-  Refresh as RefreshIcon,
   Shield as ShieldIcon,
   CheckCircle as CheckIcon,
   Group as GroupIcon,
@@ -53,28 +51,6 @@ export default function Roles() {
 
   const showToast = (message, severity = 'success') => {
     setToast({ open: true, message, severity })
-  }
-
-  // Tải danh sách roles và danh mục permissions
-  const loadInitialData = () => {
-    setLoadingRoles(true)
-    Promise.all([
-      rolePermissionService.getRoles(),
-      rolePermissionService.getPermissions(),
-    ])
-      .then(([rolesData, permsData]) => {
-        setRoles(rolesData || [])
-        setPermissions(permsData || [])
-        if (rolesData && rolesData.length > 0 && !selectedRoleId) {
-          setSelectedRoleId(rolesData[0].roleId)
-        }
-      })
-      .catch((err) => {
-        showToast(err.message, 'error')
-      })
-      .finally(() => {
-        setLoadingRoles(false)
-      })
   }
 
   useEffect(() => {
@@ -230,9 +206,6 @@ export default function Roles() {
                     Nhóm vai trò ({roles.length})
                   </Typography>
                 </Box>
-                <IconButton size="small" onClick={loadInitialData} disabled={loadingRoles}>
-                  <RefreshIcon fontSize="small" />
-                </IconButton>
               </Box>
 
               <Typography variant="caption" sx={{ color: '#6b7280', display: 'block', mb: 2 }}>

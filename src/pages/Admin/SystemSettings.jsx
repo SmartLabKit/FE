@@ -28,7 +28,6 @@ import {
 } from '@mui/material'
 import {
   Edit as EditIcon,
-  Refresh as RefreshIcon,
   Tune as TuneIcon,
   Schedule as ScheduleIcon,
   NotificationsActive as NotificationsActiveIcon,
@@ -80,7 +79,6 @@ export default function SystemSettings() {
     }
   }, [])
 
-  // Nút làm mới dữ liệu
   const handleRefresh = async () => {
     setLoading(true)
     setErrorMsg('')
@@ -376,21 +374,6 @@ export default function SystemSettings() {
             </Typography>
           </Box>
 
-          <Button
-            variant="outlined"
-            startIcon={<RefreshIcon />}
-            onClick={handleRefresh}
-            disabled={loading}
-            sx={{
-              textTransform: 'none',
-              fontWeight: 700,
-              borderRadius: 1.5,
-              borderColor: '#cbd5e1',
-              color: '#334155',
-            }}
-          >
-            Làm mới dữ liệu
-          </Button>
         </Box>
 
         {/* Alert lỗi nếu có */}

@@ -34,7 +34,6 @@ import {
 import {
   Add as AddIcon,
   Search as SearchIcon,
-  Refresh as RefreshIcon,
   Close as CloseIcon,
   Security as SecurityIcon,
   Person as PersonIcon,
@@ -416,22 +415,6 @@ export default function Users() {
                 </Select>
               </FormControl>
 
-              <Button
-                variant="outlined"
-                size="small"
-                startIcon={<RefreshIcon />}
-                onClick={fetchUsers}
-                sx={{
-                  borderRadius: 1.5,
-                  textTransform: 'none',
-                  fontWeight: 600,
-                  fontSize: 12,
-                  borderColor: '#dcdfe6',
-                  color: '#424754',
-                }}
-              >
-                Làm mới
-              </Button>
             </Box>
 
             {/* Nút thêm mới bên phải */}

@@ -29,7 +29,6 @@ import {
   Edit as EditIcon,
   DeleteOutlined as DeleteIcon,
   MenuBook as CourseIcon,
-  Refresh as RefreshIcon,
 } from '@mui/icons-material'
 import { academicService } from '../../services/academicService'
 
@@ -247,9 +246,6 @@ export default function CourseManager() {
               },
             }}
           />
-          <IconButton size="small" onClick={fetchCourses} title="Làm mới">
-            <RefreshIcon fontSize="small" />
-          </IconButton>
         </Box>
 
         <Button

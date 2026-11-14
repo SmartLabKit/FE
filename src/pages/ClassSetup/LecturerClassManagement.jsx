@@ -1,5 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
+  Accordion,
+  AccordionDetails,
+  AccordionSummary,
   Alert,
   Avatar,
   Box,
@@ -26,8 +29,9 @@ import {
 } from '@mui/material'
 import {
   ChevronRight as ChevronRightIcon,
+  ExpandMore as ExpandMoreIcon,
   Groups as GroupsIcon,
-  Refresh as RefreshIcon,
+  Star as LeaderIcon,
   SwapHoriz as TransferIcon,
 } from '@mui/icons-material'
 import { academicService } from '../../services/academicService'
@@ -246,6 +250,9 @@ export default function LecturerClassManagement() {
     () => new Set(filteredStudents.filter(isInTeam).map(teamIdOf)),
     [filteredStudents],
   )
+  const groupedFilteredStudents = filteredStudents.filter(isInTeam)
+  const ungroupedFilteredStudents = filteredStudents.filter((student) => !isInTeam(student))
+  const visibleTeams = studentGroups.filter((group) => visibleTeamIds.has(group.teamId))
 
   const groupedStudentCount = students.filter(isInTeam).length
   const ungroupedStudentCount = students.length - groupedStudentCount
@@ -328,10 +335,6 @@ export default function LecturerClassManagement() {
     loadStudents(classId)
   }
 
-  const handleRefresh = async () => {
-    await loadClasses(semesterId, selectedClassId)
-  }
-
   if (!isLecturer) {
     return <Alert severity="warning">Chức năng này chỉ dành cho giảng viên.</Alert>
   }
@@ -340,82 +343,104 @@ export default function LecturerClassManagement() {
     <Stack spacing={2.5} sx={{ width: '100%', maxWidth: 1600, minWidth: 0, mx: 'auto' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: { xs: 'stretch', sm: 'center' }, gap: 2, flexDirection: { xs: 'column', sm: 'row' } }}>
         <Box>
-          <Typography variant="h5" fontWeight={800}>Lớp giảng dạy & nhóm</Typography>
+          <Typography component="h1" variant="h5" sx={{ fontWeight: 900 }}>
+            Lớp giảng dạy & nhóm
+          </Typography>
           <Typography variant="body2" color="text.secondary">
             Chỉ hiển thị lớp do bạn phụ trách. Thông tin nhóm ở chế độ xem; chuyển trưởng nhóm chỉ khả dụng trước khi đăng ký project.
           </Typography>
         </Box>
-        <Button variant="outlined" startIcon={<RefreshIcon />} onClick={handleRefresh} disabled={loadingClasses || loadingStudents}>
-          Làm mới
-        </Button>
       </Box>
 
       {pageError && <Alert severity="error">{pageError}</Alert>}
       {semesterError && <Alert severity="warning">Không tải được danh sách học kỳ: {semesterError}. Danh sách lớp vẫn được tải không lọc.</Alert>}
-      <Paper variant="outlined" sx={{ p: { xs: 1.5, sm: 2 }, borderColor: 'grey.200', borderRadius: 2 }}>
-        <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }} justifyContent="space-between">
-          <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 280 } }}>
-            <InputLabel id="lecturer-semester-label">Học kỳ</InputLabel>
-            <Select
-              labelId="lecturer-semester-label"
-              label="Học kỳ"
-              value={semesterId}
-              onChange={handleSemesterChange}
-            >
-              <MenuItem value="">Tất cả học kỳ</MenuItem>
-              {semesters.map((semester) => (
-                <MenuItem key={semester.semesterId} value={semester.semesterId}>
-                  {semester.semesterCode} · HK{semester.term} {semester.year}{semester.isActive ? ' (Đang mở)' : ''}
-                </MenuItem>
-              ))}
-            </Select>
-          </FormControl>
-          
-        </Stack>
-      </Paper>
 
       {loadingClasses ? (
         <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress /></Box>
       ) : !classes.length ? (
         <Alert severity="info">Không có lớp được phân công trong học kỳ này.</Alert>
       ) : (
-        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', lg: 'minmax(250px, 0.78fr) minmax(0, 2.22fr)' }, gap: { xs: 1.5, md: 2.5 }, alignItems: 'start', minWidth: 0 }}>
-          <Stack spacing={1.25}>
-            <Box sx={{ px: 0.5 }}>
-              <Typography variant="overline" color="text.secondary" fontWeight={800}>Lớp của tôi</Typography>
-              <Typography variant="caption" display="block" color="text.secondary">{classes.length} lớp</Typography>
+        <Box sx={{
+          display: 'grid',
+          gridTemplateColumns: { xs: '1fr', lg: 'minmax(270px, 0.78fr) minmax(0, 2.22fr)' },
+          alignItems: 'start',
+          gap: { xs: 2, lg: 2.5 },
+          minWidth: 0,
+        }}>
+          <Paper variant="outlined" sx={{ p: { xs: 2, sm: 2.5 }, borderColor: 'grey.200', borderRadius: 2, minWidth: 0 }}>
+          <Stack spacing={2}>
+              <FormControl fullWidth size="small">
+                <InputLabel id="lecturer-semester-label">Học kỳ</InputLabel>
+                <Select
+                  labelId="lecturer-semester-label"
+                  label="Học kỳ"
+                  value={semesterId}
+                  onChange={handleSemesterChange}
+                >
+                  <MenuItem value="">Tất cả học kỳ</MenuItem>
+                  {semesters.map((semester) => (
+                    <MenuItem key={semester.semesterId} value={semester.semesterId}>
+                      {semester.semesterCode} · HK{semester.term} {semester.year}{semester.isActive ? ' (Đang mở)' : ''}
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            <Box sx={{ px: 0.25, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, lineHeight: 1.4, color: 'text.primary' }}>
+                Lớp của tôi
+              </Typography>
+              <Box
+                component="span"
+                sx={{
+                  px: 1,
+                  py: 0.25,
+                  borderRadius: 5,
+                  bgcolor: 'grey.100',
+                  color: 'text.secondary',
+                  fontSize: 12,
+                  fontWeight: 700,
+                  lineHeight: 1.5,
+                  whiteSpace: 'nowrap',
+                }}
+              >
+                {classes.length} lớp
+              </Box>
             </Box>
             {classes.map((classItem) => (
-              <Paper
+              <Box
                 key={classItem.classId}
-                variant="outlined"
                 component="button"
                 type="button"
                 aria-pressed={selectedClassId === classItem.classId}
                 onClick={() => handleSelectClass(classItem.classId)}
                 sx={{
-                  p: 2,
+                  p: { xs: 1.5, sm: 1.75 },
                   cursor: 'pointer',
                   width: '100%',
                   minWidth: 0,
                   textAlign: 'left',
-                  font: 'inherit',
+                  fontFamily: 'inherit',
                   color: 'inherit',
+                  appearance: 'none',
+                  border: '1px solid',
                   borderRadius: 2,
                   borderColor: selectedClassId === classItem.classId ? 'primary.main' : 'divider',
                   bgcolor: selectedClassId === classItem.classId ? 'primary.50' : 'background.paper',
-                  transition: 'background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease',
+                  transition: 'background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease',
                   '&:hover': {
-                    bgcolor: selectedClassId === classItem.classId ? 'primary.50' : 'grey.50',
-                    borderColor: 'primary.light',
-                    boxShadow: 1,
+                    bgcolor: '#eaf3ff',
+                    borderColor: '#60a5fa',
+                    boxShadow: '0 4px 14px rgba(37, 99, 235, 0.14)',
+                    transform: 'translateY(-1px)',
                   },
                   '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 },
                 }}
               >
                 <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
                   <Box sx={{ minWidth: 0 }}>
-                    <Typography fontWeight={800} noWrap>{classItem.classCode}</Typography>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 800, lineHeight: 1.4 }} noWrap>
+                      {classItem.classCode}
+                    </Typography>
                     <Typography
                       variant="body2"
                       color="text.secondary"
@@ -425,18 +450,19 @@ export default function LecturerClassManagement() {
                     >
                       {classItem.courseName || classItem.courseCode || 'Môn học'}
                     </Typography>
-                    <Typography variant="caption" color="text.secondary">
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
                       {classItem.semesterCode || '—'} · {classItem.currentStudents ?? classItem.studentCount ?? 0}
                       {classItem.maxStudents ? `/${classItem.maxStudents} SV` : ' SV'}
                     </Typography>
                   </Box>
                   <ChevronRightIcon fontSize="small" color={selectedClassId === classItem.classId ? 'primary' : 'disabled'} />
                 </Stack>
-              </Paper>
+              </Box>
             ))}
           </Stack>
+          </Paper>
 
-          <Paper variant="outlined" sx={{ p: { xs: 1.25, sm: 2.25 }, minWidth: 0, borderColor: 'grey.200', borderRadius: 2 }}>
+          <Box sx={{ p: { xs: 1.5, sm: 2.25 }, minWidth: 0 }}>
             <Stack spacing={2}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
                 <Box>
@@ -473,8 +499,37 @@ export default function LecturerClassManagement() {
               {loadingStudents ? (
                 <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}><CircularProgress /></Box>
               ) : (
-                <>
-                  {studentGroups.filter((group) => visibleTeamIds.has(group.teamId)).map((group) => (
+                <Stack spacing={1.25}>
+                  {groupedFilteredStudents.length > 0 && (
+                    <Accordion
+                      defaultExpanded
+                      disableGutters
+                      elevation={0}
+                      sx={{
+                        border: '1px solid',
+                        borderColor: 'grey.200',
+                        borderRadius: '8px !important',
+                        overflow: 'hidden',
+                        '&:before': { display: 'none' },
+                      }}
+                    >
+                      <AccordionSummary
+                        expandIcon={<ExpandMoreIcon />}
+                        sx={{
+                          minHeight: 48,
+                          px: 1.5,
+                          bgcolor: 'grey.50',
+                          '&:hover': { bgcolor: '#eef5ff' },
+                          '& .MuiAccordionSummary-content': { my: 1 },
+                        }}
+                      >
+                        <Typography fontWeight={800}>
+                          Đã vào nhóm <Typography component="span" variant="body2" color="text.secondary">({groupedFilteredStudents.length})</Typography>
+                        </Typography>
+                      </AccordionSummary>
+                      <AccordionDetails sx={{ p: { xs: 1, sm: 1.5 } }}>
+                        <Stack spacing={1.25}>
+                          {visibleTeams.map((group) => (
                     <Paper key={group.teamId} variant="outlined" sx={{ overflow: 'hidden', borderColor: 'grey.200', borderRadius: 1.75 }}>
                       <Box
                         component="button"
@@ -496,7 +551,11 @@ export default function LecturerClassManagement() {
                           gap: 1,
                           bgcolor: 'grey.50',
                           transition: 'background-color 160ms ease',
-                          '&:hover': { bgcolor: 'primary.50' },
+                          '&:hover': {
+                            bgcolor: '#eaf3ff',
+                            boxShadow: 'inset 3px 0 #60a5fa',
+                            '& .team-open-chevron': { transform: 'translateX(3px)' },
+                          },
                           '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: -2 },
                         }}
                       >
@@ -509,40 +568,14 @@ export default function LecturerClassManagement() {
                             </Typography>
                           </Box>
                         </Stack>
-                        <ChevronRightIcon color="action" />
+                        <ChevronRightIcon
+                          className="team-open-chevron"
+                          color="action"
+                          sx={{ transition: 'transform 160ms ease' }}
+                        />
                       </Box>
                       <TableContainer sx={{ overflowX: 'auto' }}>
                         <Table size="small" sx={{ minWidth: 560 }}>
-                          <TableHead>
-                            <TableRow sx={{ bgcolor: 'background.default' }}>
-                              <TableCell sx={{ py: 1.1, fontSize: 11, fontWeight: 800, color: 'text.secondary' }}>SINH VIÊN</TableCell>
-                              <TableCell align="center" sx={{ py: 1.1, fontSize: 11, fontWeight: 800, color: 'text.secondary' }}>MSSV</TableCell>
-                              <TableCell align="center" sx={{ py: 1.1, fontSize: 11, fontWeight: 800, color: 'text.secondary' }}>VAI TRÒ</TableCell>
-                              <TableCell align="center" sx={{ py: 1.1, fontSize: 11, fontWeight: 800, color: 'text.secondary' }}>TRẠNG THÁI</TableCell>
-                            </TableRow>
-                          </TableHead>
-                          <TableBody>
-                            {group.students.filter((student) => filteredStudents.includes(student)).map((student) => (
-                              <TableRow key={student.studentProfileId || student.studentCode} sx={{ '&:last-child td': { borderBottom: 0 } }}>
-                                <TableCell sx={{ py: 1.2, fontWeight: 600 }}>{studentName(student)}</TableCell>
-                                <TableCell align="center" sx={{ py: 1.2, fontFamily: 'monospace' }}>{student.studentCode || '—'}</TableCell>
-                                <TableCell align="center" sx={{ py: 1.2 }}>{student.isTeamLeader ? 'Trưởng nhóm' : 'Thành viên'}</TableCell>
-                                <TableCell align="center" sx={{ py: 1.2 }}>{statusLabel(student.status || student.memberStatus)}</TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </TableContainer>
-                    </Paper>
-                  ))}
-
-                  {filteredStudents.filter((student) => !isInTeam(student)).length > 0 && (
-                    <Paper variant="outlined" sx={{ overflow: 'hidden', borderColor: 'grey.200', borderRadius: 1.75 }}>
-                      <Box sx={{ p: 1.5, bgcolor: 'grey.50' }}>
-                        <Typography fontWeight={700}>Chưa vào nhóm</Typography>
-                      </Box>
-                      <TableContainer sx={{ overflowX: 'auto' }}>
-                        <Table size="small" sx={{ minWidth: 540 }}>
                           <TableHead>
                             <TableRow sx={{ bgcolor: 'background.default' }}>
                               <TableCell sx={{ py: 1.1, fontSize: 11, fontWeight: 800, color: 'text.secondary' }}>SINH VIÊN</TableCell>
@@ -552,24 +585,94 @@ export default function LecturerClassManagement() {
                             </TableRow>
                           </TableHead>
                           <TableBody>
-                            {filteredStudents.filter((student) => !isInTeam(student)).map((student) => (
+                            {group.students.filter((student) => filteredStudents.includes(student)).map((student) => (
                               <TableRow key={student.studentProfileId || student.studentCode} sx={{ '&:last-child td': { borderBottom: 0 } }}>
-                                <TableCell sx={{ py: 1.2, fontWeight: 600 }}>{studentName(student)}</TableCell>
+                                <TableCell sx={{ py: 1.2, fontWeight: 600 }}>
+                                  <Stack direction="row" spacing={0.5} alignItems="center">
+                                    <span>{studentName(student)}</span>
+                                    {(student.isTeamLeader || student.isLeader) && (
+                                      <LeaderIcon
+                                        titleAccess="Trưởng nhóm"
+                                        sx={{ fontSize: 17, color: 'warning.main' }}
+                                      />
+                                    )}
+                                  </Stack>
+                                </TableCell>
                                 <TableCell align="center" sx={{ py: 1.2, fontFamily: 'monospace' }}>{student.studentCode || '—'}</TableCell>
-                                <TableCell>{student.email || '—'}</TableCell>
-                                <TableCell align="center">{statusLabel(student.status)}</TableCell>
+                                <TableCell sx={{ py: 1.2 }}>{student.email || '—'}</TableCell>
+                                <TableCell align="center" sx={{ py: 1.2 }}>{statusLabel(student.status || student.memberStatus)}</TableCell>
                               </TableRow>
                             ))}
                           </TableBody>
                         </Table>
                       </TableContainer>
                     </Paper>
+                          ))}
+                        </Stack>
+                      </AccordionDetails>
+                    </Accordion>
+                  )}
+
+                  {ungroupedFilteredStudents.length > 0 && (
+                    <Accordion
+                      defaultExpanded
+                      disableGutters
+                      elevation={0}
+                      sx={{
+                        border: '1px solid',
+                        borderColor: 'grey.200',
+                        borderRadius: '8px !important',
+                        overflow: 'hidden',
+                        '&:before': { display: 'none' },
+                      }}
+                    >
+                      <AccordionSummary
+                        expandIcon={<ExpandMoreIcon />}
+                        sx={{
+                          minHeight: 48,
+                          px: 1.5,
+                          bgcolor: 'grey.50',
+                          '&:hover': { bgcolor: '#eef5ff' },
+                          '& .MuiAccordionSummary-content': { my: 1 },
+                        }}
+                      >
+                        <Typography fontWeight={800}>
+                          Chưa vào nhóm <Typography component="span" variant="body2" color="text.secondary">({ungroupedFilteredStudents.length})</Typography>
+                        </Typography>
+                      </AccordionSummary>
+                      <AccordionDetails sx={{ p: { xs: 1, sm: 1.5 } }}>
+                        <Paper variant="outlined" sx={{ overflow: 'hidden', borderColor: 'grey.200', borderRadius: 1.75 }}>
+                          <TableContainer sx={{ overflowX: 'auto' }}>
+                            <Table size="small" sx={{ minWidth: 540 }}>
+                              <TableHead>
+                                <TableRow sx={{ bgcolor: 'background.default' }}>
+                                  <TableCell sx={{ py: 1.1, fontSize: 11, fontWeight: 800, color: 'text.secondary' }}>SINH VIÊN</TableCell>
+                                  <TableCell align="center" sx={{ py: 1.1, fontSize: 11, fontWeight: 800, color: 'text.secondary' }}>MSSV</TableCell>
+                                  <TableCell sx={{ py: 1.1, fontSize: 11, fontWeight: 800, color: 'text.secondary' }}>EMAIL</TableCell>
+                                  <TableCell align="center" sx={{ py: 1.1, fontSize: 11, fontWeight: 800, color: 'text.secondary' }}>TRẠNG THÁI</TableCell>
+                                </TableRow>
+                              </TableHead>
+                              <TableBody>
+                                {ungroupedFilteredStudents.map((student) => (
+                                  <TableRow key={student.studentProfileId || student.studentCode} sx={{ '&:last-child td': { borderBottom: 0 } }}>
+                                    <TableCell sx={{ py: 1.2, fontWeight: 600 }}>{studentName(student)}</TableCell>
+                                    <TableCell align="center" sx={{ py: 1.2, fontFamily: 'monospace' }}>{student.studentCode || '—'}</TableCell>
+                                    <TableCell>{student.email || '—'}</TableCell>
+                                    <TableCell align="center">{statusLabel(student.status)}</TableCell>
+                                  </TableRow>
+                                ))}
+                              </TableBody>
+                            </Table>
+                          </TableContainer>
+                        </Paper>
+                      </AccordionDetails>
+                    </Accordion>
                   )}
                   {!filteredStudents.length && <Alert severity="info">Không tìm thấy sinh viên phù hợp.</Alert>}
-                </>
+                </Stack>
               )}
             </Stack>
-          </Paper>
+          </Box>
         </Box>
       )}
 
