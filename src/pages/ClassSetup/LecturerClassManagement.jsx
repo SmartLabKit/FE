@@ -122,7 +122,6 @@ export default function LecturerClassManagement() {
   const [selectedTeam, setSelectedTeam] = useState(null)
   const [selectedLeaderId, setSelectedLeaderId] = useState('')
   const [studentSearch, setStudentSearch] = useState('')
-  const [studentStatusFilter, setStudentStatusFilter] = useState('all')
   const [loadingClasses, setLoadingClasses] = useState(true)
   const [loadingStudents, setLoadingStudents] = useState(false)
   const [loadingTeam, setLoadingTeam] = useState(false)
@@ -238,13 +237,9 @@ export default function LecturerClassManagement() {
         [studentName(student), student.studentCode, student.email, teamNameOf(student)]
           .filter(Boolean)
           .some((value) => String(value).toLowerCase().includes(search))
-      const hasTeam = isInTeam(student)
-      const matchesStatus = studentStatusFilter === 'all' ||
-        (studentStatusFilter === 'grouped' && hasTeam) ||
-        (studentStatusFilter === 'ungrouped' && !hasTeam)
-      return matchesSearch && matchesStatus
+      return matchesSearch
     })
-  }, [students, studentSearch, studentStatusFilter])
+  }, [students, studentSearch])
 
   const visibleTeamIds = useMemo(
     () => new Set(filteredStudents.filter(isInTeam).map(teamIdOf)),
@@ -253,9 +248,6 @@ export default function LecturerClassManagement() {
   const groupedFilteredStudents = filteredStudents.filter(isInTeam)
   const ungroupedFilteredStudents = filteredStudents.filter((student) => !isInTeam(student))
   const visibleTeams = studentGroups.filter((group) => visibleTeamIds.has(group.teamId))
-
-  const groupedStudentCount = students.filter(isInTeam).length
-  const ungroupedStudentCount = students.length - groupedStudentCount
 
   const openTeamDetail = async (teamId) => {
     setSelectedTeam(null)
@@ -471,28 +463,13 @@ export default function LecturerClassManagement() {
                     {selectedClass?.courseName || selectedClass?.courseCode || ''} · {filteredStudents.length} / {students.length} sinh viên
                   </Typography>
                 </Box>
-                <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ width: { xs: '100%', sm: 'auto' } }}>
-                  <TextField
-                    size="small"
-                    placeholder="Tìm sinh viên hoặc nhóm"
-                    value={studentSearch}
-                    onChange={(event) => setStudentSearch(event.target.value)}
-                    sx={{ width: { xs: '100%', sm: 240 } }}
-                  />
-                  <FormControl size="small" sx={{ minWidth: { xs: '100%', sm: 190 } }}>
-                    <InputLabel id="student-status-filter-label">Trạng thái nhóm</InputLabel>
-                    <Select
-                      labelId="student-status-filter-label"
-                      label="Trạng thái nhóm"
-                      value={studentStatusFilter}
-                      onChange={(event) => setStudentStatusFilter(event.target.value)}
-                    >
-                      <MenuItem value="all">Tất cả sinh viên ({students.length})</MenuItem>
-                      <MenuItem value="grouped">Đã vào nhóm ({groupedStudentCount})</MenuItem>
-                      <MenuItem value="ungrouped">Chưa vào nhóm ({ungroupedStudentCount})</MenuItem>
-                    </Select>
-                  </FormControl>
-                </Stack>
+                <TextField
+                  size="small"
+                  placeholder="Tìm sinh viên hoặc nhóm"
+                  value={studentSearch}
+                  onChange={(event) => setStudentSearch(event.target.value)}
+                  sx={{ width: { xs: '100%', sm: 280 } }}
+                />
               </Box>
 
               {studentError && <Alert severity="error">{studentError}</Alert>}
