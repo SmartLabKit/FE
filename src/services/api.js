@@ -33,7 +33,7 @@ api.interceptors.response.use(
     return response
   },
   (error) => {
-    // Nếu token hết hạn (401), xử lý dọn token nếu không phải đang ở trang login/forgot-password
+    // Phiên hết hạn cần xóa token và đưa người dùng về màn hình đăng nhập.
     if (error.response && error.response.status === 401) {
       const isPublicAuthRoute =
         window.location.pathname === '/login' ||
@@ -42,6 +42,8 @@ api.interceptors.response.use(
 
       if (!isPublicAuthRoute) {
         localStorage.removeItem('smartlabkit_token')
+        localStorage.removeItem('smartlabkit_user')
+        window.location.assign('/login')
       }
     }
     return Promise.reject(error)

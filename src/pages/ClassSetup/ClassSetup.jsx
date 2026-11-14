@@ -7,6 +7,7 @@ import CourseManager from './CourseManager'
 import ImportRosterFaculty from './ImportRosterFaculty'
 import CourseQuotaSetting from './CourseQuotaSetting'
 import GroupInviteManager from './GroupInviteManager'
+import LecturerClassManagement from './LecturerClassManagement'
 import { useAuth, DEMO_ACCOUNTS } from '../../context/AuthContext'
 
 /**
@@ -31,7 +32,12 @@ export default function ClassSetup() {
     return 0
   }
 
+  const handleLecturerTabChange = (event, newValue) => {
+    navigate(newValue === 0 ? '/class-setup/lecturer/classes' : '/class-setup/lecturer/quotas')
+  }
+
   const adminTab = getAdminTab(location.pathname)
+  const lecturerTab = location.pathname.includes('/lecturer/quotas') ? 1 : 0
 
   const handleAdminTabChange = (event, newValue) => {
     if (newValue === 0) {
@@ -49,7 +55,7 @@ export default function ClassSetup() {
       if (currentUser.roleLabel === 'STUDENT') {
         navigate('/class-setup/student/groups', { replace: true })
       } else if (currentUser.roleLabel === 'LECTURER') {
-        navigate('/class-setup/lecturer/quotas', { replace: true })
+        navigate('/class-setup/lecturer/classes', { replace: true })
       } else if (currentUser.roleLabel === 'INVENTORYMANAGER') {
         navigate('/class-setup/admin/stock-inwards', { replace: true })
       } else if (currentUser.roleLabel === 'LABSTAFF') {
@@ -61,8 +67,10 @@ export default function ClassSetup() {
   }, [location.pathname, currentUser, navigate])
 
   // Phân lập ranh giới vai trò dựa trên tài khoản đăng nhập & đường dẫn
-  const isLecturerRoute = location.pathname.includes('/lecturer') || currentUser.roleLabel === 'LECTURER'
-  const isStudentRoute = location.pathname.includes('/student') || currentUser.roleLabel === 'STUDENT'
+  const isLecturerRoute = location.pathname.includes('/lecturer') ||
+    (!location.pathname.includes('/student') && currentUser.roleLabel === 'LECTURER')
+  const isStudentRoute = location.pathname.includes('/student') ||
+    (!location.pathname.includes('/lecturer') && currentUser.roleLabel === 'STUDENT')
   const isAdminRoute = !isLecturerRoute && !isStudentRoute && (currentUser.roleLabel === 'ADMIN' || !currentUser.roleLabel)
 
   return (
@@ -114,10 +122,19 @@ export default function ClassSetup() {
           </Box>
         )}
 
-        {/* Vai trò GIẢNG VIÊN (Lecturer): Chỉ hiển thị tính năng Cài đặt định mức */}
+        {/* Vai trò GIẢNG VIÊN (Lecturer) */}
         {isLecturerRoute && (
           <Box>
-            <CourseQuotaSetting />
+            <Paper
+              elevation={0}
+              sx={{ bgcolor: '#ffffff', border: '1px solid #e4e6ef', borderRadius: 2, px: 2, py: 0.5, mb: 3 }}
+            >
+              <Tabs value={lecturerTab} onChange={handleLecturerTabChange}>
+                <Tab label="Lớp giảng dạy & nhóm" />
+                <Tab label="Định mức môn học" />
+              </Tabs>
+            </Paper>
+            {lecturerTab === 0 ? <LecturerClassManagement /> : <CourseQuotaSetting />}
           </Box>
         )}
 

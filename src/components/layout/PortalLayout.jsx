@@ -121,6 +121,12 @@ export default function PortalLayout({
 
     // 2. Phân hệ GIẢNG VIÊN (Lecturer)
     {
+      label: 'Lớp giảng dạy & nhóm',
+      icon: <GroupsIcon fontSize="small" />,
+      path: '/class-setup/lecturer/classes',
+      roles: ['Lecturer'],
+    },
+    {
       label: 'Định mức môn học',
       icon: <SchoolIcon fontSize="small" />,
       path: '/class-setup/lecturer/quotas',

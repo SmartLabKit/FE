@@ -103,9 +103,9 @@ export const teamService = {
   },
 
   /**
-   * Chi tiết nhóm dành cho trưởng nhóm và thành viên đã chấp nhận
+   * Chi tiết nhóm dành cho sinh viên, giảng viên phụ trách lớp và Admin
    * GET /api/teams/{teamId}
-   * Quyền: Chỉ role Student
+   * Quyền: Student, Lecturer, Admin
    * Path: teamId (guid)
    * Trả về (200): TeamResponse
    */
@@ -184,7 +184,7 @@ export const teamService = {
   },
 
   /**
-   * Trưởng nhóm chuyển quyền cho thành viên khác trong nhóm
+   * Chuyển quyền trưởng nhóm (Lecturer/Admin hoặc trưởng nhóm Student theo phạm vi backend)
    * PUT /api/teams/{teamId}/leader
    * Quyền: Student, Lecturer, Admin
    * Path: teamId (guid)

@@ -306,18 +306,8 @@ export const academicService = {
       if (Array.isArray(resData)) return resData
       if (resData?.items && Array.isArray(resData.items)) return resData.items
       if (resData?.students && Array.isArray(resData.students)) return resData.students
-      return []
+      throw new Error('Phản hồi danh sách sinh viên không đúng định dạng.')
     } catch (error) {
-      // Fallback nếu endpoint students bị lỗi, thử kiểm tra getClassById xem có danh sách students không
-      try {
-        const clsRes = await api.get(`/api/classes/${classId}`)
-        const clsData = clsRes.data?.data || clsRes.data
-        if (clsData?.students && Array.isArray(clsData.students)) {
-          return clsData.students
-        }
-      } catch {
-        // bỏ qua fallback error
-      }
       throw new Error(extractErrorMessage(error, 'Không thể tải danh sách sinh viên của lớp'), { cause: error })
     }
   },
