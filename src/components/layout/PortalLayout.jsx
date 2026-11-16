@@ -167,34 +167,22 @@ export default function PortalLayout({
       roles: ['Admin', 'InventoryManager', 'LabStaff', 'Lecturer', 'Student'],
     },
     {
-      label: 'Danh mục linh kiện',
-      icon: <CategoryIcon fontSize="small" />,
-      path: '/class-setup/admin/categories',
-      roles: ['InventoryManager'],
-    },
-    {
       label: 'Phòng lab',
       icon: <SchoolIcon fontSize="small" />,
       path: '/class-setup/admin/lab-rooms',
       roles: ['InventoryManager', 'LabStaff', 'Student'],
     },
     {
-      label: 'Tủ lưu trữ',
-      icon: <ApprovalsIcon fontSize="small" />,
-      path: '/class-setup/admin/cabinets',
-      roles: ['InventoryManager', 'LabStaff'],
-    },
-    {
       label: 'Lập phiếu nhập',
       icon: <ApprovalsIcon fontSize="small" />,
       path: '/class-setup/admin/stock-inwards',
-      roles: ['InventoryManager'],
+      roles: ['Admin', 'InventoryManager'],
     },
     {
       label: 'Phiếu nhập kho',
       icon: <ApprovalsIcon fontSize="small" />,
       path: '/class-setup/admin/stock-receipts',
-      roles: ['InventoryManager'],
+      roles: ['Admin', 'InventoryManager'],
     },
 
     // 5. Phân hệ BÀN GIAO & TRẢ ĐỒ (LabStaff)
@@ -357,12 +345,8 @@ export default function PortalLayout({
               ? isComponentsRoute
               : item.path === '/class-setup/admin/stock-inwards'
               ? isStockInwardsRoute || isStorageAllocationRoute
-              : item.path === '/class-setup/admin/categories'
-              ? isCategoriesRoute
               : item.path === '/class-setup/admin/lab-rooms'
-              ? isLabRoomsRoute
-              : item.path === '/class-setup/admin/cabinets'
-              ? isCabinetsRoute
+              ? isLabRoomsRoute || isCategoriesRoute || isCabinetsRoute
               : item.path === '/class-setup/admin/stock-receipts'
               ? isStockReceiptsRoute
               : item.path === '/class-setup/admin/semesters'
