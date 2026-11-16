@@ -32,6 +32,7 @@ import FinalSubmissionReview from './pages/Projects/FinalSubmissionReview.jsx'
 import Dashboard from './pages/Reports/Dashboard.jsx'
 import Reports from './pages/Reports/Reports.jsx'
 import Notifications from './pages/Notifications/Notifications.jsx'
+import IssueReports from './pages/IssueReports/IssueReports.jsx'
 
 import { AuthProvider } from './context/AuthContext'
 
@@ -61,6 +62,7 @@ function App() {
           {/* Tổng quan & Báo cáo thống kê (Admin / InventoryManager / LabStaff / Lecturer) */}
           <Route path="/dashboard" element={<Dashboard />} />
           <Route path="/reports" element={<Reports />} />
+          <Route path="/issue-reports" element={<IssueReports />} />
 
           {/* Class Setup Flow Routes */}
           <Route path="/class-setup" element={<ClassSetup />} />

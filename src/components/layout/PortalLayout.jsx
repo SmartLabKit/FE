@@ -37,6 +37,7 @@ import {
   Dashboard as DashboardIcon,
   Assessment as ReportIcon,
   FactCheck as FinalSubmissionIcon,
+  ReportProblem as IssueIcon,
 } from '@mui/icons-material'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth, DEMO_ACCOUNTS } from '../../context/AuthContext'
@@ -112,6 +113,12 @@ export default function PortalLayout({
       icon: <ReportIcon fontSize="small" />,
       path: '/reports',
       roles: ['Admin', 'InventoryManager', 'LabStaff', 'Lecturer'],
+    },
+    {
+      label: 'Sự cố thiết bị',
+      icon: <IssueIcon fontSize="small" />,
+      path: '/issue-reports',
+      roles: ['Admin', 'InventoryManager', 'LabStaff', 'Lecturer', 'Student'],
     },
 
     // 1. Phân hệ SINH VIÊN (Student)

@@ -1,0 +1,84 @@
+import api, { extractErrorMessage } from './api'
+
+function unwrap(response) {
+  return response.data?.data ?? response.data
+}
+
+export const issueReportService = {
+  /**
+   * Báo một thiết bị REUSABLE / HIGH_VALUE bị hỏng, cháy hoặc mất
+   * POST /api/issue-reports
+   * Quyền: Student (thiết bị mình đang mượn), LabStaff (lab mình phụ trách), InventoryManager, Admin
+   * Body (multipart/form-data): { componentItemId? | itemCode?, issueType: Damaged | Burnt | Lost, description (tối đa 1000 ký tự), image? }
+   * Trả về (201): IssueReportDetailResponse
+   */
+  async createIssueReport({ itemCode, componentItemId, issueType, description, image }) {
+    try {
+      const formData = new FormData()
+      if (componentItemId) formData.append('componentItemId', componentItemId)
+      if (itemCode) formData.append('itemCode', itemCode)
+      formData.append('issueType', issueType)
+      formData.append('description', description)
+      if (image) formData.append('image', image)
+      return unwrap(await api.post('/api/issue-reports', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      }))
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Không thể gửi báo cáo sự cố'), { cause: error })
+    }
+  },
+
+  /**
+   * Danh sách báo cáo sự cố theo phạm vi role (Student: của mình, LabStaff: lab mình, Lecturer: lớp mình)
+   * GET /api/issue-reports
+   * Query: { status?, issueType?, roomId?, componentId?, componentItemId?, itemCode?, reportedBy?, fromDate?, toDate?, mine?, page?, size? }
+   * Trả về (200): PagedResult<IssueReportListItemResponse>
+   */
+  async getIssueReports(params = { page: 1, size: 20 }) {
+    try {
+      return unwrap(await api.get('/api/issue-reports', { params }))
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Không thể tải danh sách sự cố'), { cause: error })
+    }
+  },
+
+  /**
+   * Chi tiết một báo cáo sự cố
+   * GET /api/issue-reports/{id}
+   * Trả về (200): IssueReportDetailResponse (kèm thông tin thiết bị và đơn mượn liên quan)
+   */
+  async getIssueReport(id) {
+    try {
+      return unwrap(await api.get(`/api/issue-reports/${id}`))
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Không thể tải chi tiết sự cố'), { cause: error })
+    }
+  },
+
+  /**
+   * LabStaff đúng lab hoặc Admin xác nhận / từ chối báo cáo đang Open
+   * POST /api/issue-reports/{id}/resolve
+   * Body: { result: Confirmed | Rejected, note? }
+   * Trả về (200): IssueReportDetailResponse
+   */
+  async resolveIssueReport(id, { result, note }) {
+    try {
+      return unwrap(await api.post(`/api/issue-reports/${id}/resolve`, { result, note: note?.trim() || null }))
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Không thể xử lý báo cáo sự cố'), { cause: error })
+    }
+  },
+
+  /**
+   * Người tạo báo cáo hoặc Admin hủy báo cáo khi còn Open
+   * POST /api/issue-reports/{id}/cancel
+   * Trả về (200): IssueReportDetailResponse
+   */
+  async cancelIssueReport(id) {
+    try {
+      return unwrap(await api.post(`/api/issue-reports/${id}/cancel`))
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Không thể hủy báo cáo sự cố'), { cause: error })
+    }
+  },
+}
