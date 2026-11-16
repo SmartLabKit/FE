@@ -2,9 +2,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Add as AddIcon,
   ArrowBack as ArrowBackIcon,
+  ArrowForward as ArrowForwardIcon,
   AutoAwesome as AutoAwesomeIcon,
   Delete as DeleteIcon,
+  Groups as GroupsIcon,
   Save as SaveIcon,
+  School as SchoolIcon,
+  Search as SearchIcon,
   Send as SendIcon,
   Undo as UndoIcon,
 } from '@mui/icons-material'
@@ -20,9 +24,12 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
+  Grid,
   IconButton,
+  InputAdornment,
   MenuItem,
   Paper,
+  Select,
   Snackbar,
   Stack,
   TextField,
@@ -35,6 +42,19 @@ import { academicService } from '../../services/academicService'
 import { inventoryService } from '../../services/inventoryService'
 import { projectService } from '../../services/projectService'
 import { teamService } from '../../services/teamService'
+
+function getSemesterWeight(semCode = '') {
+  const str = String(semCode || '').trim().toUpperCase()
+  const matchYear = str.match(/(?:20)?(\d{2})$/)
+  const year = matchYear ? parseInt(matchYear[1], 10) + 2000 : 2000
+
+  let termScore = 0
+  if (str.includes('FA') || str.includes('FALL')) termScore = 3
+  else if (str.includes('SU') || str.includes('SUMMER')) termScore = 2
+  else if (str.includes('SP') || str.includes('SPRING')) termScore = 1
+
+  return year * 10 + termScore
+}
 
 const emptyForm = () => ({ title: '', description: '', components: [], selfSuppliedItems: [] })
 
@@ -158,7 +178,65 @@ export default function ProjectManagement() {
   const [loadError, setLoadError] = useState('')
   const [componentError, setComponentError] = useState('')
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
+  const [selectedSemester, setSelectedSemester] = useState(() => {
+    return localStorage.getItem('student_selected_semester') || 'ALL'
+  })
+  const [teamSearchQuery, setTeamSearchQuery] = useState('')
   const rowKeySequence = useRef(0)
+
+  const updateSemester = (sem) => {
+    setSelectedSemester(sem)
+    try {
+      localStorage.setItem('student_selected_semester', sem)
+    } catch (err) {
+      console.warn('Lỗi lưu selected semester:', err)
+    }
+  }
+
+  const handleSemesterChange = (event) => {
+    updateSemester(event.target.value)
+  }
+
+  // Danh sách các học kỳ có nhóm, sắp xếp từ mới nhất đến cũ nhất
+  const semestersList = useMemo(() => {
+    const semMap = new Map()
+    teamChoices.forEach((teamChoice) => {
+      const code = teamChoice.semesterCode || 'Chưa phân kỳ'
+      if (!semMap.has(code)) {
+        semMap.set(code, {
+          code,
+          weight: getSemesterWeight(code),
+          count: 1,
+        })
+      } else {
+        semMap.get(code).count += 1
+      }
+    })
+    return Array.from(semMap.values()).sort((a, b) => b.weight - a.weight)
+  }, [teamChoices])
+
+  // Lọc danh sách nhóm theo học kỳ và từ khóa tìm kiếm
+  const filteredTeamChoices = useMemo(() => {
+    return teamChoices.filter((teamChoice) => {
+      // Lọc học kỳ
+      if (selectedSemester !== 'ALL') {
+        const sem = teamChoice.semesterCode || 'Chưa phân kỳ'
+        if (sem !== selectedSemester) return false
+      }
+
+      // Lọc từ khóa tìm kiếm
+      if (teamSearchQuery.trim()) {
+        const q = teamSearchQuery.toLowerCase().trim()
+        const matchName = teamChoice.teamName?.toLowerCase().includes(q)
+        const matchClass = teamChoice.classCode?.toLowerCase().includes(q)
+        const matchCourse = teamChoice.courseName?.toLowerCase().includes(q)
+        const matchSem = teamChoice.semesterCode?.toLowerCase().includes(q)
+        if (!matchName && !matchClass && !matchCourse && !matchSem) return false
+      }
+
+      return true
+    })
+  }, [teamChoices, selectedSemester, teamSearchQuery])
 
   const nextRowKey = (prefix) => {
     rowKeySequence.current += 1
@@ -225,16 +303,25 @@ export default function ProjectManagement() {
             team: await teamService.getMyTeam(classItem.classId),
           }))
         )
-        setTeamChoices(
-          teamResults
-            .filter(({ team: teamInClass }) => teamInClass)
-            .map(({ classItem, team: teamInClass }) => ({
-              ...teamInClass,
-              classCode: teamInClass.classCode || classItem.classCode,
-              courseName: classItem.courseName,
-              semesterCode: classItem.semesterCode,
-            }))
-        )
+        const mappedTeams = teamResults
+          .filter(({ team: teamInClass }) => teamInClass)
+          .map(({ classItem, team: teamInClass }) => ({
+            ...teamInClass,
+            classCode: teamInClass.classCode || classItem.classCode,
+            courseName: classItem.courseName,
+            semesterCode:
+              teamInClass.semesterCode ||
+              classItem.semesterCode ||
+              classItem.semester?.semesterCode ||
+              classItem.semester?.code ||
+              '',
+          }))
+          .sort((a, b) => {
+            const diff = getSemesterWeight(b.semesterCode) - getSemesterWeight(a.semesterCode)
+            if (diff !== 0) return diff
+            return (a.teamName || '').localeCompare(b.teamName || '')
+          })
+        setTeamChoices(mappedTeams)
         return
       }
 
@@ -449,7 +536,7 @@ export default function ProjectManagement() {
 
   return (
     <PortalLayout headerTitle="Thiết lập dự án" headerSubtitle={team?.teamName || 'Quản lý đồ án nhóm'}>
-      <Container maxWidth="lg" disableGutters sx={{ pb: 5 }}>
+      <Container maxWidth="xl" disableGutters sx={{ width: '100%', maxWidth: 1600, minWidth: 0, mx: 'auto', boxSizing: 'border-box', pb: 5 }}>
         <Button
           size="small"
           startIcon={<ArrowBackIcon />}
@@ -475,44 +562,226 @@ export default function ProjectManagement() {
         ) : !teamId && loadError ? (
           <Alert severity="error" action={<Button onClick={loadData}>Thử lại</Button>}>{loadError}</Alert>
         ) : !teamId ? (
-          <Stack spacing={2}>
-            <Typography variant="h6" sx={{ fontWeight: 800 }}>Chọn nhóm để thiết lập dự án</Typography>
+          <Box>
+            {/* Thanh lọc theo học kỳ & Tìm kiếm (Thiết kế đồng bộ với Nhóm & Lời mời) */}
+            <Paper
+              elevation={0}
+              sx={{
+                p: 2.5,
+                mb: 3,
+                borderRadius: 2,
+                border: '1px solid #e4e6ef',
+                bgcolor: '#ffffff',
+                display: 'flex',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 2,
+              }}
+            >
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, minWidth: 280, flexWrap: 'wrap' }}>
+                <SchoolIcon sx={{ color: '#0058be', fontSize: 28 }} />
+
+                {/* Phân loại theo kỳ học */}
+                <Box sx={{ minWidth: 200 }}>
+                  <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 10, mb: 0.5 }}>
+                    PHÂN LOẠI THEO HỌC KỲ:
+                  </Typography>
+                  <Select
+                    fullWidth
+                    size="small"
+                    value={selectedSemester}
+                    onChange={handleSemesterChange}
+                    sx={{ borderRadius: 1.5, height: 40, fontSize: 13, bgcolor: '#fafbff' }}
+                  >
+                    <MenuItem value="ALL" sx={{ fontSize: 13, fontWeight: 700 }}>
+                      Tất cả các kỳ ({teamChoices.length} nhóm)
+                    </MenuItem>
+                    {semestersList.map((sem) => (
+                      <MenuItem key={sem.code} value={sem.code} sx={{ fontSize: 13 }}>
+                        Kỳ {sem.code} ({sem.count} nhóm)
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </Box>
+
+                {/* Ô tìm kiếm nhóm / môn */}
+                <Box sx={{ flex: 1, minWidth: 240, maxWidth: 420 }}>
+                  <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 10, mb: 0.5 }}>
+                    TÌM KIẾM NHÓM / MÔN HỌC:
+                  </Typography>
+                  <TextField
+                    fullWidth
+                    size="small"
+                    placeholder="Nhập tên nhóm, môn học, mã lớp..."
+                    value={teamSearchQuery}
+                    onChange={(e) => setTeamSearchQuery(e.target.value)}
+                    InputProps={{
+                      startAdornment: (
+                        <InputAdornment position="start">
+                          <SearchIcon sx={{ color: '#94a3b8', fontSize: 18 }} />
+                        </InputAdornment>
+                      ),
+                    }}
+                    sx={{
+                      '& .MuiOutlinedInput-root': {
+                        borderRadius: 1.5,
+                        height: 40,
+                        fontSize: 13,
+                        bgcolor: '#fafbff',
+                      },
+                    }}
+                  />
+                </Box>
+              </Box>
+
+              {/* Nút lọc nhanh dạng Chip */}
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                <Chip
+                  label={`Tất cả (${teamChoices.length})`}
+                  size="small"
+                  onClick={() => updateSemester('ALL')}
+                  color={selectedSemester === 'ALL' ? 'primary' : 'default'}
+                  variant={selectedSemester === 'ALL' ? 'filled' : 'outlined'}
+                  sx={{ fontWeight: 700, fontSize: 12, cursor: 'pointer' }}
+                />
+                {semestersList.map((sem) => (
+                  <Chip
+                    key={`chip-${sem.code}`}
+                    label={`Kỳ ${sem.code} (${sem.count})`}
+                    size="small"
+                    onClick={() => updateSemester(sem.code)}
+                    color={selectedSemester === sem.code ? 'primary' : 'default'}
+                    variant={selectedSemester === sem.code ? 'filled' : 'outlined'}
+                    sx={{ fontWeight: 700, fontSize: 12, cursor: 'pointer' }}
+                  />
+                ))}
+              </Box>
+            </Paper>
+
+            {/* Tiêu đề & Đếm số lượng */}
+            <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Typography variant="h6" sx={{ fontWeight: 800, color: '#131b2e' }}>
+                Chọn nhóm để thiết lập dự án
+              </Typography>
+              <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>
+                Hiển thị {filteredTeamChoices.length} / {teamChoices.length} nhóm
+              </Typography>
+            </Box>
+
             {teamChoices.length === 0 ? (
-              <Alert severity="info">
+              <Alert severity="info" sx={{ borderRadius: 2 }}>
                 Bạn chưa tham gia nhóm nào trong các lớp hiện tại. Hãy tham gia hoặc tạo nhóm trước.
               </Alert>
-            ) : teamChoices.map((teamChoice) => (
-              <Paper
-                key={teamChoice.teamId}
-                elevation={0}
-                sx={{
-                  p: 2,
-                  border: '1px solid #e4e6ef',
-                  borderRadius: 2,
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                  gap: 2,
-                  flexWrap: 'wrap',
-                }}
-              >
-                <Box>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>{teamChoice.teamName}</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {teamChoice.classCode}{teamChoice.courseName ? ` · ${teamChoice.courseName}` : ''}
-                    {teamChoice.semesterCode ? ` · ${teamChoice.semesterCode}` : ''}
-                  </Typography>
-                </Box>
-                <Button
-                  variant="contained"
-                  onClick={() => navigate(`/class-setup/student/project/${teamChoice.teamId}`)}
-                  sx={{ textTransform: 'none', fontWeight: 700 }}
-                >
-                  Mở dự án
-                </Button>
-              </Paper>
-            ))}
-          </Stack>
+            ) : filteredTeamChoices.length === 0 ? (
+              <Alert severity="warning" sx={{ borderRadius: 2 }}>
+                {teamSearchQuery
+                  ? `Không tìm thấy nhóm nào phù hợp với từ khóa "${teamSearchQuery}".`
+                  : `Không có nhóm nào thuộc kỳ ${selectedSemester}. Bạn có thể chọn "Tất cả các kỳ" để xem tất cả nhóm.`}
+              </Alert>
+            ) : (
+              <Grid container spacing={2.5}>
+                {filteredTeamChoices.map((teamChoice) => (
+                  <Grid item xs={12} md={6} key={teamChoice.teamId}>
+                    <Paper
+                      elevation={0}
+                      sx={{
+                        p: 2.5,
+                        border: '1px solid #e4e6ef',
+                        borderRadius: 2,
+                        bgcolor: '#ffffff',
+                        display: 'flex',
+                        flexDirection: 'column',
+                        justifyContent: 'space-between',
+                        height: '100%',
+                        transition: 'all 0.2s ease',
+                        '&:hover': {
+                          borderColor: '#0058be',
+                          boxShadow: '0 4px 16px rgba(0, 88, 190, 0.08)',
+                        },
+                      }}
+                    >
+                      <Box sx={{ mb: 2 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1.5, mb: 1 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
+                            <Box
+                              sx={{
+                                width: 40,
+                                height: 40,
+                                borderRadius: 1.5,
+                                bgcolor: '#eff6ff',
+                                color: '#0058be',
+                                display: 'flex',
+                                alignItems: 'center',
+                                justifyContent: 'center',
+                                flexShrink: 0,
+                              }}
+                            >
+                              <GroupsIcon sx={{ fontSize: 24 }} />
+                            </Box>
+                            <Box>
+                              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#131b2e', lineHeight: 1.3 }}>
+                                {teamChoice.teamName}
+                              </Typography>
+                              <Typography variant="caption" sx={{ color: '#64748b', fontSize: 12 }}>
+                                {teamChoice.classCode}
+                              </Typography>
+                            </Box>
+                          </Box>
+                          {teamChoice.semesterCode && (
+                            <Chip
+                              label={`Kỳ ${teamChoice.semesterCode}`}
+                              size="small"
+                              sx={{
+                                bgcolor: '#eaedff',
+                                color: '#0058be',
+                                fontWeight: 800,
+                                fontSize: 11,
+                                borderRadius: 1.5,
+                              }}
+                            />
+                          )}
+                        </Box>
+
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1.5, color: '#475569' }}>
+                          <SchoolIcon sx={{ fontSize: 17, color: '#94a3b8' }} />
+                          <Typography variant="body2" sx={{ color: '#475569', fontSize: 13, fontWeight: 500 }}>
+                            {teamChoice.courseName || 'Môn học đồ án'}
+                          </Typography>
+                        </Box>
+                      </Box>
+
+                      <Divider sx={{ my: 1.5, borderStyle: 'dashed' }} />
+
+                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 'auto' }}>
+                        <Typography variant="caption" sx={{ color: '#94a3b8', fontSize: 11.5 }}>
+                          Mã nhóm: {teamChoice.teamId?.slice(0, 8)}...
+                        </Typography>
+                        <Button
+                          variant="contained"
+                          endIcon={<ArrowForwardIcon sx={{ fontSize: 16 }} />}
+                          onClick={() => navigate(`/class-setup/student/project/${teamChoice.teamId}`)}
+                          sx={{
+                            textTransform: 'none',
+                            fontWeight: 700,
+                            fontSize: 12.5,
+                            borderRadius: 1.5,
+                            bgcolor: '#0058be',
+                            boxShadow: 'none',
+                            px: 2,
+                            py: 0.7,
+                            '&:hover': { bgcolor: '#0049a3' },
+                          }}
+                        >
+                          Mở dự án
+                        </Button>
+                      </Box>
+                    </Paper>
+                  </Grid>
+                ))}
+              </Grid>
+            )}
+          </Box>
         ) : loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}>
             <CircularProgress />

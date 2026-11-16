@@ -84,7 +84,9 @@ export default function GroupInviteManager() {
   const [myClasses, setMyClasses] = useState([])
   const [selectedClassId, setSelectedClassId] = useState('')
   const [loadingClasses, setLoadingClasses] = useState(true)
-  const [selectedSemester, setSelectedSemester] = useState('ALL')
+  const [selectedSemester, setSelectedSemester] = useState(() => {
+    return localStorage.getItem('student_selected_semester') || 'ALL'
+  })
   const [classesError, setClassesError] = useState('')
 
   // State lời mời nhóm nhận được
@@ -163,6 +165,11 @@ export default function GroupInviteManager() {
   const handleSemesterChange = (e) => {
     const sem = e.target.value
     setSelectedSemester(sem)
+    try {
+      localStorage.setItem('student_selected_semester', sem)
+    } catch (err) {
+      console.warn('Lỗi lưu selected semester:', err)
+    }
     if (sem === 'ALL') {
       if (myClasses.length > 0 && !myClasses.some((c) => c.classId === selectedClassId)) {
         setSelectedClassId(myClasses[0].classId)
