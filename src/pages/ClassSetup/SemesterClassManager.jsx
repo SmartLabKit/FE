@@ -58,6 +58,7 @@ export default function SemesterClassManager({ onNext }) {
   const [semesters, setSemesters] = useState([])
   const [courses, setCourses] = useState([])
   const [classes, setClasses] = useState([])
+  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
   const [selectedSemesterId, setSelectedSemesterId] = useState('')
   const [classSearch, setClassSearch] = useState('')
 
@@ -107,8 +108,12 @@ export default function SemesterClassManager({ onNext }) {
           setSemesters(semData || [])
           setCourses(courseData || [])
           if (semData && semData.length > 0) {
-            const activeSem = semData.find((s) => s.isActive) || semData[0]
-            setSelectedSemesterId(activeSem.semesterId)
+            const currentYearSemesters = semData.filter(
+              (semester) => Number(semester.year) === new Date().getFullYear(),
+            )
+            const initialSemester = currentYearSemesters.find((semester) => semester.isActive) ||
+              currentYearSemesters[0]
+            setSelectedSemesterId(initialSemester?.semesterId || '')
           }
         }
       })
@@ -141,7 +146,7 @@ export default function SemesterClassManager({ onNext }) {
     setSemesterForm({
       semesterCode: '',
       term: 'Spring',
-      year: new Date().getFullYear(),
+      year: selectedYear,
       startDate: new Date().toISOString().split('T')[0],
       endDate: new Date(Date.now() + 120 * 24 * 3600 * 1000).toISOString().split('T')[0],
       isActive: true,
@@ -178,6 +183,7 @@ export default function SemesterClassManager({ onNext }) {
           year: Number(semesterForm.year),
         })
         showToast(`Đã tạo học kỳ ${created.semesterCode}!`, 'success')
+        setSelectedYear(Number(created.year || semesterForm.year))
         setSelectedSemesterId(created.semesterId)
       } else {
         await academicService.updateSemester(editingSemesterId, {
@@ -185,6 +191,8 @@ export default function SemesterClassManager({ onNext }) {
           year: Number(semesterForm.year),
         })
         showToast(`Đã cập nhật học kỳ ${semesterForm.semesterCode}!`, 'success')
+        setSelectedYear(Number(semesterForm.year))
+        setSelectedSemesterId(editingSemesterId)
       }
       setSemesterModalOpen(false)
       const updatedSems = await academicService.getSemesters()
@@ -278,7 +286,11 @@ export default function SemesterClassManager({ onNext }) {
         const updatedSems = await academicService.getSemesters()
         setSemesters(updatedSems || [])
         if (selectedSemesterId === itemToDelete.id) {
-          setSelectedSemesterId(updatedSems[0]?.semesterId || '')
+          const replacement = updatedSems.find(
+            (semester) => Number(semester.year) === selectedYear && semester.isActive,
+          ) || updatedSems.find((semester) => Number(semester.year) === selectedYear)
+          setSelectedSemesterId(replacement?.semesterId || '')
+          if (!replacement) setClasses([])
         }
       } else {
         await academicService.deleteClass(itemToDelete.id)
@@ -303,6 +315,20 @@ export default function SemesterClassManager({ onNext }) {
   })
 
   const currentSemester = semesters.find((s) => s.semesterId === selectedSemesterId)
+  const availableYears = [...new Set([
+    new Date().getFullYear(),
+    ...semesters.map((semester) => Number(semester.year)).filter(Number.isFinite),
+  ])].sort((a, b) => b - a)
+  const visibleSemesters = semesters.filter((semester) => Number(semester.year) === selectedYear)
+
+  const handleYearChange = (event) => {
+    const year = Number(event.target.value)
+    const yearSemesters = semesters.filter((semester) => Number(semester.year) === year)
+    const nextSemester = yearSemesters.find((semester) => semester.isActive) || yearSemesters[0]
+    setSelectedYear(year)
+    setSelectedSemesterId(nextSemester?.semesterId || '')
+    if (!nextSemester) setClasses([])
+  }
 
   return (
     <Box>
@@ -328,11 +354,11 @@ export default function SemesterClassManager({ onNext }) {
               bgcolor: '#ffffff',
             }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, gap: 1 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <CalendarIcon sx={{ color: '#0058be', fontSize: 20 }} />
                 <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 15 }}>
-                  Danh sách học kỳ ({semesters.length})
+                  Học kỳ năm {selectedYear} ({visibleSemesters.length})
                 </Typography>
               </Box>
               <Button
@@ -353,12 +379,26 @@ export default function SemesterClassManager({ onNext }) {
               </Button>
             </Box>
 
+            <FormControl fullWidth size="small" sx={{ mb: 1.5 }}>
+              <InputLabel id="semester-year-label">Năm học</InputLabel>
+              <Select
+                labelId="semester-year-label"
+                label="Năm học"
+                value={selectedYear}
+                onChange={handleYearChange}
+              >
+                {availableYears.map((year) => (
+                  <MenuItem key={year} value={year}>{year}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+
             <Typography variant="caption" sx={{ color: '#6b7280', display: 'block', mb: 2 }}>
-              Chọn học kỳ để xem và quản lý các lớp học tương ứng
+              Chọn một trong các học kỳ của năm để quản lý lớp học phần
             </Typography>
 
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.2 }}>
-              {semesters.map((sem) => {
+              {visibleSemesters.map((sem) => {
                 const isSelected = sem.semesterId === selectedSemesterId
                 return (
                   <Paper
@@ -434,6 +474,11 @@ export default function SemesterClassManager({ onNext }) {
                   </Paper>
                 )
               })}
+              {visibleSemesters.length === 0 && (
+                <Alert severity="info" sx={{ py: 0.5 }}>
+                  Chưa có học kỳ trong năm {selectedYear}. Hãy tạo kỳ mới để bắt đầu.
+                </Alert>
+              )}
             </Box>
           </Paper>
         </Grid>
