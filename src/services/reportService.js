@@ -4,8 +4,6 @@ function unwrap(response) {
   return response.data?.data ?? response.data
 }
 
-// Gọi 1 API báo cáo dạng GET và chuẩn hóa thông báo lỗi.
-// 403: role hiện tại không được xem báo cáo này (ví dụ LabStaff không xem được báo cáo tiền).
 async function getReport(url, params, defaultMsg) {
   try {
     return unwrap(await api.get(url, { params }))
@@ -28,7 +26,6 @@ export const reportService = {
     return getReport('/api/reports/dashboard', undefined, 'Không thể tải số liệu tổng quan')
   },
 
-  // ===== Báo cáo kho =====
 
   /**
    * Tồn kho theo linh kiện: sẵn sàng, đang mượn, mất/thanh lý
@@ -102,7 +99,6 @@ export const reportService = {
     return getReport('/api/reports/inventory/warranty-expiring', params, 'Không thể tải danh sách sắp hết bảo hành')
   },
 
-  // ===== Báo cáo mượn trả =====
 
   /**
    * Thống kê đơn mượn tạo trong kỳ
@@ -154,7 +150,6 @@ export const reportService = {
     return getReport('/api/reports/borrowing/top-components', params, 'Không thể tải linh kiện mượn nhiều nhất')
   },
 
-  // ===== Báo cáo sự cố =====
 
   /**
    * Thống kê sự cố tạo trong kỳ

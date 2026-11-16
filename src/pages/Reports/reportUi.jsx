@@ -4,7 +4,6 @@ import {
 } from '@mui/material'
 import { formatNumber, toLabel } from './reportFormat'
 
-// Các thành phần giao diện dùng chung cho màn hình Tổng quan và Báo cáo.
 
 const headCellSx = { fontWeight: 700, color: '#334155' }
 

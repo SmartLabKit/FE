@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import {
   Avatar,
-  Badge,
   Box,
   Button,
   Chip,
@@ -25,7 +24,6 @@ import {
   CompareArrows as BorrowReturnIcon,
   AssignmentTurnedIn as ApprovalsIcon,
   Search as SearchIcon,
-  NotificationsOutlined as NotificationsIcon,
   Menu as MenuIcon,
   Logout as LogoutIcon,
   People as PeopleIcon,
@@ -41,6 +39,7 @@ import {
 } from '@mui/icons-material'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth, DEMO_ACCOUNTS } from '../../context/AuthContext'
+import NotificationMenu from './NotificationMenu'
 
 /**
  * PortalLayout: Khung giao diện dùng chung cho hệ thống SmartLabKit (LabStock Portal Core V3.1)
@@ -101,7 +100,6 @@ export default function PortalLayout({
   const isLecturer = hasUserRole('Lecturer')
 
   const navItems = [
-    // 0. TỔNG QUAN & BÁO CÁO (mọi role trừ Student)
     {
       label: 'Tổng quan',
       icon: <DashboardIcon fontSize="small" />,
@@ -646,16 +644,8 @@ export default function PortalLayout({
           {/* Right Controls */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
             {headerTitle && searchField}
-            {/* Notifications */}
-            <IconButton size="small" sx={{ color: '#556070' }}>
-              <Badge
-                badgeContent={3}
-                color="primary"
-                slotProps={{ badge: { style: { fontSize: 10, height: 16, minWidth: 16 } } }}
-              >
-                <NotificationsIcon fontSize="small" />
-              </Badge>
-            </IconButton>
+            {/* Notifications: số chưa đọc realtime + danh sách thông báo */}
+            <NotificationMenu />
 
             {currentRole && (
               <Chip

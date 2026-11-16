@@ -1,8 +1,6 @@
 import { Box, Tooltip, Typography } from '@mui/material'
 import { CHART_COLORS, niceStep } from './reportFormat'
 
-// Biểu đồ vẽ bằng SVG thuần (dự án chỉ dùng @mui/material, không thêm thư viện chart).
-// Cách thể hiện bám theo app mobile: donut chia tỉ lệ và biểu đồ cột có lưới trục Y.
 
 /** Chấm màu + nhãn cho chú thích biểu đồ. */
 export function LegendDot({ label, color }) {
@@ -26,8 +24,6 @@ export function ShareDonut({ title, parts = [], format, emptyText = 'Không có 
   if (rest > 0) slices.push({ name: 'Khác', value: rest })
   const total = slices.reduce((sum, slice) => sum + slice.value, 0)
 
-  // Mỗi lát là 1 vòng tròn dùng stroke-dasharray: độ dài nét = tỉ lệ của lát trên chu vi,
-  // dịch điểm bắt đầu bằng tổng tỉ lệ các lát trước (bắt đầu từ 12 giờ, theo chiều kim đồng hồ).
   const size = 180
   const thickness = 34
   const radius = (size - thickness) / 2
@@ -120,7 +116,6 @@ export function BarChart({ categories, series, formatAxis = (value) => String(Ma
   const step = niceStep(highest / gridLines, minStep)
   const maxY = step * gridLines
 
-  // Khung vẽ cố định theo đơn vị viewBox, SVG co giãn theo bề rộng khung chứa
   const height = 220
   const left = 48
   const right = 12

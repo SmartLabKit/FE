@@ -22,7 +22,6 @@ export default function StockMovementTab({ filters }) {
   }, [])
 
   const componentId = component?.componentId
-  // BE bắt buộc componentId nên chỉ gọi API khi đã chọn linh kiện
   const movements = useReport(
     () => reportService.getStockMovements({ componentId, roomId, fromDate, toDate }),
     [componentId, roomId, fromDate, toDate],

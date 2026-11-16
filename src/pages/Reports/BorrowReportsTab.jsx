@@ -6,7 +6,6 @@ import { CHART_COLORS, CHART_DANGER, formatDate, formatHours, formatNumber, form
 import { GroupBars, ReportSection, ReportTable, StatTile } from './reportUi'
 import { BarChart, ShareDonut } from './reportCharts'
 
-// Số lớp tối đa vẽ trên biểu đồ (lớp mượn nhiều nhất trước), giống mobile
 const CHART_MAX_CLASSES = 6
 const brokenOf = (row) => Number(row.damagedUnits || 0) + Number(row.lostUnits || 0)
 
@@ -44,7 +43,6 @@ export default function BorrowReportsTab({ filters }) {
   const classRows = [...getRows(byClass.data)].sort((a, b) => b.issuedQuantity - a.issuedQuantity)
   const chartClasses = classRows.slice(0, CHART_MAX_CLASSES)
 
-  // Đổi bộ lọc thì quay về trang 1 của các bảng có phân trang
   const filterKey = `${fromDate}|${toDate}|${roomId}`
   const [prevFilterKey, setPrevFilterKey] = useState(filterKey)
   if (prevFilterKey !== filterKey) {

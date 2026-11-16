@@ -20,7 +20,6 @@ const componentCell = (row) => (
 export default function InventoryReportsTab({ filters, canSeeMoney }) {
   const { roomId } = filters
 
-  // Tồn kho theo linh kiện: có ô tìm kiếm riêng và phân trang
   const [search, setSearch] = useState('')
   const [summaryPage, setSummaryPage] = useState(1)
   const summary = useReport(
@@ -34,7 +33,6 @@ export default function InventoryReportsTab({ filters, canSeeMoney }) {
     [roomId, lowPage],
   )
 
-  // Số ngày tới hạn bảo hành cần cảnh báo (BE mặc định 30)
   const [warrantyDays, setWarrantyDays] = useState(30)
   const [warrantyPage, setWarrantyPage] = useState(1)
   const warranty = useReport(
@@ -44,7 +42,6 @@ export default function InventoryReportsTab({ filters, canSeeMoney }) {
 
   const stockValue = useReport(() => reportService.getStockValue(), [], canSeeMoney)
 
-  // Đổi phòng Lab thì quay về trang 1 của mọi bảng (cập nhật state ngay khi render theo khuyến nghị của React)
   const [prevRoomId, setPrevRoomId] = useState(roomId)
   if (prevRoomId !== roomId) {
     setPrevRoomId(roomId)
@@ -127,7 +124,6 @@ export default function InventoryReportsTab({ filters, canSeeMoney }) {
             { key: 'available', label: 'Còn', align: 'right', render: (row) => `${formatNumber(row.available)} ${row.unit || ''}` },
             { key: 'minStock', label: 'Tối thiểu', align: 'right', render: (row) => formatNumber(row.minStock) },
             { key: 'shortage', label: 'Thiếu', align: 'right', render: (row) => <Chip size="small" color="warning" label={formatNumber(row.shortage)} /> },
-            // LabStaff không được xem giá → BE trả null
             ...(canSeeMoney ? [{ key: 'lastUnitPrice', label: 'Giá nhập gần nhất', align: 'right', render: (row) => (row.lastUnitPrice == null ? '—' : formatMoney(row.lastUnitPrice)) }] : []),
           ]}
           pagination={{ page: lowPage, size: PAGE_SIZE, totalCount: lowStock.data?.totalCount, onPageChange: setLowPage }}

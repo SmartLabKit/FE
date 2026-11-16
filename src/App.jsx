@@ -30,6 +30,7 @@ import StockReceiptDetail from './pages/Components/StockReceiptDetail.jsx'
 import ProjectManagement from './pages/Projects/ProjectManagement.jsx'
 import Dashboard from './pages/Reports/Dashboard.jsx'
 import Reports from './pages/Reports/Reports.jsx'
+import Notifications from './pages/Notifications/Notifications.jsx'
 
 import { AuthProvider } from './context/AuthContext'
 
@@ -49,6 +50,7 @@ function App() {
 
           {/* Hồ sơ cá nhân & Bảo mật (Đăng nhập) */}
           <Route path="/profile" element={<Profile />} />
+          <Route path="/notifications" element={<Notifications />} />
 
           {/* Quản trị Tài khoản & Phân quyền & Cài đặt (Admin) */}
           <Route path="/admin/users" element={<Users />} />

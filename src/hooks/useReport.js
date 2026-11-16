@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 /**
  * Tải dữ liệu 1 báo cáo và tự tải lại khi deps thay đổi (bộ lọc, trang...).
@@ -6,11 +6,18 @@ import { useEffect, useState } from 'react'
  * - enabled = false thì không gọi API (dùng khi role không được xem hoặc thiếu tham số bắt buộc).
  * Việc tải được đẩy vào setTimeout (giống useLabBorrowRequests) để không setState đồng bộ trong effect;
  * biến `active` chặn kết quả của request cũ khi bộ lọc đổi nhanh hoặc component đã unmount.
+ * fetcher được giữ trong ref để effect chỉ chạy lại khi giá trị trong deps thay đổi (so sánh qua depsKey).
  */
 export function useReport(fetcher, deps, enabled = true) {
   const [data, setData] = useState(null)
   const [loading, setLoading] = useState(enabled)
   const [error, setError] = useState('')
+  const fetcherRef = useRef(fetcher)
+  const depsKey = JSON.stringify(deps)
+
+  useEffect(() => {
+    fetcherRef.current = fetcher
+  })
 
   useEffect(() => {
     let active = true
@@ -22,7 +29,7 @@ export function useReport(fetcher, deps, enabled = true) {
       setLoading(true)
       setError('')
       try {
-        const result = await fetcher()
+        const result = await fetcherRef.current()
         if (active) setData(result)
       } catch (loadError) {
         if (active) setError(loadError.message)
@@ -34,8 +41,7 @@ export function useReport(fetcher, deps, enabled = true) {
       active = false
       window.clearTimeout(timer)
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [enabled, ...deps])
+  }, [enabled, depsKey])
 
   return { data, loading, error }
 }

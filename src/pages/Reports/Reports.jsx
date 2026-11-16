@@ -17,9 +17,6 @@ export default function Reports() {
   const isLabStaff = hasRole?.('LabStaff')
   const seesInventory = isAdminOrManager || isLabStaff
 
-  // Danh sách tab theo role, khớp với phân quyền phía BE:
-  // - Báo cáo có tiền (giá trị kho, nhập kho, hao hụt) chỉ Admin / InventoryManager.
-  // - Giảng viên chỉ xem báo cáo mượn trả (BE tự giới hạn theo lớp của mình).
   const tabs = [
     seesInventory && { value: 'inventory', label: 'Tồn kho' },
     isAdminOrManager && { value: 'receipts', label: 'Nhập kho & hao hụt' },
@@ -28,12 +25,10 @@ export default function Reports() {
     seesInventory && { value: 'issues', label: 'Sự cố' },
   ].filter(Boolean)
 
-  // Tab đang chọn lưu trên URL (?tab=...) để từ trang Tổng quan có thể mở thẳng đúng tab
   const [searchParams, setSearchParams] = useSearchParams()
   const requestedTab = searchParams.get('tab')
   const tab = tabs.some((item) => item.value === requestedTab) ? requestedTab : tabs[0].value
 
-  // Bộ lọc dùng chung cho mọi tab
   const [period, setPeriod] = useState(defaultPeriod)
   const [roomId, setRoomId] = useState('')
   const [labRooms, setLabRooms] = useState([])

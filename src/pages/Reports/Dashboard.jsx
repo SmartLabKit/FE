@@ -17,7 +17,6 @@ import { reportService } from '../../services/reportService'
 import { formatDate, formatMoney, formatNumber, getRows } from './reportFormat'
 import { ReportSection, ReportTable, StatTile } from './reportUi'
 
-// Thứ tự và cách hiển thị các ô số liệu. BE trả null cho ô mà role hiện tại không được xem → ô đó bị ẩn.
 const TILES = [
   { key: 'totalComponents', label: 'Linh kiện đang hoạt động', icon: <InventoryIcon />, format: formatNumber },
   { key: 'lowStockCount', label: 'Linh kiện sắp hết', icon: <WarningIcon />, color: '#ef6c00', format: formatNumber },
@@ -36,7 +35,6 @@ export default function Dashboard() {
   const seesInventory = hasRole?.('Admin') || hasRole?.('InventoryManager') || hasRole?.('LabStaff')
 
   const dashboard = useReport(() => reportService.getDashboard(), [])
-  // Chỉ lấy 5 dòng đầu để xem nhanh, xem đầy đủ ở trang Báo cáo
   const lowStock = useReport(() => reportService.getLowStock({ page: 1, size: 5 }), [], seesInventory)
   const overdue = useReport(() => reportService.getOverdueBorrows({ page: 1, size: 5 }), [])
 
