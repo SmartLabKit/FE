@@ -10,7 +10,6 @@ import {
   Divider,
   Grid,
   InputAdornment,
-  ListSubheader,
   MenuItem,
   Paper,
   Select,
@@ -78,7 +77,7 @@ export default function GroupInviteManager() {
   const [myClasses, setMyClasses] = useState([])
   const [selectedClassId, setSelectedClassId] = useState('')
   const [loadingClasses, setLoadingClasses] = useState(true)
-  const [selectedSemester, setSelectedSemester] = useState('ALL')
+  const [selectedSemester, setSelectedSemester] = useState('')
   const [classesError, setClassesError] = useState('')
 
   // State lời mời nhóm nhận được
@@ -124,7 +123,7 @@ export default function GroupInviteManager() {
   const groupedClassesBySemester = useMemo(() => {
     const groups = {}
     myClasses.forEach((cls) => {
-      const sem = cls.semesterCode || 'Khác'
+      const sem = cls.semesterCode || 'Chưa phân kỳ'
       if (!groups[sem]) groups[sem] = []
       groups[sem].push(cls)
     })
@@ -147,9 +146,6 @@ export default function GroupInviteManager() {
 
   // Lọc danh sách lớp theo học kỳ đang chọn
   const filteredClasses = useMemo(() => {
-    if (selectedSemester === 'ALL') {
-      return groupedClassesBySemester.flatMap((g) => g.classes)
-    }
     const found = groupedClassesBySemester.find((g) => g.semesterCode === selectedSemester)
     return found ? found.classes : []
   }, [selectedSemester, groupedClassesBySemester])
@@ -157,15 +153,9 @@ export default function GroupInviteManager() {
   const handleSemesterChange = (e) => {
     const sem = e.target.value
     setSelectedSemester(sem)
-    if (sem === 'ALL') {
-      if (myClasses.length > 0 && !myClasses.some((c) => c.classId === selectedClassId)) {
-        setSelectedClassId(myClasses[0].classId)
-      }
-    } else {
-      const inSem = myClasses.filter((c) => c.semesterCode === sem)
-      if (inSem.length > 0 && !inSem.some((c) => c.classId === selectedClassId)) {
-        setSelectedClassId(inSem[0].classId)
-      }
+    const semesterClasses = myClasses.filter((cls) => (cls.semesterCode || 'Chưa phân kỳ') === sem)
+    if (!semesterClasses.some((cls) => cls.classId === selectedClassId)) {
+      setSelectedClassId(semesterClasses[0]?.classId || '')
     }
   }
 
@@ -229,10 +219,14 @@ export default function GroupInviteManager() {
   // Initial load
   useEffect(() => {
     let ignore = false
-    academicService.getMyClasses()
-      .then((data) => {
+    Promise.all([
+      academicService.getMyClasses(),
+      academicService.getSemesters(),
+    ])
+      .then(([data, semesters]) => {
         if (!ignore) {
           const list = Array.isArray(data) ? data : data?.items || []
+          const semesterList = Array.isArray(semesters) ? semesters : semesters?.items || []
           list.sort((a, b) => {
             const weightDiff = getSemesterWeight(b.semesterCode) - getSemesterWeight(a.semesterCode)
             if (weightDiff !== 0) return weightDiff
@@ -241,7 +235,13 @@ export default function GroupInviteManager() {
           setMyClasses(list)
           setClassesError('')
           if (list.length > 0) {
-            setSelectedClassId(list[0].classId)
+            const activeSemester = semesterList.find((semester) => semester.isActive)
+            const initialClass = list.find((classItem) =>
+              (activeSemester?.semesterId && classItem.semesterId === activeSemester.semesterId) ||
+              (activeSemester?.semesterCode && classItem.semesterCode === activeSemester.semesterCode)
+            ) || list[0]
+            setSelectedSemester(initialClass.semesterCode || 'Chưa phân kỳ')
+            setSelectedClassId(initialClass.classId)
           }
         }
       })
@@ -585,7 +585,7 @@ export default function GroupInviteManager() {
           {/* Phân loại theo kỳ học */}
           <Box sx={{ minWidth: 190 }}>
             <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 10, mb: 0.5 }}>
-              PHÂN LOẠI THEO HỌC KỲ:
+              Học kỳ:
             </Typography>
             <Select
               fullWidth
@@ -594,9 +594,6 @@ export default function GroupInviteManager() {
               onChange={handleSemesterChange}
               sx={{ borderRadius: 1.5, height: 40, fontSize: 13, bgcolor: '#fafbff' }}
             >
-              <MenuItem value="ALL" sx={{ fontSize: 13, fontWeight: 700 }}>
-                Tất cả các kỳ ({myClasses.length} lớp)
-              </MenuItem>
               {semestersList.map((sem) => (
                 <MenuItem key={sem.code} value={sem.code} sx={{ fontSize: 13 }}>
                   Kỳ {sem.code} ({sem.count} lớp)
@@ -608,7 +605,7 @@ export default function GroupInviteManager() {
           {/* Chọn lớp môn học */}
           <Box sx={{ flex: 1, minWidth: 260 }}>
             <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 10, mb: 0.5 }}>
-              CHỌN LỚP MÔN HỌC BẠN ĐANG HỌC:
+              Môn học:
             </Typography>
             {loadingClasses ? (
               <CircularProgress size={20} />
@@ -626,32 +623,11 @@ export default function GroupInviteManager() {
                     Không có lớp nào trong kỳ này
                   </MenuItem>
                 )}
-                {selectedSemester === 'ALL'
-                  ? groupedClassesBySemester.map((group) => [
-                      <ListSubheader
-                        key={`header-${group.semesterCode}`}
-                        sx={{
-                          bgcolor: '#f1f5f9',
-                          color: '#0058be',
-                          fontWeight: 800,
-                          fontSize: 11,
-                          lineHeight: '32px',
-                          borderBottom: '1px solid #e2e8f0',
-                        }}
-                      >
-                        📅 HỌC KỲ {group.semesterCode} ({group.classes.length} LỚP)
-                      </ListSubheader>,
-                      ...group.classes.map((cls) => (
-                        <MenuItem key={cls.classId} value={cls.classId} sx={{ fontSize: 13, pl: 3 }}>
-                          <strong>{cls.classCode}</strong> - {cls.courseName || cls.courseCode}
-                        </MenuItem>
-                      )),
-                    ])
-                  : filteredClasses.map((cls) => (
-                      <MenuItem key={cls.classId} value={cls.classId} sx={{ fontSize: 13 }}>
-                        <strong>{cls.classCode}</strong> - {cls.courseName || cls.courseCode} ({cls.semesterCode || 'Học kỳ'})
-                      </MenuItem>
-                    ))}
+                {filteredClasses.map((cls) => (
+                  <MenuItem key={cls.classId} value={cls.classId} sx={{ fontSize: 13 }}>
+                    <strong>{cls.classCode}</strong> - {cls.courseName || cls.courseCode} ({cls.semesterCode || 'Học kỳ'})
+                  </MenuItem>
+                ))}
               </Select>
             )}
           </Box>
