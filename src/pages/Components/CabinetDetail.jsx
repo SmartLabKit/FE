@@ -7,6 +7,7 @@ import { useAuth } from '../../context/AuthContext'
 import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
 import CabinetItemsTab from './CabinetItemsTab'
+import CabinetConsumablesTab from './CabinetConsumablesTab'
 
 export default function CabinetDetail() {
   const { cabinetId } = useParams()
@@ -22,6 +23,7 @@ export default function CabinetDetail() {
   const isManager = hasRole('Admin') || hasRole('InventoryManager')
   const canManageItems = isManager || hasPermission('COMPONENT_MANAGE')
   const canMove = canManageItems || hasRole('LabStaff') || hasPermission('BORROW_ISSUE')
+  const canAudit = isManager || hasPermission('INVENTORY_AUDIT')
 
   useEffect(() => {
     let active = true
@@ -66,6 +68,7 @@ export default function CabinetDetail() {
             <Tabs value={tab} onChange={(_, value) => setTab(value)} variant="scrollable" sx={{ px: 1, borderBottom: '1px solid #eef0f6' }}>
               <Tab value="overview" label="Tổng quan" sx={{ textTransform: 'none', fontWeight: 600 }} />
               <Tab value="items" label="Từng thiết bị" sx={{ textTransform: 'none', fontWeight: 600 }} />
+              <Tab value="consumables" label="Vật tư tiêu hao" sx={{ textTransform: 'none', fontWeight: 600 }} />
             </Tabs>
             {tab === 'items' && (
               <CabinetItemsTab
@@ -73,6 +76,16 @@ export default function CabinetDetail() {
                 cabinets={cabinets}
                 canManage={canManageItems}
                 canMove={canMove}
+                onChanged={() => setReloadKey((key) => key + 1)}
+                showToast={showToast}
+              />
+            )}
+            {tab === 'consumables' && (
+              <CabinetConsumablesTab
+                cabinet={cabinet}
+                cabinets={cabinets}
+                canMove={canMove}
+                canAdjust={canAudit}
                 onChanged={() => setReloadKey((key) => key + 1)}
                 showToast={showToast}
               />

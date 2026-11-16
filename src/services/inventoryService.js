@@ -58,6 +58,15 @@ export const inventoryService = {
   async retireComponentItem(id, data) {
     return unwrap(await api.post(`/api/component-items/${id}/retire`, data))
   },
+  async getConsumableStocks(params) {
+    return unwrap(await api.get('/api/consumable-stocks', { params }))
+  },
+  async moveConsumableStock(data) {
+    return unwrap(await api.post('/api/consumable-stocks/move', data))
+  },
+  async adjustConsumableStock(data) {
+    return unwrap(await api.post('/api/consumable-stocks/adjust', data))
+  },
   async createCabinet(data) {
     return unwrap(await api.post('/api/cabinets', data))
   },
