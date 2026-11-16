@@ -27,6 +27,8 @@ import InventorySetup from './pages/Components/InventorySetup.jsx'
 import CabinetDetail from './pages/Components/CabinetDetail.jsx'
 import StockReceipts from './pages/Components/StockReceipts.jsx'
 import StockReceiptDetail from './pages/Components/StockReceiptDetail.jsx'
+import InventoryAudits from './pages/Components/InventoryAudits.jsx'
+import InventoryAuditDetail from './pages/Components/InventoryAuditDetail.jsx'
 import ProjectManagement from './pages/Projects/ProjectManagement.jsx'
 import FinalSubmissionReview from './pages/Projects/FinalSubmissionReview.jsx'
 import Dashboard from './pages/Reports/Dashboard.jsx'
@@ -80,6 +82,8 @@ function App() {
           <Route path="/class-setup/admin/stock-receipts" element={<StockReceipts />} />
           <Route path="/class-setup/admin/stock-receipts/:receiptId" element={<StockReceiptDetail />} />
           <Route path="/class-setup/admin/storage-allocation/:inwardId" element={<StorageAllocation />} />
+          <Route path="/class-setup/admin/inventory-audits" element={<InventoryAudits />} />
+          <Route path="/class-setup/admin/inventory-audits/:auditId" element={<InventoryAuditDetail />} />
           <Route path="/class-setup/lecturer/classes" element={<ClassSetup />} />
           <Route path="/class-setup/lecturer/quotas" element={<ClassSetup />} />
           <Route path="/class-setup/lecturer/final-submissions" element={<FinalSubmissionReview />} />

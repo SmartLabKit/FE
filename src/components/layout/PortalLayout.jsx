@@ -38,6 +38,7 @@ import {
   Assessment as ReportIcon,
   FactCheck as FinalSubmissionIcon,
   ReportProblem as IssueIcon,
+  Checklist as AuditIcon,
 } from '@mui/icons-material'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth, DEMO_ACCOUNTS } from '../../context/AuthContext'
@@ -211,6 +212,12 @@ export default function PortalLayout({
       icon: <ApprovalsIcon fontSize="small" />,
       path: '/class-setup/admin/stock-receipts',
       roles: ['InventoryManager'],
+    },
+    {
+      label: 'Kiểm kê kho',
+      icon: <AuditIcon fontSize="small" />,
+      path: '/class-setup/admin/inventory-audits',
+      roles: ['Admin', 'InventoryManager', 'LabStaff'],
     },
 
     // 5. Phân hệ BÀN GIAO & TRẢ ĐỒ (LabStaff)
@@ -393,6 +400,8 @@ export default function PortalLayout({
               ? isLecturerClassesRoute
               : item.path === '/borrow/my-requests'
               ? isBorrowRoute
+              : item.path === '/class-setup/admin/inventory-audits'
+              ? location.pathname.startsWith(item.path)
               : location.pathname === item.path
 
           return (

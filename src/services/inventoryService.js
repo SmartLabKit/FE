@@ -67,6 +67,21 @@ export const inventoryService = {
   async adjustConsumableStock(data) {
     return unwrap(await api.post('/api/consumable-stocks/adjust', data))
   },
+  async getInventoryAudits(params) {
+    return unwrap(await api.get('/api/inventory-audits', { params }))
+  },
+  async getInventoryAudit(id) {
+    return unwrap(await api.get(`/api/inventory-audits/${id}`))
+  },
+  async startInventoryAudit(data) {
+    return unwrap(await api.post('/api/inventory-audits', data))
+  },
+  async completeInventoryAudit(id, data) {
+    return unwrap(await api.post(`/api/inventory-audits/${id}/complete`, data))
+  },
+  async cancelInventoryAudit(id) {
+    return api.delete(`/api/inventory-audits/${id}`)
+  },
   async createCabinet(data) {
     return unwrap(await api.post('/api/cabinets', data))
   },

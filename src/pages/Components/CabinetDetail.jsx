@@ -1,13 +1,14 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Alert, Box, Button, Card, CardContent, Chip, Snackbar, Tab, Table, TableBody, TableCell, TableHead, TableRow, Tabs, Typography } from '@mui/material'
-import { ArrowBack as BackIcon } from '@mui/icons-material'
+import { ArrowBack as BackIcon, FactCheck as AuditIcon } from '@mui/icons-material'
 import PortalLayout from '../../components/layout/PortalLayout'
 import { useAuth } from '../../context/AuthContext'
 import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
 import CabinetItemsTab from './CabinetItemsTab'
 import CabinetConsumablesTab from './CabinetConsumablesTab'
+import { rowsOf } from './inventoryLabels'
 
 export default function CabinetDetail() {
   const { cabinetId } = useParams()
@@ -18,6 +19,7 @@ export default function CabinetDetail() {
   const [reloadKey, setReloadKey] = useState(0)
   const [tab, setTab] = useState('overview')
   const [cabinets, setCabinets] = useState([])
+  const [startingAudit, setStartingAudit] = useState(false)
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
 
   const isManager = hasRole('Admin') || hasRole('InventoryManager')
@@ -43,6 +45,18 @@ export default function CabinetDetail() {
 
   const showToast = (message, severity = 'success') => setToast({ open: true, message, severity })
 
+  const startAudit = async () => {
+    setStartingAudit(true)
+    try {
+      const running = rowsOf(await inventoryService.getInventoryAudits({ cabinetId, status: 'InProgress', page: 1, size: 1 }))
+      const audit = running[0] || await inventoryService.startInventoryAudit({ cabinetId })
+      navigate(`/class-setup/admin/inventory-audits/${audit.auditId}`)
+    } catch (auditError) {
+      showToast(extractErrorMessage(auditError, 'Không thể bắt đầu kiểm kê.'), 'error')
+      setStartingAudit(false)
+    }
+  }
+
   const contents = cabinet?.contents || cabinet?.Contents || cabinet?.components || cabinet?.items || cabinet?.stocks || []
   const isActive = cabinet
     ? (cabinet.isActive !== undefined ? cabinet.isActive : (cabinet.status ? cabinet.status.toLowerCase() === 'active' : true))
@@ -61,7 +75,21 @@ export default function CabinetDetail() {
                 <Typography>{cabinet.cabinetName || cabinet.name || 'Tủ lưu trữ'}</Typography>
                 <Typography color="text.secondary">{cabinet.roomName || cabinet.labRoomName || cabinet.labRoomCode || cabinet.roomCode}</Typography>
               </Box>
-              <Chip label={isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'} color={isActive ? 'success' : 'default'} />
+              <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
+                <Chip label={isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'} color={isActive ? 'success' : 'default'} />
+                {canAudit && (
+                  <Button
+                    variant="outlined"
+                    size="small"
+                    startIcon={<AuditIcon />}
+                    onClick={startAudit}
+                    disabled={startingAudit}
+                    sx={{ textTransform: 'none', fontWeight: 700 }}
+                  >
+                    {startingAudit ? 'Đang mở...' : 'Kiểm kê tủ này'}
+                  </Button>
+                )}
+              </Box>
             </CardContent>
           </Card>
           <Card variant="outlined" sx={{ borderColor: '#d8dced', boxShadow: 'none' }}>
