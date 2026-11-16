@@ -3,6 +3,7 @@ import {
   Alert,
   Box,
   Button,
+  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -58,17 +59,34 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
   const requestId = request?.borrowRequestId
   const roomId = request?.roomId
   const lines = useMemo(() => getOpenReturnLines(request?.items), [request?.items])
+  const alreadyReturnedItems = useMemo(() => {
+    return (request?.items || []).filter((item) => {
+      if (isConsumable(item)) {
+        return Number(item.returnedQuantity || 0) >= Number(item.quantity || 0)
+      }
+      return Boolean(item.returnedAt) || String(item.status || '').toLowerCase() === 'returned'
+    })
+  }, [request?.items])
+
   const openConsumables = lines.filter(isConsumable)
   const hasReturnedConsumables = openConsumables.some(
     (item) => Number(consumableQuantities[item.borrowItemId] || 0) > 0,
   )
   const trackedSelectionsValid = lines
     .filter((item) => !isConsumable(item))
-    .every((item) => ['Good', 'Damaged', 'Lost'].includes(conditions[item.borrowItemId] || 'Good'))
+    .every((item) => ['Good', 'Damaged', 'Lost', 'NotReturned'].includes(conditions[item.borrowItemId] || 'Good'))
+
+  const returningTrackedCount = lines
+    .filter((item) => !isConsumable(item))
+    .filter((item) => (conditions[item.borrowItemId] || 'Good') !== 'NotReturned').length
+  const returningConsumablesCount = openConsumables
+    .filter((item) => Number(consumableQuantities[item.borrowItemId] || 0) > 0).length
+  const hasReturningItems = returningTrackedCount > 0 || returningConsumablesCount > 0
+
   const canSubmit = Boolean(
     photo?.photoId &&
     trackedSelectionsValid &&
-    lines.length > 0 &&
+    hasReturningItems &&
     (!hasReturnedConsumables || cabinetId) &&
     !loadingData &&
     !uploading &&
@@ -152,21 +170,29 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
       return
     }
 
-    const returnLines = lines.map((item) => {
-      if (isConsumable(item)) {
+    const returnLines = lines
+      .map((item) => {
+        if (isConsumable(item)) {
+          const qty = Number(consumableQuantities[item.borrowItemId] || 0)
+          if (qty <= 0) return null
+          return {
+            borrowItemId: item.borrowItemId,
+            returnedQuantity: qty,
+          }
+        }
+        const condition = conditions[item.borrowItemId] || 'Good'
+        if (condition === 'NotReturned') {
+          return null
+        }
         return {
           borrowItemId: item.borrowItemId,
-          returnedQuantity: Number(consumableQuantities[item.borrowItemId] || 0),
+          condition,
         }
-      }
-      return {
-        borrowItemId: item.borrowItemId,
-        condition: conditions[item.borrowItemId] || 'Good',
-      }
-    }).filter(Boolean)
+      })
+      .filter(Boolean)
 
     if (!returnLines.length) {
-      setError('Chọn ít nhất một thiết bị hoặc xác nhận số lượng vật tư trả.')
+      setError('Vui lòng chọn tình trạng nhận trả (khác "Chưa trả") cho ít nhất một thiết bị hoặc xác nhận số lượng vật tư trả.')
       return
     }
 
@@ -327,13 +353,42 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
                     </Paper>
                 )}
 
+                {alreadyReturnedItems.length > 0 && (
+                  <Paper variant="outlined" sx={{ p: 2, bgcolor: '#f8fafc', borderColor: '#e2e8f0' }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
+                      <Typography fontWeight={700} sx={{ color: '#334155', fontSize: 14 }}>
+                        Thiết bị đã trả ở đợt trước ({alreadyReturnedItems.length} món)
+                      </Typography>
+                      <Chip size="small" label="Đã hoàn tất trả" color="success" sx={{ fontSize: 11, fontWeight: 700 }} />
+                    </Box>
+                    <Stack spacing={1}>
+                      {alreadyReturnedItems.map((item) => (
+                        <Box
+                          key={`already-${item.borrowItemId}`}
+                          sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', py: 0.5, borderBottom: '1px dashed #e2e8f0' }}
+                        >
+                          <Box>
+                            <Typography variant="body2" sx={{ fontWeight: 600, color: '#334155' }}>
+                              {item.componentName}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: '#64748b' }}>
+                              {item.itemCode || item.componentCode || '—'}
+                            </Typography>
+                          </Box>
+                          <Chip size="small" label="Đã trả" sx={{ bgcolor: '#dcfce7', color: '#15803d', fontWeight: 700, fontSize: 11 }} />
+                        </Box>
+                      ))}
+                    </Stack>
+                  </Paper>
+                )}
+
                 {lines.some((item) => !isConsumable(item)) && (
                     <Paper variant="outlined" sx={{ p: 2 }}>
                       <Stack spacing={1}>
                         <Box>
                           <Typography fontWeight={700}>Thiết bị cần kiểm tra</Typography>
                           <Typography variant="body2" color="text.secondary">
-                            Các thiết bị được ghi nhận trong đợt trả này. Điều chỉnh tình trạng nếu cần.
+                            Các thiết bị được ghi nhận trong đợt trả này. Bạn có thể chọn &quot;Chưa trả&quot; nếu sinh viên chưa mang trả thiết bị đó đợt này.
                           </Typography>
                         </Box>
                         <TableContainer>
@@ -346,32 +401,43 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
                               </TableRow>
                             </TableHead>
                             <TableBody>
-                              {lines.filter((item) => !isConsumable(item)).map((item) => (
-                                <TableRow key={item.borrowItemId}>
-                                  <TableCell>
-                                    {item.componentName}
-                                    <Typography variant="caption" display="block" color="text.secondary">
-                                      {item.componentCode}
-                                    </Typography>
-                                  </TableCell>
-                                  <TableCell>{item.itemCode || item.serialNumber || '—'}</TableCell>
-                                  <TableCell>
-                                    <Select
-                                      size="small"
-                                      value={conditions[item.borrowItemId] || 'Good'}
-                                      onChange={(event) => setConditions((current) => ({
-                                        ...current,
-                                        [item.borrowItemId]: event.target.value,
-                                      }))}
-                                      sx={{ minWidth: 150 }}
-                                    >
-                                      <MenuItem value="Good">Bình thường</MenuItem>
-                                      <MenuItem value="Damaged">Hỏng hóc</MenuItem>
-                                      <MenuItem value="Lost">Bị mất</MenuItem>
-                                    </Select>
-                                  </TableCell>
-                                </TableRow>
-                              ))}
+                              {lines.filter((item) => !isConsumable(item)).map((item) => {
+                                const currentCond = conditions[item.borrowItemId] || 'Good'
+                                return (
+                                  <TableRow key={item.borrowItemId}>
+                                    <TableCell>
+                                      {item.componentName}
+                                      <Typography variant="caption" display="block" color="text.secondary">
+                                        {item.componentCode}
+                                      </Typography>
+                                    </TableCell>
+                                    <TableCell>{item.itemCode || item.serialNumber || '—'}</TableCell>
+                                    <TableCell>
+                                      <Select
+                                        size="small"
+                                        value={currentCond}
+                                        onChange={(event) => setConditions((current) => ({
+                                          ...current,
+                                          [item.borrowItemId]: event.target.value,
+                                        }))}
+                                        sx={{
+                                          minWidth: 150,
+                                          bgcolor: currentCond === 'NotReturned' ? '#fffbeb' : '#ffffff',
+                                          color: currentCond === 'NotReturned' ? '#b45309' : 'inherit',
+                                          fontWeight: currentCond === 'NotReturned' ? 700 : 500,
+                                        }}
+                                      >
+                                        <MenuItem value="Good">Bình thường</MenuItem>
+                                        <MenuItem value="Damaged">Hỏng hóc</MenuItem>
+                                        <MenuItem value="Lost">Bị mất</MenuItem>
+                                        <MenuItem value="NotReturned" sx={{ color: '#b45309', fontWeight: 700, bgcolor: '#fffbeb' }}>
+                                          Chưa trả
+                                        </MenuItem>
+                                      </Select>
+                                    </TableCell>
+                                  </TableRow>
+                                )
+                              })}
                             </TableBody>
                           </Table>
                         </TableContainer>

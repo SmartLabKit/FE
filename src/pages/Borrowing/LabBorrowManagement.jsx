@@ -75,6 +75,117 @@ function statusColor(status) {
   return 'default'
 }
 
+function getItemStatusInfo(item, requestStatus, isRemote) {
+  const isConsum = String(item.trackingType || '').toLowerCase() === 'consumable'
+  const isReturned = Boolean(item.returnedAt) ||
+    ['returned', 'đã trả'].includes(String(item.status || '').toLowerCase())
+
+  // 1. Nếu đã trả
+  if (isReturned) {
+    const condition = String(item.condition || item.returnCondition || '').toLowerCase()
+    if (condition === 'damaged' || condition === 'hỏng hóc') {
+      return {
+        label: 'Đã trả (Hỏng)',
+        bgcolor: '#fee2e2',
+        textColor: '#dc2626',
+      }
+    }
+    if (condition === 'lost' || condition === 'bị mất') {
+      return {
+        label: 'Đã trả (Mất)',
+        bgcolor: '#fee2e2',
+        textColor: '#dc2626',
+      }
+    }
+    return {
+      label: 'Đã trả',
+      bgcolor: '#dcfce7',
+      textColor: '#15803d',
+    }
+  }
+
+  // 2. Vật tư tiêu hao (consumable)
+  if (isConsum) {
+    const returnedQty = Number(item.returnedQuantity || 0)
+    const totalQty = Number(item.quantity || 0)
+    if (totalQty > 0 && returnedQty >= totalQty) {
+      return {
+        label: 'Đã trả',
+        bgcolor: '#dcfce7',
+        textColor: '#15803d',
+      }
+    }
+    if (returnedQty > 0) {
+      return {
+        label: `Đã trả ${returnedQty}/${totalQty}`,
+        bgcolor: '#e0f2fe',
+        textColor: '#0369a1',
+      }
+    }
+  }
+
+  // 3. Đơn đang mượn hoặc quá hạn mà chưa trả
+  if (['Borrowing', 'Overdue'].includes(requestStatus)) {
+    return {
+      label: 'Chưa trả',
+      bgcolor: '#fffbeb',
+      textColor: '#b45309',
+    }
+  }
+
+  // 4. Toàn bộ đơn đã trả
+  if (requestStatus === 'Returned') {
+    return {
+      label: 'Đã trả',
+      bgcolor: '#dcfce7',
+      textColor: '#15803d',
+    }
+  }
+
+  // 5. Đơn sẵn sàng nhận đồ
+  if (requestStatus === 'Ready') {
+    return {
+      label: 'Sẵn sàng',
+      bgcolor: '#dcfce7',
+      textColor: '#15803d',
+    }
+  }
+
+  // 6. Đơn đã duyệt nhưng chưa giao
+  if (requestStatus === 'Approved') {
+    if (isRemote && !item.receivedAt) {
+      return {
+        label: 'Đang chuyển',
+        bgcolor: '#fef3c7',
+        textColor: '#b45309',
+      }
+    }
+    return {
+      label: 'Sẵn sàng',
+      bgcolor: '#dcfce7',
+      textColor: '#15803d',
+    }
+  }
+
+  // 7. Theo item.status hoặc mặc định Chưa trả
+  const normStatus = String(item.status || '').toLowerCase()
+  if (['damaged', 'hỏng hóc'].includes(normStatus)) {
+    return { label: 'Hỏng hóc', bgcolor: '#fee2e2', textColor: '#dc2626' }
+  }
+  if (['lost', 'bị mất'].includes(normStatus)) {
+    return { label: 'Bị mất', bgcolor: '#fee2e2', textColor: '#dc2626' }
+  }
+  if (['chưa trả', 'notreturned', 'borrowing', 'đang mượn', 'issued', 'đã giao'].includes(normStatus)) {
+    return { label: 'Chưa trả', bgcolor: '#fffbeb', textColor: '#b45309' }
+  }
+
+  return {
+    label: item.status || 'Chưa trả',
+    bgcolor: '#f1f5f9',
+    textColor: '#475569',
+  }
+}
+
 export default function LabBorrowManagement() {
   const [status, setStatus] = useState('Approved')
   const [searchInput, setSearchInput] = useState('')
@@ -528,7 +639,23 @@ export default function LabBorrowManagement() {
                   <Grid item xs={12} sm={4}><Typography variant="caption" color="text.secondary">Hạn trả</Typography><Typography>{formatDate(requestDetail.dueDate)}</Typography></Grid>
                 </Grid>
                 <Divider />
-                <Typography fontWeight={600}>Danh sách linh kiện yêu cầu:</Typography>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
+                  <Typography fontWeight={600}>Danh sách linh kiện yêu cầu:</Typography>
+                  {['Borrowing', 'Overdue'].includes(requestDetail.status) && detailItems.length > 0 && (
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                      <Chip
+                        size="small"
+                        label={`Đã trả: ${detailItems.filter((i) => Boolean(i.returnedAt) || String(i.status || '').toLowerCase() === 'returned').length}/${detailItems.length}`}
+                        sx={{ bgcolor: '#dcfce7', color: '#15803d', fontWeight: 700, fontSize: 11 }}
+                      />
+                      <Chip
+                        size="small"
+                        label={`Còn lại: ${detailItems.filter((i) => !i.returnedAt && String(i.status || '').toLowerCase() !== 'returned').length} món`}
+                        sx={{ bgcolor: '#fffbeb', color: '#b45309', fontWeight: 700, fontSize: 11 }}
+                      />
+                    </Box>
+                  )}
+                </Box>
                 {pendingTransfers.length > 0 && (
                   <Alert severity="warning">Còn linh kiện đang chuyển về lab. Chưa thể chấp nhận đơn.</Alert>
                 )}
@@ -539,6 +666,7 @@ export default function LabBorrowManagement() {
                       {detailItems.map((item) => {
                         const transferLine = transfers.find((line) => line.borrowItemId === item.borrowItemId)
                         const isRemote = Boolean(item.sourceRoomId && detailRoomId && item.sourceRoomId !== detailRoomId)
+                        const statusInfo = getItemStatusInfo(item, requestDetail.status, isRemote)
                         return (
                           <TableRow key={item.borrowItemId}>
                             <TableCell>{item.componentName}<br /><Typography variant="caption" color="text.secondary">{item.componentCode}</Typography></TableCell>
@@ -546,9 +674,16 @@ export default function LabBorrowManagement() {
                             <TableCell>{item.quantity} {item.unit || ''}</TableCell>
                             <TableCell>{item.sourceRoomCode || 'Lab nhận'}</TableCell>
                             <TableCell>
-                              {isRemote && !item.receivedAt
-                                ? <Chip size="small" color="warning" label="Đang chuyển" />
-                                : <Chip size="small" color="success" label="Sẵn sàng" />}
+                              <Chip
+                                size="small"
+                                label={statusInfo.label}
+                                sx={{
+                                  bgcolor: statusInfo.bgcolor,
+                                  color: statusInfo.textColor,
+                                  fontWeight: 700,
+                                  fontSize: 11,
+                                }}
+                              />
                             </TableCell>
                             <TableCell>
                               {transferLine?.canDispatch && (
