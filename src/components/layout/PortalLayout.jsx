@@ -167,22 +167,10 @@ export default function PortalLayout({
       roles: ['Admin', 'InventoryManager', 'LabStaff', 'Lecturer', 'Student'],
     },
     {
-      label: 'Danh mục linh kiện',
+      label: 'Quản lý linh kiện',
       icon: <CategoryIcon fontSize="small" />,
       path: '/class-setup/admin/categories',
-      roles: ['InventoryManager'],
-    },
-    {
-      label: 'Phòng lab',
-      icon: <SchoolIcon fontSize="small" />,
-      path: '/class-setup/admin/lab-rooms',
       roles: ['InventoryManager', 'LabStaff', 'Student'],
-    },
-    {
-      label: 'Tủ lưu trữ',
-      icon: <ApprovalsIcon fontSize="small" />,
-      path: '/class-setup/admin/cabinets',
-      roles: ['InventoryManager', 'LabStaff'],
     },
     {
       label: 'Lập phiếu nhập',
@@ -358,11 +346,7 @@ export default function PortalLayout({
               : item.path === '/class-setup/admin/stock-inwards'
               ? isStockInwardsRoute || isStorageAllocationRoute
               : item.path === '/class-setup/admin/categories'
-              ? isCategoriesRoute
-              : item.path === '/class-setup/admin/lab-rooms'
-              ? isLabRoomsRoute
-              : item.path === '/class-setup/admin/cabinets'
-              ? isCabinetsRoute
+              ? isCategoriesRoute || isLabRoomsRoute || isCabinetsRoute
               : item.path === '/class-setup/admin/stock-receipts'
               ? isStockReceiptsRoute
               : item.path === '/class-setup/admin/semesters'
