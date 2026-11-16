@@ -195,7 +195,10 @@ export const academicService = {
   async getMyClasses(semesterId) {
     try {
       const params = {}
-      if (semesterId) params.semesterId = semesterId
+      if (semesterId) {
+        params.semesterId = semesterId
+        params.SemesterId = semesterId
+      }
       const response = await api.get('/api/classes/my', { params })
       return response.data?.data || response.data
     } catch (error) {
