@@ -36,6 +36,7 @@ import {
   Close as CloseIcon,
   Dashboard as DashboardIcon,
   Assessment as ReportIcon,
+  FactCheck as FinalSubmissionIcon,
 } from '@mui/icons-material'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth, DEMO_ACCOUNTS } from '../../context/AuthContext'
@@ -151,6 +152,12 @@ export default function PortalLayout({
       icon: <ApprovalsIcon fontSize="small" />,
       path: '/borrow/my-requests',
       roles: ['Lecturer'],
+    },
+    {
+      label: 'Duyệt bài cuối kỳ',
+      icon: <FinalSubmissionIcon fontSize="small" />,
+      path: '/class-setup/lecturer/final-submissions',
+      roles: ['Lecturer', 'Admin'],
     },
 
     // 3. Phân hệ HỌC VỤ & LỚP HỌC (Admin)

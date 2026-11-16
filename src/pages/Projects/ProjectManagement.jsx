@@ -35,6 +35,7 @@ import { academicService } from '../../services/academicService'
 import { inventoryService } from '../../services/inventoryService'
 import { projectService } from '../../services/projectService'
 import { teamService } from '../../services/teamService'
+import FinalSubmissionPanel from './FinalSubmissionPanel'
 
 const emptyForm = () => ({ title: '', description: '', components: [], selfSuppliedItems: [] })
 
@@ -780,6 +781,15 @@ export default function ProjectManagement() {
                 )}
                 {!isLeader && <Typography variant="body2" color="text.secondary">Chỉ trưởng nhóm mới có thể gửi duyệt hoặc rút project.</Typography>}
               </Paper>
+            )}
+
+            {project?.status === 'Approved' && (
+              <FinalSubmissionPanel
+                project={project}
+                isLeader={isLeader}
+                onProjectUpdated={setProject}
+                showToast={showToast}
+              />
             )}
           </Stack>
         )}

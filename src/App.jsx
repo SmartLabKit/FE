@@ -28,6 +28,7 @@ import CabinetDetail from './pages/Components/CabinetDetail.jsx'
 import StockReceipts from './pages/Components/StockReceipts.jsx'
 import StockReceiptDetail from './pages/Components/StockReceiptDetail.jsx'
 import ProjectManagement from './pages/Projects/ProjectManagement.jsx'
+import FinalSubmissionReview from './pages/Projects/FinalSubmissionReview.jsx'
 import Dashboard from './pages/Reports/Dashboard.jsx'
 import Reports from './pages/Reports/Reports.jsx'
 import Notifications from './pages/Notifications/Notifications.jsx'
@@ -79,6 +80,7 @@ function App() {
           <Route path="/class-setup/admin/storage-allocation/:inwardId" element={<StorageAllocation />} />
           <Route path="/class-setup/lecturer/classes" element={<ClassSetup />} />
           <Route path="/class-setup/lecturer/quotas" element={<ClassSetup />} />
+          <Route path="/class-setup/lecturer/final-submissions" element={<FinalSubmissionReview />} />
           <Route path="/class-setup/student/groups" element={<ClassSetup />} />
           <Route path="/class-setup/student/project" element={<ProjectManagement />} />
           <Route path="/class-setup/student/project/:teamId" element={<ProjectManagement />} />
