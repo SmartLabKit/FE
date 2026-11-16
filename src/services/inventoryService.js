@@ -46,6 +46,18 @@ export const inventoryService = {
   async getComponentItems(params, config = {}) {
     return unwrap(await api.get('/api/component-items', { ...config, params }))
   },
+  async getComponentItem(id) {
+    return unwrap(await api.get(`/api/component-items/${id}`))
+  },
+  async updateComponentItem(id, data) {
+    return unwrap(await api.put(`/api/component-items/${id}`, data))
+  },
+  async moveComponentItems(data) {
+    return unwrap(await api.post('/api/component-items/move', data))
+  },
+  async retireComponentItem(id, data) {
+    return unwrap(await api.post(`/api/component-items/${id}/retire`, data))
+  },
   async createCabinet(data) {
     return unwrap(await api.post('/api/cabinets', data))
   },

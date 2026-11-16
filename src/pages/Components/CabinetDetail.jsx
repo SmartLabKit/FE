@@ -1,16 +1,27 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Alert, Box, Button, Card, CardContent, Chip, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material'
+import { Alert, Box, Button, Card, CardContent, Chip, Snackbar, Tab, Table, TableBody, TableCell, TableHead, TableRow, Tabs, Typography } from '@mui/material'
 import { ArrowBack as BackIcon } from '@mui/icons-material'
 import PortalLayout from '../../components/layout/PortalLayout'
+import { useAuth } from '../../context/AuthContext'
 import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
+import CabinetItemsTab from './CabinetItemsTab'
 
 export default function CabinetDetail() {
   const { cabinetId } = useParams()
   const navigate = useNavigate()
+  const { hasRole, hasPermission } = useAuth()
   const [cabinet, setCabinet] = useState(null)
   const [error, setError] = useState('')
+  const [reloadKey, setReloadKey] = useState(0)
+  const [tab, setTab] = useState('overview')
+  const [cabinets, setCabinets] = useState([])
+  const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
+
+  const isManager = hasRole('Admin') || hasRole('InventoryManager')
+  const canManageItems = isManager || hasPermission('COMPONENT_MANAGE')
+  const canMove = canManageItems || hasRole('LabStaff') || hasPermission('BORROW_ISSUE')
 
   useEffect(() => {
     let active = true
@@ -18,7 +29,17 @@ export default function CabinetDetail() {
       .then((data) => { if (active) setCabinet(data) })
       .catch((loadError) => { if (active) setError(extractErrorMessage(loadError, 'Không thể tải thông tin tủ.')) })
     return () => { active = false }
-  }, [cabinetId])
+  }, [cabinetId, reloadKey])
+
+  useEffect(() => {
+    let active = true
+    inventoryService.getCabinets()
+      .then((items) => { if (active) setCabinets(items) })
+      .catch(() => { if (active) setCabinets([]) })
+    return () => { active = false }
+  }, [])
+
+  const showToast = (message, severity = 'success') => setToast({ open: true, message, severity })
 
   const contents = cabinet?.contents || cabinet?.Contents || cabinet?.components || cabinet?.items || cabinet?.stocks || []
   const isActive = cabinet
@@ -42,6 +63,21 @@ export default function CabinetDetail() {
             </CardContent>
           </Card>
           <Card variant="outlined" sx={{ borderColor: '#d8dced', boxShadow: 'none' }}>
+            <Tabs value={tab} onChange={(_, value) => setTab(value)} variant="scrollable" sx={{ px: 1, borderBottom: '1px solid #eef0f6' }}>
+              <Tab value="overview" label="Tổng quan" sx={{ textTransform: 'none', fontWeight: 600 }} />
+              <Tab value="items" label="Từng thiết bị" sx={{ textTransform: 'none', fontWeight: 600 }} />
+            </Tabs>
+            {tab === 'items' && (
+              <CabinetItemsTab
+                cabinet={cabinet}
+                cabinets={cabinets}
+                canManage={canManageItems}
+                canMove={canMove}
+                onChanged={() => setReloadKey((key) => key + 1)}
+                showToast={showToast}
+              />
+            )}
+            {tab === 'overview' && (
             <CardContent>
               <Typography sx={{ mb: 1.5, fontWeight: 800 }}>Hàng trong tủ ({contents.length} loại linh kiện)</Typography>
               <Table size="small">
@@ -110,9 +146,20 @@ export default function CabinetDetail() {
                 </TableBody>
               </Table>
             </CardContent>
+            )}
           </Card>
         </>}
       </Box>
+      <Snackbar
+        open={toast.open}
+        autoHideDuration={6000}
+        onClose={() => setToast((current) => ({ ...current, open: false }))}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert severity={toast.severity} onClose={() => setToast((current) => ({ ...current, open: false }))} sx={{ width: '100%' }}>
+          {toast.message}
+        </Alert>
+      </Snackbar>
     </PortalLayout>
   )
 }
