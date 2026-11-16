@@ -36,6 +36,8 @@ import {
   MenuBook as MenuBookIcon,
   Tune as TuneIcon,
   Close as CloseIcon,
+  Dashboard as DashboardIcon,
+  Assessment as ReportIcon,
 } from '@mui/icons-material'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth, DEMO_ACCOUNTS } from '../../context/AuthContext'
@@ -99,6 +101,20 @@ export default function PortalLayout({
   const isLecturer = hasUserRole('Lecturer')
 
   const navItems = [
+    // 0. TỔNG QUAN & BÁO CÁO (mọi role trừ Student)
+    {
+      label: 'Tổng quan',
+      icon: <DashboardIcon fontSize="small" />,
+      path: '/dashboard',
+      roles: ['Admin', 'InventoryManager', 'LabStaff', 'Lecturer'],
+    },
+    {
+      label: 'Báo cáo',
+      icon: <ReportIcon fontSize="small" />,
+      path: '/reports',
+      roles: ['Admin', 'InventoryManager', 'LabStaff', 'Lecturer'],
+    },
+
     // 1. Phân hệ SINH VIÊN (Student)
     {
       label: 'Nhóm & Lời mời',

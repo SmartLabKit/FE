@@ -28,6 +28,8 @@ import CabinetDetail from './pages/Components/CabinetDetail.jsx'
 import StockReceipts from './pages/Components/StockReceipts.jsx'
 import StockReceiptDetail from './pages/Components/StockReceiptDetail.jsx'
 import ProjectManagement from './pages/Projects/ProjectManagement.jsx'
+import Dashboard from './pages/Reports/Dashboard.jsx'
+import Reports from './pages/Reports/Reports.jsx'
 
 import { AuthProvider } from './context/AuthContext'
 
@@ -52,6 +54,10 @@ function App() {
           <Route path="/admin/users" element={<Users />} />
           <Route path="/admin/roles" element={<Roles />} />
           <Route path="/admin/system-settings" element={<SystemSettings />} />
+
+          {/* Tổng quan & Báo cáo thống kê (Admin / InventoryManager / LabStaff / Lecturer) */}
+          <Route path="/dashboard" element={<Dashboard />} />
+          <Route path="/reports" element={<Reports />} />
 
           {/* Class Setup Flow Routes */}
           <Route path="/class-setup" element={<ClassSetup />} />
