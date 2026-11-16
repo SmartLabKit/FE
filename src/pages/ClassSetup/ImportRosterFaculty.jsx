@@ -136,6 +136,23 @@ function getSemesterWeight(semCode = '') {
   return year * 10 + termScore
 }
 
+function resolveAssignedInstructor(assignment, instructors) {
+  const instructor = assignment?.instructor || assignment?.instructorProfile
+  const instructorCode = String(assignment?.instructorCode || instructor?.instructorCode || '').trim().toLowerCase()
+  const fullName = assignment?.fullName || assignment?.instructorName || instructor?.fullName || ''
+  const normalizedName = fullName.trim().toLowerCase()
+  const matchingInstructor = instructors.find((item) =>
+    (instructorCode && item.code?.trim().toLowerCase() === instructorCode) ||
+    (normalizedName && item.name?.trim().toLowerCase() === normalizedName)
+  )
+
+  return {
+    fullName: fullName || matchingInstructor?.name || '',
+    email: assignment?.email || assignment?.instructorEmail || instructor?.email || matchingInstructor?.email || '',
+    academicTitle: assignment?.academicTitle || instructor?.academicTitle || matchingInstructor?.title || 'Giảng viên phụ trách',
+  }
+}
+
 export default function ImportRosterFaculty({ onNext, onPrev }) {
   // State danh sách lớp học
   const [classes, setClasses] = useState([])
@@ -305,15 +322,8 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
       const targetId = selectedClassId || (classList.length > 0 ? classList[0].classId : '')
       if (targetId) {
         if (!selectedClassId) setSelectedClassId(targetId)
+        if (targetId !== selectedClassId) setAssignedResult(null)
         fetchClassStudents(targetId)
-        const targetCls = classList.find((c) => c.classId === targetId)
-        if (targetCls?.instructorName) {
-          setAssignedResult({
-            fullName: targetCls.instructorName,
-            email: 'gv@smartlab.edu.vn',
-            academicTitle: 'Giảng viên',
-          })
-        }
       }
     } catch (err) {
       setToast({
@@ -343,13 +353,6 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
             const firstId = classList[0].classId
             setSelectedClassId(firstId)
             fetchClassStudents(firstId)
-            if (classList[0].instructorName) {
-              setAssignedResult({
-                fullName: classList[0].instructorName,
-                email: 'gv@smartlab.edu.vn',
-                academicTitle: 'Giảng viên',
-              })
-            }
           }
         }
       })
@@ -416,6 +419,11 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
 
   // Lớp đang chọn hiện tại
   const currentClass = classes.find((c) => c.classId === selectedClassId) || null
+  const assignedInstructor = useMemo(() => {
+    const assignment = { ...(currentClass || {}), ...(assignedResult || {}) }
+    if (!assignment.fullName && !assignment.instructorName) return null
+    return resolveAssignedInstructor(assignment, instructors)
+  }, [assignedResult, currentClass, instructors])
 
   // Khi thay đổi lớp chọn
   const handleClassChange = (e) => {
@@ -423,17 +431,8 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
     setSelectedClassId(newClassId)
     setImportResult(null)
     setStudentSearch('')
+    setAssignedResult(null)
     fetchClassStudents(newClassId)
-    const cls = classes.find((c) => c.classId === newClassId)
-    if (cls?.instructorName) {
-      setAssignedResult({
-        fullName: cls.instructorName,
-        email: 'gv@smartlab.edu.vn',
-        academicTitle: 'Giảng viên',
-      })
-    } else {
-      setAssignedResult(null)
-    }
   }
 
   // Danh sách sinh viên sau khi lọc theo từ khóa tìm kiếm
@@ -520,11 +519,16 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
         academicTitle: instructorForm.academicTitle || 'Giảng viên',
       }
       const res = await academicService.assignInstructor(payload)
-      setAssignedResult(res)
+      setAssignedResult({
+        ...(res || {}),
+        fullName: res?.fullName || instructorForm.fullName,
+        email: res?.email || instructorForm.email,
+        academicTitle: res?.academicTitle || instructorForm.academicTitle || 'Giảng viên',
+      })
       setOpenAssignDialog(false)
       setToast({
         open: true,
-        message: `Đã phân công giảng viên ${res.fullName} cho lớp thành công!`,
+        message: `Đã phân công giảng viên ${res?.fullName || instructorForm.fullName} cho lớp thành công!`,
         severity: 'success',
       })
       fetchClasses()
@@ -658,7 +662,12 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
           academicTitle: newInst.title,
         }
         const assignRes = await academicService.assignInstructor(assignPayload)
-        setAssignedResult(assignRes)
+        setAssignedResult({
+          ...(assignRes || {}),
+          fullName: assignRes?.fullName || newInst.name,
+          email: assignRes?.email || newInst.email,
+          academicTitle: assignRes?.academicTitle || newInst.title,
+        })
         fetchClasses()
       } catch (assignErr) {
         console.warn('Tự động phân công giảng viên vào lớp:', assignErr.message)
@@ -1192,7 +1201,7 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
               </Typography>
 
               {/* Giảng viên hiện tại của lớp */}
-              {assignedResult || currentClass?.instructorName ? (
+              {assignedInstructor ? (
                 <Paper
                   elevation={0}
                   sx={{
@@ -1219,13 +1228,13 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
                   </Avatar>
                   <Box sx={{ flex: 1 }}>
                     <Typography variant="body1" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 13 }}>
-                      {assignedResult?.fullName || currentClass?.instructorName}
+                      {assignedInstructor.fullName}
                     </Typography>
                     <Typography variant="caption" sx={{ color: '#6b7280', fontSize: 11, display: 'block', mb: 0.5 }}>
-                      {assignedResult?.email || 'email-gv@smartlab.edu.vn'}
+                      {assignedInstructor.email || 'Chưa có email trong hồ sơ'}
                     </Typography>
                     <Chip
-                      label={assignedResult?.academicTitle || 'Giảng viên phụ trách'}
+                      label={assignedInstructor.academicTitle}
                       size="small"
                       sx={{
                         height: 20,

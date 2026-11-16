@@ -40,12 +40,6 @@ import { teamService } from '../../services/teamService'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 
-async function getClassesForCurrentSemester() {
-  const semesters = await academicService.getSemesters()
-  const semester = semesters.find((item) => item.isActive) || semesters[0]
-  return academicService.getMyClasses(semester?.semesterId)
-}
-
 /**
  * GroupInviteManager Component (Actor: STUDENT / GROUP LEADER)
  * Kết nối đầy đủ 8 API Nhóm & Lời mời MF2:
@@ -235,7 +229,7 @@ export default function GroupInviteManager() {
   // Initial load
   useEffect(() => {
     let ignore = false
-    getClassesForCurrentSemester()
+    academicService.getMyClasses()
       .then((data) => {
         if (!ignore) {
           const list = Array.isArray(data) ? data : data?.items || []
@@ -466,9 +460,7 @@ export default function GroupInviteManager() {
           <Typography variant="h5" sx={{ fontWeight: 800, color: '#131b2e', mt: 0.5, mb: 0.5 }}>
             Tạo nhóm, Quản lý thành viên &amp; Lời mời tham gia
           </Typography>
-          <Typography variant="body2" sx={{ color: '#424754', fontSize: 13 }}>
-            Dành cho Sinh viên: Chọn lớp môn học đang tham gia để tạo nhóm đồ án hoặc phản hồi lời mời.
-          </Typography>
+          
         </Box>
       </Box>
 
@@ -782,9 +774,7 @@ export default function GroupInviteManager() {
                   <Typography variant="h6" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 17 }}>
                     {currentTeam.teamName}
                   </Typography>
-                  <Typography variant="caption" sx={{ color: '#6b7280' }}>
-                    Mã nhóm: <code>{currentTeam.teamId}</code> • Lớp: {currentTeam.classCode || selectedClass?.classCode}
-                  </Typography>
+                  
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1, flexDirection: 'column' }}>
                   <Chip
@@ -939,9 +929,7 @@ export default function GroupInviteManager() {
                   <Typography variant="h6" sx={{ fontWeight: 800, fontSize: 16, color: '#131b2e', mb: 0.5 }}>
                     Mời thành viên cùng lớp
                   </Typography>
-                  <Typography variant="caption" sx={{ color: '#6b7280', display: 'block', mb: 2 }}>
-                    API: <code>GET /api/classes/{'{id}'}/team-candidates</code> &amp; <code>POST /api/teams/{'{id}'}/invitations</code>
-                  </Typography>
+                  
 
                   {/* Tìm kiếm ứng viên */}
                   <TextField
