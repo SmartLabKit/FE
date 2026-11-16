@@ -1166,7 +1166,7 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
         </Grid>
 
         {/* Right Column: Phân công giảng viên */}
-        <Grid size={{ xs: 12, md: 5 }}>
+        <Grid size={{ xs: 12, md: 5 }} sx={{ alignSelf: 'start' }}>
           <Paper
             elevation={0}
             sx={{
@@ -1174,10 +1174,6 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
               borderRadius: 2,
               border: '1px solid #e4e6ef',
               bgcolor: '#ffffff',
-              height: '100%',
-              display: 'flex',
-              flexDirection: 'column',
-              justifyContent: 'space-between',
             }}
           >
             <Box>
@@ -1413,7 +1409,7 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
             </Box>
 
             {/* Bottom Form Actions */}
-            <Box sx={{ mt: 4, pt: 2, borderTop: '1px solid #f0f2f5' }}>
+            <Box sx={{ mt: 2, pt: 1.5, borderTop: '1px solid #f0f2f5' }}>
               <Button
                 fullWidth
                 variant="contained"
@@ -1427,6 +1423,8 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
                   textTransform: 'none',
                   fontWeight: 700,
                   fontSize: 13,
+                  lineHeight: 1.4,
+                  whiteSpace: 'normal',
                   boxShadow: 'none',
                   '&:hover': { bgcolor: '#0049a3' },
                 }}
