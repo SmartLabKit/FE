@@ -212,7 +212,7 @@ export default function PortalLayout({
       label: 'Phiếu nhập kho',
       icon: <ApprovalsIcon fontSize="small" />,
       path: '/class-setup/admin/stock-receipts',
-      roles: ['Admin', 'InventoryManager'],
+      roles: [ 'InventoryManager'],
     },
     {
       label: 'Kiểm kê kho',
