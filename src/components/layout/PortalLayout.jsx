@@ -39,6 +39,7 @@ import {
   FactCheck as FinalSubmissionIcon,
   ReportProblem as IssueIcon,
   Checklist as AuditIcon,
+  History as AuditLogIcon,
 } from '@mui/icons-material'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth, DEMO_ACCOUNTS } from '../../context/AuthContext'
@@ -245,6 +246,12 @@ export default function PortalLayout({
       label: 'Cài đặt hệ thống',
       icon: <TuneIcon fontSize="small" />,
       path: '/admin/system-settings',
+      roles: ['Admin'],
+    },
+    {
+      label: 'Nhật ký thao tác',
+      icon: <AuditLogIcon fontSize="small" />,
+      path: '/admin/audit-logs',
       roles: ['Admin'],
     },
   ]

@@ -6,6 +6,7 @@ import ResetPassword from './pages/Auth/ResetPassword.jsx'
 import Users from './pages/Users/Users.jsx'
 import Roles from './pages/Roles/Roles.jsx'
 import SystemSettings from './pages/Admin/SystemSettings.jsx'
+import AuditLogs from './pages/Admin/AuditLogs.jsx'
 import Profile from './pages/Profile/Profile.jsx'
 import ClassSetup from './pages/ClassSetup/ClassSetup.jsx'
 import Components from './pages/Components/Components.jsx'
@@ -60,6 +61,7 @@ function App() {
           <Route path="/admin/users" element={<Users />} />
           <Route path="/admin/roles" element={<Roles />} />
           <Route path="/admin/system-settings" element={<SystemSettings />} />
+          <Route path="/admin/audit-logs" element={<AuditLogs />} />
 
           {/* Tổng quan & Báo cáo thống kê (Admin / InventoryManager / LabStaff / Lecturer) */}
           <Route path="/dashboard" element={<Dashboard />} />
