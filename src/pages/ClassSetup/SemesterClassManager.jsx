@@ -656,7 +656,7 @@ export default function SemesterClassManager({ onNext }) {
                     '&:hover': { bgcolor: '#eaedff' },
                   }}
                 >
-                  Tiếp tục: Nhập danh sách sinh viên & Phân công
+                  Tiếp tục
                 </Button>
               </Box>
             )}

@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import { Box, Container, Tab, Tabs, Paper } from '@mui/material'
+import { Box, Container } from '@mui/material'
 import { useLocation, useNavigate } from 'react-router-dom'
 import PortalLayout from '../../components/layout/PortalLayout'
 import SemesterClassManager from './SemesterClassManager'
@@ -34,16 +34,6 @@ export default function ClassSetup() {
 
   const adminTab = getAdminTab(location.pathname)
 
-  const handleAdminTabChange = (event, newValue) => {
-    if (newValue === 0) {
-      navigate('/class-setup/admin/semesters')
-    } else if (newValue === 1) {
-      navigate('/class-setup/admin/courses')
-    } else {
-      navigate('/class-setup/admin/roster')
-    }
-  }
-
   // Tự động điều hướng /class-setup về trang chính xác của từng role
   useEffect(() => {
     if (location.pathname === '/class-setup') {
@@ -75,47 +65,14 @@ export default function ClassSetup() {
         disableGutters
         sx={{ width: '100%', maxWidth: 1600, minWidth: 0, mx: 'auto', boxSizing: 'border-box' }}
       >
-        {/* Vai trò ADMIN: Hiển thị 3 tính năng dành riêng cho Admin */}
+        {/* Vai trò ADMIN: Hiển thị tính năng theo URL */}
         {isAdminRoute && (
           <Box>
-            <Paper
-              elevation={0}
-              sx={{
-                bgcolor: '#ffffff',
-                border: '1px solid #e4e6ef',
-                borderRadius: 2,
-                px: 2,
-                py: 0.5,
-                mb: 3,
-              }}
-            >
-              <Tabs
-                value={adminTab}
-                onChange={handleAdminTabChange}
-                sx={{
-                  minHeight: 44,
-                  '& .MuiTab-root': {
-                    textTransform: 'none',
-                    fontWeight: 700,
-                    fontSize: 13,
-                    minHeight: 44,
-                    color: '#6b7280',
-                  },
-                  '& .Mui-selected': { color: '#0058be' },
-                  '& .MuiTabs-indicator': { height: 3, borderRadius: 1.5, bgcolor: '#0058be' },
-                }}
-              >
-                <Tab label="1. Kỳ học & Lớp môn học" />
-                <Tab label="2. Danh mục Môn học (Courses)" />
-                <Tab label="3. Nhập Danh sách SV & Phân công" />
-              </Tabs>
-            </Paper>
-
-            {adminTab === 0 && <SemesterClassManager onNext={() => handleAdminTabChange(null, 2)} />}
+            {adminTab === 0 && <SemesterClassManager onNext={() => navigate('/class-setup/admin/roster')} />}
             {adminTab === 1 && <CourseManager />}
             {adminTab === 2 && (
               <ImportRosterFaculty
-                onPrev={() => handleAdminTabChange(null, 0)}
+                onPrev={() => navigate('/class-setup/admin/semesters')}
               />
             )}
           </Box>
