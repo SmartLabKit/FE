@@ -1,21 +1,18 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Add as AddIcon,
   ArrowBack as BackIcon,
-  CalendarTodayOutlined as CalendarIcon,
-  Close as CloseIcon,
-  KeyboardArrowDown as ArrowDownIcon,
   Search as SearchIcon,
 } from '@mui/icons-material'
 import {
   Alert,
   Box,
   Button,
+  Card,
+  CardContent,
   Chip,
-  IconButton,
-  InputBase,
+  Grid,
   MenuItem,
-  Select,
   Table,
   TableBody,
   TableCell,
@@ -23,6 +20,7 @@ import {
   TableHead,
   TablePagination,
   TableRow,
+  TextField,
   Typography,
 } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
@@ -33,9 +31,6 @@ import { formatVietnamDate, getVietnamDateInputValue } from '../../utils/dateFor
 
 // Format hiển thị ngày theo chuẩn vi-VN: dd/mm/yyyy
 const formatDate = (value) => formatVietnamDate(value)
-
-// Hiển thị ngày đã chọn dạng dd/mm/yyyy trên ô chọn ngày
-const formatDateDisplay = (dateStr) => (!dateStr ? 'Chọn ngày' : formatVietnamDate(dateStr))
 
 // Chuyển đổi giá trị ngày sang YYYY-MM-DD theo giờ địa phương để so sánh chính xác
 const toYMD = (val) => getVietnamDateInputValue(val)
@@ -57,10 +52,6 @@ export default function StockReceipts() {
   // State phân trang: mặc định 10 phiếu 1 trang, cho phép đổi 10, 20, 30
   const [page, setPage] = useState(0)
   const [rowsPerPage, setRowsPerPage] = useState(10)
-
-  // Ref cho 2 input date ẩn để kích hoạt date picker khi click vào ô
-  const fromDateInputRef = useRef(null)
-  const toDateInputRef = useRef(null)
 
   useEffect(() => {
     let active = true
@@ -102,12 +93,13 @@ export default function StockReceipts() {
   // Lọc dữ liệu theo từ khóa tìm kiếm, trạng thái, nhà cung cấp và khoảng ngày nhận
   const filteredReceipts = useMemo(() => {
     return receipts.filter((receipt) => {
-      // 1. Tìm theo mã phiếu hoặc nhà cung cấp
+      // 1. Tìm theo từ khóa: mã phiếu, số hóa đơn / số chứng từ, nhà cung cấp
       if (keyword.trim()) {
         const query = keyword.trim().toLowerCase()
         const code = String(receipt.receiptCode || receipt.receiptId || '').toLowerCase()
         const supplier = String(receipt.supplierName || '').toLowerCase()
-        if (!code.includes(query) && !supplier.includes(query)) {
+        const invoice = String(receipt.invoiceNumber || receipt.InvoiceNumber || '').toLowerCase()
+        if (!code.includes(query) && !supplier.includes(query) && !invoice.includes(query)) {
           return false
         }
       }
@@ -184,6 +176,16 @@ export default function StockReceipts() {
     setPage(0)
   }
 
+  // Đặt lại toàn bộ bộ lọc
+  const handleResetFilters = () => {
+    setKeyword('')
+    setStatusFilter('')
+    setSupplierFilter('')
+    setFromDate('')
+    setToDate('')
+    setPage(0)
+  }
+
   return (
     <PortalLayout headerTitle="Phiếu nhập kho" headerSubtitle="Lịch sử nhập kho và trạng thái các phiếu">
       <Box sx={{ maxWidth: 1440, mx: 'auto' }}>
@@ -208,342 +210,126 @@ export default function StockReceipts() {
           </Button>
         </Box>
 
-        {/* Khung tìm kiếm và bộ lọc (Thiết kế đồng bộ theo hình thứ 2) */}
-        <Box
-          sx={{
-            bgcolor: '#f4f5f7',
-            p: { xs: 2, sm: 2.5 },
-            borderRadius: 3,
-            mb: 2.5,
-            border: '1px solid #e5e7eb',
+        {/* Khung tìm kiếm và bộ lọc (Thiết kế đồng bộ theo "Thông tin phiếu" bên Lập phiếu nhập) */}
+        <Card
+          component="form"
+          onSubmit={(e) => {
+            e.preventDefault()
+            setPage(0)
           }}
+          variant="outlined"
+          sx={{ borderColor: '#d8dced', boxShadow: 'none', mb: 2.5, bgcolor: '#ffffff' }}
         >
-          {/* Thanh tìm kiếm từ khóa (Mã phiếu, nhà cung cấp) */}
-          <Box
-            component="form"
-            onSubmit={(e) => {
-              e.preventDefault()
-              setPage(0)
-            }}
-            sx={{
-              display: 'flex',
-              alignItems: 'center',
-              bgcolor: '#ffffff',
-              borderRadius: '9999px',
-              border: '1px solid #e2e8f0',
-              p: '4px 6px 4px 18px',
-              mb: 2,
-              boxShadow: '0 1px 2px rgba(0, 0, 0, 0.02)',
-              '&:focus-within': {
-                borderColor: '#cbd5e1',
-              },
-            }}
-          >
-            <InputBase
-              fullWidth
-              placeholder="Tìm mã phiếu, nhà cung cấp..."
-              value={keyword}
-              onChange={handleKeywordChange}
-              sx={{
-                fontSize: 14,
-                color: '#1e293b',
-                '& ::placeholder': {
-                  color: '#9ca3af',
-                  opacity: 1,
-                },
-              }}
-            />
-            <Button
-              type="submit"
-              variant="text"
-              startIcon={<SearchIcon sx={{ fontSize: 19, color: '#64748b' }} />}
-              sx={{
-                borderRadius: '9999px',
-                border: '1px solid #e2e8f0',
-                bgcolor: '#ffffff',
-                color: '#475569',
-                px: 2,
-                py: 0.6,
-                textTransform: 'none',
-                fontWeight: 500,
-                fontSize: 14,
-                whiteSpace: 'nowrap',
-                '&:hover': {
-                  bgcolor: '#f8fafc',
-                  borderColor: '#cbd5e1',
-                },
-              }}
-            >
-              Tìm kiếm
-            </Button>
-          </Box>
+          <CardContent sx={{ p: 2.5 }}>
+            <Typography sx={{ mb: 0.5, fontWeight: 800, color: '#182238' }}>Thông tin phiếu</Typography>
+            <Typography sx={{ mb: 2, color: '#697386', fontSize: 12 }}>
+              Tìm kiếm phiếu nhập theo nhà cung cấp, số hóa đơn / mã phiếu, ngày nhận và trạng thái.
+            </Typography>
 
-          {/* Lưới các bộ lọc: Trạng thái, Nhà cung cấp, Từ ngày nhận, Đến ngày nhận */}
-          <Box
-            sx={{
-              display: 'grid',
-              gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' },
-              columnGap: 2.5,
-              rowGap: 1.75,
-            }}
-          >
-            {/* Cột 1: Trạng thái */}
-            <Box>
-              <Typography sx={{ fontWeight: 600, fontSize: 13.5, color: '#374151', mb: 0.75 }}>
-                Trạng thái
-              </Typography>
-              <Select
-                value={statusFilter}
-                onChange={handleStatusChange}
-                displayEmpty
-                size="small"
-                fullWidth
-                renderValue={(selected) => {
-                  if (!selected) {
-                    return <span style={{ color: '#64748b' }}>Tất cả trạng thái</span>
-                  }
-                  return selected
-                }}
-                IconComponent={ArrowDownIcon}
-                sx={{
-                  bgcolor: '#ffffff',
-                  borderRadius: '9999px',
-                  height: 40,
-                  fontSize: 14,
-                  '& .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#e2e8f0',
-                  },
-                  '&:hover .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#cbd5e1',
-                  },
-                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#94a3b8',
-                    borderWidth: 1,
-                  },
-                  '& .MuiSelect-select': {
-                    py: 1,
-                    px: 2,
-                  },
-                  '& .MuiSelect-icon': {
-                    color: '#94a3b8',
-                    right: 12,
-                  },
-                }}
-              >
-                <MenuItem value="">Tất cả trạng thái</MenuItem>
-                {statuses.map((st) => (
-                  <MenuItem key={st} value={st}>
-                    {st}
-                  </MenuItem>
-                ))}
-              </Select>
-            </Box>
-
-            {/* Cột 2: Nhà cung cấp */}
-            <Box>
-              <Typography sx={{ fontWeight: 600, fontSize: 13.5, color: '#374151', mb: 0.75 }}>
-                Nhà cung cấp
-              </Typography>
-              <Select
-                value={supplierFilter}
-                onChange={handleSupplierChange}
-                displayEmpty
-                size="small"
-                fullWidth
-                renderValue={(selected) => {
-                  if (!selected) {
-                    return <span style={{ color: '#64748b' }}>Tất cả nhà cung cấp</span>
-                  }
-                  return selected
-                }}
-                IconComponent={ArrowDownIcon}
-                sx={{
-                  bgcolor: '#ffffff',
-                  borderRadius: '9999px',
-                  height: 40,
-                  fontSize: 14,
-                  '& .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#e2e8f0',
-                  },
-                  '&:hover .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#cbd5e1',
-                  },
-                  '&.Mui-focused .MuiOutlinedInput-notchedOutline': {
-                    borderColor: '#94a3b8',
-                    borderWidth: 1,
-                  },
-                  '& .MuiSelect-select': {
-                    py: 1,
-                    px: 2,
-                  },
-                  '& .MuiSelect-icon': {
-                    color: '#94a3b8',
-                    right: 12,
-                  },
-                }}
-              >
-                <MenuItem value="">Tất cả nhà cung cấp</MenuItem>
-                {suppliers.map((sup) => (
-                  <MenuItem key={sup} value={sup}>
-                    {sup}
-                  </MenuItem>
-                ))}
-              </Select>
-            </Box>
-
-            {/* Cột 3: Từ ngày nhận */}
-            <Box>
-              <Typography sx={{ fontWeight: 600, fontSize: 13.5, color: '#374151', mb: 0.75 }}>
-                Từ ngày nhận
-              </Typography>
-              <Box
-                onClick={() => fromDateInputRef.current?.showPicker?.()}
-                sx={{
-                  position: 'relative',
-                  display: 'flex',
-                  alignItems: 'center',
-                  bgcolor: '#ffffff',
-                  borderRadius: '9999px',
-                  border: '1px solid #e2e8f0',
-                  height: 40,
-                  px: 2,
-                  cursor: 'pointer',
-                  transition: 'border-color 0.15s ease',
-                  '&:hover': {
-                    borderColor: '#cbd5e1',
-                  },
-                }}
-              >
-                <CalendarIcon sx={{ fontSize: 18, color: '#94a3b8', mr: 1.25, flexShrink: 0 }} />
-                <Typography
-                  sx={{
-                    flex: 1,
-                    fontSize: 14,
-                    color: fromDate ? '#1e293b' : '#64748b',
-                    userSelect: 'none',
-                  }}
+            <Grid container spacing={2}>
+              {/* Hàng 1: Nhà cung cấp & Số hóa đơn / Mã phiếu */}
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField
+                  select
+                  fullWidth
+                  label="Nhà cung cấp"
+                  value={supplierFilter}
+                  onChange={handleSupplierChange}
                 >
-                  {formatDateDisplay(fromDate)}
-                </Typography>
-                {fromDate ? (
-                  <IconButton
-                    size="small"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setFromDate('')
-                      setPage(0)
-                    }}
-                    sx={{
-                      p: 0.25,
-                      color: '#94a3b8',
-                      zIndex: 2,
-                      '&:hover': { color: '#475569', bgcolor: '#f1f5f9' },
-                    }}
-                    title="Xóa ngày bắt đầu"
-                  >
-                    <CloseIcon sx={{ fontSize: 16 }} />
-                  </IconButton>
-                ) : (
-                  <ArrowDownIcon sx={{ color: '#94a3b8', fontSize: 20 }} />
-                )}
-                {/* Input date ẩn để mở picker của trình duyệt khi click */}
-                <input
-                  ref={fromDateInputRef}
+                  <MenuItem value="">Tất cả nhà cung cấp</MenuItem>
+                  {suppliers.map((sup) => (
+                    <MenuItem key={sup} value={sup}>
+                      {sup}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField
+                  fullWidth
+                  label="Số hóa đơn"
+                  placeholder="Nhập số hóa đơn, số chứng từ hoặc mã phiếu..."
+                  value={keyword}
+                  onChange={handleKeywordChange}
+                />
+              </Grid>
+
+              {/* Hàng 2: Ngày nhận (Từ ngày nhận & Đến ngày nhận) */}
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField
+                  fullWidth
                   type="date"
-                  max={getVietnamDateInputValue()}
+                  label="Từ ngày nhận"
                   value={fromDate}
                   onChange={handleFromDateChange}
-                  onClick={(e) => e.target.showPicker?.()}
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    width: '100%',
-                    height: '100%',
-                    opacity: 0,
-                    cursor: 'pointer',
-                    zIndex: 1,
+                  slotProps={{
+                    inputLabel: { shrink: true },
+                    htmlInput: { max: getVietnamDateInputValue() },
                   }}
                 />
-              </Box>
-            </Box>
-
-            {/* Cột 4: Đến ngày nhận */}
-            <Box>
-              <Typography sx={{ fontWeight: 600, fontSize: 13.5, color: '#374151', mb: 0.75 }}>
-                Đến ngày nhận
-              </Typography>
-              <Box
-                onClick={() => toDateInputRef.current?.showPicker?.()}
-                sx={{
-                  position: 'relative',
-                  display: 'flex',
-                  alignItems: 'center',
-                  bgcolor: '#ffffff',
-                  borderRadius: '9999px',
-                  border: '1px solid #e2e8f0',
-                  height: 40,
-                  px: 2,
-                  cursor: 'pointer',
-                  transition: 'border-color 0.15s ease',
-                  '&:hover': {
-                    borderColor: '#cbd5e1',
-                  },
-                }}
-              >
-                <CalendarIcon sx={{ fontSize: 18, color: '#94a3b8', mr: 1.25, flexShrink: 0 }} />
-                <Typography
-                  sx={{
-                    flex: 1,
-                    fontSize: 14,
-                    color: toDate ? '#1e293b' : '#64748b',
-                    userSelect: 'none',
-                  }}
-                >
-                  {formatDateDisplay(toDate)}
-                </Typography>
-                {toDate ? (
-                  <IconButton
-                    size="small"
-                    onClick={(e) => {
-                      e.stopPropagation()
-                      setToDate('')
-                      setPage(0)
-                    }}
-                    sx={{
-                      p: 0.25,
-                      color: '#94a3b8',
-                      zIndex: 2,
-                      '&:hover': { color: '#475569', bgcolor: '#f1f5f9' },
-                    }}
-                    title="Xóa ngày kết thúc"
-                  >
-                    <CloseIcon sx={{ fontSize: 16 }} />
-                  </IconButton>
-                ) : (
-                  <ArrowDownIcon sx={{ color: '#94a3b8', fontSize: 20 }} />
-                )}
-                {/* Input date ẩn để mở picker của trình duyệt khi click */}
-                <input
-                  ref={toDateInputRef}
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField
+                  fullWidth
                   type="date"
-                  max={getVietnamDateInputValue()}
+                  label="Đến ngày nhận"
                   value={toDate}
                   onChange={handleToDateChange}
-                  onClick={(e) => e.target.showPicker?.()}
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    width: '100%',
-                    height: '100%',
-                    opacity: 0,
-                    cursor: 'pointer',
-                    zIndex: 1,
+                  slotProps={{
+                    inputLabel: { shrink: true },
+                    htmlInput: { max: getVietnamDateInputValue() },
                   }}
                 />
-              </Box>
-            </Box>
-          </Box>
-        </Box>
+              </Grid>
+
+              {/* Hàng 3: Trạng thái & Các nút thao tác */}
+              <Grid size={{ xs: 12, md: 6 }}>
+                <TextField
+                  select
+                  fullWidth
+                  label="Trạng thái"
+                  value={statusFilter}
+                  onChange={handleStatusChange}
+                >
+                  <MenuItem value="">Tất cả trạng thái</MenuItem>
+                  {statuses.map((st) => (
+                    <MenuItem key={st} value={st}>
+                      {st}
+                    </MenuItem>
+                  ))}
+                </TextField>
+              </Grid>
+              <Grid size={{ xs: 12, md: 6 }}>
+                <Box
+                  sx={{
+                    display: 'flex',
+                    gap: 1.5,
+                    alignItems: 'center',
+                    height: '100%',
+                    justifyContent: { xs: 'flex-start', md: 'flex-end' },
+                  }}
+                >
+                  <Button
+                    variant="outlined"
+                    onClick={handleResetFilters}
+                    disabled={!keyword && !statusFilter && !supplierFilter && !fromDate && !toDate}
+                    sx={{ textTransform: 'none', height: 44, px: 2.5 }}
+                  >
+                    Xóa bộ lọc
+                  </Button>
+                  <Button
+                    type="submit"
+                    variant="contained"
+                    startIcon={<SearchIcon />}
+                    sx={{ textTransform: 'none', height: 44, px: 3 }}
+                  >
+                    Tìm kiếm
+                  </Button>
+                </Box>
+              </Grid>
+            </Grid>
+          </CardContent>
+        </Card>
 
         {/* Bảng danh sách phiếu nhập kho */}
         <TableContainer sx={{ bgcolor: '#fff', border: '1px solid #d8dced', borderRadius: '8px 8px 0 0' }}>
