@@ -867,6 +867,8 @@ export default function ProjectManagement() {
     project?.components?.find((component) => component.componentId === componentId)?.componentName ||
     ''
 
+  const inlineInputText = inlineDraft?.type === 'component' ? inlineDraft.searchText : inlineDraft?.itemName
+  const inlineInputWidth = Math.min(220, Math.max(120, (inlineInputText?.length || 0) * 8 + 8))
   const inlineDraftView = inlineDraft ? (
     <Box
       ref={inlineDraftRootRef}
@@ -875,12 +877,16 @@ export default function ProjectManagement() {
       sx={{
         display: 'inline-flex',
         alignItems: 'center',
-        gap: 1,
+        gap: 0.5,
         minHeight: 36,
-        px: 1.25,
-        borderRadius: 999,
-        bgcolor: '#eff6ff',
-        boxShadow: '0 1px 2px rgba(15, 23, 42, 0.08)',
+        height: 36,
+        boxSizing: 'border-box',
+        px: 1.1,
+        border: 0,
+        borderRadius: 2,
+        bgcolor: '#f1f5f9',
+        boxShadow: 'none',
+        '&:focus-within': { boxShadow: '0 0 0 1px #cbd5e1' },
       }}
     >
       {inlineDraft.type === 'component' ? (
@@ -907,7 +913,31 @@ export default function ProjectManagement() {
           disablePortal
           disableClearable
           forcePopupIcon={false}
-          sx={{ width: { xs: 175, sm: 230 } }}
+          slotProps={{
+            paper: {
+              sx: {
+                mt: 0.75,
+                minWidth: { xs: 220, sm: 240 },
+                maxWidth: 'calc(100vw - 32px)',
+                border: '1px solid #e2e8f0',
+                borderRadius: 2,
+                boxShadow: '0 4px 12px rgba(15, 23, 42, 0.12)',
+              },
+            },
+            listbox: {
+              sx: {
+                py: 0.5,
+                '& .MuiAutocomplete-option': { minHeight: 36, fontSize: '0.875rem', py: 0.75 },
+              },
+            },
+          }}
+          sx={{
+            width: inlineInputWidth,
+            '& .MuiInput-root:before, & .MuiInput-root:after': { display: 'none' },
+            '& .MuiInputBase-root': { p: 0, fontSize: '0.875rem', fontWeight: 500, color: '#1e293b' },
+            '& .MuiInputBase-input': { p: '0 !important', lineHeight: 1.43 },
+            '& input::placeholder': { color: '#94a3b8', opacity: 1, fontWeight: 400 },
+          }}
           renderInput={(params) => (
             <TextField
               {...params}
@@ -915,6 +945,7 @@ export default function ProjectManagement() {
               variant="standard"
               size="small"
               placeholder="Tìm linh kiện..."
+              InputProps={{ ...params.InputProps, disableUnderline: true }}
               inputProps={{ ...params.inputProps, 'aria-label': 'Tìm linh kiện từ kho' }}
             />
           )}
@@ -927,10 +958,20 @@ export default function ProjectManagement() {
           variant="standard"
           size="small"
           placeholder="Tên món tự mua"
+          InputProps={{ disableUnderline: true }}
           inputProps={{ 'aria-label': 'Tên món tự mua' }}
-          sx={{ width: { xs: 145, sm: 195 } }}
+          sx={{
+            width: inlineInputWidth,
+            '& .MuiInput-root:before, & .MuiInput-root:after': { display: 'none' },
+            '& .MuiInputBase-root': { p: 0, fontSize: '0.875rem', fontWeight: 500, color: '#1e293b' },
+            '& .MuiInputBase-input': { p: '0 !important', lineHeight: 1.43 },
+            '& input::placeholder': { color: '#94a3b8', opacity: 1, fontWeight: 400 },
+          }}
         />
       )}
+      <Typography component="span" sx={{ color: '#94a3b8', fontSize: 12, lineHeight: 1.4 }}>
+        ×
+      </Typography>
       <TextField
         inputRef={inlineQuantityInputRef}
         type="number"
@@ -938,8 +979,21 @@ export default function ProjectManagement() {
         variant="standard"
         value={inlineDraft.quantity}
         onChange={(event) => updateInlineDraft({ quantity: event.target.value })}
+        InputProps={{ disableUnderline: true }}
         inputProps={{ min: 1, step: 1, 'aria-label': 'Số lượng' }}
-        sx={{ width: 52 }}
+        sx={{
+          width: 34,
+          '& .MuiInput-root:before, & .MuiInput-root:after': { display: 'none' },
+          '& .MuiInputBase-root': { p: 0, fontSize: '0.875rem', fontWeight: 500, color: '#1e293b' },
+          '& .MuiInputBase-input': {
+            p: '0 !important',
+            textAlign: 'center',
+            lineHeight: 1.43,
+            appearance: 'textfield',
+            MozAppearance: 'textfield',
+            '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': { display: 'none', margin: 0 },
+          },
+        }}
       />
     </Box>
   ) : null
@@ -1234,9 +1288,6 @@ export default function ProjectManagement() {
                   <Typography variant="h6" sx={{ fontWeight: 800 }}>
                     {project ? 'Thông tin project' : 'Tạo project'}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {project ? 'Cập nhật mô tả và danh sách vật tư cho project.' : 'Lưu lần đầu sẽ tạo project ở trạng thái bản nháp.'}
-                  </Typography>
                 </Box>
                 {project && <ProjectStatus status={project.status} />}
               </Box>
@@ -1321,7 +1372,7 @@ export default function ProjectManagement() {
                             '&:hover': { borderStyle: 'dashed', borderColor: '#2563eb', bgcolor: '#eff6ff' },
                           }}
                         >
-                          Thêm loại
+                          Thêm mới
                         </Button>
                       </Box>
                     </Box>
@@ -1371,7 +1422,7 @@ export default function ProjectManagement() {
                             '&:hover': { borderStyle: 'dashed', borderColor: '#2563eb', bgcolor: '#eff6ff' },
                           }}
                         >
-                          Thêm món
+                          Thêm mới
                         </Button>
                       </Box>
                     </Box>
@@ -1386,7 +1437,7 @@ export default function ProjectManagement() {
                           onClick={requestSuggestions}
                           sx={{ textTransform: 'none', fontWeight: 700 }}
                         >
-                          {suggesting ? 'Đang lấy gợi ý...' : 'AI gợi ý linh kiện'}
+                          {suggesting ? 'Đang lấy gợi ý...' : 'AI Gợi ý Linh kiện'}
                         </Button>
                         <Typography variant="caption" color="text.secondary">
                           Chọn các linh kiện phù hợp bên dưới, sau đó bấm <Box component="span" sx={{ fontWeight: 800 }}>Lưu project</Box> để xác nhận.
@@ -1459,7 +1510,7 @@ export default function ProjectManagement() {
               </Stack>
 
               {canEdit && (
-                <Box sx={{ display: 'flex', justifyContent: 'flex-end', mt: 3 }}>
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 3 }}>
                   <Button
                     variant="contained"
                     startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />}
@@ -1469,21 +1520,23 @@ export default function ProjectManagement() {
                   >
                     {saving ? 'Đang lưu...' : project ? 'Lưu project' : 'Lưu nháp'}
                   </Button>
+                  {project && ['Draft', 'Rejected'].includes(project.status) && (
+                    <Button
+                      variant="outlined"
+                      startIcon={<SendIcon />}
+                      onClick={openSubmitDialog}
+                      disabled={saving || submitting || loadingDeadline}
+                      sx={{ textTransform: 'none', fontWeight: 700 }}
+                    >
+                      Gửi duyệt
+                    </Button>
+                  )}
                 </Box>
               )}
             </Paper>
 
-            {project && (
+            {project && ((isLeader && project.status === 'Submitted') || !isLeader) && (
               <Paper elevation={0} sx={{ p: { xs: 2, sm: 3 }, border: '1px solid #e4e6ef', borderRadius: 2 }}>
-                <Typography variant="h6" sx={{ fontWeight: 800, mb: 0.5 }}>Gửi duyệt project</Typography>
-                <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-                  Ngày mượn và ngày trả sẽ được backend kiểm tra theo quy định lớp và tồn kho.
-                </Typography>
-                {isLeader && ['Draft', 'Rejected'].includes(project.status) && (
-                  <Button variant="contained" startIcon={<SendIcon />} onClick={openSubmitDialog} sx={{ textTransform: 'none', fontWeight: 700 }}>
-                    Gửi duyệt
-                  </Button>
-                )}
                 {isLeader && project.status === 'Submitted' && (
                   <Button
                     variant="outlined"
