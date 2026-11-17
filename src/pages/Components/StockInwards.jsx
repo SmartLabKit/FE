@@ -26,8 +26,13 @@ import { useNavigate, useSearchParams } from 'react-router-dom'
 import PortalLayout from '../../components/layout/PortalLayout'
 import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
+import {
+  getVietnamDateInputValue,
+  toReceiptReceivedAtIso,
+  toSafeInvoiceDateIso,
+} from '../../utils/dateFormatting'
 
-const today = new Date().toISOString().slice(0, 10)
+const today = getVietnamDateInputValue()
 const defaultWarrantyDate = () => {
   const d = new Date()
   d.setFullYear(d.getFullYear() + 1)
@@ -55,7 +60,7 @@ export default function StockInwards() {
   const [cabinets, setCabinets] = useState([])
   const [supplier, setSupplier] = useState('')
   const [invoiceNumber, setInvoiceNumber] = useState('')
-  const [receivedAt, setReceivedAt] = useState(today)
+  const [receivedAt, setReceivedAt] = useState(getVietnamDateInputValue())
   const [invoiceDate, setInvoiceDate] = useState('')
   const [note, setNote] = useState('')
   const [lines, setLines] = useState([newLine()])
@@ -84,13 +89,13 @@ export default function StockInwards() {
           if (!active) return
           setSupplier(receipt.supplierName || '')
           setInvoiceNumber(receipt.invoiceNumber || '')
-          setReceivedAt((receipt.receivedAt || today).slice(0, 10))
+          setReceivedAt(getVietnamDateInputValue(receipt.receivedAt) || getVietnamDateInputValue())
           const rawInvDate =
             receipt.invoiceDate ||
             receipt.InvoiceDate ||
             localStorage.getItem(`receipt_invoice_date_${editId}`) ||
             ''
-          setInvoiceDate(rawInvDate ? rawInvDate.slice(0, 10) : '')
+          setInvoiceDate(getVietnamDateInputValue(rawInvDate))
           setNote(
             receipt.note ||
               receipt.notes ||
@@ -161,10 +166,15 @@ export default function StockInwards() {
   const handleSubmit = async (event) => {
     event.preventDefault()
     setError('')
+    const todayVn = getVietnamDateInputValue()
     if (!supplier.trim()) return setError('Vui lòng nhập nhà cung cấp.')
     if (!receivedAt) return setError('Vui lòng chọn ngày nhận hàng.')
+    if (receivedAt > todayVn) return setError('Ngày nhận hàng không được ở tương lai.')
+    if (invoiceDate && invoiceDate > todayVn) return setError('Ngày hóa đơn không được ở tương lai.')
 
     const noteVal = note.trim() || null
+    const isoReceivedAt = toReceiptReceivedAtIso(receivedAt)
+    const isoInvoiceDate = toSafeInvoiceDateIso(invoiceDate)
 
     // TRƯỜNG HỢP SỬA PHIẾU: Chỉ được sửa các thông tin Nhà cung cấp, Số hóa đơn, Ngày nhận, Ngày hóa đơn, Ghi chú
     if (editId) {
@@ -173,16 +183,16 @@ export default function StockInwards() {
         const payload = {
           supplierName: supplier.trim(),
           invoiceNumber: invoiceNumber.trim() || null,
-          receivedAt: `${receivedAt}T00:00:00Z`,
-          invoiceDate: invoiceDate ? `${invoiceDate}T00:00:00Z` : null,
+          receivedAt: isoReceivedAt,
+          invoiceDate: isoInvoiceDate,
           note: noteVal,
           notes: noteVal,
           description: noteVal,
           remarks: noteVal,
           SupplierName: supplier.trim(),
           InvoiceNumber: invoiceNumber.trim() || null,
-          ReceivedAt: `${receivedAt}T00:00:00Z`,
-          InvoiceDate: invoiceDate ? `${invoiceDate}T00:00:00Z` : null,
+          ReceivedAt: isoReceivedAt,
+          InvoiceDate: isoInvoiceDate,
         }
 
         await inventoryService.updateStockReceipt(editId, payload)
@@ -242,8 +252,8 @@ export default function StockInwards() {
     const payload = {
       supplierName: supplier.trim(),
       invoiceNumber: invoiceNumber.trim() || null,
-      receivedAt: `${receivedAt}T00:00:00Z`,
-      invoiceDate: invoiceDate ? `${invoiceDate}T00:00:00Z` : null,
+      receivedAt: isoReceivedAt,
+      invoiceDate: isoInvoiceDate,
       note: noteVal,
       notes: noteVal,
       description: noteVal,
@@ -371,7 +381,10 @@ export default function StockInwards() {
                   label="Ngày nhận"
                   value={receivedAt}
                   onChange={(event) => setReceivedAt(event.target.value)}
-                  slotProps={{ inputLabel: { shrink: true } }}
+                  slotProps={{
+                    inputLabel: { shrink: true },
+                    htmlInput: { max: getVietnamDateInputValue() },
+                  }}
                 />
               </Grid>
               <Grid size={{ xs: 12, md: 6 }}>
@@ -381,7 +394,10 @@ export default function StockInwards() {
                   label="Ngày hóa đơn"
                   value={invoiceDate}
                   onChange={(event) => setInvoiceDate(event.target.value)}
-                  slotProps={{ inputLabel: { shrink: true } }}
+                  slotProps={{
+                    inputLabel: { shrink: true },
+                    htmlInput: { max: getVietnamDateInputValue() },
+                  }}
                 />
               </Grid>
               <Grid size={{ xs: 12 }}>

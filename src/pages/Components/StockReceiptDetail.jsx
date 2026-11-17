@@ -33,31 +33,26 @@ import {
 import PortalLayout from '../../components/layout/PortalLayout'
 import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
+import {
+  formatVietnamDate,
+  formatVietnamDateTime,
+  getVietnamDateInputValue,
+  toReceiptReceivedAtIso,
+  toSafeInvoiceDateIso,
+} from '../../utils/dateFormatting'
 
 const getLines = (receipt) => receipt?.items || receipt?.lines || receipt?.receiptLines || []
 const getSerials = (line) =>
   Array.isArray(line.serialNumbers || line.serials) ? line.serialNumbers || line.serials : []
 const money = (value) => Number(value || 0).toLocaleString('vi-VN')
-const date = (value) => (value ? new Date(value).toLocaleDateString('vi-VN') : '—')
+const formatDateTime = (value) => formatVietnamDateTime(value)
+const formatDate = (value) => formatVietnamDate(value)
 
 // Chuyển đổi giá trị ngày sang YYYY-MM-DD
-const toYMD = (val) => {
-  if (!val) return ''
-  const d = new Date(val)
-  if (Number.isNaN(d.getTime())) return ''
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
+const toYMD = (val) => getVietnamDateInputValue(val)
 
 // Chuyển chuỗi YYYY-MM-DD sang dd/mm/yyyy
-const formatDateDisplay = (dateStr) => {
-  if (!dateStr) return '—'
-  const [y, m, d] = dateStr.split('-')
-  if (y && m && d) return `${d}/${m}/${y}`
-  return dateStr
-}
+const formatDateDisplay = (dateStr) => (!dateStr ? '—' : formatVietnamDate(dateStr))
 
 const getReceiptNote = (r, id) => {
   if (!r) return ''
@@ -120,13 +115,13 @@ export default function StockReceiptDetail() {
   const handleOpenEdit = () => {
     setEditSupplier(receipt?.supplierName || '')
     setEditInvoiceNumber(receipt?.invoiceNumber || '')
-    setEditReceivedAt(toYMD(receipt?.receivedAt))
+    setEditReceivedAt(getVietnamDateInputValue(receipt?.receivedAt))
     const rawInvoiceDate =
       receipt?.invoiceDate ||
       receipt?.InvoiceDate ||
       localStorage.getItem(`receipt_invoice_date_${receiptId}`) ||
       ''
-    setEditInvoiceDate(toYMD(rawInvoiceDate))
+    setEditInvoiceDate(getVietnamDateInputValue(rawInvoiceDate))
     setEditNote(getReceiptNote(receipt, receiptId))
     setEditError('')
     setEditOpen(true)
@@ -137,12 +132,21 @@ export default function StockReceiptDetail() {
       setEditError('Vui lòng nhập tên nhà cung cấp.')
       return
     }
+    const todayVn = getVietnamDateInputValue()
+    if (editReceivedAt && editReceivedAt > todayVn) {
+      setEditError('Ngày nhận hàng không được ở tương lai.')
+      return
+    }
+    if (editInvoiceDate && editInvoiceDate > todayVn) {
+      setEditError('Ngày hóa đơn không được ở tương lai.')
+      return
+    }
     setEditBusy(true)
     setEditError('')
 
     const rawLines = getLines(receipt)
-    const isoReceivedAt = editReceivedAt ? new Date(`${editReceivedAt}T00:00:00Z`).toISOString() : receipt?.receivedAt
-    const isoInvoiceDate = editInvoiceDate ? new Date(`${editInvoiceDate}T00:00:00Z`).toISOString() : null
+    const isoReceivedAt = editReceivedAt ? toReceiptReceivedAtIso(editReceivedAt) : receipt?.receivedAt
+    const isoInvoiceDate = editInvoiceDate ? toSafeInvoiceDateIso(editInvoiceDate) : null
     const noteVal = editNote.trim() || null
 
     // Chỉ cập nhật các trường được phép: Nhà cung cấp, Số hóa đơn, Ngày nhận, Ngày hóa đơn, Ghi chú
@@ -321,11 +325,11 @@ export default function StockReceiptDetail() {
                   </Grid>
                   <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
                     <Typography color="text.secondary" fontSize={13}>Ngày nhận</Typography>
-                    <Typography fontWeight={600}>{date(receipt.receivedAt)}</Typography>
+                    <Typography fontWeight={600}>{formatDateTime(receipt.receivedAt)}</Typography>
                   </Grid>
                   <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
                     <Typography color="text.secondary" fontSize={13}>Ngày hóa đơn</Typography>
-                    <Typography fontWeight={600}>{currentInvoiceDate ? date(currentInvoiceDate) : '—'}</Typography>
+                    <Typography fontWeight={600}>{currentInvoiceDate ? formatDate(currentInvoiceDate) : '—'}</Typography>
                   </Grid>
                   <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
                     <Typography color="text.secondary" fontSize={13}>Tổng tiền</Typography>
@@ -587,6 +591,7 @@ export default function StockReceiptDetail() {
                   <input
                     ref={receivedAtInputRef}
                     type="date"
+                    max={getVietnamDateInputValue()}
                     value={editReceivedAt}
                     onChange={(e) => setEditReceivedAt(e.target.value)}
                     onClick={(e) => e.target.showPicker?.()}
@@ -629,6 +634,7 @@ export default function StockReceiptDetail() {
                   <input
                     ref={invoiceDateInputRef}
                     type="date"
+                    max={getVietnamDateInputValue()}
                     value={editInvoiceDate}
                     onChange={(e) => setEditInvoiceDate(e.target.value)}
                     onClick={(e) => e.target.showPicker?.()}

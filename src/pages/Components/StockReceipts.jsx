@@ -29,28 +29,16 @@ import { useNavigate } from 'react-router-dom'
 import PortalLayout from '../../components/layout/PortalLayout'
 import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
+import { formatVietnamDate, getVietnamDateInputValue } from '../../utils/dateFormatting'
 
 // Format hiển thị ngày theo chuẩn vi-VN: dd/mm/yyyy
-const formatDate = (value) => (value ? new Date(value).toLocaleDateString('vi-VN') : '—')
+const formatDate = (value) => formatVietnamDate(value)
 
 // Hiển thị ngày đã chọn dạng dd/mm/yyyy trên ô chọn ngày
-const formatDateDisplay = (dateStr) => {
-  if (!dateStr) return 'Chọn ngày'
-  const [y, m, d] = dateStr.split('-')
-  if (y && m && d) return `${d}/${m}/${y}`
-  return dateStr
-}
+const formatDateDisplay = (dateStr) => (!dateStr ? 'Chọn ngày' : formatVietnamDate(dateStr))
 
 // Chuyển đổi giá trị ngày sang YYYY-MM-DD theo giờ địa phương để so sánh chính xác
-const toYMD = (val) => {
-  if (!val) return ''
-  const d = new Date(val)
-  if (Number.isNaN(d.getTime())) return ''
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  const day = String(d.getDate()).padStart(2, '0')
-  return `${y}-${m}-${day}`
-}
+const toYMD = (val) => getVietnamDateInputValue(val)
 
 const formatMoney = (value) => Number(value || 0).toLocaleString('vi-VN')
 
@@ -462,6 +450,7 @@ export default function StockReceipts() {
                 <input
                   ref={fromDateInputRef}
                   type="date"
+                  max={getVietnamDateInputValue()}
                   value={fromDate}
                   onChange={handleFromDateChange}
                   onClick={(e) => e.target.showPicker?.()}
@@ -537,6 +526,7 @@ export default function StockReceipts() {
                 <input
                   ref={toDateInputRef}
                   type="date"
+                  max={getVietnamDateInputValue()}
                   value={toDate}
                   onChange={handleToDateChange}
                   onClick={(e) => e.target.showPicker?.()}

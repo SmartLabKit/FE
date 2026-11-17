@@ -36,6 +36,7 @@ function preserveDatePart(value, separator) {
 }
 
 export function getVietnamDateInputValue(value = new Date()) {
+  if (!value) return ''
   const preservedDate = preserveDatePart(value, '-')
   if (preservedDate) return preservedDate
 
@@ -62,11 +63,78 @@ export function formatVietnamDate(value) {
 export function formatVietnamDateTime(value) {
   if (!value) return '—'
   const date = value instanceof Date ? value : new Date(value)
-  return Number.isNaN(date.getTime())
-    ? '—'
-    : new Intl.DateTimeFormat('vi-VN', {
-      timeZone: 'Asia/Ho_Chi_Minh',
-      dateStyle: 'short',
-      timeStyle: 'short',
-    }).format(date)
+  if (Number.isNaN(date.getTime())) return '—'
+  return new Intl.DateTimeFormat('vi-VN', {
+    timeZone: 'Asia/Ho_Chi_Minh',
+    hour: '2-digit',
+    minute: '2-digit',
+    second: '2-digit',
+    day: '2-digit',
+    month: '2-digit',
+    year: 'numeric',
+    hour12: false,
+  }).format(date)
+}
+
+/**
+ * Chuyển đổi ngày nhận hàng sang chuẩn ISO UTC an toàn cho backend:
+ * - Nếu là ngày hôm nay: dùng chính xác thời điểm hiện tại (trừ 3 giây chống lệch đồng hồ với server, không bị lỗi tương lai).
+ * - Nếu là ngày quá khứ: kết hợp ngày được chọn với giờ/phút/giây hiện tại theo múi giờ Việt Nam (tránh bị mặc định về 07:00:00 sáng).
+ * - Đảm bảo không bao giờ vượt quá thời điểm hiện tại (DateTime.UtcNow) của backend.
+ */
+export function toReceiptReceivedAtIso(dateInput) {
+  if (!dateInput) {
+    return new Date(Date.now() - 3000).toISOString()
+  }
+
+  if (typeof dateInput === 'string' && dateInput.includes('T')) {
+    const d = new Date(dateInput)
+    if (!Number.isNaN(d.getTime())) {
+      return (d.getTime() > Date.now() ? new Date(Date.now() - 3000) : d).toISOString()
+    }
+  }
+
+  const todayVn = getVietnamDateInputValue()
+  const now = new Date()
+
+  if (dateInput === todayVn) {
+    return new Date(Date.now() - 3000).toISOString()
+  }
+
+  const [y, m, d] = String(dateInput).split('-').map(Number)
+  if (!y || !m || !d) {
+    return new Date(Date.now() - 3000).toISOString()
+  }
+
+  // Ghép ngày quá khứ với giờ phút giây hiện tại theo múi giờ địa phương
+  const localDate = new Date(y, m - 1, d, now.getHours(), now.getMinutes(), now.getSeconds())
+  if (localDate.getTime() > Date.now()) {
+    return new Date(Date.now() - 3000).toISOString()
+  }
+
+  return localDate.toISOString()
+}
+
+/**
+ * Chuyển đổi ngày hóa đơn sang chuẩn ISO an toàn, tránh lệch ngày do múi giờ và không vượt quá hiện tại.
+ */
+export function toSafeInvoiceDateIso(dateInput) {
+  if (!dateInput) return null
+  const todayVn = getVietnamDateInputValue()
+  const now = new Date()
+
+  if (dateInput === todayVn) {
+    return new Date(Date.now() - 3000).toISOString()
+  }
+
+  const [y, m, d] = String(dateInput).split('-').map(Number)
+  if (!y || !m || !d) return null
+
+  // Đặt 12:00 trưa địa phương để an toàn, không nhảy ngày khi chuyển đổi UTC
+  const localDate = new Date(y, m - 1, d, 12, 0, 0)
+  if (localDate.getTime() > Date.now()) {
+    return new Date(Date.now() - 3000).toISOString()
+  }
+
+  return localDate.toISOString()
 }
