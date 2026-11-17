@@ -150,9 +150,11 @@ export const projectService = {
       return unwrap(await api.post('/api/projects/suggest-components', { description }))
     } catch (error) {
       if (error.response?.status === 429) {
-        throw new Error('Bạn đã sử dụng hết lượt AI gợi ý (tối đa 10 lần/giờ). Vui lòng thử lại sau.', {
-          cause: error,
-        })
+        const message = extractErrorMessage(
+          error,
+          'Bạn đã sử dụng hết lượt AI gợi ý (tối đa 10 lần/giờ). Vui lòng thử lại sau.'
+        )
+        throw new Error(message, { cause: error })
       }
       throw new Error(extractErrorMessage(error, 'Không thể lấy gợi ý linh kiện'), { cause: error })
     }
