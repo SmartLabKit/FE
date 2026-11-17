@@ -22,6 +22,17 @@ function formatDate(value) {
   return value ? new Date(value).toLocaleString('vi-VN') : '—'
 }
 
+function getItemStatusChip(item, requestStatus) {
+  const isReturned = Boolean(item.returnedAt) || String(item.status || '').toLowerCase() === 'returned'
+  if (isReturned) {
+    return <Chip size="small" label="Đã trả" sx={{ bgcolor: '#dcfce7', color: '#15803d', fontWeight: 700, fontSize: 11 }} />
+  }
+  if (['Borrowing', 'Overdue'].includes(requestStatus)) {
+    return <Chip size="small" label="Chưa trả" sx={{ bgcolor: '#fffbeb', color: '#b45309', fontWeight: 700, fontSize: 11 }} />
+  }
+  return <Chip size="small" label={item.status || 'Chưa trả'} sx={{ bgcolor: '#f1f5f9', color: '#475569', fontWeight: 700, fontSize: 11 }} />
+}
+
 export default function BorrowRequestDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -109,9 +120,12 @@ export default function BorrowRequestDetail() {
               {request.items?.length ? (
                 <Stack spacing={1.5}>
                   {request.items.map((item, index) => (
-                    <Box key={item.borrowItemId || `${item.componentId}-${index}`} sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
-                      <Typography variant="body2">{item.componentName} ({item.componentCode})</Typography>
-                      <Typography variant="body2" fontWeight={700}>{item.quantity} {item.unit || ''} · {item.status}</Typography>
+                    <Box key={item.borrowItemId || `${item.componentId}-${index}`} sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
+                      <Box>
+                        <Typography variant="body2" sx={{ fontWeight: 600 }}>{item.componentName} ({item.componentCode})</Typography>
+                        <Typography variant="caption" color="text.secondary">Số lượng: {item.quantity} {item.unit || ''}</Typography>
+                      </Box>
+                      {getItemStatusChip(item, request.status)}
                     </Box>
                   ))}
                 </Stack>

@@ -1,15 +1,17 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useMemo } from 'react'
 import {
   Alert,
   Box,
   Button,
   Chip,
+  CircularProgress,
   Container,
   Dialog,
   DialogActions,
   DialogContent,
   DialogContentText,
   DialogTitle,
+  InputAdornment,
   Paper,
   Snackbar,
   Table,
@@ -30,6 +32,7 @@ import {
   AssignmentReturn as AssignmentReturnIcon,
   Check as CheckIcon,
   Update as UpdateIcon,
+  Search as SearchIcon,
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import PortalLayout from '../../components/layout/PortalLayout'
@@ -58,8 +61,11 @@ export default function SupplementaryBorrowList() {
   const [returnRequests, setReturnRequests] = useState(MOCK_RETURN_REQUESTS)
   const [borrowRequests, setBorrowRequests] = useState(MOCK_ORIGINAL_BORROWS)
   const [extensions, setExtensions] = useState(MOCK_BORROW_EXTENSIONS)
-  const [pendingProjects, setPendingProjects] = useState([])
-  const [pendingProjectsError, setPendingProjectsError] = useState('')
+  const [lecturerProjects, setLecturerProjects] = useState([])
+  const [loadingLecturerProjects, setLoadingLecturerProjects] = useState(false)
+  const [lecturerProjectsError, setLecturerProjectsError] = useState('')
+  const [projectStatusFilter, setProjectStatusFilter] = useState('all') // 'all' | 'Submitted' | 'Approved' | 'Rejected'
+  const [projectSearch, setProjectSearch] = useState('')
   const [selectedProject, setSelectedProject] = useState(null)
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
 
@@ -96,16 +102,21 @@ export default function SupplementaryBorrowList() {
       })
 
     if (isLecturer) {
-      projectService.getPendingApprovalProjects()
-        .then((data) => {
+      Promise.resolve().then(async () => {
+        if (!isMounted) return
+        setLoadingLecturerProjects(true)
+        try {
+          const data = await projectService.getLecturerProjects()
           if (!isMounted) return
-          setPendingProjects(Array.isArray(data) ? data : data?.items || [])
-          setPendingProjectsError('')
-        })
-        .catch((err) => {
+          setLecturerProjects(Array.isArray(data) ? data : [])
+          setLecturerProjectsError('')
+        } catch (err) {
           if (!isMounted) return
-          setPendingProjectsError(err.message || 'Không thể tải project chờ duyệt.')
-        })
+          setLecturerProjectsError(err.message || 'Không thể tải danh sách project của sinh viên.')
+        } finally {
+          if (isMounted) setLoadingLecturerProjects(false)
+        }
+      })
     }
 
     return () => {
@@ -116,11 +127,11 @@ export default function SupplementaryBorrowList() {
   const refreshData = async () => {
     if (isLecturer) {
       try {
-        const projects = await projectService.getPendingApprovalProjects()
-        setPendingProjects(Array.isArray(projects) ? projects : projects?.items || [])
-        setPendingProjectsError('')
+        const projects = await projectService.getLecturerProjects()
+        setLecturerProjects(Array.isArray(projects) ? projects : [])
+        setLecturerProjectsError('')
       } catch (err) {
-        setPendingProjectsError(err.message || 'Không thể tải project chờ duyệt.')
+        setLecturerProjectsError(err.message || 'Không thể tải danh sách project của sinh viên.')
       }
     }
     try {
@@ -135,6 +146,107 @@ export default function SupplementaryBorrowList() {
       if (extData?.items) setExtensions(extData.items)
     } catch (err) {
       console.warn('Lỗi tải lại dữ liệu mượn trả:', err)
+    }
+  }
+
+  // Thống kê số lượng project theo trạng thái cho Giảng viên
+  const pendingCount = useMemo(
+    () =>
+      lecturerProjects.filter((p) =>
+        ['Submitted', 'PendingApproval', 'PendingLecturer', 'Pending'].includes(p.status)
+      ).length,
+    [lecturerProjects]
+  )
+
+  const approvedCount = useMemo(
+    () => lecturerProjects.filter((p) => p.status === 'Approved').length,
+    [lecturerProjects]
+  )
+
+  const rejectedCount = useMemo(
+    () => lecturerProjects.filter((p) => p.status === 'Rejected').length,
+    [lecturerProjects]
+  )
+
+  // Danh sách project đã lọc
+  const filteredLecturerProjects = useMemo(() => {
+    return lecturerProjects.filter((project) => {
+      // Lọc trạng thái
+      if (projectStatusFilter === 'Submitted') {
+        if (!['Submitted', 'PendingApproval', 'PendingLecturer', 'Pending'].includes(project.status)) {
+          return false
+        }
+      } else if (projectStatusFilter === 'Approved') {
+        if (project.status !== 'Approved') return false
+      } else if (projectStatusFilter === 'Rejected') {
+        if (project.status !== 'Rejected') return false
+      }
+
+      // Tìm kiếm từ khóa
+      if (projectSearch.trim()) {
+        const q = projectSearch.toLowerCase().trim()
+        const matchTitle = project.title?.toLowerCase().includes(q)
+        const matchCode = project.requestCode?.toLowerCase().includes(q)
+        const matchOwner = project.ownerName?.toLowerCase().includes(q)
+        const matchTeam = project.teamName?.toLowerCase().includes(q)
+        const matchClass = project.classCode?.toLowerCase().includes(q)
+        if (!matchTitle && !matchCode && !matchOwner && !matchTeam && !matchClass) {
+          return false
+        }
+      }
+
+      return true
+    })
+  }, [lecturerProjects, projectStatusFilter, projectSearch])
+
+  const getProjectStatusChip = (status) => {
+    switch (status) {
+      case 'Submitted':
+      case 'PendingApproval':
+      case 'PendingLecturer':
+      case 'Pending':
+        return (
+          <Chip
+            icon={<HourglassIcon sx={{ fontSize: '14px !important' }} />}
+            label="Chờ duyệt"
+            size="small"
+            sx={{ bgcolor: '#fef3c7', color: '#b45309', fontWeight: 800, fontSize: 11 }}
+          />
+        )
+      case 'Approved':
+        return (
+          <Chip
+            icon={<CheckCircleIcon sx={{ fontSize: '14px !important' }} />}
+            label="Đã duyệt"
+            size="small"
+            sx={{ bgcolor: '#dcfce7', color: '#15803d', fontWeight: 800, fontSize: 11 }}
+          />
+        )
+      case 'Rejected':
+        return (
+          <Chip
+            icon={<CancelIcon sx={{ fontSize: '14px !important' }} />}
+            label="Bị từ chối"
+            size="small"
+            sx={{ bgcolor: '#fee2e2', color: '#dc2626', fontWeight: 800, fontSize: 11 }}
+          />
+        )
+      case 'Draft':
+        return (
+          <Chip
+            label="Bản nháp"
+            size="small"
+            sx={{ bgcolor: '#f1f5f9', color: '#64748b', fontWeight: 700, fontSize: 11 }}
+          />
+        )
+      default:
+        return (
+          <Chip
+            label={status || 'Chờ duyệt'}
+            size="small"
+            sx={{ bgcolor: '#eff6ff', color: '#0058be', fontWeight: 700, fontSize: 11 }}
+          />
+        )
     }
   }
 
@@ -362,75 +474,250 @@ export default function SupplementaryBorrowList() {
         {isLecturer && (
           <Paper
             elevation={0}
-            sx={{ p: 3, mb: 3, borderRadius: 2, border: '1px solid #e4e6ef', bgcolor: '#ffffff' }}
+            sx={{ p: 3, mb: 4, borderRadius: 2, border: '1px solid #e4e6ef', bgcolor: '#ffffff' }}
           >
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, gap: 1 }}>
+            {/* Tiêu đề & Tổng số */}
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2.5, gap: 1, flexWrap: 'wrap' }}>
               <Box>
-                <Typography variant="h6" sx={{ fontWeight: 800, color: '#131b2e' }}>
-                  Project chờ duyệt
+                <Typography variant="h6" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 18 }}>
+                  Quản lý đơn duyệt đồ án & mượn linh kiện
                 </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  GET /api/projects/pending-approval
+                <Typography variant="caption" sx={{ color: '#64748b', fontSize: 13 }}>
+                  Theo dõi tất cả đề tài đồ án của sinh viên, xem thông tin chi tiết và duyệt mượn linh kiện
                 </Typography>
               </Box>
               <Chip
-                label={`${pendingProjects.length} project`}
+                label={`${lecturerProjects.length} đề tài`}
                 size="small"
-                sx={{ bgcolor: '#fff7ed', color: '#c2410c', fontWeight: 800 }}
+                sx={{ bgcolor: '#eff6ff', color: '#0058be', fontWeight: 800, fontSize: 12 }}
               />
             </Box>
-            {pendingProjectsError && <Alert severity="error" sx={{ mb: 2 }}>{pendingProjectsError}</Alert>}
-            <TableContainer sx={{ border: '1px solid #f0f2f5', borderRadius: 1.5 }}>
-              <Table size="small">
-                <TableHead sx={{ bgcolor: '#fafbff' }}>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 800, fontSize: 11 }}>PROJECT</TableCell>
-                    <TableCell sx={{ fontWeight: 800, fontSize: 11 }}>NHÓM / LỚP</TableCell>
-                    <TableCell sx={{ fontWeight: 800, fontSize: 11 }}>NGÀY GỬI</TableCell>
-                    <TableCell sx={{ fontWeight: 800, fontSize: 11 }}>NGÀY MƯỢN / TRẢ</TableCell>
-                    <TableCell sx={{ fontWeight: 800, fontSize: 11 }}>LOẠI</TableCell>
-                    <TableCell align="right" sx={{ fontWeight: 800, fontSize: 11 }}>THAO TÁC</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {pendingProjects.length === 0 ? (
+
+            {/* Thanh lọc trạng thái và ô tìm kiếm */}
+            <Box
+              sx={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 1.5,
+                mb: 2.5,
+              }}
+            >
+              <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+                <Button
+                  size="small"
+                  variant={projectStatusFilter === 'all' ? 'contained' : 'outlined'}
+                  onClick={() => setProjectStatusFilter('all')}
+                  sx={{
+                    borderRadius: 2,
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    fontSize: 12,
+                    px: 1.8,
+                    py: 0.6,
+                    bgcolor: projectStatusFilter === 'all' ? '#0058be' : 'transparent',
+                    borderColor: projectStatusFilter === 'all' ? '#0058be' : '#e2e8f0',
+                    color: projectStatusFilter === 'all' ? '#fff' : '#475569',
+                    boxShadow: 'none',
+                    '&:hover': {
+                      bgcolor: projectStatusFilter === 'all' ? '#004ca6' : '#f8fafc',
+                    },
+                  }}
+                >
+                  Tất cả ({lecturerProjects.length})
+                </Button>
+                <Button
+                  size="small"
+                  variant={projectStatusFilter === 'Submitted' ? 'contained' : 'outlined'}
+                  onClick={() => setProjectStatusFilter('Submitted')}
+                  sx={{
+                    borderRadius: 2,
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    fontSize: 12,
+                    px: 1.8,
+                    py: 0.6,
+                    bgcolor: projectStatusFilter === 'Submitted' ? '#b45309' : '#fffbeb',
+                    borderColor: projectStatusFilter === 'Submitted' ? '#b45309' : '#fde68a',
+                    color: projectStatusFilter === 'Submitted' ? '#fff' : '#b45309',
+                    boxShadow: 'none',
+                    '&:hover': {
+                      bgcolor: projectStatusFilter === 'Submitted' ? '#92400e' : '#fef3c7',
+                    },
+                  }}
+                >
+                  Chờ duyệt ({pendingCount})
+                </Button>
+                <Button
+                  size="small"
+                  variant={projectStatusFilter === 'Approved' ? 'contained' : 'outlined'}
+                  onClick={() => setProjectStatusFilter('Approved')}
+                  sx={{
+                    borderRadius: 2,
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    fontSize: 12,
+                    px: 1.8,
+                    py: 0.6,
+                    bgcolor: projectStatusFilter === 'Approved' ? '#15803d' : '#f0fdf4',
+                    borderColor: projectStatusFilter === 'Approved' ? '#15803d' : '#bbf7d0',
+                    color: projectStatusFilter === 'Approved' ? '#fff' : '#15803d',
+                    boxShadow: 'none',
+                    '&:hover': {
+                      bgcolor: projectStatusFilter === 'Approved' ? '#166534' : '#dcfce7',
+                    },
+                  }}
+                >
+                  Đã duyệt ({approvedCount})
+                </Button>
+                <Button
+                  size="small"
+                  variant={projectStatusFilter === 'Rejected' ? 'contained' : 'outlined'}
+                  onClick={() => setProjectStatusFilter('Rejected')}
+                  sx={{
+                    borderRadius: 2,
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    fontSize: 12,
+                    px: 1.8,
+                    py: 0.6,
+                    bgcolor: projectStatusFilter === 'Rejected' ? '#dc2626' : '#fef2f2',
+                    borderColor: projectStatusFilter === 'Rejected' ? '#dc2626' : '#fecaca',
+                    color: projectStatusFilter === 'Rejected' ? '#fff' : '#dc2626',
+                    boxShadow: 'none',
+                    '&:hover': {
+                      bgcolor: projectStatusFilter === 'Rejected' ? '#b91c1c' : '#fee2e2',
+                    },
+                  }}
+                >
+                  Bị từ chối ({rejectedCount})
+                </Button>
+              </Box>
+
+              <TextField
+                placeholder="Tìm kiếm theo đề tài, nhóm, mã SV..."
+                size="small"
+                value={projectSearch}
+                onChange={(e) => setProjectSearch(e.target.value)}
+                InputProps={{
+                  startAdornment: (
+                    <InputAdornment position="start">
+                      <SearchIcon sx={{ color: '#94a3b8', fontSize: 19 }} />
+                    </InputAdornment>
+                  ),
+                }}
+                sx={{
+                  width: { xs: '100%', sm: 300 },
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 2,
+                    fontSize: 12,
+                    bgcolor: '#f8fafc',
+                  },
+                }}
+              />
+            </Box>
+
+            {lecturerProjectsError && <Alert severity="error" sx={{ mb: 2 }}>{lecturerProjectsError}</Alert>}
+
+            {loadingLecturerProjects ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
+                <CircularProgress size={32} />
+              </Box>
+            ) : (
+              <TableContainer sx={{ border: '1px solid #f0f2f5', borderRadius: 1.5 }}>
+                <Table size="small">
+                  <TableHead sx={{ bgcolor: '#fafbff' }}>
                     <TableRow>
-                      <TableCell colSpan={6} align="center" sx={{ py: 3, color: 'text.secondary' }}>
-                        Không có project chờ duyệt.
-                      </TableCell>
+                      <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280', py: 1.2 }}>ĐỀ TÀI / DỰ ÁN</TableCell>
+                      <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>NHÓM / LỚP</TableCell>
+                      <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>NGÀY GỬI</TableCell>
+                      <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>NGÀY MƯỢN / TRẢ</TableCell>
+                      <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>TRẠNG THÁI</TableCell>
+                      <TableCell align="right" sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>THAO TÁC</TableCell>
                     </TableRow>
-                  ) : pendingProjects.map((project) => (
-                    <TableRow key={project.projectId} hover>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ fontWeight: 800 }}>{project.title}</Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          {project.requestCode || '—'} · {project.ownerName || '—'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell>{project.teamName} · {project.classCode}</TableCell>
-                      <TableCell>{project.submittedAt ? new Date(project.submittedAt).toLocaleDateString('vi-VN') : '—'}</TableCell>
-                      <TableCell>
-                        {project.borrowDate ? new Date(project.borrowDate).toLocaleDateString('vi-VN') : '—'}
-                        {' / '}
-                        {project.dueDate ? new Date(project.dueDate).toLocaleDateString('vi-VN') : '—'}
-                      </TableCell>
-                      <TableCell>
-                        {project.isSupplementary ? (
-                          <Chip label="Mượn thêm" size="small" color="warning" />
-                        ) : (
-                          <Chip label="Project mới" size="small" color="primary" variant="outlined" />
-                        )}
-                      </TableCell>
-                      <TableCell align="right">
-                        <Button size="small" variant="contained" onClick={() => setSelectedProject(project)} sx={{ textTransform: 'none' }}>
-                          Chi tiết / Duyệt
-                        </Button>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                  </TableHead>
+                  <TableBody>
+                    {filteredLecturerProjects.length === 0 ? (
+                      <TableRow>
+                        <TableCell colSpan={6} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                          {projectSearch
+                            ? 'Không tìm thấy đề tài nào phù hợp với từ khóa.'
+                            : 'Không có đề tài nào trong danh mục này.'}
+                        </TableCell>
+                      </TableRow>
+                    ) : (
+                      filteredLecturerProjects.map((project) => {
+                        const isPending = ['Submitted', 'PendingApproval', 'PendingLecturer', 'Pending'].includes(project.status)
+                        return (
+                          <TableRow key={project.projectId} hover>
+                            <TableCell>
+                              <Typography variant="body2" sx={{ fontWeight: 800, color: '#131b2e' }}>
+                                {project.title}
+                              </Typography>
+                              <Typography variant="caption" sx={{ color: '#64748b' }}>
+                                {project.requestCode || '—'} · {project.ownerName || '—'}
+                              </Typography>
+                            </TableCell>
+                            <TableCell sx={{ fontSize: 12, color: '#334155' }}>
+                              <strong>{project.teamName || 'Nhóm'}</strong> · {project.classCode || '—'}
+                            </TableCell>
+                            <TableCell sx={{ fontSize: 12, color: '#64748b' }}>
+                              {project.submittedAt ? new Date(project.submittedAt).toLocaleDateString('vi-VN') : '—'}
+                            </TableCell>
+                            <TableCell sx={{ fontSize: 12, color: '#334155' }}>
+                              {project.borrowDate ? new Date(project.borrowDate).toLocaleDateString('vi-VN') : '—'}
+                              {' / '}
+                              {project.dueDate ? new Date(project.dueDate).toLocaleDateString('vi-VN') : '—'}
+                            </TableCell>
+                            <TableCell>
+                              {getProjectStatusChip(project.status)}
+                            </TableCell>
+                            <TableCell align="right">
+                              {isPending ? (
+                                <Button
+                                  size="small"
+                                  variant="contained"
+                                  onClick={() => setSelectedProject(project)}
+                                  sx={{
+                                    textTransform: 'none',
+                                    fontWeight: 700,
+                                    fontSize: 11,
+                                    borderRadius: 1.5,
+                                    bgcolor: '#0058be',
+                                    boxShadow: 'none',
+                                    '&:hover': { bgcolor: '#004ca6' },
+                                  }}
+                                >
+                                  Chi tiết / Duyệt
+                                </Button>
+                              ) : (
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  onClick={() => setSelectedProject(project)}
+                                  sx={{
+                                    textTransform: 'none',
+                                    fontWeight: 700,
+                                    fontSize: 11,
+                                    borderRadius: 1.5,
+                                    borderColor: '#cbd5e1',
+                                    color: '#334155',
+                                    '&:hover': { bgcolor: '#f8fafc', borderColor: '#94a3b8' },
+                                  }}
+                                >
+                                  Xem thông tin
+                                </Button>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
           </Paper>
         )}
 

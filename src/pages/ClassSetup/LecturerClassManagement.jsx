@@ -7,6 +7,7 @@ import {
   Avatar,
   Box,
   Button,
+  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -170,12 +171,29 @@ export default function LecturerClassManagement() {
     setPageError('')
     try {
       const result = await academicService.getMyClasses(nextSemesterId || undefined)
-      const list = asArray(result)
+      let list = asArray(result)
       if (requestSequence !== classRequestSequence.current) return
+
+      // Nếu có chọn học kỳ cụ thể, đảm bảo chỉ giữ lớp thuộc học kỳ đó
+      if (nextSemesterId && list.length > 0) {
+        const targetSem = semesters.find((s) => s.semesterId === nextSemesterId)
+        const filteredList = list.filter((item) =>
+          item.semesterId === nextSemesterId ||
+          (targetSem?.semesterCode && item.semesterCode === targetSem.semesterCode)
+        )
+        if (filteredList.length < list.length) {
+          list = filteredList
+        }
+      }
+
       setClasses(list)
       const nextSelectedClass = list.find((item) => item.classId === preferredClassId) || list[0]
       setSelectedClassId(nextSelectedClass?.classId || '')
-      await loadStudents(nextSelectedClass?.classId || '')
+      if (nextSelectedClass?.classId) {
+        await loadStudents(nextSelectedClass.classId)
+      } else {
+        setStudents([])
+      }
     } catch (error) {
       if (requestSequence !== classRequestSequence.current) return
       const details = getErrorDetails(error)
@@ -184,26 +202,65 @@ export default function LecturerClassManagement() {
         : details.message)
       setClasses([])
       setSelectedClassId('')
+      setStudents([])
     } finally {
       if (requestSequence === classRequestSequence.current) setLoadingClasses(false)
     }
-  }, [loadStudents])
+  }, [loadStudents, semesters])
 
   useEffect(() => {
     let active = true
     const initialize = async () => {
-      let initialSemesterId = ''
+      let semList = []
       try {
         const result = await academicService.getSemesters()
         if (!active) return
-        const list = asArray(result)
-        setSemesters(list)
-        initialSemesterId = list.find((semester) => semester.isActive)?.semesterId || ''
-        setSemesterId(initialSemesterId)
+        semList = asArray(result)
+        setSemesters(semList)
       } catch (error) {
         if (active) setSemesterError(getErrorDetails(error).message)
       }
-      if (active) await loadClasses(initialSemesterId)
+
+      try {
+        // Tải danh sách tất cả lớp học của giảng viên (không lọc kỳ)
+        const allClassesResult = await academicService.getMyClasses()
+        if (!active) return
+        const myClassesList = asArray(allClassesResult)
+
+        // Kiểm tra xem kỳ đang active có lớp của giảng viên không
+        const activeSem = semList.find((s) => s.isActive)
+        const hasClassesInActiveSem = activeSem && myClassesList.some(
+          (c) => c.semesterId === activeSem.semesterId || c.semesterCode === activeSem.semesterCode
+        )
+
+        let initialSemester = ''
+        if (hasClassesInActiveSem) {
+          initialSemester = activeSem.semesterId
+          setSemesterId(initialSemester)
+          await loadClasses(initialSemester)
+        } else if (myClassesList.length > 0) {
+          // Nếu kỳ active không có lớp, nhưng giảng viên có lớp ở kỳ khác:
+          // Mặc định chọn "" (Tất cả học kỳ) để hiển thị đầy đủ lớp ngay từ đầu
+          initialSemester = ''
+          setSemesterId('')
+          setClasses(myClassesList)
+          const firstClass = myClassesList[0]
+          setSelectedClassId(firstClass?.classId || '')
+          if (firstClass?.classId) {
+            await loadStudents(firstClass.classId)
+          }
+          setLoadingClasses(false)
+        } else {
+          initialSemester = activeSem?.semesterId || ''
+          setSemesterId(initialSemester)
+          await loadClasses(initialSemester)
+        }
+      } catch {
+        if (!active) return
+        const fallbackSemId = semList.find((s) => s.isActive)?.semesterId || ''
+        setSemesterId(fallbackSemId)
+        await loadClasses(fallbackSemId)
+      }
     }
     initialize()
     return () => {
@@ -211,7 +268,7 @@ export default function LecturerClassManagement() {
       classRequestSequence.current += 1
       studentRequestSequence.current += 1
     }
-  }, [loadClasses])
+  }, [loadClasses, loadStudents])
 
   const studentGroups = useMemo(() => {
     const groups = new Map()
@@ -315,11 +372,14 @@ export default function LecturerClassManagement() {
     }
   }
 
-  const handleSemesterChange = async (event) => {
-    const nextSemesterId = event.target.value
+  const handleSelectSemester = async (nextSemesterId) => {
     setSemesterId(nextSemesterId)
     setSelectedTeam(null)
     await loadClasses(nextSemesterId)
+  }
+
+  const handleSemesterChange = (event) => {
+    handleSelectSemester(event.target.value)
   }
 
   const handleSelectClass = (classId) => {
@@ -347,20 +407,16 @@ export default function LecturerClassManagement() {
       {pageError && <Alert severity="error">{pageError}</Alert>}
       {semesterError && <Alert severity="warning">Không tải được danh sách học kỳ: {semesterError}. Danh sách lớp vẫn được tải không lọc.</Alert>}
 
-      {loadingClasses ? (
-        <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}><CircularProgress /></Box>
-      ) : !classes.length ? (
-        <Alert severity="info">Không có lớp được phân công trong học kỳ này.</Alert>
-      ) : (
-        <Box sx={{
-          display: 'grid',
-          gridTemplateColumns: { xs: '1fr', lg: 'minmax(270px, 0.78fr) minmax(0, 2.22fr)' },
-          alignItems: 'start',
-          gap: { xs: 2, lg: 2.5 },
-          minWidth: 0,
-        }}>
-          <Paper variant="outlined" sx={{ p: { xs: 2, sm: 2.5 }, borderColor: 'grey.200', borderRadius: 2, minWidth: 0 }}>
+      <Box sx={{
+        display: 'grid',
+        gridTemplateColumns: { xs: '1fr', lg: 'minmax(270px, 0.78fr) minmax(0, 2.22fr)' },
+        alignItems: 'start',
+        gap: { xs: 2, lg: 2.5 },
+        minWidth: 0,
+      }}>
+        <Paper variant="outlined" sx={{ p: { xs: 2, sm: 2.5 }, borderColor: 'grey.200', borderRadius: 2, minWidth: 0 }}>
           <Stack spacing={2}>
+            <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.25 }}>
               <FormControl fullWidth size="small">
                 <InputLabel id="lecturer-semester-label">Học kỳ</InputLabel>
                 <Select
@@ -377,6 +433,58 @@ export default function LecturerClassManagement() {
                   ))}
                 </Select>
               </FormControl>
+
+              {/* Quick filter chips cho các kỳ học (tương tự thiết kế mobile trong hình) */}
+              {semesters.length > 0 && (
+                <Box
+                  sx={{
+                    display: 'flex',
+                    gap: 0.8,
+                    overflowX: 'auto',
+                    pb: 0.5,
+                    scrollbarWidth: 'thin',
+                    '&::-webkit-scrollbar': { height: 4 },
+                    '&::-webkit-scrollbar-thumb': { bgcolor: '#cbd5e1', borderRadius: 4 },
+                  }}
+                >
+                  <Chip
+                    label="Tất cả"
+                    size="small"
+                    clickable
+                    color={semesterId === '' ? 'primary' : 'default'}
+                    variant={semesterId === '' ? 'filled' : 'outlined'}
+                    onClick={() => handleSelectSemester('')}
+                    sx={{
+                      fontWeight: semesterId === '' ? 700 : 500,
+                      fontSize: 11,
+                      bgcolor: semesterId === '' ? '#0058be' : undefined,
+                      flexShrink: 0,
+                    }}
+                  />
+                  {semesters.map((sem) => {
+                    const isSelected = semesterId === sem.semesterId
+                    return (
+                      <Chip
+                        key={sem.semesterId}
+                        label={sem.semesterCode}
+                        size="small"
+                        clickable
+                        color={isSelected ? 'primary' : 'default'}
+                        variant={isSelected ? 'filled' : 'outlined'}
+                        onClick={() => handleSelectSemester(sem.semesterId)}
+                        sx={{
+                          fontWeight: isSelected ? 700 : 500,
+                          fontSize: 11,
+                          bgcolor: isSelected ? '#0058be' : undefined,
+                          flexShrink: 0,
+                        }}
+                      />
+                    )
+                  })}
+                </Box>
+              )}
+            </Box>
+
             <Box sx={{ px: 0.25, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
               <Typography variant="subtitle1" sx={{ fontWeight: 800, lineHeight: 1.4, color: 'text.primary' }}>
                 Lớp của tôi
@@ -398,63 +506,88 @@ export default function LecturerClassManagement() {
                 {classes.length} lớp
               </Box>
             </Box>
-            {classes.map((classItem) => (
-              <Box
-                key={classItem.classId}
-                component="button"
-                type="button"
-                aria-pressed={selectedClassId === classItem.classId}
-                onClick={() => handleSelectClass(classItem.classId)}
-                sx={{
-                  p: { xs: 1.5, sm: 1.75 },
-                  cursor: 'pointer',
-                  width: '100%',
-                  minWidth: 0,
-                  textAlign: 'left',
-                  fontFamily: 'inherit',
-                  color: 'inherit',
-                  appearance: 'none',
-                  border: '1px solid',
-                  borderRadius: 2,
-                  borderColor: selectedClassId === classItem.classId ? 'primary.main' : 'divider',
-                  bgcolor: selectedClassId === classItem.classId ? 'primary.50' : 'background.paper',
-                  transition: 'background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease',
-                  '&:hover': {
-                    bgcolor: '#eaf3ff',
-                    borderColor: '#60a5fa',
-                    boxShadow: '0 4px 14px rgba(37, 99, 235, 0.14)',
-                    transform: 'translateY(-1px)',
-                  },
-                  '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 },
-                }}
-              >
-                <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
-                  <Box sx={{ minWidth: 0 }}>
-                    <Typography variant="subtitle2" sx={{ fontWeight: 800, lineHeight: 1.4 }} noWrap>
-                      {classItem.classCode}
-                    </Typography>
-                    <Typography
-                      variant="body2"
-                      color="text.secondary"
-                      noWrap
-                      title={classItem.courseName || classItem.courseCode || 'Môn học'}
-                      sx={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}
-                    >
-                      {classItem.courseName || classItem.courseCode || 'Môn học'}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
-                      {classItem.semesterCode || '—'} · {classItem.currentStudents ?? classItem.studentCount ?? 0}
-                      {classItem.maxStudents ? `/${classItem.maxStudents} SV` : ' SV'}
-                    </Typography>
-                  </Box>
-                  <ChevronRightIcon fontSize="small" color={selectedClassId === classItem.classId ? 'primary' : 'disabled'} />
-                </Stack>
-              </Box>
-            ))}
-          </Stack>
-          </Paper>
 
-          <Box sx={{ p: { xs: 1.5, sm: 2.25 }, minWidth: 0 }}>
+            {loadingClasses ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                <CircularProgress size={30} />
+              </Box>
+            ) : !classes.length ? (
+              <Alert severity="info" sx={{ mt: 1 }}>
+                Không có lớp được phân công trong học kỳ này.
+              </Alert>
+            ) : (
+              classes.map((classItem) => (
+                <Box
+                  key={classItem.classId}
+                  component="button"
+                  type="button"
+                  aria-pressed={selectedClassId === classItem.classId}
+                  onClick={() => handleSelectClass(classItem.classId)}
+                  sx={{
+                    p: { xs: 1.5, sm: 1.75 },
+                    cursor: 'pointer',
+                    width: '100%',
+                    minWidth: 0,
+                    textAlign: 'left',
+                    fontFamily: 'inherit',
+                    color: 'inherit',
+                    appearance: 'none',
+                    border: '1px solid',
+                    borderRadius: 2,
+                    borderColor: selectedClassId === classItem.classId ? 'primary.main' : 'divider',
+                    bgcolor: selectedClassId === classItem.classId ? 'primary.50' : 'background.paper',
+                    transition: 'background-color 160ms ease, border-color 160ms ease, box-shadow 160ms ease, transform 160ms ease',
+                    '&:hover': {
+                      bgcolor: '#eaf3ff',
+                      borderColor: '#60a5fa',
+                      boxShadow: '0 4px 14px rgba(37, 99, 235, 0.14)',
+                      transform: 'translateY(-1px)',
+                    },
+                    '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 },
+                  }}
+                >
+                  <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 800, lineHeight: 1.4 }} noWrap>
+                        {classItem.classCode}
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        color="text.secondary"
+                        noWrap
+                        title={classItem.courseName || classItem.courseCode || 'Môn học'}
+                        sx={{ maxWidth: '100%', overflow: 'hidden', textOverflow: 'ellipsis' }}
+                      >
+                        {classItem.courseName || classItem.courseCode || 'Môn học'}
+                      </Typography>
+                      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                        {classItem.semesterCode || '—'} · {classItem.currentStudents ?? classItem.studentCount ?? 0}
+                        {classItem.maxStudents ? `/${classItem.maxStudents} SV` : ' SV'}
+                      </Typography>
+                    </Box>
+                    <ChevronRightIcon fontSize="small" color={selectedClassId === classItem.classId ? 'primary' : 'disabled'} />
+                  </Stack>
+                </Box>
+              ))
+            )}
+          </Stack>
+        </Paper>
+
+        <Box sx={{ p: { xs: 1.5, sm: 2.25 }, minWidth: 0 }}>
+          {loadingClasses ? (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+              <CircularProgress />
+            </Box>
+          ) : !classes.length ? (
+            <Paper variant="outlined" sx={{ p: 4, textAlign: 'center', borderColor: 'grey.200', borderRadius: 2 }}>
+              <Typography variant="subtitle1" fontWeight={700} color="text.secondary">
+                Không có lớp học nào trong học kỳ này
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                Vui lòng chọn học kỳ khác hoặc bấm &quot;Tất cả&quot; để xem các lớp bạn phụ trách.
+              </Typography>
+            </Paper>
+          ) : (
             <Stack spacing={2}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
                 <Box>
@@ -649,9 +782,9 @@ export default function LecturerClassManagement() {
                 </Stack>
               )}
             </Stack>
-          </Box>
+          )}
         </Box>
-      )}
+      </Box>
 
       <Dialog
         open={loadingTeam || Boolean(selectedTeam) || Boolean(teamError)}

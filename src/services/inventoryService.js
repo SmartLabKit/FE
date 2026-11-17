@@ -89,7 +89,52 @@ export const inventoryService = {
     return unwrap(await api.put(`/api/cabinets/${id}`, data))
   },
   async getComponents(params) {
-    return asList(unwrap(await api.get('/api/components', { params })), ['items', 'components'])
+    const queryParams = params
+      ? { ...params }
+      : { page: 1, size: 1000, Page: 1, Size: 1000, pageSize: 1000, PageSize: 1000 }
+    const res = await api.get('/api/components', { params: queryParams })
+    const unwrapped = unwrap(res)
+    const items = asList(unwrapped, ['items', 'components'])
+    const totalCount = Number(
+      unwrapped?.totalCount ??
+      unwrapped?.totalItems ??
+      unwrapped?.total ??
+      res.data?.totalCount ??
+      res.data?.totalItems ??
+      items.length
+    )
+
+    // Nếu không truyền params riêng và BE giới hạn pageSize nhỏ hơn totalCount (ví dụ BE max 20, 50 nhưng tổng có nhiều hơn),
+    // tự động tải nốt các trang còn lại để FE nắm đầy đủ danh sách và tồn kho thực tế.
+    if (!params && items.length > 0 && items.length < totalCount) {
+      const pageSize = items.length
+      const totalPages = Math.ceil(totalCount / pageSize)
+      const remainingPromises = []
+      for (let p = 2; p <= totalPages; p++) {
+        remainingPromises.push(
+          api
+            .get('/api/components', {
+              params: { page: p, size: pageSize, Page: p, Size: pageSize, pageSize, PageSize: pageSize },
+            })
+            .then((r) => asList(unwrap(r), ['items', 'components']))
+            .catch(() => [])
+        )
+      }
+      const moreBatches = await Promise.all(remainingPromises)
+      for (const batch of moreBatches) {
+        items.push(...batch)
+      }
+    }
+
+    return items
+  },
+  async getComponent(id) {
+    try {
+      return unwrap(await api.get(`/api/components/${id}`))
+    } catch {
+      const all = await inventoryService.getComponents()
+      return all.find((c) => (c.componentId || c.id || c.ComponentId || c.Id) === id) || null
+    }
   },
   async createComponent(data) {
     return unwrap(await api.post('/api/components', data))
@@ -100,6 +145,7 @@ export const inventoryService = {
   async uploadComponentImage(id, file) {
     const formData = new FormData()
     formData.append('file', file)
+    formData.append('image', file)
     return unwrap(await api.post(`/api/components/${id}/images`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }))
@@ -110,9 +156,16 @@ export const inventoryService = {
   async uploadDatasheet(id, file) {
     const formData = new FormData()
     formData.append('file', file)
-    return unwrap(await api.put(`/api/components/${id}/datasheet`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    }))
+    formData.append('datasheet', file)
+    try {
+      return unwrap(await api.put(`/api/components/${id}/datasheet`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      }))
+    } catch {
+      return unwrap(await api.post(`/api/components/${id}/datasheet`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      }))
+    }
   },
   async deleteDatasheet(id) {
     return api.delete(`/api/components/${id}/datasheet`)

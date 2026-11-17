@@ -1,4 +1,5 @@
 import api, { extractErrorMessage } from './api'
+import { academicService } from './academicService'
 
 function unwrap(response) {
   return response.data?.data ?? response.data
@@ -15,15 +16,97 @@ export const projectService = {
     }
   },
 
+  async getAllProjects(params = { page: 1, size: 100 }) {
+    try {
+      const response = await api.get('/api/projects', { params })
+      const data = unwrap(response)
+      return Array.isArray(data) ? data : data?.items || []
+    } catch {
+      return []
+    }
+  },
+
+  async getLecturerProjects() {
+    let pendingList = []
+    try {
+      const pData = await projectService.getPendingApprovalProjects()
+      pendingList = Array.isArray(pData) ? pData : pData?.items || []
+    } catch (e) {
+      console.warn('Lỗi tải pending projects:', e)
+    }
+
+    let directList = []
+    try {
+      const direct = await projectService.getAllProjects()
+      if (Array.isArray(direct)) {
+        directList = direct
+      }
+    } catch {
+      // Bỏ qua nếu không hỗ trợ
+    }
+
+    let classProjectsList = []
+    try {
+      const classesData = await academicService.getMyClasses()
+      const myClasses = Array.isArray(classesData) ? classesData : classesData?.items || []
+      if (myClasses.length > 0) {
+        const classBatches = await Promise.all(
+          myClasses.map(async (c) => {
+            try {
+              const list = await projectService.getProjectsByClass(c.classId)
+              return list.map((p) => ({
+                ...p,
+                classCode: p.classCode || c.classCode,
+              }))
+            } catch {
+              return []
+            }
+          })
+        )
+        classProjectsList = classBatches.flat()
+      }
+    } catch (err) {
+      console.warn('Lỗi tải projects theo lớp:', err)
+    }
+
+    const projectMap = new Map()
+    directList.forEach((p) => {
+      if (p?.projectId) projectMap.set(p.projectId, p)
+    })
+    classProjectsList.forEach((p) => {
+      if (p?.projectId) {
+        const existing = projectMap.get(p.projectId) || {}
+        projectMap.set(p.projectId, { ...existing, ...p })
+      }
+    })
+    pendingList.forEach((p) => {
+      if (p?.projectId) {
+        const existing = projectMap.get(p.projectId) || {}
+        projectMap.set(p.projectId, {
+          ...existing,
+          ...p,
+          status: p.status || 'Submitted',
+        })
+      }
+    })
+    return Array.from(projectMap.values())
+  },
+
   async getProjectsByClass(classId) {
     try {
       const response = await api.get('/api/projects', {
-        params: { classId, page: 1, size: 100 },
+        params: { classId, ClassId: classId, page: 1, size: 100 },
       })
       const data = unwrap(response)
       return Array.isArray(data) ? data : data?.items || []
-    } catch (error) {
-      throw new Error(extractErrorMessage(error, 'Không thể tải project của lớp'), { cause: error })
+    } catch {
+      try {
+        const response2 = await api.get(`/api/classes/${classId}/projects`)
+        const data2 = unwrap(response2)
+        return Array.isArray(data2) ? data2 : data2?.items || []
+      } catch (error) {
+        throw new Error(extractErrorMessage(error, 'Không thể tải project của lớp'), { cause: error })
+      }
     }
   },
 

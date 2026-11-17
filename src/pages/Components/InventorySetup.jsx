@@ -166,6 +166,11 @@ export default function InventorySetup() {
   const [selectedStaffId, setSelectedStaffId] = useState('')
   const [assigningStaff, setAssigningStaff] = useState(false)
 
+  // State Modal Xác nhận xóa danh mục
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
+  const [categoryToDelete, setCategoryToDelete] = useState(null)
+  const [deleting, setDeleting] = useState(false)
+
   const load = useCallback(() => {
     setLoading(true)
     const request = kind === 'categories'
@@ -312,15 +317,28 @@ export default function InventorySetup() {
     }
   }
 
-  const handleDelete = async (row) => {
-    const itemName = getName(row, kind)
-    if (!window.confirm(`Bạn có chắc chắn muốn xóa ${fields[kind].singular} "${itemName}"?`)) return
+  const handleDeleteClick = (row) => {
+    setCategoryToDelete(row)
+    setDeleteConfirmOpen(true)
+  }
+
+  const handleConfirmDelete = async () => {
+    if (!categoryToDelete) return
+    const itemName = getName(categoryToDelete, kind)
+    const id = getId(categoryToDelete, kind)
+    setDeleting(true)
+    setError('')
     try {
-      await inventoryService.deleteCategory(getId(row, kind))
-      setNotice(`Đã xóa danh mục "${itemName}".`)
+      await inventoryService.deleteCategory(id)
+      setNotice(`Đã xóa danh mục “${itemName}”.`)
+      setDeleteConfirmOpen(false)
+      setCategoryToDelete(null)
       await load()
     } catch (deleteError) {
       setError(extractErrorMessage(deleteError, 'Không thể xóa. Hãy kiểm tra xem danh mục có linh kiện trực thuộc không.'))
+      setDeleteConfirmOpen(false)
+    } finally {
+      setDeleting(false)
     }
   }
 
@@ -514,7 +532,7 @@ export default function InventorySetup() {
                           <Button
                             size="small"
                             color="error"
-                            onClick={() => handleDelete(row)}
+                            onClick={() => handleDeleteClick(row)}
                             title="Xóa danh mục"
                           >
                             <DeleteIcon fontSize="small" />
@@ -630,6 +648,45 @@ export default function InventorySetup() {
               </Button>
             </DialogActions>
           </Box>
+        </Dialog>
+
+        {/* Modal Xác nhận xóa danh mục */}
+        <Dialog
+          open={deleteConfirmOpen}
+          onClose={() => !deleting && setDeleteConfirmOpen(false)}
+          maxWidth="xs"
+          fullWidth
+          PaperProps={{
+            sx: { borderRadius: 2, p: 0.5 },
+          }}
+        >
+          <DialogTitle sx={{ fontWeight: 800, color: '#182238', pb: 1, fontSize: 18 }}>
+            Xác nhận xóa danh mục
+          </DialogTitle>
+          <DialogContent sx={{ pt: '4px !important', pb: 2 }}>
+            <Typography variant="body1" sx={{ color: '#334155', lineHeight: 1.6 }}>
+              Bạn có chắc chắn muốn xóa danh mục “<strong>{categoryToDelete ? getName(categoryToDelete, kind) : ''}</strong>”? Hành động này không thể hoàn tác.
+            </Typography>
+          </DialogContent>
+          <DialogActions sx={{ px: 3, pb: 2.5, pt: 0, gap: 1 }}>
+            <Button
+              variant="outlined"
+              onClick={() => setDeleteConfirmOpen(false)}
+              disabled={deleting}
+              sx={{ textTransform: 'none', fontWeight: 600, borderColor: '#d8dced', color: '#475569' }}
+            >
+              Hủy
+            </Button>
+            <Button
+              variant="contained"
+              color="error"
+              onClick={handleConfirmDelete}
+              disabled={deleting}
+              sx={{ textTransform: 'none', fontWeight: 700 }}
+            >
+              {deleting ? 'Đang xóa...' : 'Xóa'}
+            </Button>
+          </DialogActions>
         </Dialog>
       </Box>
     </PortalLayout>

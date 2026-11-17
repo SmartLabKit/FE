@@ -84,11 +84,14 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
   }
 
   const borrowRequests = detail?.borrowRequests || []
+  const currentStatus = detail?.status || project?.status || ''
+  const isPending = currentStatus === 'Submitted' || currentStatus === 'PendingApproval' || currentStatus === 'PendingLecturer'
 
   return (
     <Dialog open={open} onClose={() => !busy && onClose()} fullWidth maxWidth="md">
       <DialogTitle sx={{ fontWeight: 800 }}>
-        Duyệt project: {project?.title || project?.projectTitle || ''}
+        {isPending ? 'Duyệt project: ' : 'Chi tiết project: '}
+        {project?.title || project?.projectTitle || ''}
       </DialogTitle>
       <DialogContent dividers>
         {loading ? (
@@ -152,25 +155,44 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
                 </Box>
 
                 <Divider />
-                <TextField
-                  label="Nhận xét khi duyệt (không bắt buộc)"
-                  value={comment}
-                  onChange={(event) => setComment(event.target.value)}
-                  multiline
-                  minRows={2}
-                  fullWidth
-                  disabled={busy}
-                />
-                <TextField
-                  label="Lý do từ chối (bắt buộc nếu từ chối)"
-                  value={rejectReason}
-                  onChange={(event) => setRejectReason(event.target.value)}
-                  multiline
-                  minRows={2}
-                  fullWidth
-                  disabled={busy}
-                  error={Boolean(error) && !rejectReason.trim()}
-                />
+                {isPending ? (
+                  <>
+                    <TextField
+                      label="Nhận xét khi duyệt (không bắt buộc)"
+                      value={comment}
+                      onChange={(event) => setComment(event.target.value)}
+                      multiline
+                      minRows={2}
+                      fullWidth
+                      disabled={busy}
+                    />
+                    <TextField
+                      label="Lý do từ chối (bắt buộc nếu từ chối)"
+                      value={rejectReason}
+                      onChange={(event) => setRejectReason(event.target.value)}
+                      multiline
+                      minRows={2}
+                      fullWidth
+                      disabled={busy}
+                      error={Boolean(error) && !rejectReason.trim()}
+                    />
+                  </>
+                ) : (
+                  <>
+                    {detail.status === 'Approved' && (
+                      <Alert severity="success">
+                        <strong>Dự án đã được phê duyệt.</strong>
+                        {detail.reviewComment ? ` Nhận xét: ${detail.reviewComment}` : ''}
+                      </Alert>
+                    )}
+                    {detail.status === 'Rejected' && (
+                      <Alert severity="error">
+                        <strong>Dự án đã bị từ chối.</strong>
+                        {detail.reviewComment ? ` Lý do: ${detail.reviewComment}` : ''}
+                      </Alert>
+                    )}
+                  </>
+                )}
               </>
             )}
           </Stack>
@@ -178,21 +200,25 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
       </DialogContent>
       <DialogActions sx={{ px: 3, py: 2, flexWrap: 'wrap' }}>
         <Button onClick={onClose} disabled={busy}>Đóng</Button>
-        <Button
-          color="error"
-          variant="outlined"
-          onClick={handleReject}
-          disabled={loading || !detail || busy}
-        >
-          {busy ? 'Đang xử lý...' : 'Từ chối'}
-        </Button>
-        <Button
-          variant="contained"
-          onClick={handleApprove}
-          disabled={loading || !detail || busy}
-        >
-          {busy ? 'Đang xử lý...' : 'Duyệt'}
-        </Button>
+        {isPending && (
+          <>
+            <Button
+              color="error"
+              variant="outlined"
+              onClick={handleReject}
+              disabled={loading || !detail || busy}
+            >
+              {busy ? 'Đang xử lý...' : 'Từ chối'}
+            </Button>
+            <Button
+              variant="contained"
+              onClick={handleApprove}
+              disabled={loading || !detail || busy}
+            >
+              {busy ? 'Đang xử lý...' : 'Duyệt'}
+            </Button>
+          </>
+        )}
       </DialogActions>
     </Dialog>
   )
