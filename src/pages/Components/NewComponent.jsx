@@ -34,7 +34,7 @@ export default function NewComponent() {
   const [savedDatasheetUrl, setSavedDatasheetUrl] = useState('')
   const [savedDatasheetFile, setSavedDatasheetFile] = useState(null)
   const [tutorials, setTutorials] = useState([])
-  const [tutorialForm, setTutorialForm] = useState({ title: '', url: '', description: '' })
+  const [tutorialForm, setTutorialForm] = useState({ title: '', url: '', description: '', content: '' })
   const [editingTutorialId, setEditingTutorialId] = useState('')
   const [tab, setTab] = useState(0)
   const [error, setError] = useState('')
@@ -125,15 +125,31 @@ export default function NewComponent() {
       setError('Hãy lưu linh kiện trước khi thêm hướng dẫn.')
       return
     }
+    const contentVal = (tutorialForm.content || tutorialForm.description || '').trim()
+    if (!contentVal) {
+      setError('Nội dung hướng dẫn là bắt buộc.')
+      return
+    }
+    const payload = {
+      title: tutorialForm.title.trim(),
+      url: tutorialForm.url.trim(),
+      content: contentVal,
+      description: contentVal,
+      // PascalCase compatibility
+      Title: tutorialForm.title.trim(),
+      Url: tutorialForm.url.trim(),
+      Content: contentVal,
+      Description: contentVal,
+    }
     try {
       if (editingTutorialId) {
-        const saved = await inventoryService.updateTutorial(componentId, editingTutorialId, tutorialForm)
+        const saved = await inventoryService.updateTutorial(componentId, editingTutorialId, payload)
         setTutorials((current) => current.map((item) => (item.tutorialId || item.id) === editingTutorialId ? saved : item))
       } else {
-        const saved = await inventoryService.createTutorial(componentId, tutorialForm)
+        const saved = await inventoryService.createTutorial(componentId, payload)
         setTutorials((current) => [...current, saved])
       }
-      setTutorialForm({ title: '', url: '', description: '' })
+      setTutorialForm({ title: '', url: '', description: '', content: '' })
       setEditingTutorialId('')
     } catch (tutorialError) {
       setError(extractErrorMessage(tutorialError, 'Không thể thêm hướng dẫn.'))
@@ -151,10 +167,12 @@ export default function NewComponent() {
 
   const editTutorial = (tutorial) => {
     setEditingTutorialId(tutorial.tutorialId || tutorial.id)
+    const text = tutorial.content || tutorial.Content || tutorial.description || tutorial.Description || ''
     setTutorialForm({
-      title: tutorial.title || '',
-      url: tutorial.url || '',
-      description: tutorial.description || '',
+      title: tutorial.title || tutorial.Title || '',
+      url: tutorial.url || tutorial.Url || '',
+      description: text,
+      content: text,
     })
   }
 
@@ -513,23 +531,74 @@ export default function NewComponent() {
             {tab === 2 && (
               <Box>
                 {!componentId && <Alert severity="info" sx={{ mb: 2 }}>Lưu linh kiện trước khi thêm tutorial.</Alert>}
-                <Box component="form" onSubmit={saveTutorial} sx={{ mb: 2, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 1.5 }}>
-                  <TextField required label="Tiêu đề" value={tutorialForm.title} onChange={(event) => setTutorialForm({ ...tutorialForm, title: event.target.value })} />
-                  <TextField required label="URL hướng dẫn" value={tutorialForm.url} onChange={(event) => setTutorialForm({ ...tutorialForm, url: event.target.value })} />
-                  <TextField label="Mô tả" value={tutorialForm.description} onChange={(event) => setTutorialForm({ ...tutorialForm, description: event.target.value })} />
-                  <Button type="submit" variant="contained" disabled={!componentId} sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#0058be' }}>
-                    {editingTutorialId ? 'Cập nhật tutorial' : 'Thêm tutorial'}
-                  </Button>
+                <Box component="form" onSubmit={saveTutorial} sx={{ mb: 3, display: 'grid', gridTemplateColumns: { xs: '1fr', md: '1fr 1fr' }, gap: 2 }}>
+                  <TextField
+                    required
+                    label="Tiêu đề *"
+                    placeholder="VD: Hướng dẫn cài đặt ESP32..."
+                    value={tutorialForm.title}
+                    onChange={(event) => setTutorialForm({ ...tutorialForm, title: event.target.value })}
+                  />
+                  <TextField
+                    required
+                    label="URL hướng dẫn *"
+                    placeholder="https://..."
+                    value={tutorialForm.url}
+                    onChange={(event) => setTutorialForm({ ...tutorialForm, url: event.target.value })}
+                  />
+                  <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' } }}>
+                    <TextField
+                      fullWidth
+                      required
+                      multiline
+                      minRows={2}
+                      label="Nội dung / Mô tả hướng dẫn *"
+                      placeholder="Nhập nội dung chi tiết hoặc mô tả về bài hướng dẫn..."
+                      value={tutorialForm.content || tutorialForm.description}
+                      onChange={(event) => setTutorialForm({
+                        ...tutorialForm,
+                        content: event.target.value,
+                        description: event.target.value,
+                      })}
+                      helperText="Nội dung hướng dẫn là bắt buộc"
+                    />
+                  </Box>
+                  <Box sx={{ gridColumn: { xs: '1', md: '1 / -1' }, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
+                    {editingTutorialId && (
+                      <Button
+                        onClick={() => {
+                          setEditingTutorialId('')
+                          setTutorialForm({ title: '', url: '', description: '', content: '' })
+                        }}
+                        sx={{ textTransform: 'none' }}
+                      >
+                        Hủy sửa
+                      </Button>
+                    )}
+                    <Button
+                      type="submit"
+                      variant="contained"
+                      disabled={!componentId}
+                      sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#0058be' }}
+                    >
+                      {editingTutorialId ? 'Cập nhật tutorial' : 'Thêm tutorial'}
+                    </Button>
+                  </Box>
                 </Box>
                 {tutorials.map((tutorial) => (
                   <Box key={tutorial.tutorialId || tutorial.id} sx={{ py: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e4e6ef' }}>
-                    <Box>
-                      <Typography sx={{ fontWeight: 600 }}>{tutorial.title}</Typography>
-                      <Typography component="a" href={tutorial.url} target="_blank" rel="noreferrer" sx={{ color: '#0058be', fontSize: 13 }}>
-                        {tutorial.url}
+                    <Box sx={{ pr: 2 }}>
+                      <Typography sx={{ fontWeight: 600 }}>{tutorial.title || tutorial.Title}</Typography>
+                      {(tutorial.content || tutorial.Content || tutorial.description || tutorial.Description) && (
+                        <Typography sx={{ fontSize: 13, color: '#475569', my: 0.5, whiteSpace: 'pre-wrap' }}>
+                          {tutorial.content || tutorial.Content || tutorial.description || tutorial.Description}
+                        </Typography>
+                      )}
+                      <Typography component="a" href={tutorial.url || tutorial.Url} target="_blank" rel="noreferrer" sx={{ color: '#0058be', fontSize: 13 }}>
+                        {tutorial.url || tutorial.Url}
                       </Typography>
                     </Box>
-                    <Box sx={{ display: 'flex', gap: 1 }}>
+                    <Box sx={{ display: 'flex', gap: 1, minWidth: 'fit-content' }}>
                       <Button size="small" onClick={() => editTutorial(tutorial)} sx={{ textTransform: 'none' }}>Sửa</Button>
                       <Button size="small" color="error" onClick={() => deleteTutorial(tutorial)} sx={{ textTransform: 'none' }}>Xóa</Button>
                     </Box>
