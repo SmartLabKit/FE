@@ -44,6 +44,7 @@ import { academicService } from '../../services/academicService'
 import { inventoryService } from '../../services/inventoryService'
 import { projectService } from '../../services/projectService'
 import { teamService } from '../../services/teamService'
+import { formatVietnamDate, getVietnamDateInputValue } from '../../utils/dateFormatting'
 import FinalSubmissionPanel from './FinalSubmissionPanel'
 
 function getSemesterWeight(semCode = '') {
@@ -155,25 +156,8 @@ function formatStatus(status) {
   return labels[status] || status || 'Chưa xác định'
 }
 
-function dateInVietnam(value) {
-  if (!value) return ''
-  const parts = new Intl.DateTimeFormat('en-CA', {
-    timeZone: 'Asia/Ho_Chi_Minh',
-    year: 'numeric',
-    month: '2-digit',
-    day: '2-digit',
-  }).formatToParts(new Date(value))
-  const dateParts = Object.fromEntries(parts.map(({ type, value: part }) => [type, part]))
-  return `${dateParts.year}-${dateParts.month}-${dateParts.day}`
-}
-
 function localDateValue() {
-  return dateInVietnam(new Date())
-}
-
-function formatVietnamDate(value) {
-  const date = dateInVietnam(value)
-  return date ? `${date.slice(8, 10)}/${date.slice(5, 7)}/${date.slice(0, 4)}` : '—'
+  return getVietnamDateInputValue()
 }
 
 function ProjectStatus({ status }) {
@@ -286,7 +270,6 @@ export default function ProjectManagement() {
   const [submitDialogOpen, setSubmitDialogOpen] = useState(false)
   const [editingChip, setEditingChip] = useState(null)
   const [inlineDraft, setInlineDraft] = useState(null)
-  const [borrowDate, setBorrowDate] = useState(localDateValue())
   const [borrowDeadline, setBorrowDeadline] = useState(null)
   const [loadingDeadline, setLoadingDeadline] = useState(false)
   const [deadlineError, setDeadlineError] = useState('')
@@ -427,7 +410,6 @@ export default function ProjectManagement() {
     if (!project?.projectId) return
     setBorrowDeadline(null)
     setDeadlineError('')
-    setBorrowDate(localDateValue())
     setSubmitDialogOpen(true)
     if (!requiresBorrow) {
       setLoadingDeadline(false)
@@ -831,11 +813,6 @@ export default function ProjectManagement() {
       showToast('Học kỳ hiện không cho phép mượn linh kiện.', 'warning')
       return
     }
-    const deadlineDate = dateInVietnam(borrowDeadline?.dueDate)
-    if (requiresBorrow && (!borrowDate || !deadlineDate || borrowDate < localDateValue() || deadlineDate <= borrowDate)) {
-      showToast('Ngày mượn phải từ hôm nay trở đi và trước hạn trả của học kỳ.', 'warning')
-      return
-    }
     const validationError = getFormError(form)
     if (validationError) {
       showToast(validationError, 'warning')
@@ -847,10 +824,7 @@ export default function ProjectManagement() {
         project.projectId,
         toProjectPayload(form)
       )
-      const result = await projectService.submitProject(updatedProject.projectId, {
-        expectedBorrowDate: requiresBorrow ? borrowDate : null,
-        dueDate: requiresBorrow ? deadlineDate : null,
-      })
+      const result = await projectService.submitProject(updatedProject.projectId)
       setProject(result)
       setSubmitDialogOpen(false)
       showToast('Đã gửi project chờ giảng viên duyệt.')
@@ -1688,7 +1662,7 @@ export default function ProjectManagement() {
                     borderRadius: 2,
                     p: 2,
                     display: 'grid',
-                    gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(3, minmax(0, 1fr))' },
+                    gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(4, minmax(0, 1fr))' },
                     gap: 1.5,
                   }}
                 >
@@ -1699,12 +1673,18 @@ export default function ProjectManagement() {
                     </Typography>
                   </Box>
                   <Box>
+                    <Typography variant="caption" color="text.secondary" display="block">Ngày mượn (tự động)</Typography>
+                    <Typography variant="body2" sx={{ fontWeight: 700, color: '#1e293b' }}>
+                      {formatVietnamDate(localDateValue())}
+                    </Typography>
+                  </Box>
+                  <Box>
                     <Typography variant="caption" color="text.secondary" display="block">Hạn trả thiết bị</Typography>
                     <Typography variant="body2" sx={{ fontWeight: 700, color: '#1e293b' }}>
                       {formatVietnamDate(borrowDeadline.dueDate)}
                     </Typography>
                   </Box>
-                  <Box sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}>
+                  <Box>
                     <Typography variant="caption" color="text.secondary" display="block">Thời gian còn lại</Typography>
                     <Typography variant="body2" sx={{ fontWeight: 700, color: borrowDeadline.daysLeft < 0 ? '#b91c1c' : '#1d4ed8' }}>
                       {borrowDeadline.daysLeft} ngày
@@ -1716,17 +1696,6 @@ export default function ProjectManagement() {
                     Học kỳ đã kết thúc hoặc hiện không còn trong thời gian cho phép mượn linh kiện.
                   </Alert>
                 )}
-                <TextField
-                  label="Ngày dự kiến nhận đồ"
-                  type="date"
-                  value={borrowDate}
-                  onChange={(event) => setBorrowDate(event.target.value)}
-                  inputProps={{ min: localDateValue() }}
-                  InputLabelProps={{ shrink: true }}
-                  required
-                  disabled={!borrowDeadline.canBorrow}
-                  fullWidth
-                />
               </>
             )}
             {!requiresBorrow && !loadingDeadline && !deadlineError && (
@@ -1748,10 +1717,7 @@ export default function ProjectManagement() {
                 Boolean(deadlineError) ||
                 !borrowDeadline ||
                 !borrowDeadline.canBorrow ||
-                !borrowDate ||
-                borrowDate < localDateValue() ||
-                !borrowDeadline.dueDate ||
-                dateInVietnam(borrowDeadline.dueDate) <= borrowDate
+                !borrowDeadline.dueDate
               ))
             }
             startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : <SendIcon />}

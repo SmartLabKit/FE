@@ -16,17 +16,7 @@ import {
   Typography,
 } from '@mui/material'
 import { projectService } from '../../services/projectService'
-
-function formatDate(value) {
-  if (!value) return '—'
-  const dateOnly = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(value))
-  if (dateOnly) return `${dateOnly[3]}/${dateOnly[2]}/${dateOnly[1]}`
-
-  const date = new Date(value)
-  return Number.isNaN(date.getTime())
-    ? '—'
-    : new Intl.DateTimeFormat('vi-VN', { day: '2-digit', month: '2-digit', year: 'numeric' }).format(date)
-}
+import { formatVietnamDate } from '../../utils/dateFormatting'
 
 const projectStatusStyles = {
   Draft: { label: 'Bản nháp', bgcolor: '#f1f5f9', color: '#475569', borderColor: '#cbd5e1', dotColor: '#64748b' },
@@ -181,7 +171,7 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
                 </Box>
                 <Typography variant="caption" color="text.secondary">
                   {detail.teamName || project?.teamName} · Lớp {detail.classCode || project?.classCode}
-                  {' · '}Gửi lúc: {formatDate(detail.submittedAt || project?.submittedAt)}
+                  {' · '}Gửi lúc: {formatVietnamDate(detail.submittedAt || project?.submittedAt)}
                 </Typography>
 
                 {borrowRequests.map((request) => (
@@ -198,7 +188,7 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
                       <ProjectStatusBadge status={request.status || currentStatus} />
                     </Stack>
                     <Typography variant="body2">
-                      {request.roomName || request.roomCode || 'Phòng nhận chưa xác định'} · Mượn: {formatDate(request.expectedBorrowDate || request.borrowDate)} · Trả: {formatDate(request.dueDate)}
+                      {request.roomName || request.roomCode || 'Phòng nhận chưa xác định'} · Mượn: {formatVietnamDate(request.expectedBorrowDate || detail.expectedBorrowDate || request.borrowDate || detail.borrowDate)} · Trả: {formatVietnamDate(request.dueDate || detail.dueDate)}
                     </Typography>
                     <Typography variant="caption" display="block">
                       Đơn {request.requestCode}

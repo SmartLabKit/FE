@@ -42,6 +42,7 @@ import {
 } from '../../services/borrowService'
 import { projectService } from '../../services/projectService'
 import { useAuth } from '../../context/AuthContext'
+import { formatVietnamDate } from '../../utils/dateFormatting'
 
 /**
  * SupplementaryBorrowList Component
@@ -671,12 +672,12 @@ export default function SupplementaryBorrowList() {
                               <strong>{project.teamName || 'Nhóm'}</strong> · {project.classCode || '—'}
                             </TableCell>
                             <TableCell sx={{ fontSize: 12, color: '#64748b' }}>
-                              {project.submittedAt ? new Date(project.submittedAt).toLocaleDateString('vi-VN') : '—'}
+                              {formatVietnamDate(project.submittedAt)}
                             </TableCell>
                             <TableCell sx={{ fontSize: 12, color: '#334155' }}>
-                              {project.borrowDate ? new Date(project.borrowDate).toLocaleDateString('vi-VN') : '—'}
+                              {formatVietnamDate(project.expectedBorrowDate || project.borrowDate)}
                               {' / '}
-                              {project.dueDate ? new Date(project.dueDate).toLocaleDateString('vi-VN') : '—'}
+                              {formatVietnamDate(project.dueDate)}
                             </TableCell>
                             <TableCell>
                               {getProjectStatusChip(project.status)}

@@ -4,8 +4,3 @@ export interface BorrowDeadlineResponse {
   daysLeft: number
   canBorrow: boolean
 }
-
-export interface SubmitProjectRequest {
-  expectedBorrowDate: string | null
-  dueDate: string | null
-}

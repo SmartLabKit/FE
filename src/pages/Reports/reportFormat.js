@@ -1,4 +1,6 @@
-export const formatDate = (value) => (value ? new Date(value).toLocaleDateString('vi-VN') : '—')
+import { formatVietnamDate, getVietnamDateInputValue } from '../../utils/dateFormatting'
+
+export const formatDate = formatVietnamDate
 export const formatNumber = (value) => Number(value || 0).toLocaleString('vi-VN')
 export const formatMoney = (value) => `${Number(value || 0).toLocaleString('vi-VN')} ₫`
 export const formatHours = (value) =>
@@ -59,12 +61,10 @@ export function formatMoneyAxis(value) {
 export const getRows = (result) => (Array.isArray(result) ? result : result?.items || [])
 
 export function defaultPeriod() {
-  const toIso = (date) => {
-    const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
-    return local.toISOString().slice(0, 10)
-  }
   const to = new Date()
-  const from = new Date()
-  from.setDate(from.getDate() - 29)
-  return { fromDate: toIso(from), toDate: toIso(to) }
+  const from = new Date(to.getTime() - 29 * 24 * 60 * 60 * 1000)
+  return {
+    fromDate: getVietnamDateInputValue(from),
+    toDate: getVietnamDateInputValue(to),
+  }
 }

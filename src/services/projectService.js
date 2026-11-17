@@ -160,10 +160,9 @@ export const projectService = {
     }
   },
 
-  /** @param {import('./projectTypes').SubmitProjectRequest} data */
-  async submitProject(projectId, data) {
+  async submitProject(projectId) {
     try {
-      return unwrap(await api.post(`/api/projects/${projectId}/submit`, data))
+      return unwrap(await api.post(`/api/projects/${projectId}/submit`))
     } catch (error) {
       throw new Error(extractErrorMessage(error, 'Không thể gửi duyệt project'), { cause: error })
     }

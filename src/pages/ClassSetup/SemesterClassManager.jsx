@@ -37,6 +37,7 @@ import {
   Search as SearchIcon,
 } from '@mui/icons-material'
 import { academicService } from '../../services/academicService'
+import { formatVietnamDate, getVietnamDateInputValue } from '../../utils/dateFormatting'
 
 /**
  * SemesterClassManager Component (Actor: ADMIN / Lab Staff)
@@ -147,8 +148,8 @@ export default function SemesterClassManager({ onNext }) {
       semesterCode: '',
       term: 'Spring',
       year: selectedYear,
-      startDate: new Date().toISOString().split('T')[0],
-      endDate: new Date(Date.now() + 120 * 24 * 3600 * 1000).toISOString().split('T')[0],
+      startDate: getVietnamDateInputValue(),
+      endDate: getVietnamDateInputValue(new Date(Date.now() + 120 * 24 * 3600 * 1000)),
       isActive: true,
     })
     setSemesterModalOpen(true)
@@ -454,8 +455,8 @@ export default function SemesterClassManager({ onNext }) {
                     </Box>
 
                     <Typography variant="caption" sx={{ color: '#6b7280', display: 'block', fontSize: 11 }}>
-                      {sem.startDate ? new Date(sem.startDate).toLocaleDateString('vi-VN') : '---'} →{' '}
-                      {sem.endDate ? new Date(sem.endDate).toLocaleDateString('vi-VN') : '---'}
+                      {formatVietnamDate(sem.startDate)} →{' '}
+                      {formatVietnamDate(sem.endDate)}
                     </Typography>
 
                     <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 0.5, mt: 1 }}>

@@ -36,6 +36,7 @@ import {
   borrowService,
 } from '../../services/borrowService'
 import { useAuth } from '../../context/AuthContext'
+import { getVietnamDateInputValue } from '../../utils/dateFormatting'
 
 /**
  * CreateReturnRequest Component (Actor: Sinh viên / Trưởng nhóm)
@@ -58,7 +59,7 @@ export default function CreateReturnRequest() {
   const [returnItems, setReturnItems] = useState([])
 
   // Form metadata
-  const [returnDate, setReturnDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [returnDate, setReturnDate] = useState(() => getVietnamDateInputValue())
   const [returnLocation, setReturnLocation] = useState('')
   const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)

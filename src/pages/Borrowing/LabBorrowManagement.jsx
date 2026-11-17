@@ -40,6 +40,7 @@ import ReturnBorrowModal from '../../components/borrowing/ReturnBorrowModal'
 import { useLabBorrowRequests } from '../../hooks/useLabBorrowRequests'
 import { borrowService } from '../../services/borrowService'
 import { extractErrorMessage } from '../../services/api'
+import { formatVietnamDate } from '../../utils/dateFormatting'
 
 const PAGE_SIZE = 20
 
@@ -47,16 +48,11 @@ function getId(row) {
   return row?.borrowRequestId || row?.id
 }
 
-function formatDate(value) {
-  if (!value) return '—'
-  const date = new Date(value)
-  return Number.isNaN(date.getTime()) ? '—' : new Intl.DateTimeFormat('vi-VN').format(date)
-}
-
 function getDaysOverdue(dueDate) {
   if (!dueDate) return 0
-  const dateOnly = String(dueDate).slice(0, 10)
-  const [year, month, day] = dateOnly.split('-').map(Number)
+  const dateOnly = formatVietnamDate(dueDate)
+  if (dateOnly === '—') return 0
+  const [day, month, year] = dateOnly.split('/').map(Number)
   if (!year || !month || !day) return 0
   const due = new Date(year, month - 1, day)
   const today = new Date()
@@ -541,7 +537,7 @@ export default function LabBorrowManagement() {
                       <TableCell>{request.requesterName || '—'}<br /><Typography variant="caption" color="text.secondary">{request.classCode || ''}</Typography></TableCell>
                       <TableCell>{request.projectTitle || '—'}</TableCell>
                       <TableCell>{request.roomName || request.roomCode || '—'}</TableCell>
-                      <TableCell>{formatDate(request.borrowDate)}</TableCell>
+                      <TableCell>{formatVietnamDate(request.expectedBorrowDate || request.borrowDate)}</TableCell>
                       <TableCell>
                         <Stack spacing={0.5} alignItems="flex-start">
                           <Chip size="small" label={request.status} color={statusColor(request.status)} />
@@ -635,8 +631,8 @@ export default function LabBorrowManagement() {
                 </Stack>
                 <Grid container spacing={2}>
                   <Grid item xs={12} sm={4}><Typography variant="caption" color="text.secondary">Lab nhận</Typography><Typography>{requestDetail.roomName || requestDetail.roomCode || '—'}</Typography></Grid>
-                  <Grid item xs={12} sm={4}><Typography variant="caption" color="text.secondary">Ngày nhận dự kiến</Typography><Typography>{formatDate(requestDetail.borrowDate)}</Typography></Grid>
-                  <Grid item xs={12} sm={4}><Typography variant="caption" color="text.secondary">Hạn trả</Typography><Typography>{formatDate(requestDetail.dueDate)}</Typography></Grid>
+                  <Grid item xs={12} sm={4}><Typography variant="caption" color="text.secondary">Ngày nhận dự kiến</Typography><Typography>{formatVietnamDate(requestDetail.expectedBorrowDate || requestDetail.borrowDate)}</Typography></Grid>
+                  <Grid item xs={12} sm={4}><Typography variant="caption" color="text.secondary">Hạn trả</Typography><Typography>{formatVietnamDate(requestDetail.dueDate)}</Typography></Grid>
                 </Grid>
                 <Divider />
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
