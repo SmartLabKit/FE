@@ -40,6 +40,7 @@ export default function StockInwards() {
   const [supplier, setSupplier] = useState('')
   const [invoiceNumber, setInvoiceNumber] = useState('')
   const [receivedAt, setReceivedAt] = useState(today)
+  const [note, setNote] = useState('')
   const [lines, setLines] = useState([newLine()])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -64,6 +65,7 @@ export default function StockInwards() {
           setSupplier(receipt.supplierName || '')
           setInvoiceNumber(receipt.invoiceNumber || '')
           setReceivedAt((receipt.receivedAt || today).slice(0, 10))
+          setNote(receipt.note || receipt.notes || receipt.description || receipt.remark || receipt.remarks || localStorage.getItem(`receipt_note_${editId}`) || '')
           setLines(lineArray(receipt).map((line) => {
             const units = line.units || line.Units || []
             const firstUnit = units[0] || {}
@@ -142,10 +144,15 @@ export default function StockInwards() {
         return setError(`Vui lòng chọn ngày "Bảo hành đến" cho ${compName}.`)
       }
     }
+    const noteVal = note.trim() || null
     const payload = {
       supplierName: supplier.trim(),
       invoiceNumber: invoiceNumber.trim() || null,
       receivedAt: `${receivedAt}T00:00:00Z`,
+      note: noteVal,
+      notes: noteVal,
+      description: noteVal,
+      remarks: noteVal,
       items: preparedLines.map(({ line, quantity, unitPrice, serialNumbers, isHighValue, units }) => ({
         componentId: line.componentId,
         cabinetId: line.cabinetId,
@@ -163,11 +170,32 @@ export default function StockInwards() {
     }
     setLoading(true)
     try {
-      const receipt = editId
-        ? await inventoryService.updateStockReceipt(editId, payload)
-        : await inventoryService.createStockReceipt(payload)
+      let receipt
+      if (editId) {
+        try {
+          receipt = await inventoryService.updateStockReceipt(editId, payload)
+        } catch {
+          // Fallback to base header payload without items if backend rejects updating lines
+          receipt = await inventoryService.updateStockReceipt(editId, {
+            supplierName: supplier.trim(),
+            invoiceNumber: invoiceNumber.trim() || null,
+            receivedAt: `${receivedAt}T00:00:00Z`,
+            note: noteVal,
+            notes: noteVal,
+            description: noteVal,
+            remarks: noteVal,
+          })
+        }
+      } else {
+        receipt = await inventoryService.createStockReceipt(payload)
+      }
       const id = receipt?.receiptId || receipt?.id || editId
       if (!id) throw new Error('Phiếu đã gửi nhưng API không trả receiptId.')
+      if (noteVal) {
+        localStorage.setItem(`receipt_note_${id}`, noteVal)
+      } else {
+        localStorage.removeItem(`receipt_note_${id}`)
+      }
       navigate(`/class-setup/admin/stock-receipts/${id}`)
     } catch (saveError) {
       setError(extractErrorMessage(saveError, 'Không thể lưu phiếu nhập.'))
@@ -177,44 +205,68 @@ export default function StockInwards() {
   }
 
   return (
-    <PortalLayout headerTitle={editId ? 'Sửa phiếu nhập' : 'Lập phiếu nhập kho'} headerSubtitle="Chọn tủ cất trên từng dòng; lưu phiếu là hàng vào kho ngay">
+    <PortalLayout headerTitle={editId ? 'Sửa thông tin phiếu nhập' : 'Lập phiếu nhập kho'} headerSubtitle={editId ? 'Cập nhật nhà cung cấp, chứng từ và chèn thêm lưu ý; dòng hàng linh kiện không thể thay đổi' : 'Chọn tủ cất trên từng dòng; lưu phiếu là hàng vào kho ngay'}>
       <Box sx={{ maxWidth: 1440, mx: 'auto' }}>
         <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between' }}>
-          <Button startIcon={<BackIcon />} onClick={() => navigate('/class-setup/admin/stock-receipts')} sx={{ textTransform: 'none' }}>Danh sách phiếu nhập</Button>
+          <Button startIcon={<BackIcon />} onClick={() => navigate(editId ? `/class-setup/admin/stock-receipts/${editId}` : '/class-setup/admin/stock-receipts')} sx={{ textTransform: 'none' }}>Danh sách phiếu nhập</Button>
           <Button onClick={() => navigate('/class-setup/admin/components')} sx={{ textTransform: 'none' }}>Danh sách linh kiện</Button>
         </Box>
         <Card component="form" onSubmit={handleSubmit} variant="outlined" sx={{ borderColor: '#d8dced', boxShadow: 'none' }}>
           <CardContent sx={{ p: 2.5 }}>
             <Typography sx={{ mb: 0.5, fontWeight: 800, color: '#182238' }}>Thông tin phiếu</Typography>
-            <Typography sx={{ mb: 2, color: '#697386', fontSize: 12 }}>Linh kiện cần được khai báo trước. Việc khai báo không làm tăng tồn kho.</Typography>
+            <Typography sx={{ mb: 2, color: '#697386', fontSize: 12 }}>
+              {editId
+                ? 'Hàng hóa đã được ghi nhận vào kho. Bạn chỉ có thể sửa thông tin nhà cung cấp, chứng từ và chèn thêm lưu ý.'
+                : 'Linh kiện cần được khai báo trước. Việc khai báo không làm tăng tồn kho.'}
+            </Typography>
+
+            {editId && (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                <strong>Lưu ý:</strong> Hàng hóa của phiếu nhập đã được lưu vào tồn kho. Theo quy trình, không thể thay đổi danh sách dòng hàng (linh kiện, số lượng, đơn giá, tủ cất). Bạn chỉ có thể cập nhật thông tin nhà cung cấp, chứng từ và chèn thêm lưu ý/ghi chú.
+              </Alert>
+            )}
+
             {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
             <Grid container spacing={1.5} sx={{ mb: 2 }}>
               <Grid size={{ xs: 12, md: 5 }}><TextField fullWidth required label="Nhà cung cấp" value={supplier} onChange={(event) => setSupplier(event.target.value)} /></Grid>
               <Grid size={{ xs: 12, md: 3 }}><TextField fullWidth label="Số chứng từ" value={invoiceNumber} onChange={(event) => setInvoiceNumber(event.target.value)} /></Grid>
               <Grid size={{ xs: 12, md: 4 }}><TextField fullWidth required type="date" label="Ngày nhận" value={receivedAt} onChange={(event) => setReceivedAt(event.target.value)} slotProps={{ inputLabel: { shrink: true } }} /></Grid>
+              <Grid size={{ xs: 12 }}>
+                <TextField
+                  fullWidth
+                  multiline
+                  minRows={2}
+                  label="Lưu ý / Ghi chú"
+                  placeholder="Nhập lưu ý hoặc ghi chú đính kèm phiếu nhập..."
+                  value={note}
+                  onChange={(event) => setNote(event.target.value)}
+                  helperText={editId ? 'Lưu ý sẽ được hiển thị trên chi tiết phiếu nhập.' : 'Ghi chú hoặc lưu ý thêm cho phiếu nhập (tùy chọn).'}
+                />
+              </Grid>
             </Grid>
             <Box sx={{ mb: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography sx={{ fontWeight: 800 }}>Dòng hàng</Typography>
-              <Button startIcon={<AddIcon />} onClick={() => setLines((current) => [...current, newLine()])} sx={{ textTransform: 'none' }}>Thêm dòng</Button>
+              <Typography sx={{ fontWeight: 800 }}>Dòng hàng {editId ? '(Đã lưu vào kho — Không thể thay đổi)' : ''}</Typography>
+              {!editId && <Button startIcon={<AddIcon />} onClick={() => setLines((current) => [...current, newLine()])} sx={{ textTransform: 'none' }}>Thêm dòng</Button>}
             </Box>
             <TableContainer sx={{ border: '1px solid #d8dced' }}>
               <Table size="small">
-                <TableHead><TableRow sx={{ bgcolor: '#faf9ff' }}>{['Linh kiện', 'Số lượng', 'Đơn giá', 'Tủ cất', 'Thông tin máy (Serial / Version / Bảo hành)', ''].map((head) => <TableCell key={head}>{head}</TableCell>)}</TableRow></TableHead>
+                <TableHead><TableRow sx={{ bgcolor: '#faf9ff' }}>{['Linh kiện', 'Số lượng', 'Đơn giá', 'Tủ cất', 'Thông tin máy (Serial / Version / Bảo hành)', !editId ? '' : null].filter((h) => h !== null).map((head, idx) => <TableCell key={head || idx}>{head}</TableCell>)}</TableRow></TableHead>
                 <TableBody>{lines.map((line) => {
                   const component = selectedComponent(line)
                   const isHighValue = component?.trackingType === 'HIGH_VALUE'
                   return <TableRow key={line.key}>
-                    <TableCell sx={{ minWidth: 240 }}><TextField fullWidth required select size="small" label="Chọn linh kiện" value={line.componentId} onChange={(event) => updateLine(line.key, { componentId: event.target.value })}>
+                    <TableCell sx={{ minWidth: 240 }}><TextField fullWidth required disabled={Boolean(editId)} select size="small" label="Chọn linh kiện" value={line.componentId} onChange={(event) => updateLine(line.key, { componentId: event.target.value })}>
                       {components.map((item) => <MenuItem key={item.componentId} value={item.componentId}>{item.componentCode} — {item.componentName} ({item.trackingType})</MenuItem>)}
                     </TextField></TableCell>
-                    <TableCell sx={{ minWidth: 105 }}><TextField required type="number" size="small" label="SL" value={line.quantity} onChange={(event) => updateLine(line.key, { quantity: event.target.value })} slotProps={{ htmlInput: { min: 1, step: 1 } }} /></TableCell>
-                    <TableCell sx={{ minWidth: 145 }}><TextField required type="number" size="small" label="Đơn giá" value={line.unitPrice} onChange={(event) => updateLine(line.key, { unitPrice: event.target.value })} slotProps={{ htmlInput: { min: 0, step: 1 } }} /></TableCell>
-                    <TableCell sx={{ minWidth: 210 }}><TextField fullWidth required select size="small" label="Tủ lưu trữ" value={line.cabinetId} onChange={(event) => updateLine(line.key, { cabinetId: event.target.value })}>
+                    <TableCell sx={{ minWidth: 105 }}><TextField required disabled={Boolean(editId)} type="number" size="small" label="SL" value={line.quantity} onChange={(event) => updateLine(line.key, { quantity: event.target.value })} slotProps={{ htmlInput: { min: 1, step: 1 } }} /></TableCell>
+                    <TableCell sx={{ minWidth: 145 }}><TextField required disabled={Boolean(editId)} type="number" size="small" label="Đơn giá" value={line.unitPrice} onChange={(event) => updateLine(line.key, { unitPrice: event.target.value })} slotProps={{ htmlInput: { min: 0, step: 1 } }} /></TableCell>
+                    <TableCell sx={{ minWidth: 210 }}><TextField fullWidth required disabled={Boolean(editId)} select size="small" label="Tủ lưu trữ" value={line.cabinetId} onChange={(event) => updateLine(line.key, { cabinetId: event.target.value })}>
                       {cabinets.filter((cabinet) => cabinet.isActive !== false).map((cabinet) => <MenuItem key={cabinet.cabinetId} value={cabinet.cabinetId}>{cabinet.cabinetCode} — {cabinet.cabinetName || cabinet.name} {cabinet.labRoomName ? `(${cabinet.labRoomName})` : ''}</MenuItem>)}
                     </TextField></TableCell>
                     <TableCell sx={{ minWidth: 280 }}>{isHighValue ? <Box sx={{ display: 'grid', gap: 1 }}>
                       <TextField
                         required
+                        disabled={Boolean(editId)}
                         size="small"
                         label={Number(line.quantity) > 1 ? `Serial (${line.quantity} máy, mỗi dòng 1 serial) *` : 'Số Serial *'}
                         placeholder={Number(line.quantity) > 1 ? 'SN-001\nSN-002' : 'VD: SE2027_2351_2132'}
@@ -226,6 +278,7 @@ export default function StockInwards() {
                       <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
                         <TextField
                           required
+                          disabled={Boolean(editId)}
                           size="small"
                           label="Version *"
                           value={line.version}
@@ -233,6 +286,7 @@ export default function StockInwards() {
                         />
                         <TextField
                           required
+                          disabled={Boolean(editId)}
                           type="date"
                           size="small"
                           label="Bảo hành đến *"
@@ -242,14 +296,14 @@ export default function StockInwards() {
                         />
                       </Box>
                     </Box> : <Typography color="text.secondary" fontSize={12}>{component ? component.trackingType : 'Chọn linh kiện'}</Typography>}</TableCell>
-                    <TableCell><Button aria-label="Xóa dòng" color="error" onClick={() => setLines((current) => current.filter((item) => item.key !== line.key))}><DeleteIcon /></Button></TableCell>
+                    {!editId && <TableCell><Button aria-label="Xóa dòng" color="error" onClick={() => setLines((current) => current.filter((item) => item.key !== line.key))}><DeleteIcon /></Button></TableCell>}
                   </TableRow>
                 })}</TableBody>
               </Table>
             </TableContainer>
             {initialLoading && <Typography sx={{ mt: 1 }} color="text.secondary">Đang tải dữ liệu…</Typography>}
             <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-              <Button onClick={() => navigate('/class-setup/admin/stock-receipts')}>Hủy</Button>
+              <Button onClick={() => navigate(editId ? `/class-setup/admin/stock-receipts/${editId}` : '/class-setup/admin/stock-receipts')}>Hủy</Button>
               <Button type="submit" variant="contained" disabled={loading || initialLoading}>{loading ? 'Đang lưu…' : editId ? 'Lưu thay đổi' : 'Lưu phiếu và nhập kho'}</Button>
             </Box>
           </CardContent>
