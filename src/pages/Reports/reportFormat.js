@@ -1,15 +1,26 @@
 export const formatDate = (value) => (value ? new Date(value).toLocaleDateString('vi-VN') : '—')
 export const formatNumber = (value) => Number(value || 0).toLocaleString('vi-VN')
 export const formatMoney = (value) => `${Number(value || 0).toLocaleString('vi-VN')} ₫`
-export const formatHours = (value) =>
-  value == null ? '—' : `${Number(value).toLocaleString('vi-VN', { maximumFractionDigits: 1 })} giờ`
+export function formatDuration(hours) {
+  if (hours == null) return '—'
+  const totalMinutes = Math.max(0, Math.round(Number(hours) * 60))
+  if (totalMinutes < 60) return `${totalMinutes} phút`
+  const totalHours = Math.floor(totalMinutes / 60)
+  if (totalHours < 24) {
+    const minutes = totalMinutes % 60
+    return minutes ? `${totalHours} giờ ${minutes} phút` : `${totalHours} giờ`
+  }
+  const days = Math.floor(totalHours / 24)
+  const restHours = totalHours % 24
+  return restHours ? `${days} ngày ${restHours} giờ` : `${days} ngày`
+}
 export const formatPercent = (value) =>
   value == null ? '—' : `${Number(value).toLocaleString('vi-VN', { maximumFractionDigits: 1 })}%`
 
 const LABELS = {
-  Pending: 'Chờ duyệt',
-  Approved: 'Đã duyệt',
-  Ready: 'Sẵn sàng giao',
+  Pending: 'Đang chờ duyệt',
+  Approved: 'Đã duyệt, đang chuẩn bị',
+  Ready: 'Sẵn sàng nhận đồ',
   Rejected: 'Từ chối',
   Borrowing: 'Đang mượn',
   Returned: 'Đã trả',
@@ -56,15 +67,34 @@ export function formatMoneyAxis(value) {
   return `${trim(value / 1e3)}k`
 }
 
+export const stockCardPath = (componentId) => `/reports?tab=movements&componentId=${componentId}`
+
 export const getRows = (result) => (Array.isArray(result) ? result : result?.items || [])
 
-export function defaultPeriod() {
+export const PERIOD_PRESETS = [
+  { days: 7, label: '7 ngày' },
+  { days: 30, label: '30 ngày' },
+  { days: 90, label: '90 ngày' },
+  { days: 365, label: '1 năm' },
+]
+
+/**
+ * Kỳ báo cáo gồm `days` ngày, kết thúc hôm nay. BE nhận ngày lịch Việt Nam dạng yyyy-MM-dd và tính cả 2 đầu,
+ * nên fromDate = hôm nay trừ (days - 1). Tối đa 366 ngày.
+ */
+export function defaultPeriod(days = 30) {
   const toIso = (date) => {
     const local = new Date(date.getTime() - date.getTimezoneOffset() * 60000)
     return local.toISOString().slice(0, 10)
   }
   const to = new Date()
   const from = new Date()
-  from.setDate(from.getDate() - 29)
-  return { fromDate: toIso(from), toDate: toIso(to) }
+  from.setDate(from.getDate() - (days - 1))
+  return { fromDate: toIso(from), toDate: toIso(to), days }
+}
+
+export const formatDayString = (value) => {
+  if (!value) return '—'
+  const [year, month, day] = value.split('-')
+  return `${day}/${month}/${year}`
 }

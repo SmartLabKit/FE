@@ -209,7 +209,7 @@ export default function CabinetConsumablesTab({ cabinet, cabinets, canMove, canA
               <TableRow key={stock.componentId} hover>
                 <TableCell sx={{ fontWeight: 600 }}>{stock.componentName}</TableCell>
                 <TableCell sx={{ color: '#0058be', fontWeight: 600 }}>{stock.componentCode}</TableCell>
-                <TableCell><Typography component="span" fontWeight={800}>{stock.quantity}</Typography></TableCell>
+                <TableCell><Typography component="span" sx={{ fontWeight: 800 }}>{stock.quantity}</Typography></TableCell>
                 <TableCell>{formatDateTime(stock.updatedAt)}</TableCell>
                 <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                   {canMove && stock.quantity > 0 && (

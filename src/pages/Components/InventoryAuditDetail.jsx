@@ -133,7 +133,7 @@ export default function InventoryAuditDetail() {
             <Card variant="outlined" sx={{ mb: 2, borderColor: '#d8dced', boxShadow: 'none' }}>
               <CardContent sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
                 <Box>
-                  <Typography variant="h6" fontWeight={800}>{audit.cabinetCode} · {audit.cabinetName}</Typography>
+                  <Typography variant="h6" sx={{ fontWeight: 800 }}>{audit.cabinetCode} · {audit.cabinetName}</Typography>
                   <Typography color="text.secondary">
                     Lab {audit.roomCode} · {audit.auditorName} · {formatDateTime(audit.auditDate)}
                   </Typography>

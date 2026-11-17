@@ -1,12 +1,20 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Box, Chip, Grid, MenuItem, TextField } from '@mui/material'
 import { useReport } from '../../hooks/useReport'
 import { reportService } from '../../services/reportService'
-import { formatDate, formatMoney, formatNumber, getRows, toLabel } from './reportFormat'
-import { GroupBars, ReportSection, ReportTable, StatTile } from './reportUi'
+import { formatDate, formatMoney, formatNumber, getRows, stockCardPath, toLabel } from './reportFormat'
+import { ReportBar, ReportSection, ReportTable, StatTile } from './reportUi'
 import { ShareDonut } from './reportCharts'
 
 const PAGE_SIZE = 10
+const MAX_ROOMS = 10
+
+function warrantyChip(daysLeft) {
+  const label = daysLeft <= 0 ? 'hôm nay' : `${daysLeft} ngày`
+  const color = daysLeft <= 7 ? 'error' : daysLeft <= 30 ? 'warning' : 'default'
+  return <Chip size="small" color={color} label={label} />
+}
 
 const componentCell = (row) => (
   <>
@@ -19,6 +27,8 @@ const componentCell = (row) => (
 /** Tab "Tồn kho": tồn theo linh kiện, sắp hết, sắp hết bảo hành, giá trị kho (chỉ role xem được tiền). */
 export default function InventoryReportsTab({ filters, canSeeMoney }) {
   const { roomId } = filters
+  const navigate = useNavigate()
+  const openStockCard = (row) => navigate(stockCardPath(row.componentId))
 
   const [search, setSearch] = useState('')
   const [summaryPage, setSummaryPage] = useState(1)
@@ -27,10 +37,11 @@ export default function InventoryReportsTab({ filters, canSeeMoney }) {
     [roomId, search, summaryPage],
   )
 
+  const [lowSearch, setLowSearch] = useState('')
   const [lowPage, setLowPage] = useState(1)
   const lowStock = useReport(
-    () => reportService.getLowStock({ roomId, page: lowPage, size: PAGE_SIZE }),
-    [roomId, lowPage],
+    () => reportService.getLowStock({ roomId, search: lowSearch.trim() || undefined, page: lowPage, size: PAGE_SIZE }),
+    [roomId, lowSearch, lowPage],
   )
 
   const [warrantyDays, setWarrantyDays] = useState(30)
@@ -41,6 +52,9 @@ export default function InventoryReportsTab({ filters, canSeeMoney }) {
   )
 
   const stockValue = useReport(() => reportService.getStockValue(), [], canSeeMoney)
+  const roomValues = [...(stockValue.data?.byRoom || [])]
+    .sort((a, b) => Number(b.value || 0) - Number(a.value || 0))
+    .slice(0, MAX_ROOMS)
 
   const [prevRoomId, setPrevRoomId] = useState(roomId)
   if (prevRoomId !== roomId) {
@@ -71,7 +85,12 @@ export default function InventoryReportsTab({ filters, canSeeMoney }) {
                   />
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
-                  <GroupBars title="Theo phòng Lab" groups={stockValue.data.byRoom} valueKey="value" format={formatMoney} labelOf={(key) => key} />
+                  <ReportBar
+                    title="Giá trị tại từng lab"
+                    format={formatMoney}
+                    emptyText="Không lab nào có hàng."
+                    items={roomValues.map((group) => ({ key: group.key, label: group.key, value: Number(group.value || 0) }))}
+                  />
                 </Grid>
               </Grid>
             </>
@@ -100,6 +119,7 @@ export default function InventoryReportsTab({ filters, canSeeMoney }) {
         <ReportTable
           rows={getRows(summary.data)}
           rowKey={(row) => row.componentId}
+          onRowClick={openStockCard}
           columns={[
             { key: 'componentName', label: 'Linh kiện', render: componentCell },
             { key: 'categoryName', label: 'Danh mục' },
@@ -113,10 +133,28 @@ export default function InventoryReportsTab({ filters, canSeeMoney }) {
         />
       </ReportSection>
 
-      <ReportSection title="Linh kiện sắp hết" subtitle="Dưới mức tồn tối thiểu, thiếu nhiều nhất trước" loading={lowStock.loading} error={lowStock.error}>
+      <ReportSection
+        title="Linh kiện sắp hết"
+        subtitle="Dưới mức tồn tối thiểu, thiếu nhiều nhất trước"
+        loading={lowStock.loading}
+        error={lowStock.error}
+        action={
+          <TextField
+            size="small"
+            placeholder="Tìm tên, mã linh kiện..."
+            value={lowSearch}
+            onChange={(event) => {
+              setLowSearch(event.target.value)
+              setLowPage(1)
+            }}
+            sx={{ minWidth: 220 }}
+          />
+        }
+      >
         <ReportTable
           rows={getRows(lowStock.data)}
           rowKey={(row) => row.componentId}
+          onRowClick={openStockCard}
           emptyText="Không có linh kiện dưới mức tồn tối thiểu."
           columns={[
             { key: 'componentName', label: 'Linh kiện', render: componentCell },
@@ -162,7 +200,7 @@ export default function InventoryReportsTab({ filters, canSeeMoney }) {
             { key: 'location', label: 'Vị trí', render: (row) => `${row.roomCode} · ${row.cabinetCode}` },
             { key: 'status', label: 'Trạng thái', render: (row) => toLabel(row.status) },
             { key: 'warrantyExpiresAt', label: 'Hết bảo hành', render: (row) => formatDate(row.warrantyExpiresAt) },
-            { key: 'daysLeft', label: 'Còn lại', align: 'right', render: (row) => <Chip size="small" color={row.daysLeft <= 7 ? 'error' : 'warning'} label={`${row.daysLeft} ngày`} /> },
+            { key: 'daysLeft', label: 'Còn lại', align: 'right', render: (row) => warrantyChip(row.daysLeft) },
           ]}
           pagination={{ page: warrantyPage, size: PAGE_SIZE, totalCount: warranty.data?.totalCount, onPageChange: setWarrantyPage }}
         />
