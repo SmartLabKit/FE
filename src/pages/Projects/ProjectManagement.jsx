@@ -4,7 +4,9 @@ import {
   ArrowBack as ArrowBackIcon,
   ArrowForward as ArrowForwardIcon,
   AutoAwesome as AutoAwesomeIcon,
+  Close as CloseIcon,
   Groups as GroupsIcon,
+  InfoOutlined as InfoOutlinedIcon,
   Save as SaveIcon,
   School as SchoolIcon,
   Search as SearchIcon,
@@ -58,6 +60,34 @@ function getSemesterWeight(semCode = '') {
 
 const emptyForm = () => ({ title: '', description: '', components: [], selfSuppliedItems: [] })
 const suggestionCacheKey = (projectId) => `smartlabkit:project-suggestions:${projectId}`
+const AI_SUGGESTION_LIMIT = 10
+const AI_SUGGESTION_WINDOW_MS = 60 * 60 * 1000
+const aiUsageStorageKey = (user) =>
+  `smartlabkit:ai-suggestion-usage:${user?.userId || user?.id || user?.studentProfileId || user?.studentCode || 'current-user'}`
+
+function formatDuration(milliseconds) {
+  const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000))
+  const minutes = Math.floor(totalSeconds / 60)
+  const seconds = totalSeconds % 60
+  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
+}
+
+function readAiUsage(storageKey) {
+  try {
+    const cachedUsage = localStorage.getItem(storageKey)
+    if (!cachedUsage) return { timestamps: [], quota: null }
+    const parsed = JSON.parse(cachedUsage)
+    return {
+      timestamps: Array.isArray(parsed?.timestamps)
+        ? parsed.timestamps.map(Number).filter(Number.isFinite)
+        : [],
+      quota: parsed?.quota && typeof parsed.quota === 'object' ? parsed.quota : null,
+    }
+  } catch (error) {
+    console.warn('Không thể khôi phục số lượt AI đã dùng:', error)
+    return { timestamps: [], quota: null }
+  }
+}
 
 function normalizeProjectForm(project) {
   return {
@@ -203,20 +233,14 @@ function QuantityLabel({ name, quantity }) {
         component="span"
         sx={{
           flexShrink: 0,
-          minWidth: 24,
-          px: 0.75,
-          py: 0.15,
-          borderRadius: 999,
-          bgcolor: '#eff6ff',
-          border: '1px solid #bfdbfe',
-          color: '#1d4ed8',
-          fontSize: 11,
-          fontWeight: 800,
+          color: '#64748b',
+          fontSize: 12,
+          fontWeight: 600,
           lineHeight: 1.4,
           textAlign: 'center',
         }}
       >
-        {quantity}
+        ×{quantity}
       </Box>
     </Box>
   )
@@ -226,30 +250,35 @@ const selectedChipStyles = {
   height: 'auto',
   minHeight: 36,
   maxWidth: '100%',
-  border: '1px solid #cbd5e1',
   borderRadius: 2,
-  bgcolor: '#fff',
-  boxShadow: '0 1px 2px rgba(15, 23, 42, 0.08)',
+  border: 0,
+  bgcolor: '#f1f5f9',
+  boxShadow: 'none',
   cursor: 'pointer',
   '& .MuiChip-label': { display: 'block', px: 1.1, py: 0.55, minWidth: 0 },
-  '& .MuiChip-deleteIcon': { color: '#64748b', mr: 0.5, '&:hover': { color: '#dc2626' } },
-  '&:hover': { borderColor: '#2563eb', bgcolor: '#eff6ff', boxShadow: '0 2px 6px rgba(37, 99, 235, 0.14)' },
-  '&:active': { bgcolor: '#dbeafe' },
+  '& .MuiChip-deleteIcon': {
+    color: '#94a3b8',
+    mr: 0.5,
+    bgcolor: 'transparent',
+    '&:hover': { color: '#ef4444', bgcolor: 'transparent' },
+  },
+  '&:hover': { border: 0, bgcolor: '#e8eef5', boxShadow: 'none' },
+  '&:active': { bgcolor: '#e2e8f0' },
 }
 
 const suggestedChipStyles = {
   height: 'auto',
   minHeight: 36,
   maxWidth: '100%',
-  border: '1px solid #bfdbfe',
   borderRadius: 2,
-  bgcolor: '#f8fbff',
-  color: '#1e40af',
-  boxShadow: '0 1px 2px rgba(15, 23, 42, 0.07)',
+  border: 0,
+  bgcolor: '#e8f5f8',
+  color: '#155e75',
+  boxShadow: 'none',
   cursor: 'pointer',
   '& .MuiChip-label': { display: 'block', px: 1.1, py: 0.55, minWidth: 0 },
-  '&:hover': { borderColor: '#2563eb', bgcolor: '#eff6ff', boxShadow: '0 2px 6px rgba(37, 99, 235, 0.16)' },
-  '&:active': { bgcolor: '#dbeafe' },
+  '&:hover': { border: 0, bgcolor: '#d9edf1', boxShadow: 'none' },
+  '&:active': { bgcolor: '#cce5eb' },
 }
 
 export default function ProjectManagement() {
@@ -268,6 +297,11 @@ export default function ProjectManagement() {
   const [withdrawing, setWithdrawing] = useState(false)
   const [suggestions, setSuggestions] = useState(null)
   const [selectedSuggestions, setSelectedSuggestions] = useState([])
+  const [aiUsageState, setAiUsageState] = useState(() => {
+    const storageKey = aiUsageStorageKey(user)
+    return { storageKey, value: readAiUsage(storageKey) }
+  })
+  const [quotaNow, setQuotaNow] = useState(() => Date.now())
   const [submitDialogOpen, setSubmitDialogOpen] = useState(false)
   const [editingChip, setEditingChip] = useState(null)
   const [addItemDialogType, setAddItemDialogType] = useState(null)
@@ -284,6 +318,10 @@ export default function ProjectManagement() {
   })
   const [teamSearchQuery, setTeamSearchQuery] = useState('')
   const rowKeySequence = useRef(0)
+  const usageStorageKey = aiUsageStorageKey(user)
+  const aiUsage = aiUsageState.storageKey === usageStorageKey
+    ? aiUsageState.value
+    : readAiUsage(usageStorageKey)
 
   const updateSemester = (sem) => {
     setSelectedSemester(sem)
@@ -368,6 +406,15 @@ export default function ProjectManagement() {
 
   const showToast = (message, severity = 'success') => {
     setToast({ open: true, message, severity })
+  }
+
+  const persistAiUsage = (nextUsage) => {
+    setAiUsageState({ storageKey: usageStorageKey, value: nextUsage })
+    try {
+      localStorage.setItem(usageStorageKey, JSON.stringify(nextUsage))
+    } catch (error) {
+      showToast(error.message || 'Không thể lưu bộ đếm lượt AI trên thiết bị.', 'warning')
+    }
   }
 
   const writeSuggestionCache = (nextSuggestions, nextSelected = selectedSuggestions) => {
@@ -614,11 +661,37 @@ export default function ProjectManagement() {
     }
     setSuggesting(true)
     try {
-      const result = await projectService.suggestComponents(form.description.trim())
+      const { suggestions: result, quota } = await projectService.suggestComponents(form.description.trim())
+      const now = Date.now()
+      const timestamps = [
+        ...aiUsage.timestamps.filter((timestamp) => timestamp > now - AI_SUGGESTION_WINDOW_MS && timestamp <= now),
+        now,
+      ].sort((a, b) => a - b)
+      const nextQuota = quota
+        ? { ...quota, resetAt: quota.resetAt || timestamps[0] + AI_SUGGESTION_WINDOW_MS }
+        : null
+      persistAiUsage({ timestamps, quota: nextQuota })
       setSuggestions(result)
       setSelectedSuggestions([])
       writeSuggestionCache(result, [])
     } catch (error) {
+      if (error.rateLimit || error.cause?.response?.status === 429) {
+        const now = Date.now()
+        const timestamps = aiUsage.timestamps.filter(
+          (timestamp) => timestamp > now - AI_SUGGESTION_WINDOW_MS && timestamp <= now
+        )
+        const resetAt = error.rateLimit?.resetAt ||
+          (timestamps[0] ? timestamps[0] + AI_SUGGESTION_WINDOW_MS : now + AI_SUGGESTION_WINDOW_MS)
+        persistAiUsage({
+          timestamps,
+          quota: {
+            ...error.rateLimit,
+            usedCount: error.rateLimit?.usedCount ?? AI_SUGGESTION_LIMIT,
+            remaining: error.rateLimit?.remaining ?? 0,
+            resetAt,
+          },
+        })
+      }
       showToast(error.message || 'Không thể lấy gợi ý linh kiện.', 'error')
     } finally {
       setSuggesting(false)
@@ -802,6 +875,39 @@ export default function ProjectManagement() {
     : editingChip?.type === 'self'
       ? form.selfSuppliedItems.find((item) => item.clientKey === editingChip.clientKey)
       : null
+  const activeAiTimestamps = aiUsage.timestamps
+    .filter((timestamp) => timestamp > quotaNow - AI_SUGGESTION_WINDOW_MS && timestamp <= quotaNow)
+    .sort((a, b) => a - b)
+  const quotaMetadata = aiUsage.quota
+  const quotaMetadataIsCurrent = quotaMetadata &&
+    (quotaMetadata.resetAt === undefined || quotaMetadata.resetAt === null || quotaMetadata.resetAt > quotaNow)
+  const reportedUsedCount = quotaMetadataIsCurrent && quotaMetadata.usedCount !== undefined && quotaMetadata.usedCount !== null
+    ? Number(quotaMetadata.usedCount)
+    : quotaMetadataIsCurrent && quotaMetadata.remaining !== undefined && quotaMetadata.remaining !== null
+      ? AI_SUGGESTION_LIMIT - Number(quotaMetadata.remaining)
+      : null
+  const aiUsedCount = Math.min(
+    AI_SUGGESTION_LIMIT,
+    Math.max(0, Number.isFinite(reportedUsedCount) ? reportedUsedCount : activeAiTimestamps.length)
+  )
+  const reportedRemaining = quotaMetadataIsCurrent && quotaMetadata.remaining !== undefined && quotaMetadata.remaining !== null
+    ? Number(quotaMetadata.remaining)
+    : AI_SUGGESTION_LIMIT - aiUsedCount
+  const aiRemaining = Math.max(0, Math.min(AI_SUGGESTION_LIMIT, reportedRemaining))
+  const fallbackResetAt = activeAiTimestamps.length
+    ? activeAiTimestamps[0] + AI_SUGGESTION_WINDOW_MS
+    : null
+  const aiResetAt = quotaMetadataIsCurrent && quotaMetadata.resetAt > quotaNow
+    ? quotaMetadata.resetAt
+    : fallbackResetAt
+  const aiQuotaExhausted = aiUsedCount >= AI_SUGGESTION_LIMIT || aiRemaining <= 0
+  const aiResetCountdown = aiResetAt ? formatDuration(aiResetAt - quotaNow) : null
+
+  useEffect(() => {
+    if (!teamId || !aiResetAt) return undefined
+    const timerId = window.setInterval(() => setQuotaNow(Date.now()), 1000)
+    return () => window.clearInterval(timerId)
+  }, [teamId, aiResetAt])
 
   return (
     <PortalLayout headerTitle="Thiết lập dự án" headerSubtitle={team?.teamName || 'Quản lý đồ án nhóm'}>
@@ -1109,14 +1215,21 @@ export default function ProjectManagement() {
                   <>
                     <Divider />
                     <Box>
-                      <Box sx={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', columnGap: 1, rowGap: 0.25, mb: 1.25 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 1.25 }}>
                         <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Linh kiện mượn kho</Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          · Chọn loại linh kiện và số lượng; không chọn serial.
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          · Double-click vào linh kiện để chỉnh sửa hoặc thêm ghi chú.
-                        </Typography>
+                        <Chip
+                          icon={<InfoOutlinedIcon sx={{ fontSize: '15px !important' }} />}
+                          label="Double-click chip để chỉnh sửa số lượng hoặc ghi chú"
+                          size="small"
+                          sx={{
+                            height: 24,
+                            bgcolor: '#eff6ff',
+                            color: '#1d4ed8',
+                            fontSize: 11,
+                            fontWeight: 600,
+                            '& .MuiChip-icon': { color: '#2563eb', ml: 0.75 },
+                          }}
+                        />
                       </Box>
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
                         {form.components.map((item) => (
@@ -1126,6 +1239,7 @@ export default function ProjectManagement() {
                           >
                             <Chip
                               label={<QuantityLabel name={getComponentName(item.componentId) || 'Linh kiện'} quantity={item.quantity} />}
+                              deleteIcon={<CloseIcon sx={{ fontSize: '17px !important' }} />}
                               onClick={canEdit ? () => setEditingChip({ type: 'component', clientKey: item.clientKey }) : undefined}
                               onDoubleClick={canEdit ? () => setEditingChip({ type: 'component', clientKey: item.clientKey }) : undefined}
                               onDelete={canEdit ? () => removeComponent(item.clientKey) : undefined}
@@ -1164,14 +1278,8 @@ export default function ProjectManagement() {
 
                     <Divider />
                     <Box>
-                      <Box sx={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', columnGap: 1, rowGap: 0.25, mb: 1.25 }}>
+                      <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 1.25 }}>
                         <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Món tự mua</Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          · Vật tư nhóm tự chuẩn bị, không mượn từ kho.
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary">
-                          · Double-click vào món để chỉnh sửa hoặc thêm ghi chú.
-                        </Typography>
                       </Box>
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
                         {form.selfSuppliedItems.map((item) => (
@@ -1181,6 +1289,7 @@ export default function ProjectManagement() {
                           >
                             <Chip
                               label={<QuantityLabel name={item.itemName || 'Món tự mua'} quantity={item.quantity} />}
+                              deleteIcon={<CloseIcon sx={{ fontSize: '17px !important' }} />}
                               onClick={canEdit ? () => setEditingChip({ type: 'self', clientKey: item.clientKey }) : undefined}
                               onDoubleClick={canEdit ? () => setEditingChip({ type: 'self', clientKey: item.clientKey }) : undefined}
                               onDelete={canEdit ? () => removeSelfSuppliedItem(item.clientKey) : undefined}
@@ -1223,14 +1332,33 @@ export default function ProjectManagement() {
                         <Button
                           variant="outlined"
                           startIcon={suggesting ? <CircularProgress size={16} /> : <AutoAwesomeIcon />}
-                          disabled={!canEdit || suggesting}
+                          disabled={!canEdit || suggesting || aiQuotaExhausted}
                           onClick={requestSuggestions}
                           sx={{ textTransform: 'none', fontWeight: 700 }}
                         >
                           {suggesting ? 'Đang lấy gợi ý...' : 'AI gợi ý linh kiện'}
                         </Button>
+                        <Chip
+                          size="small"
+                          label={`Đã dùng: ${aiUsedCount}/${AI_SUGGESTION_LIMIT} lượt`}
+                          sx={{
+                            height: 24,
+                            fontWeight: 700,
+                            fontSize: 11,
+                            bgcolor: aiQuotaExhausted ? '#fff7ed' : '#f1f5f9',
+                            color: aiQuotaExhausted ? '#c2410c' : '#475569',
+                          }}
+                        />
+                        {aiResetCountdown && (
+                          <Typography
+                            variant="caption"
+                            sx={{ color: aiQuotaExhausted ? '#b45309' : '#64748b', fontWeight: aiQuotaExhausted ? 700 : 500 }}
+                          >
+                            Hồi lại sau {aiResetCountdown}
+                          </Typography>
+                        )}
                         <Typography variant="caption" color="text.secondary">
-                          Gợi ý được lưu tạm trên thiết bị; hãy thêm hoặc bỏ mục rồi bấm Lưu. Tối đa 10 lượt mỗi giờ.
+                          Chọn các linh kiện phù hợp bên dưới, sau đó bấm <Box component="span" sx={{ fontWeight: 800 }}>Lưu project</Box> để xác nhận.
                         </Typography>
                       </Box>
                       {suggestions && (
@@ -1249,15 +1377,7 @@ export default function ProjectManagement() {
                                   clickable={canEdit}
                                   disabled={!canEdit}
                                   onClick={() => addSuggestedComponent(suggestion)}
-                                  sx={{
-                                    ...suggestedChipStyles,
-                                    width: 'fit-content',
-                                    borderColor: '#86efac',
-                                    bgcolor: '#f0fdf4',
-                                    color: '#166534',
-                                    '&:hover': { borderColor: '#16a34a', bgcolor: '#ecfdf5', boxShadow: '0 2px 6px rgba(22, 163, 74, 0.15)' },
-                                    '&:active': { bgcolor: '#dcfce7' },
-                                  }}
+                                  sx={{ ...suggestedChipStyles, width: 'fit-content' }}
                                 />
                               </Tooltip>
                             ))}
@@ -1272,7 +1392,6 @@ export default function ProjectManagement() {
                                   sx={{
                                     ...suggestedChipStyles,
                                     width: 'fit-content',
-                                    borderColor: '#fcd34d',
                                     bgcolor: '#fffbeb',
                                     color: '#92400e',
                                     cursor: 'not-allowed',
@@ -1287,13 +1406,7 @@ export default function ProjectManagement() {
                                   clickable={canEdit}
                                   disabled={!canEdit}
                                   onClick={() => addSuggestedSelfItem(suggestion)}
-                                  sx={{
-                                    ...suggestedChipStyles,
-                                    width: 'fit-content',
-                                    borderColor: '#93c5fd',
-                                    bgcolor: '#eff6ff',
-                                    color: '#1e40af',
-                                  }}
+                                  sx={{ ...suggestedChipStyles, width: 'fit-content' }}
                                 />
                               </Tooltip>
                             ))}
