@@ -4,7 +4,6 @@ import {
   ArrowBack as ArrowBackIcon,
   ArrowForward as ArrowForwardIcon,
   AutoAwesome as AutoAwesomeIcon,
-  Delete as DeleteIcon,
   Groups as GroupsIcon,
   Save as SaveIcon,
   School as SchoolIcon,
@@ -25,7 +24,6 @@ import {
   DialogTitle,
   Divider,
   Grid,
-  IconButton,
   InputAdornment,
   MenuItem,
   Paper,
@@ -33,6 +31,7 @@ import {
   Snackbar,
   Stack,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material'
 import { useNavigate, useParams } from 'react-router-dom'
@@ -172,6 +171,7 @@ export default function ProjectManagement() {
   const [withdrawing, setWithdrawing] = useState(false)
   const [suggestions, setSuggestions] = useState(null)
   const [submitDialogOpen, setSubmitDialogOpen] = useState(false)
+  const [editingChip, setEditingChip] = useState(null)
   const [borrowDate, setBorrowDate] = useState(localDateValue())
   const [borrowDeadline, setBorrowDeadline] = useState(null)
   const [loadingDeadline, setLoadingDeadline] = useState(false)
@@ -535,6 +535,22 @@ export default function ProjectManagement() {
     project?.components?.find((component) => component.componentId === componentId)?.componentName ||
     ''
 
+  const selectedComponentIds = new Set(form.components.map((item) => item.componentId))
+  const selectedSelfItemNames = new Set(
+    form.selfSuppliedItems.map((item) => item.itemName.trim().toLocaleLowerCase())
+  )
+  const availableBorrowableSuggestions = (suggestions?.borrowable || []).filter(
+    (item) => !selectedComponentIds.has(item.componentId)
+  )
+  const availableSelfSuppliedSuggestions = (suggestions?.selfSupplied || []).filter(
+    (item) => !selectedSelfItemNames.has(item.itemName.trim().toLocaleLowerCase())
+  )
+  const editingItem = editingChip?.type === 'component'
+    ? form.components.find((item) => item.clientKey === editingChip.clientKey)
+    : editingChip?.type === 'self'
+      ? form.selfSuppliedItems.find((item) => item.clientKey === editingChip.clientKey)
+      : null
+
   return (
     <PortalLayout headerTitle="Thiết lập dự án" headerSubtitle={team?.teamName || 'Quản lý đồ án nhóm'}>
       <Container maxWidth="xl" disableGutters sx={{ width: '100%', maxWidth: 1600, minWidth: 0, mx: 'auto', boxSizing: 'border-box', pb: 5 }}>
@@ -850,54 +866,27 @@ export default function ProjectManagement() {
                           Thêm loại
                         </Button>
                       </Box>
-                      <Stack spacing={1.5}>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                         {form.components.map((item) => (
-                          <Box
+                          <Tooltip
                             key={item.clientKey}
-                            sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 90px', sm: 'minmax(180px, 1fr) 110px minmax(140px, 1fr) 40px' }, gap: 1, alignItems: 'center' }}
+                            title={item.note || 'Nhấn để chỉnh sửa số lượng hoặc ghi chú.'}
                           >
-                            <TextField
-                              select
-                              label="Loại linh kiện"
-                              value={item.componentId}
-                              onChange={(event) => updateComponent(item.clientKey, 'componentId', event.target.value)}
+                            <Chip
+                              label={`${getComponentName(item.componentId) || 'Linh kiện'} x${item.quantity}`}
+                              onClick={canEdit ? () => setEditingChip({ type: 'component', clientKey: item.clientKey }) : undefined}
+                              onDelete={canEdit ? () => removeComponent(item.clientKey) : undefined}
                               disabled={!canEdit}
-                              size="small"
-                              sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}
-                            >
-                              {item.componentId && !componentTypes.some((c) => c.componentId === item.componentId) && (
-                                <MenuItem value={item.componentId}>{getComponentName(item.componentId) || 'Linh kiện hiện có'}</MenuItem>
-                              )}
-                              {componentTypes.map((component) => (
-                                <MenuItem key={component.componentId} value={component.componentId}>
-                                  {component.componentName} ({component.componentCode})
-                                </MenuItem>
-                              ))}
-                            </TextField>
-                            <TextField
-                              label="Số lượng"
-                              type="number"
-                              size="small"
-                              inputProps={{ min: 1 }}
-                              value={item.quantity}
-                              onChange={(event) => updateComponent(item.clientKey, 'quantity', event.target.value)}
-                              disabled={!canEdit}
+                              sx={{ width: 'fit-content', maxWidth: '100%', cursor: canEdit ? 'pointer' : 'default' }}
                             />
-                            <TextField
-                              label="Ghi chú"
-                              size="small"
-                              value={item.note}
-                              onChange={(event) => updateComponent(item.clientKey, 'note', event.target.value)}
-                              disabled={!canEdit}
-                              sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}
-                            />
-                            <IconButton aria-label="Xóa linh kiện" onClick={() => removeComponent(item.clientKey)} disabled={!canEdit} color="error">
-                              <DeleteIcon />
-                            </IconButton>
-                          </Box>
+                          </Tooltip>
                         ))}
-                        {form.components.length === 0 && <Alert severity="info">Chưa thêm linh kiện mượn kho.</Alert>}
-                      </Stack>
+                        {form.components.length === 0 && (
+                          <Alert severity="info" sx={{ display: 'inline-flex', width: 'fit-content', py: 0.25 }}>
+                            Chưa thêm linh kiện mượn kho.
+                          </Alert>
+                        )}
+                      </Box>
                     </Box>
 
                     <Divider />
@@ -911,98 +900,104 @@ export default function ProjectManagement() {
                           Thêm món
                         </Button>
                       </Box>
-                      <Stack spacing={1.5}>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                         {form.selfSuppliedItems.map((item) => (
-                          <Box
+                          <Tooltip
                             key={item.clientKey}
-                            sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 90px', sm: 'minmax(160px, 1fr) 100px minmax(140px, 1fr) 40px' }, gap: 1, alignItems: 'center' }}
+                            title={item.note || 'Nhấn để chỉnh sửa số lượng hoặc ghi chú.'}
                           >
-                            <TextField
-                              label="Tên món"
-                              size="small"
-                              value={item.itemName}
-                              onChange={(event) => updateSelfSuppliedItem(item.clientKey, 'itemName', event.target.value)}
+                            <Chip
+                              label={`${item.itemName || 'Món tự mua'} x${item.quantity}`}
+                              onClick={canEdit ? () => setEditingChip({ type: 'self', clientKey: item.clientKey }) : undefined}
+                              onDelete={canEdit ? () => removeSelfSuppliedItem(item.clientKey) : undefined}
                               disabled={!canEdit}
-                              sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}
+                              sx={{ width: 'fit-content', maxWidth: '100%', cursor: canEdit ? 'pointer' : 'default' }}
                             />
-                            <TextField
-                              label="Số lượng"
-                              type="number"
-                              size="small"
-                              inputProps={{ min: 1 }}
-                              value={item.quantity}
-                              onChange={(event) => updateSelfSuppliedItem(item.clientKey, 'quantity', event.target.value)}
-                              disabled={!canEdit}
-                            />
-                            <TextField
-                              label="Ghi chú"
-                              size="small"
-                              value={item.note}
-                              onChange={(event) => updateSelfSuppliedItem(item.clientKey, 'note', event.target.value)}
-                              disabled={!canEdit}
-                              sx={{ gridColumn: { xs: '1 / -1', sm: 'auto' } }}
-                            />
-                            <IconButton aria-label="Xóa món tự mua" onClick={() => removeSelfSuppliedItem(item.clientKey)} disabled={!canEdit} color="error">
-                              <DeleteIcon />
-                            </IconButton>
-                          </Box>
+                          </Tooltip>
                         ))}
-                        {form.selfSuppliedItems.length === 0 && <Alert severity="info">Chưa thêm món tự mua.</Alert>}
-                      </Stack>
+                        {form.selfSuppliedItems.length === 0 && (
+                          <Alert severity="info" sx={{ display: 'inline-flex', width: 'fit-content', py: 0.25 }}>
+                            Chưa thêm món tự mua.
+                          </Alert>
+                        )}
+                      </Box>
                     </Box>
 
                     <Divider />
                     <Box>
-                      <Button
-                        variant="outlined"
-                        startIcon={suggesting ? <CircularProgress size={16} /> : <AutoAwesomeIcon />}
-                        disabled={!canEdit || suggesting}
-                        onClick={requestSuggestions}
-                        sx={{ textTransform: 'none', fontWeight: 700 }}
-                      >
-                        {suggesting ? 'Đang lấy gợi ý...' : 'AI gợi ý linh kiện'}
-                      </Button>
-                      <Typography variant="caption" display="block" color="text.secondary" sx={{ mt: 0.75 }}>
-                        Gợi ý chưa được lưu; hãy thêm hoặc bỏ từng mục rồi bấm Lưu. Tối đa 10 lượt mỗi giờ.
-                      </Typography>
+                      <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1.25 }}>
+                        <Button
+                          variant="outlined"
+                          startIcon={suggesting ? <CircularProgress size={16} /> : <AutoAwesomeIcon />}
+                          disabled={!canEdit || suggesting}
+                          onClick={requestSuggestions}
+                          sx={{ textTransform: 'none', fontWeight: 700 }}
+                        >
+                          {suggesting ? 'Đang lấy gợi ý...' : 'AI gợi ý linh kiện'}
+                        </Button>
+                        <Typography variant="caption" color="text.secondary">
+                          Gợi ý chưa được lưu; hãy thêm hoặc bỏ từng mục rồi bấm Lưu. Tối đa 10 lượt mỗi giờ.
+                        </Typography>
+                      </Box>
                       {suggestions && (
                         <Stack spacing={1.5} sx={{ mt: 2 }}>
                           <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Kết quả gợi ý</Typography>
-                          {suggestions.hint && <Alert severity="info">{suggestions.hint}</Alert>}
-                          {(suggestions.borrowable || []).map((suggestion) => (
-                            <Alert
-                              key={suggestion.componentId}
-                              severity="success"
-                              action={
-                                <Button size="small" onClick={() => addSuggestedComponent(suggestion)} disabled={!canEdit}>
-                                  Thêm vào danh sách mượn
-                                </Button>
-                              }
-                            >
-                              {suggestion.componentName} · {suggestion.quantity} {suggestion.unit || ''} {suggestion.reason ? `— ${suggestion.reason}` : ''}
+                          {suggestions.hint && (
+                            <Alert severity="info" sx={{ display: 'inline-flex', width: 'fit-content', maxWidth: '100%' }}>
+                              {suggestions.hint}
                             </Alert>
-                          ))}
-                          {(suggestions.notEnoughStock || []).map((suggestion) => (
-                            <Alert key={suggestion.componentId} severity="warning">
-                              {suggestion.componentName}: cần {suggestion.quantity}, hiện có {suggestion.available}. {suggestion.reason || ''}
-                            </Alert>
-                          ))}
-                          {(suggestions.selfSupplied || []).map((suggestion, index) => (
-                            <Alert
-                              key={`${suggestion.itemName}-${index}`}
-                              severity="info"
-                              action={
-                                <Button size="small" onClick={() => addSuggestedSelfItem(suggestion)} disabled={!canEdit}>
-                                  Thêm vào danh sách tự mua
-                                </Button>
-                              }
-                            >
-                              {suggestion.itemName} · {suggestion.quantity} {suggestion.reason ? `— ${suggestion.reason}` : ''}
-                            </Alert>
-                          ))}
-                          {!suggestions.borrowable?.length && !suggestions.notEnoughStock?.length && !suggestions.selfSupplied?.length && (
-                            <Alert severity="info">AI chưa có gợi ý phù hợp cho mô tả hiện tại.</Alert>
                           )}
+                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                            {availableBorrowableSuggestions.map((suggestion) => (
+                              <Tooltip key={`borrow-${suggestion.componentId}`} title={suggestion.reason || 'Nhấn để thêm vào danh sách mượn kho.'}>
+                                <Chip
+                                  label={`${suggestion.componentName} x${Number(suggestion.quantity) || 1}`}
+                                  color="success"
+                                  variant="outlined"
+                                  clickable={canEdit}
+                                  disabled={!canEdit}
+                                  onClick={() => addSuggestedComponent(suggestion)}
+                                  sx={{ width: 'fit-content', maxWidth: '100%' }}
+                                />
+                              </Tooltip>
+                            ))}
+                            {(suggestions.notEnoughStock || []).map((suggestion) => (
+                              <Tooltip
+                                key={`stock-${suggestion.componentId}`}
+                                title={`Cần ${suggestion.quantity}, hiện có ${suggestion.available}.${suggestion.reason ? ` ${suggestion.reason}` : ''}`}
+                              >
+                                <Chip
+                                  label={`${suggestion.componentName} x${Number(suggestion.quantity) || 1}`}
+                                  color="warning"
+                                  variant="outlined"
+                                  disabled
+                                  sx={{ width: 'fit-content', maxWidth: '100%' }}
+                                />
+                              </Tooltip>
+                            ))}
+                            {availableSelfSuppliedSuggestions.map((suggestion, index) => (
+                              <Tooltip key={`self-${suggestion.itemName}-${index}`} title={suggestion.reason || 'Nhấn để thêm vào danh sách tự mua.'}>
+                                <Chip
+                                  label={`${suggestion.itemName} x${Number(suggestion.quantity) || 1}`}
+                                  color="info"
+                                  variant="outlined"
+                                  clickable={canEdit}
+                                  disabled={!canEdit}
+                                  onClick={() => addSuggestedSelfItem(suggestion)}
+                                  sx={{ width: 'fit-content', maxWidth: '100%' }}
+                                />
+                              </Tooltip>
+                            ))}
+                          </Box>
+                          {!availableBorrowableSuggestions.length &&
+                            !(suggestions.notEnoughStock || []).length &&
+                            !availableSelfSuppliedSuggestions.length && (
+                              <Alert severity="info" sx={{ display: 'inline-flex', width: 'fit-content' }}>
+                                {(suggestions.borrowable?.length || suggestions.selfSupplied?.length)
+                                  ? 'Đã thêm tất cả gợi ý vào danh sách.'
+                                  : 'AI chưa có gợi ý phù hợp cho mô tả hiện tại.'}
+                              </Alert>
+                            )}
                         </Stack>
                       )}
                     </Box>
@@ -1063,6 +1058,62 @@ export default function ProjectManagement() {
           </Stack>
         )}
       </Container>
+
+      <Dialog
+        open={Boolean(editingItem)}
+        onClose={() => setEditingChip(null)}
+        fullWidth
+        maxWidth="xs"
+      >
+        <DialogTitle sx={{ fontWeight: 800 }}>
+          Chỉnh sửa {editingChip?.type === 'component' ? 'linh kiện mượn kho' : 'món tự mua'}
+        </DialogTitle>
+        {editingItem && (
+          <DialogContent>
+            <Stack spacing={2} sx={{ pt: 1 }}>
+              <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                {editingChip.type === 'component'
+                  ? getComponentName(editingItem.componentId)
+                  : editingItem.itemName}
+              </Typography>
+              <TextField
+                label="Số lượng"
+                type="number"
+                inputProps={{ min: 1 }}
+                value={editingItem.quantity}
+                onChange={(event) => {
+                  if (editingChip.type === 'component') {
+                    updateComponent(editingItem.clientKey, 'quantity', event.target.value)
+                  } else {
+                    updateSelfSuppliedItem(editingItem.clientKey, 'quantity', event.target.value)
+                  }
+                }}
+                disabled={!canEdit || saving}
+                fullWidth
+                autoFocus
+              />
+              <TextField
+                label="Ghi chú"
+                value={editingItem.note}
+                onChange={(event) => {
+                  if (editingChip.type === 'component') {
+                    updateComponent(editingItem.clientKey, 'note', event.target.value)
+                  } else {
+                    updateSelfSuppliedItem(editingItem.clientKey, 'note', event.target.value)
+                  }
+                }}
+                disabled={!canEdit || saving}
+                fullWidth
+                multiline
+                minRows={2}
+              />
+            </Stack>
+          </DialogContent>
+        )}
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setEditingChip(null)}>Đóng</Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={submitDialogOpen} onClose={() => !submitting && !loadingDeadline && setSubmitDialogOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle sx={{ fontWeight: 800 }}>Xác nhận gửi duyệt đề tài</DialogTitle>

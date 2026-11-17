@@ -801,9 +801,7 @@ export default function GroupInviteManager() {
                 <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#131b2e' }}>
                   Thành viên nhóm ({currentTeam.members?.length || 0})
                 </Typography>
-                <Typography variant="caption" sx={{ color: '#6b7280', fontSize: 11 }}>
-                  API: <code>GET /api/teams/{'{id}'}</code>
-                </Typography>
+                
               </Box>
 
               <TableContainer sx={{ border: '1px solid #f0f2f5', borderRadius: 1.5 }}>
