@@ -96,6 +96,9 @@ export const borrowService = {
       const response = await api.get('/api/borrow-extensions', { params })
       return response.data?.data || response.data
     } catch (error) {
+      if (error.response?.status === 403) {
+        return { items: [], total: 0 }
+      }
       throw new Error(extractErrorMessage(error, 'Không thể tải danh sách yêu cầu gia hạn'), { cause: error })
     }
   },
@@ -423,7 +426,15 @@ export const borrowService = {
       const response = await api.get('/api/borrow-requests', { params: { status: 'Returned' } })
       return response.data?.data?.items || response.data?.items || response.data || []
     } catch (error) {
-      throw new Error(extractErrorMessage(error, 'Không thể tải danh sách phiếu trả'), { cause: error })
+      if (error.response?.status === 403) {
+        try {
+          const myResponse = await api.get('/api/borrow-requests/my', { params: { status: 'Returned' } })
+          return myResponse.data?.data?.items || myResponse.data?.items || myResponse.data || []
+        } catch {
+          return []
+        }
+      }
+      return []
     }
   },
 

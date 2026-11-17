@@ -83,9 +83,9 @@ export default function SupplementaryBorrowList() {
     let isMounted = true
 
     Promise.all([
-      borrowService.getReturnRequests(),
-      borrowService.getMyBorrowRequests(),
-      borrowService.getBorrowExtensions(),
+      borrowService.getReturnRequests().catch(() => []),
+      borrowService.getMyBorrowRequests().catch(() => ({ items: [] })),
+      borrowService.getBorrowExtensions().catch(() => ({ items: [] })),
       borrowService.getPendingApprovalProjects().catch(() => []),
     ])
       .then(([retData, myBorrows, extData, pendingProjects]) => {
@@ -138,9 +138,9 @@ export default function SupplementaryBorrowList() {
     }
     try {
       const [retData, myBorrows, extData, pendingProjects] = await Promise.all([
-        borrowService.getReturnRequests(),
-        borrowService.getMyBorrowRequests(),
-        borrowService.getBorrowExtensions(),
+        borrowService.getReturnRequests().catch(() => []),
+        borrowService.getMyBorrowRequests().catch(() => ({ items: [] })),
+        borrowService.getBorrowExtensions().catch(() => ({ items: [] })),
         borrowService.getPendingApprovalProjects().catch(() => []),
       ])
 

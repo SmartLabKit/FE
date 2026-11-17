@@ -39,6 +39,7 @@ import {
   FactCheck as FinalSubmissionIcon,
   ReportProblem as IssueIcon,
   Checklist as AuditIcon,
+  MeetingRoom as RoomIcon,
 } from '@mui/icons-material'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth, DEMO_ACCOUNTS } from '../../context/AuthContext'
@@ -196,9 +197,9 @@ export default function PortalLayout({
       roles: ['Admin', 'InventoryManager', 'LabStaff', 'Lecturer', 'Student'],
     },
     {
-      label: 'Quản lý linh kiện',
-      icon: <CategoryIcon fontSize="small" />,
-      path: '/class-setup/admin/categories',
+      label: 'Phòng lab',
+      icon: <RoomIcon fontSize="small" />,
+      path: isStudent ? '/class-setup/admin/lab-rooms' : '/class-setup/admin/categories',
       roles: ['InventoryManager', 'LabStaff', 'Student'],
     },
     {
@@ -380,7 +381,7 @@ export default function PortalLayout({
               ? isComponentsRoute
               : item.path === '/class-setup/admin/stock-inwards'
               ? isStockInwardsRoute || isStorageAllocationRoute
-              : item.path === '/class-setup/admin/categories'
+              : item.path === '/class-setup/admin/categories' || item.path === '/class-setup/admin/lab-rooms'
               ? isCategoriesRoute || isLabRoomsRoute || isCabinetsRoute
               : item.path === '/class-setup/admin/stock-receipts'
               ? isStockReceiptsRoute
