@@ -848,7 +848,7 @@ export default function ProjectManagement() {
         toProjectPayload(form)
       )
       const result = await projectService.submitProject(updatedProject.projectId, {
-        borrowDate: requiresBorrow ? borrowDate : null,
+        expectedBorrowDate: requiresBorrow ? borrowDate : null,
         dueDate: requiresBorrow ? deadlineDate : null,
       })
       setProject(result)

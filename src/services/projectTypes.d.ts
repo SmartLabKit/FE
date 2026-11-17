@@ -6,6 +6,6 @@ export interface BorrowDeadlineResponse {
 }
 
 export interface SubmitProjectRequest {
-  borrowDate: string | null
+  expectedBorrowDate: string | null
   dueDate: string | null
 }
