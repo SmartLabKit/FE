@@ -177,29 +177,29 @@ function formatVietnamDate(value) {
 }
 
 function ProjectStatus({ status }) {
-  const colors = {
-    Draft: { bgcolor: '#eff6ff', color: '#1d4ed8' },
-    Submitted: { bgcolor: '#fef3c7', color: '#92400e' },
-    Rejected: { bgcolor: '#fef2f2', color: '#b91c1c' },
-    Approved: { bgcolor: '#ecfdf5', color: '#047857' },
+  const styles = {
+    Draft: { bgcolor: '#f1f5f9', color: '#475569', borderColor: '#cbd5e1', dotColor: '#64748b' },
+    Submitted: { bgcolor: '#fef3c7', color: '#92400e', borderColor: '#fcd34d', dotColor: '#f59e0b' },
+    Rejected: { bgcolor: '#fff1f2', color: '#be123c', borderColor: '#fda4af', dotColor: '#e11d48' },
+    Approved: { bgcolor: '#ecfdf5', color: '#047857', borderColor: '#6ee7b7', dotColor: '#10b981' },
+    Cancelled: { bgcolor: '#f1f5f9', color: '#475569', borderColor: '#cbd5e1', dotColor: '#64748b' },
   }
-  const isSubmitted = status === 'Submitted'
+  const style = styles[status] || styles.Draft
   return (
     <Chip
-      icon={isSubmitted ? <Box component="span" sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#f59e0b' }} /> : undefined}
+      icon={<Box component="span" sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: style.dotColor }} />}
       label={formatStatus(status)}
-      size={isSubmitted ? 'medium' : 'small'}
       sx={{
-        fontWeight: 800,
-        ...(colors[status] || { bgcolor: '#f1f5f9', color: '#475569' }),
-        ...(isSubmitted && {
-          height: 32,
-          px: 0.5,
-          border: '1px solid #fcd34d',
-          fontSize: 13,
-          '& .MuiChip-label': { px: 1.25 },
-          '& .MuiChip-icon': { ml: 1, mr: -0.5 },
-        }),
+        height: 32,
+        px: 0.5,
+        borderRadius: '999px',
+        border: `1px solid ${style.borderColor}`,
+        bgcolor: style.bgcolor,
+        color: style.color,
+        fontSize: 13,
+        fontWeight: 700,
+        '& .MuiChip-label': { px: 1.25 },
+        '& .MuiChip-icon': { ml: 1, mr: -0.5 },
       }}
     />
   )
@@ -1329,19 +1329,27 @@ export default function ProjectManagement() {
                   </>
                 ) : (
                   <>
-                    <Box>
-                      <Typography variant="caption" color="text.secondary">Tên project</Typography>
+                    <Box
+                      sx={{
+                        display: 'grid',
+                        gridTemplateColumns: { xs: '1fr', sm: '120px minmax(0, 1fr)' },
+                        columnGap: 2,
+                        rowGap: 1.5,
+                        alignItems: 'start',
+                      }}
+                    >
+                      <Typography variant="body2" sx={{ fontWeight: 500, color: '#64748b' }}>
+                        Tên project
+                      </Typography>
                       <Typography variant="body1" sx={{ fontWeight: 600, color: '#0f172a' }}>
                         {form.title || '—'}
                       </Typography>
-                    </Box>
-                    <Box sx={{ p: 1.75, borderRadius: 2, bgcolor: '#f8fafc' }}>
-                      <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 500, color: '#64748b' }}>
                         Mô tả
                       </Typography>
                       <Typography
                         variant="body2"
-                        sx={{ color: '#334155', lineHeight: 1.7, whiteSpace: 'pre-line' }}
+                        sx={{ color: '#1e293b', lineHeight: 1.7, whiteSpace: 'pre-line' }}
                       >
                         {form.description || '—'}
                       </Typography>
@@ -1551,44 +1559,33 @@ export default function ProjectManagement() {
                 )}
               </Stack>
 
-              {canEdit && (
+              {(canEdit || (isLeader && project?.status === 'Submitted')) && (
                 <Box sx={{ display: 'flex', justifyContent: 'flex-end', gap: 1, mt: 3 }}>
-                  <Button
-                    variant="contained"
-                    startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />}
-                    disabled={saving}
-                    onClick={saveProject}
-                    sx={{ bgcolor: '#0058be', textTransform: 'none', fontWeight: 700 }}
-                  >
-                    {saving ? 'Đang lưu...' : project ? 'Lưu project' : 'Lưu nháp'}
-                  </Button>
-                  {project && ['Draft', 'Rejected'].includes(project.status) && (
-                    <Button
-                      variant="outlined"
-                      startIcon={<SendIcon />}
-                      onClick={openSubmitDialog}
-                      disabled={saving || submitting || loadingDeadline}
-                      sx={{ textTransform: 'none', fontWeight: 700 }}
-                    >
-                      Gửi duyệt
-                    </Button>
+                  {canEdit && (
+                    <>
+                      <Button
+                        variant="contained"
+                        startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />}
+                        disabled={saving}
+                        onClick={saveProject}
+                        sx={{ bgcolor: '#0058be', textTransform: 'none', fontWeight: 700 }}
+                      >
+                        {saving ? 'Đang lưu...' : project ? 'Lưu project' : 'Lưu nháp'}
+                      </Button>
+                      {project && ['Draft', 'Rejected'].includes(project.status) && (
+                        <Button
+                          variant="outlined"
+                          startIcon={<SendIcon />}
+                          onClick={openSubmitDialog}
+                          disabled={saving || submitting || loadingDeadline}
+                          sx={{ textTransform: 'none', fontWeight: 700 }}
+                        >
+                          Gửi duyệt
+                        </Button>
+                      )}
+                    </>
                   )}
-                </Box>
-              )}
-            </Paper>
-
-            {project && ((isLeader && project.status === 'Submitted') || !isLeader) && (
-              <Paper elevation={0} sx={{ p: { xs: 2, sm: 3 }, border: '1px solid #e4e6ef', borderRadius: 2 }}>
-                {isLeader && project.status === 'Submitted' && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
-                    <Box>
-                      <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#131b2e' }}>
-                        Project đang chờ duyệt
-                      </Typography>
-                      <Typography variant="body2" color="text.secondary">
-                        Rút hồ sơ về bản nháp nếu nhóm cần chỉnh sửa thông tin.
-                      </Typography>
-                    </Box>
+                  {isLeader && project?.status === 'Submitted' && (
                     <Button
                       variant="outlined"
                       color="warning"
@@ -1599,11 +1596,10 @@ export default function ProjectManagement() {
                     >
                       {withdrawing ? 'Đang rút...' : 'Rút lại'}
                     </Button>
-                  </Box>
-                )}
-                {!isLeader && <Typography variant="body2" color="text.secondary">Chỉ trưởng nhóm mới có thể gửi duyệt hoặc rút project.</Typography>}
-              </Paper>
-            )}
+                  )}
+                </Box>
+              )}
+            </Paper>
 
             {project?.status === 'Approved' && (
               <FinalSubmissionPanel
