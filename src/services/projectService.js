@@ -5,94 +5,6 @@ function unwrap(response) {
   return response.data?.data ?? response.data
 }
 
-function extractRateLimitMetadata(response) {
-  if (!response) return null
-  const body = response.data
-  const sources = [
-    body,
-    body?.data,
-    body?.meta,
-    body?.quota,
-    body?.usage,
-    body?.rateLimit,
-    body?.data?.meta,
-    body?.data?.quota,
-    body?.data?.usage,
-    body?.data?.rateLimit,
-  ]
-  const headers = response.headers
-  const readNumber = (...values) => {
-    for (const value of values) {
-      if (value === undefined || value === null || value === '') continue
-      const parsed = Number(value)
-      if (Number.isFinite(parsed)) return parsed
-    }
-    return null
-  }
-  const readValue = (...keys) => {
-    for (const source of sources) {
-      for (const key of keys) {
-        if (source?.[key] !== undefined && source[key] !== null) return source[key]
-      }
-    }
-    return undefined
-  }
-  const readHeader = (...keys) => {
-    for (const key of keys) {
-      const value = headers?.[key] ?? headers?.get?.(key)
-      if (value !== undefined && value !== null) return value
-    }
-    return undefined
-  }
-
-  const limit = readNumber(
-    readValue('limit', 'rateLimitLimit'),
-    readHeader('x-ratelimit-limit', 'ratelimit-limit')
-  )
-  const remaining = readNumber(
-    readValue('remaining', 'rateLimitRemaining'),
-    readHeader('x-ratelimit-remaining', 'ratelimit-remaining')
-  )
-  let usedCount = readNumber(
-    readValue('usedCount', 'used', 'rateLimitUsed'),
-    readHeader('x-ratelimit-used', 'ratelimit-used')
-  )
-  if (usedCount === null && limit !== null && remaining !== null) usedCount = Math.max(0, limit - remaining)
-
-  let resetAt = readValue('resetAt', 'rateLimitResetAt')
-  if (resetAt === undefined || resetAt === null) {
-    resetAt = readHeader('x-ratelimit-reset')
-  }
-  if (resetAt !== undefined && resetAt !== null) {
-    const numericReset = Number(resetAt)
-    resetAt = Number.isFinite(numericReset)
-      ? numericReset < 1e12 ? numericReset * 1000 : numericReset
-      : Date.parse(resetAt)
-    if (!Number.isFinite(resetAt)) resetAt = null
-  }
-  if (resetAt === undefined || resetAt === null) {
-    const resetAfter = readHeader('ratelimit-reset')
-    if (resetAfter !== undefined && resetAfter !== null) {
-      const resetSeconds = Number(resetAfter)
-      resetAt = Number.isFinite(resetSeconds) ? Date.now() + resetSeconds * 1000 : Date.parse(resetAfter)
-      if (!Number.isFinite(resetAt)) resetAt = null
-    }
-  }
-  if (resetAt === undefined || resetAt === null) {
-    const retryAfter = readHeader('retry-after')
-    if (retryAfter !== undefined && retryAfter !== null) {
-      const retrySeconds = Number(retryAfter)
-      resetAt = Number.isFinite(retrySeconds)
-        ? Date.now() + retrySeconds * 1000
-        : Date.parse(retryAfter)
-      if (!Number.isFinite(resetAt)) resetAt = null
-    }
-  }
-
-  if (usedCount === null && remaining === null && (resetAt === undefined || resetAt === null)) return null
-  return { usedCount, remaining, resetAt }
-}
-
 export const projectService = {
   async getPendingApprovalProjects(params = { page: 1, size: 100 }) {
     try {
@@ -235,23 +147,16 @@ export const projectService = {
 
   async suggestComponents(description) {
     try {
-      const response = await api.post('/api/projects/suggest-components', { description })
-      return {
-        suggestions: unwrap(response),
-        quota: extractRateLimitMetadata(response),
-      }
+      return unwrap(await api.post('/api/projects/suggest-components', { description }))
     } catch (error) {
-      const rateLimit = extractRateLimitMetadata(error.response)
       if (error.response?.status === 429) {
-        const quotaError = new Error('Bạn đã sử dụng hết lượt AI gợi ý (tối đa 10 lần/giờ). Vui lòng thử lại sau.', {
-          cause: error,
-        })
-        quotaError.rateLimit = rateLimit
-        throw quotaError
+        const message = extractErrorMessage(
+          error,
+          'Bạn đã sử dụng hết lượt AI gợi ý (tối đa 10 lần/giờ). Vui lòng thử lại sau.'
+        )
+        throw new Error(message, { cause: error })
       }
-      const requestError = new Error(extractErrorMessage(error, 'Không thể lấy gợi ý linh kiện'), { cause: error })
-      requestError.rateLimit = rateLimit
-      throw requestError
+      throw new Error(extractErrorMessage(error, 'Không thể lấy gợi ý linh kiện'), { cause: error })
     }
   },
 

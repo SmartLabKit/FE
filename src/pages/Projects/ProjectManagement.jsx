@@ -14,6 +14,7 @@ import {
   Undo as UndoIcon,
 } from '@mui/icons-material'
 import {
+  Autocomplete,
   Alert,
   Box,
   Button,
@@ -60,34 +61,6 @@ function getSemesterWeight(semCode = '') {
 
 const emptyForm = () => ({ title: '', description: '', components: [], selfSuppliedItems: [] })
 const suggestionCacheKey = (projectId) => `smartlabkit:project-suggestions:${projectId}`
-const AI_SUGGESTION_LIMIT = 10
-const AI_SUGGESTION_WINDOW_MS = 60 * 60 * 1000
-const aiUsageStorageKey = (user) =>
-  `smartlabkit:ai-suggestion-usage:${user?.userId || user?.id || user?.studentProfileId || user?.studentCode || 'current-user'}`
-
-function formatDuration(milliseconds) {
-  const totalSeconds = Math.max(0, Math.ceil(milliseconds / 1000))
-  const minutes = Math.floor(totalSeconds / 60)
-  const seconds = totalSeconds % 60
-  return `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`
-}
-
-function readAiUsage(storageKey) {
-  try {
-    const cachedUsage = localStorage.getItem(storageKey)
-    if (!cachedUsage) return { timestamps: [], quota: null }
-    const parsed = JSON.parse(cachedUsage)
-    return {
-      timestamps: Array.isArray(parsed?.timestamps)
-        ? parsed.timestamps.map(Number).filter(Number.isFinite)
-        : [],
-      quota: parsed?.quota && typeof parsed.quota === 'object' ? parsed.quota : null,
-    }
-  } catch (error) {
-    console.warn('Không thể khôi phục số lượt AI đã dùng:', error)
-    return { timestamps: [], quota: null }
-  }
-}
 
 function normalizeProjectForm(project) {
   return {
@@ -297,15 +270,9 @@ export default function ProjectManagement() {
   const [withdrawing, setWithdrawing] = useState(false)
   const [suggestions, setSuggestions] = useState(null)
   const [selectedSuggestions, setSelectedSuggestions] = useState([])
-  const [aiUsageState, setAiUsageState] = useState(() => {
-    const storageKey = aiUsageStorageKey(user)
-    return { storageKey, value: readAiUsage(storageKey) }
-  })
-  const [quotaNow, setQuotaNow] = useState(() => Date.now())
   const [submitDialogOpen, setSubmitDialogOpen] = useState(false)
   const [editingChip, setEditingChip] = useState(null)
-  const [addItemDialogType, setAddItemDialogType] = useState(null)
-  const [newItemDraft, setNewItemDraft] = useState({ componentId: '', itemName: '', quantity: 1, note: '' })
+  const [inlineDraft, setInlineDraft] = useState(null)
   const [borrowDate, setBorrowDate] = useState(localDateValue())
   const [borrowDeadline, setBorrowDeadline] = useState(null)
   const [loadingDeadline, setLoadingDeadline] = useState(false)
@@ -318,10 +285,33 @@ export default function ProjectManagement() {
   })
   const [teamSearchQuery, setTeamSearchQuery] = useState('')
   const rowKeySequence = useRef(0)
-  const usageStorageKey = aiUsageStorageKey(user)
-  const aiUsage = aiUsageState.storageKey === usageStorageKey
-    ? aiUsageState.value
-    : readAiUsage(usageStorageKey)
+  const inlineDraftRef = useRef(null)
+  const inlineDraftFocusedRef = useRef(false)
+  const inlineDraftRootRef = useRef(null)
+  const inlineNameInputRef = useRef(null)
+  const inlineQuantityInputRef = useRef(null)
+
+  useEffect(() => {
+    try {
+      const staleKeys = []
+      for (let index = 0; index < localStorage.length; index += 1) {
+        const key = localStorage.key(index)
+        if (key?.startsWith('smartlabkit:ai-suggestion-usage:')) staleKeys.push(key)
+      }
+      staleKeys.forEach((key) => localStorage.removeItem(key))
+    } catch (error) {
+      console.warn('Không thể dọn bộ đếm lượt AI cũ:', error)
+    }
+  }, [])
+
+  useEffect(() => {
+    inlineDraftRef.current = inlineDraft
+    if (!inlineDraft) return undefined
+    if (inlineDraftFocusedRef.current) return undefined
+    inlineDraftFocusedRef.current = true
+    const frameId = window.requestAnimationFrame(() => inlineNameInputRef.current?.focus())
+    return () => window.cancelAnimationFrame(frameId)
+  }, [inlineDraft])
 
   const updateSemester = (sem) => {
     setSelectedSemester(sem)
@@ -406,15 +396,6 @@ export default function ProjectManagement() {
 
   const showToast = (message, severity = 'success') => {
     setToast({ open: true, message, severity })
-  }
-
-  const persistAiUsage = (nextUsage) => {
-    setAiUsageState({ storageKey: usageStorageKey, value: nextUsage })
-    try {
-      localStorage.setItem(usageStorageKey, JSON.stringify(nextUsage))
-    } catch (error) {
-      showToast(error.message || 'Không thể lưu bộ đếm lượt AI trên thiết bị.', 'warning')
-    }
   }
 
   const writeSuggestionCache = (nextSuggestions, nextSelected = selectedSuggestions) => {
@@ -661,37 +642,11 @@ export default function ProjectManagement() {
     }
     setSuggesting(true)
     try {
-      const { suggestions: result, quota } = await projectService.suggestComponents(form.description.trim())
-      const now = Date.now()
-      const timestamps = [
-        ...aiUsage.timestamps.filter((timestamp) => timestamp > now - AI_SUGGESTION_WINDOW_MS && timestamp <= now),
-        now,
-      ].sort((a, b) => a - b)
-      const nextQuota = quota
-        ? { ...quota, resetAt: quota.resetAt || timestamps[0] + AI_SUGGESTION_WINDOW_MS }
-        : null
-      persistAiUsage({ timestamps, quota: nextQuota })
+      const result = await projectService.suggestComponents(form.description.trim())
       setSuggestions(result)
       setSelectedSuggestions([])
       writeSuggestionCache(result, [])
     } catch (error) {
-      if (error.rateLimit || error.cause?.response?.status === 429) {
-        const now = Date.now()
-        const timestamps = aiUsage.timestamps.filter(
-          (timestamp) => timestamp > now - AI_SUGGESTION_WINDOW_MS && timestamp <= now
-        )
-        const resetAt = error.rateLimit?.resetAt ||
-          (timestamps[0] ? timestamps[0] + AI_SUGGESTION_WINDOW_MS : now + AI_SUGGESTION_WINDOW_MS)
-        persistAiUsage({
-          timestamps,
-          quota: {
-            ...error.rateLimit,
-            usedCount: error.rateLimit?.usedCount ?? AI_SUGGESTION_LIMIT,
-            remaining: error.rateLimit?.remaining ?? 0,
-            resetAt,
-          },
-        })
-      }
       showToast(error.message || 'Không thể lấy gợi ý linh kiện.', 'error')
     } finally {
       setSuggesting(false)
@@ -750,53 +705,105 @@ export default function ProjectManagement() {
     writeSuggestionCache(suggestions, nextSelected)
   }
 
-  const addComponent = () => {
-    setNewItemDraft({ componentId: '', itemName: '', quantity: 1, note: '' })
-    setAddItemDialogType('component')
+  const updateInlineDraft = (changes) => {
+    const current = inlineDraftRef.current
+    if (!current) return
+    const next = { ...current, ...changes }
+    inlineDraftRef.current = next
+    setInlineDraft(next)
   }
 
-  const addSelfSuppliedItem = () => {
-    setNewItemDraft({ componentId: '', itemName: '', quantity: 1, note: '' })
-    setAddItemDialogType('self')
+  const cancelInlineDraft = () => {
+    inlineDraftRef.current = null
+    inlineDraftFocusedRef.current = false
+    setInlineDraft(null)
   }
 
-  const confirmAddItem = () => {
-    const quantity = Number(newItemDraft.quantity)
-    if (!Number.isInteger(quantity) || quantity < 1) {
-      showToast('Vui lòng nhập số lượng nguyên lớn hơn 0.', 'warning')
+  const startInlineCreation = (type) => {
+    if (inlineDraftRef.current) return
+    const draft = {
+      type,
+      componentId: '',
+      searchText: '',
+      itemName: '',
+      quantity: 1,
+    }
+    inlineDraftRef.current = draft
+    inlineDraftFocusedRef.current = false
+    setInlineDraft(draft)
+  }
+
+  const commitInlineDraft = (draft = inlineDraftRef.current) => {
+    if (!draft) return
+    const name = draft.type === 'component'
+      ? componentTypes.find((component) => component.componentId === draft.componentId)?.componentName
+      : draft.itemName.trim()
+    if (!name) {
+      cancelInlineDraft()
       return
     }
-    if (addItemDialogType === 'component') {
-      if (!newItemDraft.componentId) {
-        showToast('Vui lòng chọn loại linh kiện.', 'warning')
-        return
-      }
+    const quantity = Number(draft.quantity)
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      showToast('Vui lòng nhập số lượng nguyên lớn hơn 0.', 'warning')
+      window.requestAnimationFrame(() => inlineQuantityInputRef.current?.focus())
+      return
+    }
+    if (draft.type === 'component') {
       updateForm('components', [
         ...form.components,
         {
-          componentId: newItemDraft.componentId,
+          componentId: draft.componentId,
           quantity,
-          note: newItemDraft.note.trim(),
+          note: '',
           clientKey: nextRowKey('component'),
         },
       ])
-    } else if (addItemDialogType === 'self') {
-      if (!newItemDraft.itemName.trim()) {
-        showToast('Vui lòng nhập tên món tự mua.', 'warning')
-        return
-      }
+    } else {
       updateForm('selfSuppliedItems', [
         ...form.selfSuppliedItems,
         {
-          itemName: newItemDraft.itemName.trim(),
+          itemName: name,
           quantity,
-          note: newItemDraft.note.trim(),
+          note: '',
           clientKey: nextRowKey('self'),
         },
       ])
     }
-    setAddItemDialogType(null)
+    cancelInlineDraft()
   }
+
+  const handleInlineKeyDown = (event) => {
+    if (event.key === 'Escape') {
+      event.preventDefault()
+      cancelInlineDraft()
+      return
+    }
+    if (event.key !== 'Enter') return
+    if (event.defaultPrevented) return
+    const current = inlineDraftRef.current
+    if (!current) return
+    const isComponentCombobox = current.type === 'component' && event.target.getAttribute('role') === 'combobox'
+    if (isComponentCombobox && !current.componentId) return
+    event.preventDefault()
+    commitInlineDraft(current)
+  }
+
+  const handleInlineBlur = (event) => {
+    if (event.relatedTarget && inlineDraftRootRef.current?.contains(event.relatedTarget)) return
+    if (event.relatedTarget) {
+      commitInlineDraft()
+      return
+    }
+    window.setTimeout(() => {
+      const current = inlineDraftRef.current
+      if (!current) return
+      if (inlineDraftRootRef.current?.contains(document.activeElement)) return
+      commitInlineDraft(current)
+    }, 0)
+  }
+
+  const addComponent = () => startInlineCreation('component')
+  const addSelfSuppliedItem = () => startInlineCreation('self')
 
   const submitProject = async () => {
     if (!project?.projectId) {
@@ -860,6 +867,83 @@ export default function ProjectManagement() {
     project?.components?.find((component) => component.componentId === componentId)?.componentName ||
     ''
 
+  const inlineDraftView = inlineDraft ? (
+    <Box
+      ref={inlineDraftRootRef}
+      onBlurCapture={handleInlineBlur}
+      onKeyDown={handleInlineKeyDown}
+      sx={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        gap: 1,
+        minHeight: 36,
+        px: 1.25,
+        borderRadius: 999,
+        bgcolor: '#eff6ff',
+        boxShadow: '0 1px 2px rgba(15, 23, 42, 0.08)',
+      }}
+    >
+      {inlineDraft.type === 'component' ? (
+        <Autocomplete
+          options={componentTypes}
+          value={componentTypes.find((component) => component.componentId === inlineDraft.componentId) || null}
+          inputValue={inlineDraft.searchText}
+          onChange={(_, component) => {
+            updateInlineDraft({
+              componentId: component?.componentId || '',
+              searchText: component?.componentName || '',
+            })
+          }}
+          onInputChange={(_, searchText, reason) => {
+            updateInlineDraft({
+              searchText,
+              ...(reason === 'input' || reason === 'clear' ? { componentId: '' } : {}),
+            })
+          }}
+          getOptionLabel={(component) => component?.componentName || ''}
+          isOptionEqualToValue={(option, value) => option.componentId === value.componentId}
+          openOnFocus
+          autoHighlight
+          disablePortal
+          disableClearable
+          forcePopupIcon={false}
+          sx={{ width: { xs: 175, sm: 230 } }}
+          renderInput={(params) => (
+            <TextField
+              {...params}
+              inputRef={inlineNameInputRef}
+              variant="standard"
+              size="small"
+              placeholder="Tìm linh kiện..."
+              inputProps={{ ...params.inputProps, 'aria-label': 'Tìm linh kiện từ kho' }}
+            />
+          )}
+        />
+      ) : (
+        <TextField
+          inputRef={inlineNameInputRef}
+          value={inlineDraft.itemName}
+          onChange={(event) => updateInlineDraft({ itemName: event.target.value })}
+          variant="standard"
+          size="small"
+          placeholder="Tên món tự mua"
+          inputProps={{ 'aria-label': 'Tên món tự mua' }}
+          sx={{ width: { xs: 145, sm: 195 } }}
+        />
+      )}
+      <TextField
+        inputRef={inlineQuantityInputRef}
+        type="number"
+        size="small"
+        variant="standard"
+        value={inlineDraft.quantity}
+        onChange={(event) => updateInlineDraft({ quantity: event.target.value })}
+        inputProps={{ min: 1, step: 1, 'aria-label': 'Số lượng' }}
+        sx={{ width: 52 }}
+      />
+    </Box>
+  ) : null
+
   const selectedComponentIds = new Set(form.components.map((item) => item.componentId))
   const selectedSelfItemNames = new Set(
     form.selfSuppliedItems.map((item) => item.itemName.trim().toLocaleLowerCase())
@@ -875,40 +959,6 @@ export default function ProjectManagement() {
     : editingChip?.type === 'self'
       ? form.selfSuppliedItems.find((item) => item.clientKey === editingChip.clientKey)
       : null
-  const activeAiTimestamps = aiUsage.timestamps
-    .filter((timestamp) => timestamp > quotaNow - AI_SUGGESTION_WINDOW_MS && timestamp <= quotaNow)
-    .sort((a, b) => a - b)
-  const quotaMetadata = aiUsage.quota
-  const quotaMetadataIsCurrent = quotaMetadata &&
-    (quotaMetadata.resetAt === undefined || quotaMetadata.resetAt === null || quotaMetadata.resetAt > quotaNow)
-  const reportedUsedCount = quotaMetadataIsCurrent && quotaMetadata.usedCount !== undefined && quotaMetadata.usedCount !== null
-    ? Number(quotaMetadata.usedCount)
-    : quotaMetadataIsCurrent && quotaMetadata.remaining !== undefined && quotaMetadata.remaining !== null
-      ? AI_SUGGESTION_LIMIT - Number(quotaMetadata.remaining)
-      : null
-  const aiUsedCount = Math.min(
-    AI_SUGGESTION_LIMIT,
-    Math.max(0, Number.isFinite(reportedUsedCount) ? reportedUsedCount : activeAiTimestamps.length)
-  )
-  const reportedRemaining = quotaMetadataIsCurrent && quotaMetadata.remaining !== undefined && quotaMetadata.remaining !== null
-    ? Number(quotaMetadata.remaining)
-    : AI_SUGGESTION_LIMIT - aiUsedCount
-  const aiRemaining = Math.max(0, Math.min(AI_SUGGESTION_LIMIT, reportedRemaining))
-  const fallbackResetAt = activeAiTimestamps.length
-    ? activeAiTimestamps[0] + AI_SUGGESTION_WINDOW_MS
-    : null
-  const aiResetAt = quotaMetadataIsCurrent && quotaMetadata.resetAt > quotaNow
-    ? quotaMetadata.resetAt
-    : fallbackResetAt
-  const aiQuotaExhausted = aiUsedCount >= AI_SUGGESTION_LIMIT || aiRemaining <= 0
-  const aiResetCountdown = aiResetAt ? formatDuration(aiResetAt - quotaNow) : null
-
-  useEffect(() => {
-    if (!teamId || !aiResetAt) return undefined
-    const timerId = window.setInterval(() => setQuotaNow(Date.now()), 1000)
-    return () => window.clearInterval(timerId)
-  }, [teamId, aiResetAt])
-
   return (
     <PortalLayout headerTitle="Thiết lập dự án" headerSubtitle={team?.teamName || 'Quản lý đồ án nhóm'}>
       <Container maxWidth="xl" disableGutters sx={{ width: '100%', maxWidth: 1600, minWidth: 0, mx: 'auto', boxSizing: 'border-box', pb: 5 }}>
@@ -1240,7 +1290,6 @@ export default function ProjectManagement() {
                             <Chip
                               label={<QuantityLabel name={getComponentName(item.componentId) || 'Linh kiện'} quantity={item.quantity} />}
                               deleteIcon={<CloseIcon sx={{ fontSize: '17px !important' }} />}
-                              onClick={canEdit ? () => setEditingChip({ type: 'component', clientKey: item.clientKey }) : undefined}
                               onDoubleClick={canEdit ? () => setEditingChip({ type: 'component', clientKey: item.clientKey }) : undefined}
                               onDelete={canEdit ? () => removeComponent(item.clientKey) : undefined}
                               disabled={!canEdit}
@@ -1253,12 +1302,13 @@ export default function ProjectManagement() {
                             Chưa thêm linh kiện mượn kho.
                           </Alert>
                         )}
+                        {inlineDraft?.type === 'component' && inlineDraftView}
                         <Button
                           variant="outlined"
                           size="small"
                           startIcon={<AddIcon />}
                           onClick={addComponent}
-                          disabled={!canEdit}
+                          disabled={!canEdit || Boolean(inlineDraft)}
                           sx={{
                             minHeight: 36,
                             px: 1.25,
@@ -1290,7 +1340,6 @@ export default function ProjectManagement() {
                             <Chip
                               label={<QuantityLabel name={item.itemName || 'Món tự mua'} quantity={item.quantity} />}
                               deleteIcon={<CloseIcon sx={{ fontSize: '17px !important' }} />}
-                              onClick={canEdit ? () => setEditingChip({ type: 'self', clientKey: item.clientKey }) : undefined}
                               onDoubleClick={canEdit ? () => setEditingChip({ type: 'self', clientKey: item.clientKey }) : undefined}
                               onDelete={canEdit ? () => removeSelfSuppliedItem(item.clientKey) : undefined}
                               disabled={!canEdit}
@@ -1303,12 +1352,13 @@ export default function ProjectManagement() {
                             Chưa thêm món tự mua.
                           </Alert>
                         )}
+                        {inlineDraft?.type === 'self' && inlineDraftView}
                         <Button
                           variant="outlined"
                           size="small"
                           startIcon={<AddIcon />}
                           onClick={addSelfSuppliedItem}
-                          disabled={!canEdit}
+                          disabled={!canEdit || Boolean(inlineDraft)}
                           sx={{
                             minHeight: 36,
                             px: 1.25,
@@ -1332,31 +1382,12 @@ export default function ProjectManagement() {
                         <Button
                           variant="outlined"
                           startIcon={suggesting ? <CircularProgress size={16} /> : <AutoAwesomeIcon />}
-                          disabled={!canEdit || suggesting || aiQuotaExhausted}
+                          disabled={!canEdit || suggesting}
                           onClick={requestSuggestions}
                           sx={{ textTransform: 'none', fontWeight: 700 }}
                         >
                           {suggesting ? 'Đang lấy gợi ý...' : 'AI gợi ý linh kiện'}
                         </Button>
-                        <Chip
-                          size="small"
-                          label={`Đã dùng: ${aiUsedCount}/${AI_SUGGESTION_LIMIT} lượt`}
-                          sx={{
-                            height: 24,
-                            fontWeight: 700,
-                            fontSize: 11,
-                            bgcolor: aiQuotaExhausted ? '#fff7ed' : '#f1f5f9',
-                            color: aiQuotaExhausted ? '#c2410c' : '#475569',
-                          }}
-                        />
-                        {aiResetCountdown && (
-                          <Typography
-                            variant="caption"
-                            sx={{ color: aiQuotaExhausted ? '#b45309' : '#64748b', fontWeight: aiQuotaExhausted ? 700 : 500 }}
-                          >
-                            Hồi lại sau {aiResetCountdown}
-                          </Typography>
-                        )}
                         <Typography variant="caption" color="text.secondary">
                           Chọn các linh kiện phù hợp bên dưới, sau đó bấm <Box component="span" sx={{ fontWeight: 800 }}>Lưu project</Box> để xác nhận.
                         </Typography>
@@ -1480,74 +1511,6 @@ export default function ProjectManagement() {
           </Stack>
         )}
       </Container>
-
-      <Dialog
-        open={Boolean(addItemDialogType)}
-        onClose={() => setAddItemDialogType(null)}
-        fullWidth
-        maxWidth="sm"
-      >
-        <DialogTitle sx={{ fontWeight: 800 }}>
-          {addItemDialogType === 'component' ? 'Thêm linh kiện mượn kho' : 'Thêm món tự mua'}
-        </DialogTitle>
-        <DialogContent>
-          <Stack spacing={2} sx={{ pt: 1 }}>
-            {addItemDialogType === 'component' ? (
-              <TextField
-                select
-                label="Loại linh kiện"
-                value={newItemDraft.componentId}
-                onChange={(event) => setNewItemDraft((current) => ({ ...current, componentId: event.target.value }))}
-                disabled={!canEdit || saving}
-                required
-                fullWidth
-              >
-                <MenuItem value="">Chọn linh kiện</MenuItem>
-                {componentTypes.map((component) => (
-                  <MenuItem key={component.componentId} value={component.componentId}>
-                    {component.componentName} ({component.componentCode})
-                  </MenuItem>
-                ))}
-              </TextField>
-            ) : (
-              <TextField
-                label="Tên món"
-                value={newItemDraft.itemName}
-                onChange={(event) => setNewItemDraft((current) => ({ ...current, itemName: event.target.value }))}
-                disabled={!canEdit || saving}
-                required
-                fullWidth
-                autoFocus
-              />
-            )}
-            <TextField
-              label="Số lượng"
-              type="number"
-              inputProps={{ min: 1, step: 1 }}
-              value={newItemDraft.quantity}
-              onChange={(event) => setNewItemDraft((current) => ({ ...current, quantity: event.target.value }))}
-              disabled={!canEdit || saving}
-              required
-              fullWidth
-            />
-            <TextField
-              label="Ghi chú"
-              value={newItemDraft.note}
-              onChange={(event) => setNewItemDraft((current) => ({ ...current, note: event.target.value }))}
-              disabled={!canEdit || saving}
-              fullWidth
-              multiline
-              minRows={2}
-            />
-          </Stack>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setAddItemDialogType(null)} disabled={saving}>Hủy</Button>
-          <Button variant="contained" onClick={confirmAddItem} disabled={!canEdit || saving}>
-            Thêm vào danh sách
-          </Button>
-        </DialogActions>
-      </Dialog>
 
       <Dialog
         open={Boolean(editingItem)}
