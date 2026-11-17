@@ -26,7 +26,7 @@ import {
 } from '@mui/icons-material'
 import { useNavigate, useParams } from 'react-router-dom'
 import PortalLayout from '../../components/layout/PortalLayout'
-import { borrowService, MOCK_SUPPLEMENTARY_REQUESTS } from '../../services/borrowService'
+import { borrowService } from '../../services/borrowService'
 import { useAuth } from '../../context/AuthContext'
 
 /**
@@ -38,7 +38,7 @@ export default function ReviewSupplementaryBorrow() {
   const { id } = useParams()
   const { user } = useAuth()
 
-  const [requestDetail, setRequestDetail] = useState(MOCK_SUPPLEMENTARY_REQUESTS[0])
+  const [requestDetail, setRequestDetail] = useState(null)
   const [rejectReason, setRejectReason] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
@@ -145,18 +145,24 @@ export default function ReviewSupplementaryBorrow() {
           </Typography>
         </Box>
 
-        {/* Page Title */}
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="h4" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 24, mb: 0.5 }}>
-            Xem xét yêu cầu bổ sung
-          </Typography>
-          <Typography variant="body2" sx={{ color: '#556070', fontSize: 13 }}>
-            {requestDetail.requestCode || 'BS-2026-014'} · {requestDetail.teamName} · Gửi lúc 09:15, 22/10/2026
-          </Typography>
-        </Box>
+        {!requestDetail ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+            <CircularProgress />
+          </Box>
+        ) : (
+          <>
+            {/* Page Title */}
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="h4" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 24, mb: 0.5 }}>
+                Xem xét yêu cầu bổ sung
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#556070', fontSize: 13 }}>
+                {requestDetail.requestCode || 'BS-2026-014'} · {requestDetail.teamName} · Gửi lúc 09:15, 22/10/2026
+              </Typography>
+            </Box>
 
-        {/* 2-Column Grid: Cột trái (Thông tin đề nghị & Linh kiện) & Cột phải (Quyết định của GV) */}
-        <Grid container spacing={3}>
+            {/* 2-Column Grid: Cột trái (Thông tin đề nghị & Linh kiện) & Cột phải (Quyết định của GV) */}
+            <Grid container spacing={3}>
           {/* CỘT TRÁI */}
           <Grid item xs={12} md={7.5}>
             {/* Box 1: Thông tin người đề nghị */}
@@ -429,6 +435,8 @@ export default function ReviewSupplementaryBorrow() {
             </Paper>
           </Grid>
         </Grid>
+          </>
+        )}
       </Container>
 
       {/* Snackbar */}

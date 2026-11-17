@@ -37,6 +37,12 @@ export const inventoryService = {
   async assignLabStaff(labRoomId, data) {
     return unwrap(await api.post(`/api/lab-rooms/${labRoomId}/staff`, data))
   },
+  async getLabStaff(labRoomId) {
+    return asList(unwrap(await api.get(`/api/lab-rooms/${labRoomId}/staff`)), ['items', 'staff', 'users'])
+  },
+  async removeLabStaff(labRoomId, userId) {
+    return api.delete(`/api/lab-rooms/${labRoomId}/staff/${userId}`)
+  },
   async getCabinets(params) {
     return asList(unwrap(await api.get('/api/cabinets', { params })), ['items', 'cabinets'])
   },
@@ -66,6 +72,9 @@ export const inventoryService = {
   },
   async adjustConsumableStock(data) {
     return unwrap(await api.post('/api/consumable-stocks/adjust', data))
+  },
+  async getInventoryTransactions(params) {
+    return unwrap(await api.get('/api/inventory-transactions', { params }))
   },
   async getInventoryAudits(params) {
     return unwrap(await api.get('/api/inventory-audits', { params }))
@@ -135,6 +144,9 @@ export const inventoryService = {
       const all = await inventoryService.getComponents()
       return all.find((c) => (c.componentId || c.id || c.ComponentId || c.Id) === id) || null
     }
+  },
+  async getComponentById(id) {
+    return unwrap(await api.get(`/api/components/${id}`))
   },
   async createComponent(data) {
     return unwrap(await api.post('/api/components', data))

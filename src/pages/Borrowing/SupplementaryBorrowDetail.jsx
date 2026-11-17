@@ -4,6 +4,7 @@ import {
   Box,
   Button,
   Chip,
+  CircularProgress,
   Container,
   Divider,
   Grid,
@@ -26,7 +27,7 @@ import {
 } from '@mui/icons-material'
 import { useNavigate, useParams } from 'react-router-dom'
 import PortalLayout from '../../components/layout/PortalLayout'
-import { borrowService, MOCK_SUPPLEMENTARY_REQUESTS } from '../../services/borrowService'
+import { borrowService } from '../../services/borrowService'
 
 /**
  * SupplementaryBorrowDetail Component (Actor: Sinh viên)
@@ -38,7 +39,9 @@ export default function SupplementaryBorrowDetail() {
   const navigate = useNavigate()
   const { id } = useParams()
 
-  const [requestDetail, setRequestDetail] = useState(MOCK_SUPPLEMENTARY_REQUESTS[0])
+  const [requestDetail, setRequestDetail] = useState(null)
+  const [loading, setLoading] = useState(true)
+  const [withdrawing, setWithdrawing] = useState(false)
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
 
   // Tải thông tin chi tiết phiếu
@@ -51,13 +54,41 @@ export default function SupplementaryBorrowDetail() {
         if (!ignore && data) setRequestDetail(data)
       })
       .catch((err) => console.warn(err))
+      .finally(() => {
+        if (!ignore) setLoading(false)
+      })
     return () => {
       ignore = true
     }
   }, [id])
 
+  // Thu hồi yêu cầu mượn bổ sung (POST /api/projects/{id}/supplementary-borrow/withdraw)
+  const handleWithdrawSupplementary = async () => {
+    const projectId = requestDetail?.projectId || id
+    setWithdrawing(true)
+    try {
+      await borrowService.withdrawSupplementaryBorrow(projectId)
+      setToast({
+        open: true,
+        message: 'Đã thu hồi yêu cầu mượn bổ sung thành công!',
+        severity: 'success',
+      })
+      setTimeout(() => {
+        navigate('/borrow/supplementary')
+      }, 1000)
+    } catch (err) {
+      setToast({
+        open: true,
+        message: err.message || 'Thu hồi yêu cầu thất bại',
+        severity: 'error',
+      })
+    } finally {
+      setWithdrawing(false)
+    }
+  }
+
   // Trạng thái phiếu
-  const isRejected = requestDetail.status === 'Rejected'
+  const isRejected = requestDetail?.status === 'Rejected'
 
   // Chuyển sang form tạo lại yêu cầu (sao chép nội dung cũ)
   const handleRecreateRequest = () => {
@@ -132,17 +163,27 @@ export default function SupplementaryBorrowDetail() {
           </Button>
         </Box>
 
-        {/* Page Title & Status */}
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="h4" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 24, mb: 0.5 }}>
-            Phiếu bổ sung {requestDetail.requestCode || 'BS-2026-014'}
-          </Typography>
-          <Typography variant="body2" sx={{ color: '#556070', fontSize: 13 }}>
-            {isRejected
-              ? 'Kết quả xem xét · Nhánh từ chối'
-              : 'Yêu cầu đã gửi · 22/10/2026, 09:15'}
-          </Typography>
-        </Box>
+        {loading && !requestDetail ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
+            <CircularProgress />
+          </Box>
+        ) : !requestDetail ? (
+          <Alert severity="info" sx={{ mt: 2 }}>
+            Không tìm thấy thông tin yêu cầu mượn bổ sung.
+          </Alert>
+        ) : (
+          <>
+            {/* Page Title & Status */}
+            <Box sx={{ mb: 3 }}>
+              <Typography variant="h4" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 24, mb: 0.5 }}>
+                Phiếu bổ sung {requestDetail?.requestCode || 'BS-2026-014'}
+              </Typography>
+              <Typography variant="body2" sx={{ color: '#556070', fontSize: 13 }}>
+                {isRejected
+                  ? 'Kết quả xem xét · Nhánh từ chối'
+                  : 'Yêu cầu đã gửi · 22/10/2026, 09:15'}
+              </Typography>
+            </Box>
 
         {/* ==================== TRẠNG THÁI: CHỜ DUYỆT (ẢNH 3) ==================== */}
         {!isRejected && (
@@ -274,17 +315,29 @@ export default function SupplementaryBorrowDetail() {
                 <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 16 }}>
                   Chi tiết yêu cầu
                 </Typography>
-                <Chip
-                  label="Chờ giảng viên"
-                  size="small"
-                  sx={{
-                    bgcolor: '#fef3c7',
-                    color: '#b45309',
-                    fontWeight: 800,
-                    fontSize: 11,
-                    borderRadius: 1,
-                  }}
-                />
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Chip
+                    label="Chờ giảng viên"
+                    size="small"
+                    sx={{
+                      bgcolor: '#fef3c7',
+                      color: '#b45309',
+                      fontWeight: 800,
+                      fontSize: 11,
+                      borderRadius: 1,
+                    }}
+                  />
+                  <Button
+                    size="small"
+                    variant="outlined"
+                    color="error"
+                    disabled={withdrawing}
+                    onClick={handleWithdrawSupplementary}
+                    sx={{ textTransform: 'none', fontWeight: 700, fontSize: 11 }}
+                  >
+                    {withdrawing ? 'Đang thu hồi...' : 'Thu hồi yêu cầu'}
+                  </Button>
+                </Box>
               </Box>
 
               {/* Metadata 3 cột */}
@@ -675,6 +728,8 @@ export default function SupplementaryBorrowDetail() {
               </Grid>
             </Grid>
           </Box>
+        )}
+          </>
         )}
       </Container>
 

@@ -39,10 +39,6 @@ import PortalLayout from '../../components/layout/PortalLayout'
 import ProjectApprovalDialog from './ProjectApprovalDialog'
 import {
   borrowService,
-  MOCK_SUPPLEMENTARY_REQUESTS,
-  MOCK_ORIGINAL_BORROWS,
-  MOCK_RETURN_REQUESTS,
-  MOCK_BORROW_EXTENSIONS,
 } from '../../services/borrowService'
 import { projectService } from '../../services/projectService'
 import { useAuth } from '../../context/AuthContext'
@@ -57,10 +53,10 @@ export default function SupplementaryBorrowList() {
 
   const isLecturer = user?.roleLabel === 'LECTURER' || user?.roles?.includes('Lecturer')
 
-  const [supplementaryRequests] = useState(MOCK_SUPPLEMENTARY_REQUESTS)
-  const [returnRequests, setReturnRequests] = useState(MOCK_RETURN_REQUESTS)
-  const [borrowRequests, setBorrowRequests] = useState(MOCK_ORIGINAL_BORROWS)
-  const [extensions, setExtensions] = useState(MOCK_BORROW_EXTENSIONS)
+  const [supplementaryRequests, setSupplementaryRequests] = useState([])
+  const [returnRequests, setReturnRequests] = useState([])
+  const [borrowRequests, setBorrowRequests] = useState([])
+  const [extensions, setExtensions] = useState([])
   const [lecturerProjects, setLecturerProjects] = useState([])
   const [loadingLecturerProjects, setLoadingLecturerProjects] = useState(false)
   const [lecturerProjectsError, setLecturerProjectsError] = useState('')
@@ -90,12 +86,18 @@ export default function SupplementaryBorrowList() {
       borrowService.getReturnRequests(),
       borrowService.getMyBorrowRequests(),
       borrowService.getBorrowExtensions(),
+      borrowService.getPendingApprovalProjects().catch(() => []),
     ])
-      .then(([retData, myBorrows, extData]) => {
+      .then(([retData, myBorrows, extData, pendingProjects]) => {
         if (!isMounted) return
-        if (retData) setReturnRequests(retData)
+        if (retData) setReturnRequests(Array.isArray(retData) ? retData : retData?.items || [])
         if (myBorrows?.items) setBorrowRequests(myBorrows.items)
         if (extData?.items) setExtensions(extData.items)
+        if (Array.isArray(pendingProjects)) {
+          setSupplementaryRequests(pendingProjects)
+        } else if (pendingProjects?.items) {
+          setSupplementaryRequests(pendingProjects.items)
+        }
       })
       .catch((err) => {
         console.warn('Lỗi tải dữ liệu mượn trả:', err)
@@ -135,15 +137,21 @@ export default function SupplementaryBorrowList() {
       }
     }
     try {
-      const [retData, myBorrows, extData] = await Promise.all([
+      const [retData, myBorrows, extData, pendingProjects] = await Promise.all([
         borrowService.getReturnRequests(),
         borrowService.getMyBorrowRequests(),
         borrowService.getBorrowExtensions(),
+        borrowService.getPendingApprovalProjects().catch(() => []),
       ])
 
-      if (retData) setReturnRequests(retData)
+      if (retData) setReturnRequests(Array.isArray(retData) ? retData : retData?.items || [])
       if (myBorrows?.items) setBorrowRequests(myBorrows.items)
       if (extData?.items) setExtensions(extData.items)
+      if (Array.isArray(pendingProjects)) {
+        setSupplementaryRequests(pendingProjects)
+      } else if (pendingProjects?.items) {
+        setSupplementaryRequests(pendingProjects.items)
+      }
     } catch (err) {
       console.warn('Lỗi tải lại dữ liệu mượn trả:', err)
     }
