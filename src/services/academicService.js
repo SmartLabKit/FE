@@ -305,11 +305,12 @@ export const academicService = {
     if (!classId) return []
     try {
       const response = await api.get(`/api/classes/${classId}/students`)
-      const resData = response.data?.data || response.data
+      const resData = response.data?.data ?? response.data
+      if (!resData) return []
       if (Array.isArray(resData)) return resData
       if (resData?.items && Array.isArray(resData.items)) return resData.items
       if (resData?.students && Array.isArray(resData.students)) return resData.students
-      throw new Error('Phản hồi danh sách sinh viên không đúng định dạng.')
+      return []
     } catch (error) {
       throw new Error(extractErrorMessage(error, 'Không thể tải danh sách sinh viên của lớp'), { cause: error })
     }

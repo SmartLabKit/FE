@@ -134,6 +134,11 @@ export default function LecturerClassManagement() {
   const [transferError, setTransferError] = useState(null)
   const classRequestSequence = useRef(0)
   const studentRequestSequence = useRef(0)
+  const semestersRef = useRef([])
+
+  useEffect(() => {
+    semestersRef.current = semesters
+  }, [semesters])
 
   const selectedClass = classes.find((item) => item.classId === selectedClassId)
 
@@ -176,7 +181,7 @@ export default function LecturerClassManagement() {
 
       // Nếu có chọn học kỳ cụ thể, đảm bảo chỉ giữ lớp thuộc học kỳ đó
       if (nextSemesterId && list.length > 0) {
-        const targetSem = semesters.find((s) => s.semesterId === nextSemesterId)
+        const targetSem = semestersRef.current.find((s) => s.semesterId === nextSemesterId)
         const filteredList = list.filter((item) =>
           item.semesterId === nextSemesterId ||
           (targetSem?.semesterCode && item.semesterCode === targetSem.semesterCode)
@@ -206,17 +211,22 @@ export default function LecturerClassManagement() {
     } finally {
       if (requestSequence === classRequestSequence.current) setLoadingClasses(false)
     }
-  }, [loadStudents, semesters])
+  }, [loadStudents])
 
   useEffect(() => {
     let active = true
     const initialize = async () => {
+      setLoadingClasses(true)
+      setPageError('')
+      setSemesterError('')
+
       let semList = []
       try {
         const result = await academicService.getSemesters()
         if (!active) return
         semList = asArray(result)
         setSemesters(semList)
+        semestersRef.current = semList
       } catch (error) {
         if (active) setSemesterError(getErrorDetails(error).message)
       }
@@ -230,45 +240,56 @@ export default function LecturerClassManagement() {
         // Kiểm tra xem kỳ đang active có lớp của giảng viên không
         const activeSem = semList.find((s) => s.isActive)
         const hasClassesInActiveSem = activeSem && myClassesList.some(
-          (c) => c.semesterId === activeSem.semesterId || c.semesterCode === activeSem.semesterCode
+          (c) => c.semesterId === activeSem.semesterId || (activeSem.semesterCode && c.semesterCode === activeSem.semesterCode)
         )
 
         let initialSemester = ''
+        let initialClasses = myClassesList
+
         if (hasClassesInActiveSem) {
           initialSemester = activeSem.semesterId
-          setSemesterId(initialSemester)
-          await loadClasses(initialSemester)
+          initialClasses = myClassesList.filter(
+            (c) => c.semesterId === activeSem.semesterId || (activeSem.semesterCode && c.semesterCode === activeSem.semesterCode)
+          )
         } else if (myClassesList.length > 0) {
           // Nếu kỳ active không có lớp, nhưng giảng viên có lớp ở kỳ khác:
           // Mặc định chọn "" (Tất cả học kỳ) để hiển thị đầy đủ lớp ngay từ đầu
           initialSemester = ''
-          setSemesterId('')
-          setClasses(myClassesList)
-          const firstClass = myClassesList[0]
-          setSelectedClassId(firstClass?.classId || '')
-          if (firstClass?.classId) {
-            await loadStudents(firstClass.classId)
-          }
-          setLoadingClasses(false)
+          initialClasses = myClassesList
         } else {
           initialSemester = activeSem?.semesterId || ''
-          setSemesterId(initialSemester)
-          await loadClasses(initialSemester)
+          initialClasses = []
         }
-      } catch {
+
+        setSemesterId(initialSemester)
+        setClasses(initialClasses)
+        const firstClass = initialClasses[0]
+        setSelectedClassId(firstClass?.classId || '')
+        if (firstClass?.classId) {
+          await loadStudents(firstClass.classId)
+        } else {
+          setStudents([])
+        }
+      } catch (error) {
         if (!active) return
-        const fallbackSemId = semList.find((s) => s.isActive)?.semesterId || ''
-        setSemesterId(fallbackSemId)
-        await loadClasses(fallbackSemId)
+        const details = getErrorDetails(error)
+        setPageError(details.status === 403
+          ? 'Bạn không có quyền xem danh sách lớp này.'
+          : details.message)
+        setClasses([])
+        setSelectedClassId('')
+        setStudents([])
+      } finally {
+        if (active) {
+          setLoadingClasses(false)
+        }
       }
     }
     initialize()
     return () => {
       active = false
-      classRequestSequence.current += 1
-      studentRequestSequence.current += 1
     }
-  }, [loadClasses, loadStudents])
+  }, [loadStudents])
 
   const studentGroups = useMemo(() => {
     const groups = new Map()
