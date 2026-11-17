@@ -191,9 +191,15 @@ export default function PortalLayout({
 
     // 4. Phân hệ QUẢN LÝ KHO & LINH KIỆN (InventoryManager / LabStaff / Admin)
     {
-      label: isStudent || isLecturer ? 'Tra cứu linh kiện' : 'Linh kiện kho',
+      label: 'Linh kiện kho',
       icon: <CategoryIcon fontSize="small" />,
       path: '/class-setup/admin/components',
+      roles: ['Admin', 'InventoryManager', 'LabStaff'],
+    },
+    {
+      label: 'Tra cứu linh kiện',
+      icon: <CategoryIcon fontSize="small" />,
+      path: '/components/catalog',
       roles: ['Admin', 'InventoryManager', 'LabStaff', 'Lecturer', 'Student'],
     },
     {
@@ -351,7 +357,12 @@ export default function PortalLayout({
         }}
       >
         {visibleNavItems.map((item) => {
-          const isComponentsRoute = location.pathname.startsWith('/class-setup/admin/components')
+          const isCatalogRoute =
+            location.pathname.startsWith('/components') ||
+            location.pathname === '/class-setup/admin/components/catalog'
+          const isComponentsRoute =
+            location.pathname.startsWith('/class-setup/admin/components') &&
+            !location.pathname.includes('/catalog')
           const isStockInwardsRoute = location.pathname.startsWith('/class-setup/admin/stock-inwards')
           const isStorageAllocationRoute = location.pathname.startsWith('/class-setup/admin/storage-allocation')
           const isStockReceiptsRoute = location.pathname.startsWith('/class-setup/admin/stock-receipts')
@@ -377,6 +388,8 @@ export default function PortalLayout({
               ? isRolesRoute
               : item.path === '/admin/system-settings'
               ? isSystemSettingsRoute
+              : item.path === '/components/catalog'
+              ? isCatalogRoute
               : item.path === '/class-setup/admin/components'
               ? isComponentsRoute
               : item.path === '/class-setup/admin/stock-inwards'
