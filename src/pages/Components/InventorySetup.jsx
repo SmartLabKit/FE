@@ -436,7 +436,7 @@ export default function InventorySetup() {
                 onClick={openCreate}
                 sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#0058be' }}
               >
-                Thêm mới
+                Thêm
               </Button>
             )}
           </Box>

@@ -650,7 +650,7 @@ export default function SupplementaryBorrowList() {
                                     '&:hover': { bgcolor: '#004ca6' },
                                   }}
                                 >
-                                  Chi tiết / Duyệt
+                                  Duyệt
                                 </Button>
                               ) : (
                                 <Button
@@ -667,7 +667,7 @@ export default function SupplementaryBorrowList() {
                                     '&:hover': { bgcolor: '#f8fafc', borderColor: '#94a3b8' },
                                   }}
                                 >
-                                  Xem thông tin
+                                  Chi tiết
                                 </Button>
                               )}
                             </TableCell>

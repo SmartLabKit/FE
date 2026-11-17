@@ -162,7 +162,9 @@ export const projectService = {
 
   async submitProject(projectId) {
     try {
-      return unwrap(await api.post(`/api/projects/${projectId}/submit`))
+      return unwrap(await api.post(`/api/projects/${projectId}/submit`, {}, {
+        headers: { 'Content-Type': 'application/json' },
+      }))
     } catch (error) {
       throw new Error(extractErrorMessage(error, 'Không thể gửi duyệt project'), { cause: error })
     }

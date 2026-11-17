@@ -145,6 +145,10 @@ function toProjectPayload(form) {
   }
 }
 
+function getProjectFormSnapshot(form) {
+  return JSON.stringify(toProjectPayload(form))
+}
+
 function formatStatus(status) {
   const labels = {
     Draft: 'Bản nháp',
@@ -259,6 +263,7 @@ export default function ProjectManagement() {
   const [teamChoices, setTeamChoices] = useState([])
   const [project, setProject] = useState(null)
   const [form, setForm] = useState(emptyForm)
+  const [savedFormSnapshot, setSavedFormSnapshot] = useState(null)
   const [componentTypes, setComponentTypes] = useState([])
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
@@ -389,6 +394,9 @@ export default function ProjectManagement() {
 
   const canEdit = isLeader && (!project || ['Draft', 'Rejected'].includes(project.status))
   const requiresBorrow = form.components.length > 0
+  const hasUnsavedChanges = !project ||
+    Boolean(inlineDraft) ||
+    getProjectFormSnapshot(form) !== savedFormSnapshot
 
   const showToast = (message, severity = 'success') => {
     setToast({ open: true, message, severity })
@@ -429,6 +437,7 @@ export default function ProjectManagement() {
   const loadData = useCallback(async () => {
     setLoading(true)
     setLoadError('')
+    setSavedFormSnapshot(null)
     try {
       if (!teamId) {
         const classResponse = await academicService.getMyClasses()
@@ -484,6 +493,7 @@ export default function ProjectManagement() {
       if (teamProject?.projectId) {
         const detail = await projectService.getProject(teamProject.projectId)
         const projectForm = normalizeProjectForm(detail)
+        setSavedFormSnapshot(getProjectFormSnapshot(projectForm))
         setProject(detail)
         try {
           const cachedValue = localStorage.getItem(suggestionCacheKey(detail.projectId))
@@ -518,6 +528,7 @@ export default function ProjectManagement() {
       } else {
         setProject(null)
         setForm(emptyForm())
+        setSavedFormSnapshot(null)
         setSuggestions(null)
         setSelectedSuggestions([])
       }
@@ -620,8 +631,10 @@ export default function ProjectManagement() {
       const saved = project
         ? await projectService.updateProject(project.projectId, payload)
         : await projectService.createProject(team.teamId, payload)
+      const savedForm = normalizeProjectForm(saved)
+      setSavedFormSnapshot(getProjectFormSnapshot(savedForm))
       setProject(saved)
-      setForm(normalizeProjectForm(saved))
+      setForm(savedForm)
       showToast(project ? 'Đã lưu thay đổi project.' : 'Đã tạo project ở trạng thái bản nháp.')
     } catch (error) {
       showToast(error.message || 'Không thể lưu project.', 'error')
@@ -824,10 +837,26 @@ export default function ProjectManagement() {
         project.projectId,
         toProjectPayload(form)
       )
-      const result = await projectService.submitProject(updatedProject.projectId)
-      setProject(result)
+      const submittedProject = await projectService.submitProject(updatedProject.projectId)
+      let refreshedProject
+      let refreshError
+      try {
+        refreshedProject = await projectService.getProject(updatedProject.projectId)
+      } catch (error) {
+        refreshError = error
+      }
+      const fallbackProject = {
+        ...(submittedProject?.projectId ? submittedProject : updatedProject),
+        status: 'Submitted',
+      }
+      setProject(refreshedProject || fallbackProject)
       setSubmitDialogOpen(false)
-      showToast('Đã gửi project chờ giảng viên duyệt.')
+      showToast(
+        refreshError
+          ? `Đã gửi project thành công nhưng không thể tải lại trạng thái: ${refreshError.message}`
+          : 'Đã gửi project chờ giảng viên duyệt.',
+        refreshError ? 'warning' : 'success'
+      )
     } catch (error) {
       showToast(error.message || 'Không thể gửi duyệt project.', 'error')
     } finally {
@@ -1393,7 +1422,7 @@ export default function ProjectManagement() {
                               '&:hover': { borderStyle: 'dashed', borderColor: '#2563eb', bgcolor: '#eff6ff' },
                             }}
                           >
-                            Thêm mới
+                            Thêm
                           </Button>
                         )}
                       </Box>
@@ -1444,7 +1473,7 @@ export default function ProjectManagement() {
                               '&:hover': { borderStyle: 'dashed', borderColor: '#2563eb', bgcolor: '#eff6ff' },
                             }}
                           >
-                            Thêm mới
+                            Thêm
                           </Button>
                         )}
                       </Box>
@@ -1540,7 +1569,7 @@ export default function ProjectManagement() {
                       <Button
                         variant="contained"
                         startIcon={saving ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />}
-                        disabled={saving}
+                        disabled={saving || !hasUnsavedChanges}
                         onClick={saveProject}
                         sx={{ bgcolor: '#0058be', textTransform: 'none', fontWeight: 700 }}
                       >
@@ -1647,6 +1676,9 @@ export default function ProjectManagement() {
         <DialogTitle sx={{ fontWeight: 800 }}>Xác nhận gửi duyệt đề tài</DialogTitle>
         <DialogContent>
           <Stack spacing={2} sx={{ pt: 1 }}>
+            <Alert severity="warning">
+              Bạn có chắc chắn muốn gửi đề tài này cho giảng viên duyệt không?
+            </Alert>
             {loadingDeadline && (
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
                 <CircularProgress size={24} />

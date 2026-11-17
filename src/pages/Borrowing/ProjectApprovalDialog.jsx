@@ -24,8 +24,8 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
   const [loading, setLoading] = useState(false)
   const [busy, setBusy] = useState(false)
   const [comment, setComment] = useState('')
-  const [rejectReason, setRejectReason] = useState('')
   const [error, setError] = useState('')
+  const rejectValidationMessage = 'Vui lòng nhập lý do từ chối.'
 
   useEffect(() => {
     if (!open || !project?.projectId) return undefined
@@ -37,7 +37,6 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
       setError('')
       setDetail(null)
       setComment('')
-      setRejectReason('')
       try {
         const result = await projectService.getProject(project.projectId)
         if (active) setDetail(result)
@@ -67,14 +66,14 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
   }
 
   const handleReject = async () => {
-    if (!rejectReason.trim()) {
-      setError('Vui lòng nhập lý do từ chối.')
+    if (!comment.trim()) {
+      setError(rejectValidationMessage)
       return
     }
     setBusy(true)
     setError('')
     try {
-      await projectService.rejectProject(project.projectId, rejectReason.trim())
+      await projectService.rejectProject(project.projectId, comment.trim())
       onReviewed('Đã từ chối project và gửi lý do cho nhóm.')
     } catch (requestError) {
       setError(requestError.message || 'Không thể từ chối project.')
@@ -95,15 +94,29 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
     borrowRequest?.borrowDate ||
     detail?.borrowDate
   const dueDate = borrowRequest?.dueDate || detail?.dueDate
+  const submittedDate = formatVietnamDate(submittedAt)
+  const borrowedDate = formatVietnamDate(borrowDate)
+  const returnedDate = formatVietnamDate(dueDate)
+  const combineSubmissionAndBorrowDate = submittedDate !== '—' && submittedDate === borrowedDate
+  const timeInfo = combineSubmissionAndBorrowDate
+    ? [
+      { label: 'Thời gian gửi đề tài / Thời gian mượn LK', value: submittedDate },
+      { label: 'Thời gian trả LK', value: returnedDate },
+    ]
+    : [
+      { label: 'Thời gian gửi đề tài', value: submittedDate },
+      { label: 'Thời gian mượn LK', value: borrowedDate },
+      { label: 'Thời gian trả LK', value: returnedDate },
+    ]
 
   return (
     <Dialog open={open} onClose={() => !busy && onClose()} fullWidth maxWidth="md">
       <DialogTitle>
-        <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between" spacing={1.5}>
-          <Typography variant="h6" sx={{ fontWeight: 800 }}>
+        <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1.5}>
+          <Typography variant="h6" sx={{ flex: 1, minWidth: 0, fontWeight: 800, overflowWrap: 'anywhere' }}>
             {isPending ? 'Duyệt đề tài cho' : 'Chi tiết đề tài của'} {teamName} · Lớp {classCode}
           </Typography>
-          <ProjectStatusChip status={currentStatus} />
+          <ProjectStatusChip status={currentStatus} size="medium" />
         </Stack>
       </DialogTitle>
       <DialogContent dividers>
@@ -113,7 +126,7 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
           </Box>
         ) : (
           <Stack spacing={2}>
-            {error && <Alert severity="error">{error}</Alert>}
+            {error && error !== rejectValidationMessage && <Alert severity="error">{error}</Alert>}
             {detail && (
               <>
                 <Box
@@ -133,18 +146,23 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
                   <Typography variant="body2" sx={{ color: '#1e293b', lineHeight: 1.7, whiteSpace: 'pre-line' }}>
                     {detail.description || 'Chưa có mô tả.'}
                   </Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#64748b' }}>Thời gian gửi đề tài</Typography>
-                  <Typography variant="body2" sx={{ color: '#1e293b' }}>
-                    {formatVietnamDate(submittedAt)}
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#64748b' }}>Thời gian mượn LK</Typography>
-                  <Typography variant="body2" sx={{ color: '#1e293b' }}>
-                    {formatVietnamDate(borrowDate)}
-                  </Typography>
-                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#64748b' }}>Thời gian trả LK</Typography>
-                  <Typography variant="body2" sx={{ color: '#1e293b' }}>
-                    {formatVietnamDate(dueDate)}
-                  </Typography>
+                </Box>
+                <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 1.5, rowGap: 1 }}>
+                  {timeInfo.map((item, index) => (
+                    <Box key={item.label} sx={{ display: 'inline-flex', alignItems: 'baseline', gap: 0.75 }}>
+                      {index > 0 && (
+                        <Typography component="span" variant="body2" sx={{ color: '#94a3b8' }}>
+                          ·
+                        </Typography>
+                      )}
+                      <Typography variant="body2" sx={{ fontWeight: 500, color: '#64748b' }}>
+                        {item.label}:
+                      </Typography>
+                      <Typography variant="body2" sx={{ color: '#1e293b' }}>
+                        {item.value}
+                      </Typography>
+                    </Box>
+                  ))}
                 </Box>
 
                 <Divider />
@@ -187,27 +205,20 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
 
                 <Divider />
                 {isPending ? (
-                  <>
-                    <TextField
-                      label="Nhận xét khi duyệt (không bắt buộc)"
-                      value={comment}
-                      onChange={(event) => setComment(event.target.value)}
-                      multiline
-                      minRows={2}
-                      fullWidth
-                      disabled={busy}
-                    />
-                    <TextField
-                      label="Lý do từ chối (bắt buộc nếu từ chối)"
-                      value={rejectReason}
-                      onChange={(event) => setRejectReason(event.target.value)}
-                      multiline
-                      minRows={2}
-                      fullWidth
-                      disabled={busy}
-                      error={Boolean(error) && !rejectReason.trim()}
-                    />
-                  </>
+                  <TextField
+                    label="Nhận xét (bắt buộc nếu từ chối)"
+                    value={comment}
+                    onChange={(event) => {
+                      setComment(event.target.value)
+                      if (error === 'Vui lòng nhập lý do từ chối.') setError('')
+                    }}
+                    multiline
+                    minRows={2}
+                    fullWidth
+                    disabled={busy}
+                    error={error === rejectValidationMessage && !comment.trim()}
+                    helperText={error === rejectValidationMessage ? error : ''}
+                  />
                 ) : (
                   <>
                     {detail.status === 'Approved' && (

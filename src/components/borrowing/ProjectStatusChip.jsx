@@ -3,7 +3,12 @@ import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import CancelIcon from '@mui/icons-material/Cancel'
 import HourglassEmptyIcon from '@mui/icons-material/HourglassEmpty'
 
-export default function ProjectStatusChip({ status }) {
+export default function ProjectStatusChip({ status, size = 'small' }) {
+  const sizeStyles = size === 'medium'
+    ? { height: 32, fontSize: 13, '& .MuiChip-label': { px: 1.25 } }
+    : {}
+  const iconFontSize = size === 'medium' ? '16px !important' : '14px !important'
+
   switch (status) {
     case 'Submitted':
     case 'PendingApproval':
@@ -11,44 +16,44 @@ export default function ProjectStatusChip({ status }) {
     case 'Pending':
       return (
         <Chip
-          icon={<HourglassEmptyIcon sx={{ fontSize: '14px !important' }} />}
+          icon={<HourglassEmptyIcon sx={{ fontSize: iconFontSize }} />}
           label="Chờ duyệt"
-          size="small"
-          sx={{ bgcolor: '#fef3c7', color: '#b45309', fontWeight: 800, fontSize: 11 }}
+          size={size}
+          sx={{ bgcolor: '#fef3c7', color: '#b45309', fontWeight: 800, fontSize: 11, ...sizeStyles }}
         />
       )
     case 'Approved':
       return (
         <Chip
-          icon={<CheckCircleIcon sx={{ fontSize: '14px !important' }} />}
+          icon={<CheckCircleIcon sx={{ fontSize: iconFontSize }} />}
           label="Đã duyệt"
-          size="small"
-          sx={{ bgcolor: '#dcfce7', color: '#15803d', fontWeight: 800, fontSize: 11 }}
+          size={size}
+          sx={{ bgcolor: '#dcfce7', color: '#15803d', fontWeight: 800, fontSize: 11, ...sizeStyles }}
         />
       )
     case 'Rejected':
       return (
         <Chip
-          icon={<CancelIcon sx={{ fontSize: '14px !important' }} />}
+          icon={<CancelIcon sx={{ fontSize: iconFontSize }} />}
           label="Bị từ chối"
-          size="small"
-          sx={{ bgcolor: '#fee2e2', color: '#dc2626', fontWeight: 800, fontSize: 11 }}
+          size={size}
+          sx={{ bgcolor: '#fee2e2', color: '#dc2626', fontWeight: 800, fontSize: 11, ...sizeStyles }}
         />
       )
     case 'Draft':
       return (
         <Chip
           label="Bản nháp"
-          size="small"
-          sx={{ bgcolor: '#f1f5f9', color: '#64748b', fontWeight: 700, fontSize: 11 }}
+          size={size}
+          sx={{ bgcolor: '#f1f5f9', color: '#64748b', fontWeight: 700, fontSize: 11, ...sizeStyles }}
         />
       )
     default:
       return (
         <Chip
           label={status || 'Chờ duyệt'}
-          size="small"
-          sx={{ bgcolor: '#eff6ff', color: '#0058be', fontWeight: 700, fontSize: 11 }}
+          size={size}
+          sx={{ bgcolor: '#eff6ff', color: '#0058be', fontWeight: 700, fontSize: 11, ...sizeStyles }}
         />
       )
   }
