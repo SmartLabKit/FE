@@ -47,7 +47,7 @@ export default function NewComponent() {
         const categoryList = await inventoryService.getCategories()
         if (active) setCategories(categoryList)
         if (componentId) {
-          const component = await inventoryService.getComponent(componentId)
+          const component = await inventoryService.getComponentById(componentId).catch(() => inventoryService.getComponent(componentId))
           if (!component) throw new Error('Không tìm thấy linh kiện cần cập nhật.')
           if (active) {
             const rawDs =

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Alert,
   Box,
@@ -34,7 +34,6 @@ import { useNavigate } from 'react-router-dom'
 import PortalLayout from '../../components/layout/PortalLayout'
 import {
   borrowService,
-  MOCK_ORIGINAL_BORROWS,
 } from '../../services/borrowService'
 import { useAuth } from '../../context/AuthContext'
 
@@ -47,57 +46,96 @@ export default function CreateReturnRequest() {
   const { user } = useAuth()
 
   const currentUser = user || {
-    name: 'Lê Hoàng Nam',
-    studentCode: '20214589',
-    teamName: 'Nhóm 07 – IoT',
+    name: 'Sinh viên',
+    studentCode: '',
+    teamName: '',
   }
 
-  // Danh sách đơn mượn có thể trả
-  const originalBorrows = MOCK_ORIGINAL_BORROWS
-  const [selectedBorrowCode, setSelectedBorrowCode] = useState('BR-2026-1020')
-
-  // Danh sách linh kiện đang mượn từ đơn gốc
-  const borrowedComponentsList = useMemo(() => [
-    {
-      componentId: 'comp-esp32',
-      componentCode: 'MCU-ESP32',
-      componentName: 'ESP32 DevKit',
-      borrowedQuantity: 1,
-    },
-    {
-      componentId: 'comp-dht22',
-      componentCode: 'SEN-DHT22',
-      componentName: 'Cảm biến DHT22',
-      borrowedQuantity: 2,
-    },
-  ], [])
-
-  // Các linh kiện được chọn để trả
-  const [returnItems, setReturnItems] = useState([
-    {
-      componentId: 'comp-esp32',
-      componentCode: 'MCU-ESP32',
-      componentName: 'ESP32 DevKit',
-      borrowedQuantity: 1,
-      returnQuantity: 1,
-    },
-    {
-      componentId: 'comp-dht22',
-      componentCode: 'SEN-DHT22',
-      componentName: 'Cảm biến DHT22',
-      borrowedQuantity: 2,
-      returnQuantity: 2,
-    },
-  ])
+  // Danh sách đơn mượn có thể trả từ API
+  const [originalBorrows, setOriginalBorrows] = useState([])
+  const [selectedBorrowCode, setSelectedBorrowCode] = useState('')
+  const [borrowedComponentsList, setBorrowedComponentsList] = useState([])
+  const [returnItems, setReturnItems] = useState([])
 
   // Form metadata
-  const [returnDate, setReturnDate] = useState('2026-10-29')
-  const [returnLocation, setReturnLocation] = useState('Phòng thực hành IoT · B1-302')
-  const [note, setNote] = useState(
-    'Nhóm đã hoàn thành mô hình IoT, xin trả 1 ESP32 DevKit và 2 cảm biến DHT22 đã nhận.'
-  )
+  const [returnDate, setReturnDate] = useState(() => new Date().toISOString().split('T')[0])
+  const [returnLocation, setReturnLocation] = useState('')
+  const [note, setNote] = useState('')
   const [submitting, setSubmitting] = useState(false)
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
+
+  // Hàm tải chi tiết linh kiện của đơn mượn
+  const loadBorrowItems = useCallback(async (borrow) => {
+    if (!borrow) return
+    if (borrow.items?.length) {
+      const items = borrow.items.map((item) => ({
+        componentId: item.componentId,
+        componentCode: item.componentCode,
+        componentName: item.componentName,
+        borrowedQuantity: item.quantity,
+      }))
+      setBorrowedComponentsList(items)
+      setReturnItems(items.map((i) => ({ ...i, returnQuantity: i.borrowedQuantity })))
+      if (borrow.roomName) setReturnLocation(borrow.roomName)
+      return
+    }
+    const borrowId = borrow.borrowRequestId || borrow.id
+    if (borrowId) {
+      try {
+        const detail = await borrowService.getBorrowRequestById(borrowId)
+        if (detail?.items) {
+          const items = detail.items.map((item) => ({
+            componentId: item.componentId,
+            componentCode: item.componentCode,
+            componentName: item.componentName,
+            borrowedQuantity: item.quantity,
+          }))
+          setBorrowedComponentsList(items)
+          setReturnItems(items.map((i) => ({ ...i, returnQuantity: i.borrowedQuantity })))
+          if (detail.roomName) setReturnLocation(detail.roomName)
+        }
+      } catch (err) {
+        console.warn('Lỗi tải chi tiết đơn:', err)
+      }
+    }
+  }, [])
+
+  // Tải danh sách đơn mượn của tôi
+  useEffect(() => {
+    let ignore = false
+    borrowService.getMyBorrowRequests()
+      .then((res) => {
+        if (ignore) return
+        const items = res?.items || (Array.isArray(res) ? res : [])
+        const activeList = items.filter((b) => ['Borrowing', 'Overdue', 'Approved', 'Ready'].includes(b.status))
+        const listToUse = activeList.length > 0 ? activeList : items
+        setOriginalBorrows(listToUse)
+        if (listToUse.length > 0) {
+          setSelectedBorrowCode(listToUse[0].requestCode)
+          loadBorrowItems(listToUse[0])
+        }
+      })
+      .catch((err) => console.warn('Lỗi tải đơn mượn:', err))
+
+    return () => {
+      ignore = true
+    }
+  }, [loadBorrowItems])
+
+  // Đơn mượn đang chọn
+  const currentBorrow = useMemo(() => {
+    return (
+      originalBorrows.find((b) => b.requestCode === selectedBorrowCode) ||
+      originalBorrows[0] ||
+      null
+    )
+  }, [originalBorrows, selectedBorrowCode])
+
+  const handleSelectBorrowCode = (code) => {
+    setSelectedBorrowCode(code)
+    const found = originalBorrows.find((b) => b.requestCode === code)
+    if (found) loadBorrowItems(found)
+  }
 
   // Toggle chọn linh kiện để trả
   const handleToggleItem = (comp) => {
@@ -146,6 +184,7 @@ export default function CreateReturnRequest() {
     setSubmitting(true)
     try {
       const payload = {
+        borrowRequestId: currentBorrow?.borrowRequestId || currentBorrow?.id,
         originalBorrowCode: selectedBorrowCode,
         leaderName: currentUser.name,
         leaderCode: currentUser.studentCode,
@@ -289,13 +328,19 @@ export default function CreateReturnRequest() {
                 <Select
                   fullWidth
                   size="small"
+                  displayEmpty
                   value={selectedBorrowCode}
-                  onChange={(e) => setSelectedBorrowCode(e.target.value)}
+                  onChange={(e) => handleSelectBorrowCode(e.target.value)}
                   sx={{ borderRadius: 1.5, height: 38, fontSize: 13, fontWeight: 700, bgcolor: '#fafbff' }}
                 >
+                  {originalBorrows.length === 0 && (
+                    <MenuItem value="" disabled>
+                      Không có đơn mượn khả dụng
+                    </MenuItem>
+                  )}
                   {originalBorrows.map((b) => (
-                    <MenuItem key={b.borrowRequestId} value={b.requestCode} sx={{ fontSize: 13, fontWeight: 700 }}>
-                      {b.requestCode}
+                    <MenuItem key={b.borrowRequestId || b.id || b.requestCode} value={b.requestCode} sx={{ fontSize: 13, fontWeight: 700 }}>
+                      {b.requestCode} ({b.projectTitle || b.classCode || 'Đơn mượn'})
                     </MenuItem>
                   ))}
                 </Select>

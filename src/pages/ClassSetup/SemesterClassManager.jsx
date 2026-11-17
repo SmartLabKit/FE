@@ -154,16 +154,23 @@ export default function SemesterClassManager({ onNext }) {
     setSemesterModalOpen(true)
   }
 
-  const handleOpenEditSemester = (sem) => {
+  const handleOpenEditSemester = async (sem) => {
     setSemesterModalMode('edit')
     setEditingSemesterId(sem.semesterId)
+    let target = sem
+    try {
+      const detail = await academicService.getSemesterById(sem.semesterId)
+      if (detail) target = detail
+    } catch {
+      // fallback
+    }
     setSemesterForm({
-      semesterCode: sem.semesterCode,
-      term: sem.term || 'Spring',
-      year: sem.year || new Date().getFullYear(),
-      startDate: sem.startDate ? sem.startDate.split('T')[0] : '',
-      endDate: sem.endDate ? sem.endDate.split('T')[0] : '',
-      isActive: sem.isActive !== undefined ? sem.isActive : true,
+      semesterCode: target.semesterCode || sem.semesterCode,
+      term: target.term || sem.term || 'Spring',
+      year: target.year || sem.year || new Date().getFullYear(),
+      startDate: target.startDate ? target.startDate.split('T')[0] : (sem.startDate ? sem.startDate.split('T')[0] : ''),
+      endDate: target.endDate ? target.endDate.split('T')[0] : (sem.endDate ? sem.endDate.split('T')[0] : ''),
+      isActive: target.isActive !== undefined ? target.isActive : (sem.isActive !== undefined ? sem.isActive : true),
     })
     setSemesterModalOpen(true)
   }
@@ -219,15 +226,22 @@ export default function SemesterClassManager({ onNext }) {
     setClassModalOpen(true)
   }
 
-  const handleOpenEditClass = (cls) => {
+  const handleOpenEditClass = async (cls) => {
     setClassModalMode('edit')
     setEditingClassId(cls.classId)
+    let target = cls
+    try {
+      const detail = await academicService.getClassById(cls.classId)
+      if (detail) target = detail
+    } catch {
+      // fallback
+    }
     setClassForm({
-      classCode: cls.classCode,
-      courseId: cls.courseId,
-      semesterId: cls.semesterId,
-      maxStudents: cls.maxStudents || 30,
-      instructorName: cls.instructorName || '',
+      classCode: target.classCode || cls.classCode,
+      courseId: target.courseId || cls.courseId,
+      semesterId: target.semesterId || cls.semesterId,
+      maxStudents: target.maxStudents || cls.maxStudents || 30,
+      instructorName: target.instructorName || cls.instructorName || '',
     })
     setClassErrors({})
     setClassModalOpen(true)

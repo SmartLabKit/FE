@@ -163,6 +163,7 @@ export default function InventorySetup() {
   const [assignStaffOpen, setAssignStaffOpen] = useState(false)
   const [selectedRoomForStaff, setSelectedRoomForStaff] = useState(null)
   const [staffList, setStaffList] = useState([])
+  const [assignedStaff, setAssignedStaff] = useState([])
   const [selectedStaffId, setSelectedStaffId] = useState('')
   const [assigningStaff, setAssigningStaff] = useState(false)
 
@@ -346,11 +347,30 @@ export default function InventorySetup() {
     setSelectedRoomForStaff(room)
     setSelectedStaffId('')
     setAssignStaffOpen(true)
+    const roomId = getId(room, 'rooms')
     try {
-      const data = await userService.getUsers({ role: 'LabStaff', size: 50 })
+      const [data, currentStaff] = await Promise.all([
+        userService.getUsers({ role: 'LabStaff', size: 50 }).catch(() => ({ items: [] })),
+        inventoryService.getLabStaff(roomId).catch(() => []),
+      ])
       setStaffList(data?.items || [])
+      setAssignedStaff(Array.isArray(currentStaff) ? currentStaff : [])
     } catch {
       // fallback
+    }
+  }
+
+  const handleRemoveStaff = async (staffUserId) => {
+    if (!selectedRoomForStaff) return
+    const roomId = getId(selectedRoomForStaff, 'rooms')
+    try {
+      await inventoryService.removeLabStaff(roomId, staffUserId)
+      setNotice('Đã gỡ nhân viên khỏi phòng lab.')
+      const currentStaff = await inventoryService.getLabStaff(roomId).catch(() => [])
+      setAssignedStaff(Array.isArray(currentStaff) ? currentStaff : [])
+      await load()
+    } catch (err) {
+      setError(extractErrorMessage(err, 'Không thể gỡ nhân viên.'))
     }
   }
 
@@ -363,7 +383,9 @@ export default function InventorySetup() {
     try {
       await inventoryService.assignLabStaff(roomId, { userId: selectedStaffId, staffUserId: selectedStaffId })
       setNotice(`Đã phân công nhân viên cho phòng ${getName(selectedRoomForStaff, 'rooms')}!`)
-      setAssignStaffOpen(false)
+      const currentStaff = await inventoryService.getLabStaff(roomId).catch(() => [])
+      setAssignedStaff(Array.isArray(currentStaff) ? currentStaff : [])
+      setSelectedStaffId('')
       await load()
     } catch (err) {
       setError(extractErrorMessage(err, 'Không thể phân công nhân viên.'))
@@ -613,21 +635,69 @@ export default function InventorySetup() {
           </Box>
         </Dialog>
 
-        {/* Modal Phân công Staff cho phòng lab (POST /api/lab-rooms/{id}/staff) */}
-        <Dialog open={assignStaffOpen} onClose={() => !assigningStaff && setAssignStaffOpen(false)} fullWidth maxWidth="xs">
+        {/* Modal Phân công Staff cho phòng lab (POST /api/lab-rooms/{id}/staff & GET/DELETE) */}
+        <Dialog open={assignStaffOpen} onClose={() => !assigningStaff && setAssignStaffOpen(false)} fullWidth maxWidth="sm">
           <Box component="form" onSubmit={handleAssignStaffSubmit}>
-            <DialogTitle sx={{ fontWeight: 800 }}>Phân công cán bộ phụ trách</DialogTitle>
+            <DialogTitle sx={{ fontWeight: 800 }}>Phân công cán bộ phụ trách phòng Lab</DialogTitle>
             <DialogContent sx={{ display: 'grid', gap: 2, pt: '12px !important' }}>
               <Typography variant="body2" sx={{ color: '#6b7280' }}>
                 Phòng lab: <strong>{getName(selectedRoomForStaff, 'rooms')}</strong> ({selectedRoomForStaff?.labRoomCode || ''})
               </Typography>
+
+              {/* Danh sách cán bộ hiện đang phụ trách (GET /api/lab-rooms/{id}/staff) */}
+              <Box sx={{ p: 1.5, bgcolor: '#f8fafc', borderRadius: 1.5, border: '1px solid #e2e8f0' }}>
+                <Typography variant="caption" sx={{ fontWeight: 700, color: '#475569', display: 'block', mb: 1 }}>
+                  Cán bộ hiện đang phụ trách ({assignedStaff.length}):
+                </Typography>
+                {assignedStaff.length === 0 ? (
+                  <Typography variant="body2" sx={{ color: '#94a3b8', fontStyle: 'italic', fontSize: 13 }}>
+                    Chưa có cán bộ nào được gán cho phòng này.
+                  </Typography>
+                ) : (
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    {assignedStaff.map((staff) => (
+                      <Box
+                        key={staff.userId || staff.id}
+                        sx={{
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'space-between',
+                          p: 1,
+                          bgcolor: '#fff',
+                          borderRadius: 1,
+                          border: '1px solid #e2e8f0',
+                        }}
+                      >
+                        <Box>
+                          <Typography variant="body2" sx={{ fontWeight: 600, color: '#1e293b' }}>
+                            {staff.fullName || staff.username || staff.name}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: '#64748b' }}>
+                            {staff.email || staff.username}
+                          </Typography>
+                        </Box>
+                        <Button
+                          size="small"
+                          color="error"
+                          variant="outlined"
+                          onClick={() => handleRemoveStaff(staff.userId || staff.id)}
+                          sx={{ textTransform: 'none', fontSize: 11, fontWeight: 700, py: 0.2 }}
+                        >
+                          Gỡ
+                        </Button>
+                      </Box>
+                    ))}
+                  </Box>
+                )}
+              </Box>
+
               <TextField
                 select
-                required
                 size="small"
-                label="Chọn Cán bộ Lab (LabStaff)"
+                label="Chọn thêm Cán bộ Lab (LabStaff)"
                 value={selectedStaffId}
                 onChange={(e) => setSelectedStaffId(e.target.value)}
+                helperText="Chọn nhân viên để phân công phụ trách phòng lab này"
               >
                 {staffList.map((staff) => (
                   <MenuItem key={staff.userId || staff.id} value={staff.userId || staff.id}>
@@ -641,10 +711,15 @@ export default function InventorySetup() {
             </DialogContent>
             <DialogActions sx={{ px: 3, pb: 2 }}>
               <Button onClick={() => setAssignStaffOpen(false)} disabled={assigningStaff} sx={{ textTransform: 'none' }}>
-                Hủy
+                Đóng
               </Button>
-              <Button type="submit" variant="contained" disabled={assigningStaff} sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#0058be' }}>
-                {assigningStaff ? 'Đang lưu...' : 'Lưu phân công'}
+              <Button
+                type="submit"
+                variant="contained"
+                disabled={assigningStaff || !selectedStaffId}
+                sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#0058be' }}
+              >
+                {assigningStaff ? 'Đang lưu...' : 'Thêm phân công'}
               </Button>
             </DialogActions>
           </Box>

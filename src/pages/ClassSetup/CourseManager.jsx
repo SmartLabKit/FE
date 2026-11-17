@@ -118,15 +118,22 @@ export default function CourseManager() {
   }
 
   // Mở modal chỉnh sửa môn học
-  const handleOpenEdit = (course) => {
+  const handleOpenEdit = async (course) => {
     setModalMode('edit')
     setSelectedCourseId(course.courseId)
+    let target = course
+    try {
+      const detail = await academicService.getCourseById(course.courseId)
+      if (detail) target = detail
+    } catch {
+      // fallback
+    }
     setForm({
-      courseCode: course.courseCode,
-      courseName: course.courseName,
-      credits: course.credits || 3,
-      description: course.description || '',
-      isActive: course.isActive !== undefined ? course.isActive : true,
+      courseCode: target.courseCode || course.courseCode,
+      courseName: target.courseName || course.courseName,
+      credits: target.credits || course.credits || 3,
+      description: target.description || course.description || '',
+      isActive: target.isActive !== undefined ? target.isActive : (course.isActive !== undefined ? course.isActive : true),
     })
     setFormErrors({})
     setOpenModal(true)

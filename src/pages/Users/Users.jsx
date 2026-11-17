@@ -255,13 +255,20 @@ export default function Users() {
     }
   }
 
-  // Mở modal sửa thông tin người dùng
-  const handleOpenEditDialog = (user) => {
+  // Mở modal sửa thông tin người dùng (GET /api/users/{id})
+  const handleOpenEditDialog = async (user) => {
     setEditingUser(user)
+    let target = user
+    try {
+      const detail = await userService.getUserById(user.userId)
+      if (detail) target = detail
+    } catch {
+      // fallback
+    }
     setEditForm({
-      fullName: user.fullName || '',
-      phoneNumber: user.phoneNumber || '',
-      isActive: user.isActive !== false,
+      fullName: target.fullName || user.fullName || '',
+      phoneNumber: target.phoneNumber || user.phoneNumber || '',
+      isActive: (target.isActive !== undefined ? target.isActive : user.isActive) !== false,
     })
     setEditDialogOpen(true)
   }

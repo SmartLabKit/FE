@@ -441,6 +441,51 @@ export default function GroupInviteManager() {
     }
   }
 
+  // Xóa thành viên khỏi nhóm (DELETE /api/teams/{teamId}/members/{studentProfileId})
+  const handleRemoveMember = async (studentProfileId, fullName) => {
+    if (!currentTeam?.teamId) return
+    setCancellingId(studentProfileId)
+    try {
+      await teamService.removeMember(currentTeam.teamId, studentProfileId)
+      setToast({
+        open: true,
+        message: `Đã xóa thành viên ${fullName} khỏi nhóm.`,
+        severity: 'success',
+      })
+      fetchMyTeamInClass(selectedClassId)
+      fetchCandidates(selectedClassId)
+    } catch (err) {
+      setToast({
+        open: true,
+        message: err.message || 'Xóa thành viên thất bại',
+        severity: 'error',
+      })
+    } finally {
+      setCancellingId(null)
+    }
+  }
+
+  // Rời nhóm (POST /api/teams/{teamId}/leave)
+  const handleLeaveTeam = async () => {
+    if (!currentTeam?.teamId) return
+    try {
+      await teamService.leaveTeam(currentTeam.teamId)
+      setToast({
+        open: true,
+        message: 'Bạn đã rời nhóm thành công.',
+        severity: 'info',
+      })
+      fetchMyTeamInClass(selectedClassId)
+      fetchCandidates(selectedClassId)
+    } catch (err) {
+      setToast({
+        open: true,
+        message: err.message || 'Rời nhóm thất bại',
+        severity: 'error',
+      })
+    }
+  }
+
   // Kiểm tra xem sinh viên hiện tại có phải là Trưởng nhóm của nhóm này hay không
   const myMemberRecord = currentTeam?.members?.find(
     (m) =>
@@ -873,25 +918,62 @@ export default function GroupInviteManager() {
                           />
                         </TableCell>
                         <TableCell sx={{ textAlign: 'right' }}>
-                          {m.status === 'Pending' && isLeader && (
-                            <Button
-                              size="small"
-                              color="error"
-                              variant="outlined"
-                              onClick={() => handleCancelInvitation(m.studentProfileId, m.fullName)}
-                              disabled={cancellingId === m.studentProfileId}
-                              sx={{
-                                textTransform: 'none',
-                                fontSize: 10,
-                                fontWeight: 700,
-                                height: 24,
-                                minWidth: 64,
-                                p: 0.5,
-                              }}
-                            >
-                              {cancellingId === m.studentProfileId ? 'Đang hủy...' : 'Hủy lời mời'}
-                            </Button>
-                          )}
+                          <Box sx={{ display: 'flex', gap: 0.5, justifyContent: 'flex-end' }}>
+                            {m.status === 'Pending' && isLeader && (
+                              <Button
+                                size="small"
+                                color="error"
+                                variant="outlined"
+                                onClick={() => handleCancelInvitation(m.studentProfileId, m.fullName)}
+                                disabled={cancellingId === m.studentProfileId}
+                                sx={{
+                                  textTransform: 'none',
+                                  fontSize: 10,
+                                  fontWeight: 700,
+                                  height: 24,
+                                  minWidth: 64,
+                                  p: 0.5,
+                                }}
+                              >
+                                {cancellingId === m.studentProfileId ? 'Đang hủy...' : 'Hủy lời mời'}
+                              </Button>
+                            )}
+                            {m.status === 'Accepted' && isLeader && !m.isLeader && (
+                              <Button
+                                size="small"
+                                color="error"
+                                variant="outlined"
+                                onClick={() => handleRemoveMember(m.studentProfileId, m.fullName)}
+                                disabled={cancellingId === m.studentProfileId}
+                                sx={{
+                                  textTransform: 'none',
+                                  fontSize: 10,
+                                  fontWeight: 700,
+                                  height: 24,
+                                  p: 0.5,
+                                }}
+                              >
+                                {cancellingId === m.studentProfileId ? 'Đang xóa...' : 'Xóa khỏi nhóm'}
+                              </Button>
+                            )}
+                            {m.status === 'Accepted' && !m.isLeader && (m.studentCode?.toUpperCase() === user?.studentCode?.toUpperCase() || m.studentProfileId === myMemberRecord?.studentProfileId) && (
+                              <Button
+                                size="small"
+                                color="warning"
+                                variant="outlined"
+                                onClick={handleLeaveTeam}
+                                sx={{
+                                  textTransform: 'none',
+                                  fontSize: 10,
+                                  fontWeight: 700,
+                                  height: 24,
+                                  p: 0.5,
+                                }}
+                              >
+                                Rời nhóm
+                              </Button>
+                            )}
+                          </Box>
                         </TableCell>
                       </TableRow>
                     ))}

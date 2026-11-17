@@ -37,8 +37,6 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import PortalLayout from '../../components/layout/PortalLayout'
 import {
   borrowService,
-  MOCK_ORIGINAL_BORROWS,
-  MOCK_AVAILABLE_COMPONENTS,
 } from '../../services/borrowService'
 import { useAuth } from '../../context/AuthContext'
 
@@ -53,59 +51,66 @@ export default function CreateSupplementaryBorrow() {
 
   // Thông tin nhóm & sinh viên
   const currentUser = user || {
-    name: 'Lê Hoàng Nam',
-    studentCode: '20214589',
-    teamName: 'Nhóm 07 – IoT',
+    name: 'Sinh viên',
+    studentCode: '',
+    teamName: '',
   }
 
-  // Danh sách đơn mượn gốc
-  const originalBorrows = MOCK_ORIGINAL_BORROWS
-  const [selectedBorrowCode, setSelectedBorrowCode] = useState('BR-2026-1020')
+  // Danh sách đơn mượn gốc từ API (GET /api/borrow-requests/my)
+  const [originalBorrows, setOriginalBorrows] = useState([])
+  const [selectedBorrowCode, setSelectedBorrowCode] = useState(
+    () => location.state?.prefill?.originalBorrowCode || ''
+  )
+
+  // Danh mục linh kiện từ API (GET /api/components)
+  const [availableComponents, setAvailableComponents] = useState([])
+  const [searchComponent, setSearchComponent] = useState('')
+
+  // Tải dữ liệu ban đầu từ API
+  useEffect(() => {
+    let ignore = false
+    borrowService.getMyBorrowRequests()
+      .then((res) => {
+        if (ignore) return
+        const items = res?.items || (Array.isArray(res) ? res : [])
+        setOriginalBorrows(items)
+        if (items.length > 0 && !selectedBorrowCode) {
+          setSelectedBorrowCode(items[0].requestCode)
+        }
+      })
+      .catch((err) => console.warn('Lỗi tải đơn mượn:', err))
+
+    borrowService.getAvailableComponents()
+      .then((items) => {
+        if (ignore) return
+        if (Array.isArray(items)) {
+          setAvailableComponents(items)
+        }
+      })
+      .catch((err) => console.warn('Lỗi tải linh kiện:', err))
+
+    return () => {
+      ignore = true
+    }
+  }, [selectedBorrowCode])
 
   // Đơn gốc hiện tại
   const currentBorrow = useMemo(() => {
     return (
       originalBorrows.find((b) => b.requestCode === selectedBorrowCode) ||
-      originalBorrows[0]
+      originalBorrows[0] ||
+      null
     )
   }, [originalBorrows, selectedBorrowCode])
 
-  // Danh mục linh kiện
-  const [availableComponents, setAvailableComponents] = useState(MOCK_AVAILABLE_COMPONENTS)
-  const [searchComponent, setSearchComponent] = useState('')
-
   // Linh kiện đã chọn trong phiếu bổ sung (hỗ trợ pre-fill khi tạo lại từ phiếu bị từ chối)
   const [selectedItems, setSelectedItems] = useState(() => {
-    if (location.state?.prefill?.components) {
-      return location.state.prefill.components
-    }
-    return [
-      {
-        componentId: 'comp-esp32',
-        componentCode: 'MCU-ESP32',
-        componentName: 'ESP32 DevKit',
-        availableQuantity: 12,
-        quantity: 1,
-        dueDate: '2026-10-29',
-      },
-      {
-        componentId: 'comp-dht22',
-        componentCode: 'SEN-DHT22',
-        componentName: 'Cảm biến DHT22',
-        availableQuantity: 20,
-        quantity: 2,
-        dueDate: '2026-10-29',
-      },
-    ]
+    return location.state?.prefill?.components || []
   })
 
   // Form thông tin chung
-  const [dueDate, setDueDate] = useState(() => location.state?.prefill?.dueDate || '2026-10-29')
-  const [reason, setReason] = useState(
-    () =>
-      location.state?.prefill?.reason ||
-      'Bổ sung bộ điều khiển và cảm biến để hoàn thiện mô hình IoT của nhóm.'
-  )
+  const [dueDate, setDueDate] = useState(() => location.state?.prefill?.dueDate || '')
+  const [reason, setReason] = useState(() => location.state?.prefill?.reason || '')
   const [submitting, setSubmitting] = useState(false)
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
 
@@ -285,6 +290,7 @@ export default function CreateSupplementaryBorrow() {
             </Typography>
             <Select
               size="small"
+              displayEmpty
               value={selectedBorrowCode}
               onChange={(e) => setSelectedBorrowCode(e.target.value)}
               sx={{
@@ -296,9 +302,14 @@ export default function CreateSupplementaryBorrow() {
                 bgcolor: '#fafbff',
               }}
             >
+              {originalBorrows.length === 0 && (
+                <MenuItem value="" disabled>
+                  Không có đơn mượn khả dụng
+                </MenuItem>
+              )}
               {originalBorrows.map((b) => (
-                <MenuItem key={b.borrowRequestId} value={b.requestCode} sx={{ fontSize: 13, fontWeight: 700 }}>
-                  {b.requestCode} ({b.projectTitle})
+                <MenuItem key={b.borrowRequestId || b.id || b.requestCode} value={b.requestCode} sx={{ fontSize: 13, fontWeight: 700 }}>
+                  {b.requestCode} ({b.projectTitle || b.classCode || 'Đơn mượn'})
                 </MenuItem>
               ))}
             </Select>
