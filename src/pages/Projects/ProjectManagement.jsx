@@ -179,15 +179,28 @@ function formatVietnamDate(value) {
 function ProjectStatus({ status }) {
   const colors = {
     Draft: { bgcolor: '#eff6ff', color: '#1d4ed8' },
-    Submitted: { bgcolor: '#fff7ed', color: '#c2410c' },
+    Submitted: { bgcolor: '#fef3c7', color: '#92400e' },
     Rejected: { bgcolor: '#fef2f2', color: '#b91c1c' },
     Approved: { bgcolor: '#ecfdf5', color: '#047857' },
   }
+  const isSubmitted = status === 'Submitted'
   return (
     <Chip
+      icon={isSubmitted ? <Box component="span" sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: '#f59e0b' }} /> : undefined}
       label={formatStatus(status)}
-      size="small"
-      sx={{ fontWeight: 800, ...(colors[status] || { bgcolor: '#f1f5f9', color: '#475569' }) }}
+      size={isSubmitted ? 'medium' : 'small'}
+      sx={{
+        fontWeight: 800,
+        ...(colors[status] || { bgcolor: '#f1f5f9', color: '#475569' }),
+        ...(isSubmitted && {
+          height: 32,
+          px: 0.5,
+          border: '1px solid #fcd34d',
+          fontSize: 13,
+          '& .MuiChip-label': { px: 1.25 },
+          '& .MuiChip-icon': { ml: 1, mr: -0.5 },
+        }),
+      }}
     />
   )
 }
@@ -1286,31 +1299,55 @@ export default function ProjectManagement() {
               <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 2 }}>
                 <Box>
                   <Typography variant="h6" sx={{ fontWeight: 800 }}>
-                    {project ? 'Thông tin project' : 'Tạo project'}
+                    {project ? 'Thông tin dự án' : 'Tạo project'}
                   </Typography>
                 </Box>
                 {project && <ProjectStatus status={project.status} />}
               </Box>
 
               <Stack spacing={2}>
-                <TextField
-                  label="Tên project"
-                  value={form.title}
-                  onChange={(event) => updateForm('title', event.target.value)}
-                  disabled={!canEdit || saving}
-                  fullWidth
-                  required
-                />
-                <TextField
-                  label="Mô tả"
-                  value={form.description}
-                  onChange={(event) => updateForm('description', event.target.value)}
-                  disabled={!canEdit || saving}
-                  fullWidth
-                  required
-                  multiline
-                  minRows={4}
-                />
+                {canEdit ? (
+                  <>
+                    <TextField
+                      label="Tên project"
+                      value={form.title}
+                      onChange={(event) => updateForm('title', event.target.value)}
+                      disabled={saving}
+                      fullWidth
+                      required
+                    />
+                    <TextField
+                      label="Mô tả"
+                      value={form.description}
+                      onChange={(event) => updateForm('description', event.target.value)}
+                      disabled={saving}
+                      fullWidth
+                      required
+                      multiline
+                      minRows={4}
+                    />
+                  </>
+                ) : (
+                  <>
+                    <Box>
+                      <Typography variant="caption" color="text.secondary">Tên project</Typography>
+                      <Typography variant="body1" sx={{ fontWeight: 600, color: '#0f172a' }}>
+                        {form.title || '—'}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ p: 1.75, borderRadius: 2, bgcolor: '#f8fafc' }}>
+                      <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 0.5 }}>
+                        Mô tả
+                      </Typography>
+                      <Typography
+                        variant="body2"
+                        sx={{ color: '#334155', lineHeight: 1.7, whiteSpace: 'pre-line' }}
+                      >
+                        {form.description || '—'}
+                      </Typography>
+                    </Box>
+                  </>
+                )}
 
                 {project && (
                   <>
@@ -1318,32 +1355,33 @@ export default function ProjectManagement() {
                     <Box>
                       <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 1.25 }}>
                         <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Linh kiện mượn kho</Typography>
-                        <Chip
-                          icon={<InfoOutlinedIcon sx={{ fontSize: '15px !important' }} />}
-                          label="Double-click chip để chỉnh sửa số lượng hoặc ghi chú"
-                          size="small"
-                          sx={{
-                            height: 24,
-                            bgcolor: '#eff6ff',
-                            color: '#1d4ed8',
-                            fontSize: 11,
-                            fontWeight: 600,
-                            '& .MuiChip-icon': { color: '#2563eb', ml: 0.75 },
-                          }}
-                        />
+                        {canEdit && (
+                          <Chip
+                            icon={<InfoOutlinedIcon sx={{ fontSize: '15px !important' }} />}
+                            label="Ấn đúp linh kiện để chỉnh sửa ghi chú"
+                            size="small"
+                            sx={{
+                              height: 24,
+                              bgcolor: '#eff6ff',
+                              color: '#1d4ed8',
+                              fontSize: 11,
+                              fontWeight: 600,
+                              '& .MuiChip-icon': { color: '#2563eb', ml: 0.75 },
+                            }}
+                          />
+                        )}
                       </Box>
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
                         {form.components.map((item) => (
                           <Tooltip
                             key={item.clientKey}
-                            title={item.note || 'Double-click để chỉnh sửa số lượng hoặc ghi chú.'}
+                            title={item.note || (canEdit ? 'Double-click để chỉnh sửa số lượng hoặc ghi chú.' : '')}
                           >
                             <Chip
                               label={<QuantityLabel name={getComponentName(item.componentId) || 'Linh kiện'} quantity={item.quantity} />}
                               deleteIcon={<CloseIcon sx={{ fontSize: '17px !important' }} />}
                               onDoubleClick={canEdit ? () => setEditingChip({ type: 'component', clientKey: item.clientKey }) : undefined}
                               onDelete={canEdit ? () => removeComponent(item.clientKey) : undefined}
-                              disabled={!canEdit}
                               sx={{ ...selectedChipStyles, width: 'fit-content', cursor: canEdit ? 'pointer' : 'default' }}
                             />
                           </Tooltip>
@@ -1353,27 +1391,29 @@ export default function ProjectManagement() {
                             Chưa thêm linh kiện mượn kho.
                           </Alert>
                         )}
-                        {inlineDraft?.type === 'component' && inlineDraftView}
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          startIcon={<AddIcon />}
-                          onClick={addComponent}
-                          disabled={!canEdit || Boolean(inlineDraft)}
-                          sx={{
-                            minHeight: 36,
-                            px: 1.25,
-                            borderStyle: 'dashed',
-                            borderColor: '#93c5fd',
-                            color: '#1d4ed8',
-                            bgcolor: '#fff',
-                            textTransform: 'none',
-                            fontWeight: 700,
-                            '&:hover': { borderStyle: 'dashed', borderColor: '#2563eb', bgcolor: '#eff6ff' },
-                          }}
-                        >
-                          Thêm mới
-                        </Button>
+                        {canEdit && inlineDraft?.type === 'component' && inlineDraftView}
+                        {canEdit && (
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<AddIcon />}
+                            onClick={addComponent}
+                            disabled={Boolean(inlineDraft)}
+                            sx={{
+                              minHeight: 36,
+                              px: 1.25,
+                              borderStyle: 'dashed',
+                              borderColor: '#93c5fd',
+                              color: '#1d4ed8',
+                              bgcolor: '#fff',
+                              textTransform: 'none',
+                              fontWeight: 700,
+                              '&:hover': { borderStyle: 'dashed', borderColor: '#2563eb', bgcolor: '#eff6ff' },
+                            }}
+                          >
+                            Thêm mới
+                          </Button>
+                        )}
                       </Box>
                     </Box>
 
@@ -1386,14 +1426,13 @@ export default function ProjectManagement() {
                         {form.selfSuppliedItems.map((item) => (
                           <Tooltip
                             key={item.clientKey}
-                            title={item.note || 'Double-click để chỉnh sửa số lượng hoặc ghi chú.'}
+                            title={item.note || (canEdit ? 'Double-click để chỉnh sửa số lượng hoặc ghi chú.' : '')}
                           >
                             <Chip
                               label={<QuantityLabel name={item.itemName || 'Món tự mua'} quantity={item.quantity} />}
                               deleteIcon={<CloseIcon sx={{ fontSize: '17px !important' }} />}
                               onDoubleClick={canEdit ? () => setEditingChip({ type: 'self', clientKey: item.clientKey }) : undefined}
                               onDelete={canEdit ? () => removeSelfSuppliedItem(item.clientKey) : undefined}
-                              disabled={!canEdit}
                               sx={{ ...selectedChipStyles, width: 'fit-content', cursor: canEdit ? 'pointer' : 'default' }}
                             />
                           </Tooltip>
@@ -1403,108 +1442,111 @@ export default function ProjectManagement() {
                             Chưa thêm món tự mua.
                           </Alert>
                         )}
-                        {inlineDraft?.type === 'self' && inlineDraftView}
-                        <Button
-                          variant="outlined"
-                          size="small"
-                          startIcon={<AddIcon />}
-                          onClick={addSelfSuppliedItem}
-                          disabled={!canEdit || Boolean(inlineDraft)}
-                          sx={{
-                            minHeight: 36,
-                            px: 1.25,
-                            borderStyle: 'dashed',
-                            borderColor: '#93c5fd',
-                            color: '#1d4ed8',
-                            bgcolor: '#fff',
-                            textTransform: 'none',
-                            fontWeight: 700,
-                            '&:hover': { borderStyle: 'dashed', borderColor: '#2563eb', bgcolor: '#eff6ff' },
-                          }}
-                        >
-                          Thêm mới
-                        </Button>
+                        {canEdit && inlineDraft?.type === 'self' && inlineDraftView}
+                        {canEdit && (
+                          <Button
+                            variant="outlined"
+                            size="small"
+                            startIcon={<AddIcon />}
+                            onClick={addSelfSuppliedItem}
+                            disabled={Boolean(inlineDraft)}
+                            sx={{
+                              minHeight: 36,
+                              px: 1.25,
+                              borderStyle: 'dashed',
+                              borderColor: '#93c5fd',
+                              color: '#1d4ed8',
+                              bgcolor: '#fff',
+                              textTransform: 'none',
+                              fontWeight: 700,
+                              '&:hover': { borderStyle: 'dashed', borderColor: '#2563eb', bgcolor: '#eff6ff' },
+                            }}
+                          >
+                            Thêm mới
+                          </Button>
+                        )}
                       </Box>
                     </Box>
 
-                    <Divider />
-                    <Box>
-                      <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1.25 }}>
-                        <Button
-                          variant="outlined"
-                          startIcon={suggesting ? <CircularProgress size={16} /> : <AutoAwesomeIcon />}
-                          disabled={!canEdit || suggesting}
-                          onClick={requestSuggestions}
-                          sx={{ textTransform: 'none', fontWeight: 700 }}
-                        >
-                          {suggesting ? 'Đang lấy gợi ý...' : 'AI Gợi ý Linh kiện'}
-                        </Button>
-                        <Typography variant="caption" color="text.secondary">
-                          Chọn các linh kiện phù hợp bên dưới, sau đó bấm <Box component="span" sx={{ fontWeight: 800 }}>Lưu project</Box> để xác nhận.
-                        </Typography>
-                      </Box>
-                      {suggestions && (
-                        <Stack spacing={1.5} sx={{ mt: 2 }}>
-                          <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>Kết quả gợi ý</Typography>
-                          {suggestions.hint && (
-                            <Alert severity="info" sx={{ display: 'inline-flex', width: 'fit-content', maxWidth: '100%' }}>
-                              {suggestions.hint}
-                            </Alert>
-                          )}
-                          <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                            {availableBorrowableSuggestions.map((suggestion) => (
-                              <Tooltip key={`borrow-${suggestion.componentId}`} title={suggestion.reason || 'Nhấn để thêm vào danh sách mượn kho.'}>
-                                <Chip
-                                  label={<QuantityLabel name={suggestion.componentName} quantity={Number(suggestion.quantity) || 1} />}
-                                  clickable={canEdit}
-                                  disabled={!canEdit}
-                                  onClick={() => addSuggestedComponent(suggestion)}
-                                  sx={{ ...suggestedChipStyles, width: 'fit-content' }}
-                                />
-                              </Tooltip>
-                            ))}
-                            {(suggestions.notEnoughStock || []).map((suggestion) => (
-                              <Tooltip
-                                key={`stock-${suggestion.componentId}`}
-                                title={`Cần ${suggestion.quantity}, hiện có ${suggestion.available}.${suggestion.reason ? ` ${suggestion.reason}` : ''}`}
-                              >
-                                <Chip
-                                  label={<QuantityLabel name={suggestion.componentName} quantity={Number(suggestion.quantity) || 1} />}
-                                  disabled
-                                  sx={{
-                                    ...suggestedChipStyles,
-                                    width: 'fit-content',
-                                    bgcolor: '#fffbeb',
-                                    color: '#92400e',
-                                    cursor: 'not-allowed',
-                                  }}
-                                />
-                              </Tooltip>
-                            ))}
-                            {availableSelfSuppliedSuggestions.map((suggestion, index) => (
-                              <Tooltip key={`self-${suggestion.itemName}-${index}`} title={suggestion.reason || 'Nhấn để thêm vào danh sách tự mua.'}>
-                                <Chip
-                                  label={<QuantityLabel name={suggestion.itemName} quantity={Number(suggestion.quantity) || 1} />}
-                                  clickable={canEdit}
-                                  disabled={!canEdit}
-                                  onClick={() => addSuggestedSelfItem(suggestion)}
-                                  sx={{ ...suggestedChipStyles, width: 'fit-content' }}
-                                />
-                              </Tooltip>
-                            ))}
+                    {canEdit && (
+                      <>
+                        <Divider />
+                        <Box>
+                          <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1.25 }}>
+                            <Button
+                              variant="outlined"
+                              startIcon={suggesting ? <CircularProgress size={16} /> : <AutoAwesomeIcon />}
+                              disabled={suggesting}
+                              onClick={requestSuggestions}
+                              sx={{ textTransform: 'none', fontWeight: 700 }}
+                            >
+                              {suggesting ? 'Đang lấy gợi ý...' : 'AI Gợi ý Linh kiện'}
+                            </Button>
+                            <Typography variant="caption" color="text.secondary">
+                              Tối đa 10 lượt mỗi giờ.
+                            </Typography>
                           </Box>
-                          {!availableBorrowableSuggestions.length &&
-                            !(suggestions.notEnoughStock || []).length &&
-                            !availableSelfSuppliedSuggestions.length && (
-                              <Alert severity="info" sx={{ display: 'inline-flex', width: 'fit-content' }}>
-                                {(suggestions.borrowable?.length || suggestions.selfSupplied?.length)
-                                  ? 'Đã thêm tất cả gợi ý vào danh sách.'
-                                  : 'AI chưa có gợi ý phù hợp cho mô tả hiện tại.'}
-                              </Alert>
-                            )}
-                        </Stack>
-                      )}
-                    </Box>
+                          {suggestions && (
+                            <Stack spacing={1.5} sx={{ mt: 2 }}>
+                              {suggestions.hint && (
+                                <Alert severity="info" sx={{ display: 'inline-flex', width: 'fit-content', maxWidth: '100%' }}>
+                                  {suggestions.hint}
+                                </Alert>
+                              )}
+                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                {availableBorrowableSuggestions.map((suggestion) => (
+                                  <Tooltip key={`borrow-${suggestion.componentId}`} title={suggestion.reason || 'Nhấn để thêm vào danh sách mượn kho.'}>
+                                    <Chip
+                                      label={<QuantityLabel name={suggestion.componentName} quantity={Number(suggestion.quantity) || 1} />}
+                                      clickable
+                                      onClick={() => addSuggestedComponent(suggestion)}
+                                      sx={{ ...suggestedChipStyles, width: 'fit-content' }}
+                                    />
+                                  </Tooltip>
+                                ))}
+                                {(suggestions.notEnoughStock || []).map((suggestion) => (
+                                  <Tooltip
+                                    key={`stock-${suggestion.componentId}`}
+                                    title={`Cần ${suggestion.quantity}, hiện có ${suggestion.available}.${suggestion.reason ? ` ${suggestion.reason}` : ''}`}
+                                  >
+                                    <Chip
+                                      label={<QuantityLabel name={suggestion.componentName} quantity={Number(suggestion.quantity) || 1} />}
+                                      disabled
+                                      sx={{
+                                        ...suggestedChipStyles,
+                                        width: 'fit-content',
+                                        bgcolor: '#fffbeb',
+                                        color: '#92400e',
+                                        cursor: 'not-allowed',
+                                      }}
+                                    />
+                                  </Tooltip>
+                                ))}
+                                {availableSelfSuppliedSuggestions.map((suggestion, index) => (
+                                  <Tooltip key={`self-${suggestion.itemName}-${index}`} title={suggestion.reason || 'Nhấn để thêm vào danh sách tự mua.'}>
+                                    <Chip
+                                      label={<QuantityLabel name={suggestion.itemName} quantity={Number(suggestion.quantity) || 1} />}
+                                      clickable
+                                      onClick={() => addSuggestedSelfItem(suggestion)}
+                                      sx={{ ...suggestedChipStyles, width: 'fit-content' }}
+                                    />
+                                  </Tooltip>
+                                ))}
+                              </Box>
+                              {!availableBorrowableSuggestions.length &&
+                                !(suggestions.notEnoughStock || []).length &&
+                                !availableSelfSuppliedSuggestions.length && (
+                                  <Alert severity="info" sx={{ display: 'inline-flex', width: 'fit-content' }}>
+                                    {(suggestions.borrowable?.length || suggestions.selfSupplied?.length)
+                                      ? 'Đã thêm tất cả gợi ý vào danh sách.'
+                                      : 'AI chưa có gợi ý phù hợp cho mô tả hiện tại.'}
+                                  </Alert>
+                                )}
+                            </Stack>
+                          )}
+                        </Box>
+                      </>
+                    )}
                   </>
                 )}
               </Stack>
@@ -1538,16 +1580,26 @@ export default function ProjectManagement() {
             {project && ((isLeader && project.status === 'Submitted') || !isLeader) && (
               <Paper elevation={0} sx={{ p: { xs: 2, sm: 3 }, border: '1px solid #e4e6ef', borderRadius: 2 }}>
                 {isLeader && project.status === 'Submitted' && (
-                  <Button
-                    variant="outlined"
-                    color="warning"
-                    startIcon={withdrawing ? <CircularProgress size={16} /> : <UndoIcon />}
-                    disabled={withdrawing}
-                    onClick={withdrawProject}
-                    sx={{ textTransform: 'none', fontWeight: 700 }}
-                  >
-                    {withdrawing ? 'Đang rút...' : 'Rút lại'}
-                  </Button>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
+                    <Box>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#131b2e' }}>
+                        Project đang chờ duyệt
+                      </Typography>
+                      <Typography variant="body2" color="text.secondary">
+                        Rút hồ sơ về bản nháp nếu nhóm cần chỉnh sửa thông tin.
+                      </Typography>
+                    </Box>
+                    <Button
+                      variant="outlined"
+                      color="warning"
+                      startIcon={withdrawing ? <CircularProgress size={16} /> : <UndoIcon />}
+                      disabled={withdrawing}
+                      onClick={withdrawProject}
+                      sx={{ textTransform: 'none', fontWeight: 700 }}
+                    >
+                      {withdrawing ? 'Đang rút...' : 'Rút lại'}
+                    </Button>
+                  </Box>
                 )}
                 {!isLeader && <Typography variant="body2" color="text.secondary">Chỉ trưởng nhóm mới có thể gửi duyệt hoặc rút project.</Typography>}
               </Paper>

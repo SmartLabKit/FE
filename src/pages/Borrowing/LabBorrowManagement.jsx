@@ -586,12 +586,12 @@ export default function LabBorrowManagement() {
                         <Stack direction="row" spacing={1}>
                           {line.canDispatch && (
                             <Button size="small" disabled={Boolean(actionLoading)} onClick={() => dispatchLine(line)}>
-                              Xác nhận gửi
+                              Xác nhận
                             </Button>
                           )}
                           {line.canReceive && (
                             <Button size="small" variant="contained" disabled={Boolean(actionLoading)} onClick={() => openReceiveDialog(line)}>
-                              Xác nhận nhận
+                              Xác nhận
                             </Button>
                           )}
                           {!line.canDispatch && !line.canReceive && <Typography variant="caption" color="text.secondary">Đang luân chuyển</Typography>}
