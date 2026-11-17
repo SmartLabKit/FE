@@ -15,48 +15,9 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material'
+import ProjectStatusChip from '../../components/borrowing/ProjectStatusChip'
 import { projectService } from '../../services/projectService'
 import { formatVietnamDate } from '../../utils/dateFormatting'
-
-const projectStatusStyles = {
-  Draft: { label: 'Bản nháp', bgcolor: '#f1f5f9', color: '#475569', borderColor: '#cbd5e1', dotColor: '#64748b' },
-  Submitted: { label: 'Chờ duyệt', bgcolor: '#fef3c7', color: '#92400e', borderColor: '#fcd34d', dotColor: '#f59e0b' },
-  Pending: { label: 'Chờ duyệt', bgcolor: '#fef3c7', color: '#92400e', borderColor: '#fcd34d', dotColor: '#f59e0b' },
-  PendingApproval: { label: 'Chờ duyệt', bgcolor: '#fef3c7', color: '#92400e', borderColor: '#fcd34d', dotColor: '#f59e0b' },
-  PendingLecturer: { label: 'Chờ duyệt', bgcolor: '#fef3c7', color: '#92400e', borderColor: '#fcd34d', dotColor: '#f59e0b' },
-  Approved: { label: 'Đã duyệt', bgcolor: '#ecfdf5', color: '#047857', borderColor: '#6ee7b7', dotColor: '#10b981' },
-  Rejected: { label: 'Bị từ chối', bgcolor: '#fff1f2', color: '#be123c', borderColor: '#fda4af', dotColor: '#e11d48' },
-  Cancelled: { label: 'Đã hủy', bgcolor: '#f1f5f9', color: '#475569', borderColor: '#cbd5e1', dotColor: '#64748b' },
-}
-
-function ProjectStatusBadge({ status }) {
-  const style = projectStatusStyles[status] || {
-    label: status || 'Chưa xác định',
-    bgcolor: '#f1f5f9',
-    color: '#475569',
-    borderColor: '#cbd5e1',
-    dotColor: '#64748b',
-  }
-
-  return (
-    <Chip
-      icon={<Box component="span" sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: style.dotColor }} />}
-      label={style.label}
-      sx={{
-        height: 32,
-        px: 0.5,
-        borderRadius: '999px',
-        border: `1px solid ${style.borderColor}`,
-        bgcolor: style.bgcolor,
-        color: style.color,
-        fontSize: 13,
-        fontWeight: 700,
-        '& .MuiChip-label': { px: 1.25 },
-        '& .MuiChip-icon': { ml: 1, mr: -0.5 },
-      }}
-    />
-  )
-}
 
 export default function ProjectApprovalDialog({ project, open, onClose, onReviewed }) {
   const [detail, setDetail] = useState(null)
@@ -125,20 +86,24 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
   const borrowRequests = detail?.borrowRequests || []
   const currentStatus = detail?.status || project?.status || ''
   const isPending = ['Submitted', 'Pending', 'PendingApproval', 'PendingLecturer'].includes(currentStatus)
+  const borrowRequest = borrowRequests[0]
+  const teamName = detail?.teamName || project?.teamName || 'Nhóm'
+  const classCode = detail?.classCode || project?.classCode || '—'
+  const submittedAt = detail?.submittedAt || project?.submittedAt
+  const borrowDate = borrowRequest?.expectedBorrowDate ||
+    detail?.expectedBorrowDate ||
+    borrowRequest?.borrowDate ||
+    detail?.borrowDate
+  const dueDate = borrowRequest?.dueDate || detail?.dueDate
 
   return (
     <Dialog open={open} onClose={() => !busy && onClose()} fullWidth maxWidth="md">
       <DialogTitle>
         <Stack direction={{ xs: 'column', sm: 'row' }} alignItems={{ xs: 'flex-start', sm: 'center' }} justifyContent="space-between" spacing={1.5}>
-          <Box>
-            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#64748b' }}>
-              {isPending ? 'Duyệt project' : 'Chi tiết project'}
-            </Typography>
-            <Typography variant="h6" sx={{ fontWeight: 800 }}>
-              {detail?.title || project?.title || project?.projectTitle || ''}
-            </Typography>
-          </Box>
-          <ProjectStatusBadge status={currentStatus} />
+          <Typography variant="h6" sx={{ fontWeight: 800 }}>
+            {isPending ? 'Duyệt đề tài cho' : 'Chi tiết đề tài của'} {teamName} · Lớp {classCode}
+          </Typography>
+          <ProjectStatusChip status={currentStatus} />
         </Stack>
       </DialogTitle>
       <DialogContent dividers>
@@ -168,33 +133,19 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
                   <Typography variant="body2" sx={{ color: '#1e293b', lineHeight: 1.7, whiteSpace: 'pre-line' }}>
                     {detail.description || 'Chưa có mô tả.'}
                   </Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#64748b' }}>Thời gian gửi đề tài</Typography>
+                  <Typography variant="body2" sx={{ color: '#1e293b' }}>
+                    {formatVietnamDate(submittedAt)}
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#64748b' }}>Thời gian mượn LK</Typography>
+                  <Typography variant="body2" sx={{ color: '#1e293b' }}>
+                    {formatVietnamDate(borrowDate)}
+                  </Typography>
+                  <Typography variant="body2" sx={{ fontWeight: 500, color: '#64748b' }}>Thời gian trả LK</Typography>
+                  <Typography variant="body2" sx={{ color: '#1e293b' }}>
+                    {formatVietnamDate(dueDate)}
+                  </Typography>
                 </Box>
-                <Typography variant="caption" color="text.secondary">
-                  {detail.teamName || project?.teamName} · Lớp {detail.classCode || project?.classCode}
-                  {' · '}Gửi lúc: {formatVietnamDate(detail.submittedAt || project?.submittedAt)}
-                </Typography>
-
-                {borrowRequests.map((request) => (
-                  <Alert
-                    key={request.borrowRequestId}
-                    severity="info"
-                    icon={false}
-                    sx={{ '& .MuiAlert-message': { width: '100%' } }}
-                  >
-                    <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={0.5} sx={{ mb: 0.5 }}>
-                      <Typography variant="subtitle2" sx={{ fontWeight: 800 }}>
-                        {request.purpose || 'Đơn mượn linh kiện'}
-                      </Typography>
-                      <ProjectStatusBadge status={request.status || currentStatus} />
-                    </Stack>
-                    <Typography variant="body2">
-                      {request.roomName || request.roomCode || 'Phòng nhận chưa xác định'} · Mượn: {formatVietnamDate(request.expectedBorrowDate || detail.expectedBorrowDate || request.borrowDate || detail.borrowDate)} · Trả: {formatVietnamDate(request.dueDate || detail.dueDate)}
-                    </Typography>
-                    <Typography variant="caption" display="block">
-                      Đơn {request.requestCode}
-                    </Typography>
-                  </Alert>
-                ))}
 
                 <Divider />
                 <Box>

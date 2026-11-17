@@ -1673,7 +1673,7 @@ export default function ProjectManagement() {
                     </Typography>
                   </Box>
                   <Box>
-                    <Typography variant="caption" color="text.secondary" display="block">Ngày mượn (tự động)</Typography>
+                    <Typography variant="caption" color="text.secondary" display="block">Ngày mượn</Typography>
                     <Typography variant="body2" sx={{ fontWeight: 700, color: '#1e293b' }}>
                       {formatVietnamDate(localDateValue())}
                     </Typography>
