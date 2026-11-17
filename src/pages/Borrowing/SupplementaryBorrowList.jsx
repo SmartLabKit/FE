@@ -44,6 +44,7 @@ import {
 import { projectService } from '../../services/projectService'
 import { useAuth } from '../../context/AuthContext'
 import { formatVietnamDate } from '../../utils/dateFormatting'
+import { getBorrowRequestStatusMeta } from './borrowHelpers'
 
 /**
  * SupplementaryBorrowList Component
@@ -58,6 +59,7 @@ export default function SupplementaryBorrowList() {
   const [supplementaryRequests, setSupplementaryRequests] = useState([])
   const [returnRequests, setReturnRequests] = useState([])
   const [borrowRequests, setBorrowRequests] = useState([])
+  const [borrowStatusFilter, setBorrowStatusFilter] = useState('all') // 'all', 'active', 'returned'
   const [extensions, setExtensions] = useState([])
   const [lecturerProjects, setLecturerProjects] = useState([])
   const [loadingLecturerProjects, setLoadingLecturerProjects] = useState(false)
@@ -93,7 +95,7 @@ export default function SupplementaryBorrowList() {
       .then(([retData, myBorrows, extData, pendingProjects]) => {
         if (!isMounted) return
         if (retData) setReturnRequests(Array.isArray(retData) ? retData : retData?.items || [])
-        if (myBorrows?.items) setBorrowRequests(myBorrows.items)
+        if (myBorrows) setBorrowRequests(Array.isArray(myBorrows) ? myBorrows : myBorrows?.items || myBorrows?.data?.items || [])
         if (extData?.items) setExtensions(extData.items)
         if (Array.isArray(pendingProjects)) {
           setSupplementaryRequests(pendingProjects)
@@ -208,6 +210,18 @@ export default function SupplementaryBorrowList() {
       return true
     })
   }, [lecturerProjects, projectStatusFilter, projectSearch])
+
+  const filteredBorrowRequests = useMemo(() => {
+    return borrowRequests.filter((b) => {
+      if (borrowStatusFilter === 'active') {
+        return ['Borrowing', 'Ready', 'Approved', 'Overdue'].includes(b.status)
+      }
+      if (borrowStatusFilter === 'returned') {
+        return b.status === 'Returned'
+      }
+      return true
+    })
+  }, [borrowRequests, borrowStatusFilter])
 
   const getProjectStatusChip = (status) => <ProjectStatusChip status={status} />
 
@@ -694,20 +708,41 @@ export default function SupplementaryBorrowList() {
               bgcolor: '#ffffff',
             }}
           >
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2, flexWrap: 'wrap', gap: 1.5 }}>
               <Box>
                 <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 16 }}>
-                  Đơn mượn chính hiện tại (Active Borrow Requests)
+                  Quản lý đơn mượn linh kiện của tôi
                 </Typography>
                 <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                  GET /api/borrow-requests/my · Hỗ trợ xin gia hạn thời gian mượn trước khi quá hạn
+                  Theo dõi trạng thái đơn mượn, xin gia hạn và xem lại lịch sử các đơn đã trả
                 </Typography>
               </Box>
-              <Chip
-                label={`${borrowRequests.length} đơn`}
-                size="small"
-                sx={{ bgcolor: '#eff6ff', color: '#0058be', fontWeight: 800, fontSize: 11 }}
-              />
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+                <Button
+                  size="small"
+                  variant={borrowStatusFilter === 'all' ? 'contained' : 'outlined'}
+                  onClick={() => setBorrowStatusFilter('all')}
+                  sx={{ textTransform: 'none', borderRadius: 1.5, fontSize: 12, py: 0.25 }}
+                >
+                  Tất cả ({borrowRequests.length})
+                </Button>
+                <Button
+                  size="small"
+                  variant={borrowStatusFilter === 'active' ? 'contained' : 'outlined'}
+                  onClick={() => setBorrowStatusFilter('active')}
+                  sx={{ textTransform: 'none', borderRadius: 1.5, fontSize: 12, py: 0.25 }}
+                >
+                  Đang mượn ({borrowRequests.filter((b) => ['Borrowing', 'Ready', 'Approved', 'Overdue'].includes(b.status)).length})
+                </Button>
+                <Button
+                  size="small"
+                  variant={borrowStatusFilter === 'returned' ? 'contained' : 'outlined'}
+                  onClick={() => setBorrowStatusFilter('returned')}
+                  sx={{ textTransform: 'none', borderRadius: 1.5, fontSize: 12, py: 0.25 }}
+                >
+                  Đã trả ({borrowRequests.filter((b) => b.status === 'Returned').length})
+                </Button>
+              </Box>
             </Box>
 
             <TableContainer sx={{ border: '1px solid #f0f2f5', borderRadius: 1.5 }}>
@@ -723,7 +758,7 @@ export default function SupplementaryBorrowList() {
                   </TableRow>
                 </TableHead>
                 <TableBody>
-                  {borrowRequests.map((b) => (
+                  {filteredBorrowRequests.map((b) => (
                     <TableRow key={b.borrowRequestId} hover>
                       <TableCell sx={{ fontWeight: 800, fontSize: 13, color: '#0058be' }}>
                         {b.requestCode}
@@ -738,16 +773,10 @@ export default function SupplementaryBorrowList() {
                         {b.dueDate}
                       </TableCell>
                       <TableCell>
-                        <Chip
-                          label={b.status === 'Borrowing' ? 'Đang mượn' : b.status === 'Ready' ? 'Sẵn sàng nhận' : b.status}
-                          size="small"
-                          sx={{
-                            bgcolor: b.status === 'Borrowing' ? '#eff6ff' : '#f0fdf4',
-                            color: b.status === 'Borrowing' ? '#0058be' : '#16a34a',
-                            fontWeight: 700,
-                            fontSize: 11,
-                          }}
-                        />
+                        {(() => {
+                          const meta = getBorrowRequestStatusMeta(b.status)
+                          return <Chip label={meta.label} size="small" sx={meta.sx} />
+                        })()}
                       </TableCell>
                       <TableCell sx={{ textAlign: 'right' }}>
                         <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
@@ -773,22 +802,24 @@ export default function SupplementaryBorrowList() {
                             </Button>
                           )}
 
-                          {/* Nút Trả linh kiện */}
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            startIcon={<AssignmentReturnIcon sx={{ fontSize: 13 }} />}
-                            onClick={() => navigate('/borrow/return/create')}
-                            sx={{
-                              textTransform: 'none',
-                              fontWeight: 700,
-                              fontSize: 11,
-                              borderRadius: 1,
-                              borderColor: '#dcdfe6',
-                            }}
-                          >
-                            Trả linh kiện
-                          </Button>
+                          {/* Nút Trả linh kiện chỉ hiển thị khi đang mượn */}
+                          {b.status === 'Borrowing' && (
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              startIcon={<AssignmentReturnIcon sx={{ fontSize: 13 }} />}
+                              onClick={() => navigate('/borrow/return/create')}
+                              sx={{
+                                textTransform: 'none',
+                                fontWeight: 700,
+                                fontSize: 11,
+                                borderRadius: 1,
+                                borderColor: '#dcdfe6',
+                              }}
+                            >
+                              Trả linh kiện
+                            </Button>
+                          )}
 
                           <Button
                             size="small"
@@ -803,6 +834,17 @@ export default function SupplementaryBorrowList() {
                       </TableCell>
                     </TableRow>
                   ))}
+                  {filteredBorrowRequests.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={6} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                        {borrowStatusFilter === 'returned'
+                          ? 'Bạn chưa có đơn mượn nào ở trạng thái Đã trả.'
+                          : borrowStatusFilter === 'active'
+                            ? 'Không có đơn mượn nào đang mượn.'
+                            : 'Chưa có đơn mượn nào.'}
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </TableContainer>

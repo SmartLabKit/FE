@@ -23,6 +23,7 @@ import PortalLayout from '../../components/layout/PortalLayout'
 import { useAuth } from '../../context/AuthContext'
 import { borrowService } from '../../services/borrowService'
 import { formatVietnamDate, formatVietnamDateTime } from '../../utils/dateFormatting'
+import { getBorrowRequestStatusMeta } from './borrowHelpers'
 
 function getItemStatusChip(item, requestStatus) {
   const isReturned = Boolean(item.returnedAt) || String(item.status || '').toLowerCase() === 'returned'
@@ -32,7 +33,8 @@ function getItemStatusChip(item, requestStatus) {
   if (['Borrowing', 'Overdue'].includes(requestStatus)) {
     return <Chip size="small" label="Chưa trả" sx={{ bgcolor: '#fffbeb', color: '#b45309', fontWeight: 700, fontSize: 11 }} />
   }
-  return <Chip size="small" label={item.status || 'Chưa trả'} sx={{ bgcolor: '#f1f5f9', color: '#475569', fontWeight: 700, fontSize: 11 }} />
+  const meta = getBorrowRequestStatusMeta(item.status)
+  return <Chip size="small" label={meta.label} sx={meta.sx} />
 }
 
 export default function BorrowRequestDetail() {
@@ -161,7 +163,10 @@ export default function BorrowRequestDetail() {
                     {request.projectTitle} · {request.classCode}
                   </Typography>
                 </Box>
-                <Chip label={request.status} color={request.status === 'Cancelled' ? 'default' : 'primary'} />
+                {(() => {
+                  const meta = getBorrowRequestStatusMeta(request.status)
+                  return <Chip label={meta.label} sx={meta.sx} />
+                })()}
               </Box>
               <Divider sx={{ mb: 2 }} />
               <Stack spacing={1}>

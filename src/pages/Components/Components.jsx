@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
-  Add as AddIcon, Inventory as InventoryIcon, ReceiptLong as ReceiptIcon,
+  Add as AddIcon,
+  GridView as GridViewIcon,
+  Inventory as InventoryIcon,
+  ReceiptLong as ReceiptIcon,
 } from '@mui/icons-material'
 import {
   Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Grid, MenuItem, Table, TableBody,
@@ -194,6 +197,21 @@ export default function Components() {
               placeholder="Tìm tên, mã, danh mục..."
               sx={{ minWidth: 200 }}
             />
+            <Button
+              startIcon={<GridViewIcon />}
+              variant="outlined"
+              onClick={() => navigate('/components/catalog')}
+              sx={{
+                textTransform: 'none',
+                fontWeight: 600,
+                color: '#0058be',
+                borderColor: '#0058be',
+                whiteSpace: 'nowrap',
+                '&:hover': { bgcolor: '#f0f7ff', borderColor: '#004aa3' },
+              }}
+            >
+              Dạng lưới (Catalog)
+            </Button>
             {canManage && (
               <>
                 <Button
@@ -228,13 +246,13 @@ export default function Components() {
                 <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Tổng tồn</TableCell>
                 <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Khả dụng</TableCell>
                 <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Trạng thái</TableCell>
-                {canManage && <TableCell sx={{ width: 80, fontWeight: 700, color: '#334155' }}>Thao tác</TableCell>}
+                <TableCell sx={{ width: canManage ? 110 : 70, fontWeight: 700, color: '#334155' }}>Thao tác</TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={canManage ? 8 : 7} align="center" sx={{ py: 6 }}>
+                  <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
                     <CircularProgress size={28} sx={{ color: '#0058be', mb: 1 }} />
                     <Typography variant="body2" sx={{ color: '#64748b' }}>
                       Đang tải danh sách linh kiện...
@@ -243,14 +261,24 @@ export default function Components() {
                 </TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={canManage ? 8 : 7} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                  <TableCell colSpan={8} align="center" sx={{ py: 4, color: 'text.secondary' }}>
                     Không có linh kiện phù hợp với bộ lọc.
                   </TableCell>
                 </TableRow>
               ) : (
                 paginatedRows.map((component) => (
                   <TableRow key={component.componentId} hover>
-                    <TableCell sx={{ fontWeight: 600 }}>{component.componentName}</TableCell>
+                    <TableCell
+                      onClick={() => navigate(`/components/${component.componentId}`, { state: { component } })}
+                      sx={{
+                        fontWeight: 600,
+                        cursor: 'pointer',
+                        '&:hover': { color: '#0058be', textDecoration: 'underline' },
+                      }}
+                      title="Xem chi tiết linh kiện"
+                    >
+                      {component.componentName}
+                    </TableCell>
                     <TableCell sx={{ color: '#0058be', fontWeight: 600 }}>{component.componentCode}</TableCell>
                     <TableCell>{component.categoryName || '—'}</TableCell>
                     <TableCell>
@@ -280,17 +308,26 @@ export default function Components() {
                         sx={{ fontWeight: 600, fontSize: 11 }}
                       />
                     </TableCell>
-                    {canManage && (
-                      <TableCell>
+                    <TableCell>
+                      <Box sx={{ display: 'flex', gap: 0.5 }}>
                         <Button
                           size="small"
-                          onClick={() => navigate(`/class-setup/admin/components/${component.componentId}/edit`)}
+                          onClick={() => navigate(`/components/${component.componentId}`, { state: { component } })}
                           sx={{ textTransform: 'none', fontWeight: 600 }}
                         >
-                          Sửa
+                          Xem
                         </Button>
-                      </TableCell>
-                    )}
+                        {canManage && (
+                          <Button
+                            size="small"
+                            onClick={() => navigate(`/class-setup/admin/components/${component.componentId}/edit`)}
+                            sx={{ textTransform: 'none', fontWeight: 600 }}
+                          >
+                            Sửa
+                          </Button>
+                        )}
+                      </Box>
+                    </TableCell>
                   </TableRow>
                 ))
               )}

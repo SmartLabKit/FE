@@ -9,6 +9,8 @@ import SystemSettings from './pages/Admin/SystemSettings.jsx'
 import Profile from './pages/Profile/Profile.jsx'
 import ClassSetup from './pages/ClassSetup/ClassSetup.jsx'
 import Components from './pages/Components/Components.jsx'
+import ComponentCatalog from './pages/Components/ComponentCatalog.jsx'
+import ComponentDetail from './pages/Components/ComponentDetail.jsx'
 import NewComponent from './pages/Components/NewComponent.jsx'
 import StockInwards from './pages/Components/StockInwards.jsx'
 
@@ -72,6 +74,10 @@ function App() {
           <Route path="/class-setup/admin/courses" element={<ClassSetup />} />
           <Route path="/class-setup/admin/roster" element={<ClassSetup />} />
           <Route path="/class-setup/admin/components" element={<Components />} />
+          <Route path="/class-setup/admin/components/catalog" element={<ComponentCatalog />} />
+          <Route path="/class-setup/admin/components/:componentId" element={<ComponentDetail />} />
+          <Route path="/components/catalog" element={<ComponentCatalog />} />
+          <Route path="/components/:componentId" element={<ComponentDetail />} />
           <Route path="/class-setup/admin/components/new" element={<NewComponent />} />
           <Route path="/class-setup/admin/components/:componentId/edit" element={<NewComponent />} />
           <Route path="/class-setup/admin/categories" element={<InventorySetup />} />

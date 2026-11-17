@@ -216,7 +216,60 @@ export const inventoryService = {
   async deleteReceiptInvoice(id) {
     return api.delete(`/api/stock-receipts/${id}/invoice`)
   },
-  async cancelStockReceipt(id) {
-    return unwrap(await api.post(`/api/stock-receipts/${id}/cancel`))
+  async cancelStockReceipt(id, reason = 'Hủy phiếu nhập') {
+    const reasonText = (reason || '').trim() || 'Hủy phiếu nhập'
+    const payload = {
+      reason: reasonText,
+      Reason: reasonText,
+      note: reasonText,
+      Note: reasonText,
+    }
+
+    // 1. Thử gửi POST kèm body JSON rỗng {} và header Content-Type (khắc phục lỗi 415)
+    try {
+      return unwrap(
+        await api.post(`/api/stock-receipts/${id}/cancel`, {}, {
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
+    } catch (err1) {
+      const status = err1.response?.status
+      // 2. Nếu server yêu cầu dữ liệu lý do (400) hoặc định dạng khác (415), thử gửi payload
+      if (status === 400 || status === 415) {
+        try {
+          return unwrap(
+            await api.post(`/api/stock-receipts/${id}/cancel`, payload, {
+              headers: { 'Content-Type': 'application/json' },
+            })
+          )
+        } catch (err2) {
+          // 3. Thử gửi không có Content-Type nếu backend không có body formatter
+          try {
+            return unwrap(
+              await api.post(`/api/stock-receipts/${id}/cancel`, '', {
+                headers: { 'Content-Type': 'text/plain' },
+              })
+            )
+          } catch {
+            // 4. Thử phương thức PUT nếu BE quy định cập nhật trạng thái bằng PUT
+            try {
+              return unwrap(
+                await api.put(`/api/stock-receipts/${id}/cancel`, {}, {
+                  headers: { 'Content-Type': 'application/json' },
+                })
+              )
+            } catch {
+              // 5. Thử phương thức DELETE theo chuẩn RESTful
+              try {
+                return unwrap(await api.delete(`/api/stock-receipts/${id}`))
+              } catch {
+                throw err1
+              }
+            }
+          }
+        }
+      }
+      throw err1
+    }
   },
 }

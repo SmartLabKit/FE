@@ -41,6 +41,7 @@ import { useLabBorrowRequests } from '../../hooks/useLabBorrowRequests'
 import { borrowService } from '../../services/borrowService'
 import { extractErrorMessage } from '../../services/api'
 import { formatVietnamDate } from '../../utils/dateFormatting'
+import { getBorrowRequestStatusMeta } from './borrowHelpers'
 
 const PAGE_SIZE = 20
 
@@ -427,7 +428,8 @@ export default function LabBorrowManagement() {
               setPage(1)
               if (value === 2) setStatus('Ready')
               else if (value === 3) setStatus('Borrowing')
-              else if (value === 0 && (tab === 2 || tab === 3)) setStatus('Approved')
+              else if (value === 4) setStatus('Returned')
+              else if (value === 0) setStatus('')
             }}
             aria-label="Danh sách đơn Lab"
           >
@@ -435,6 +437,7 @@ export default function LabBorrowManagement() {
             <Tab label={`Chuyển liên lab (${transfers.length})`} />
             <Tab label="Quầy giao đồ" />
             <Tab label="Quầy nhận trả" />
+            <Tab label="Lịch sử đã trả" />
           </Tabs>
           <Box component="form" onSubmit={handleSearch} sx={{ p: 2 }}>
             <Grid container spacing={1.5} alignItems="center">
@@ -442,7 +445,13 @@ export default function LabBorrowManagement() {
                 <TextField
                   fullWidth
                   size="small"
-                  label={tab === 2 ? 'Tìm đơn sẵn sàng · MSSV / mã đơn' : 'Tìm mã đơn, sinh viên, đề tài'}
+                  label={
+                    tab === 2
+                      ? 'Tìm đơn sẵn sàng · MSSV / mã đơn'
+                      : tab === 4
+                        ? 'Tìm sinh viên, MSSV, mã đơn đã trả...'
+                        : 'Tìm mã đơn, sinh viên, MSSV, đề tài...'
+                  }
                   value={searchInput}
                   onChange={(event) => setSearchInput(event.target.value)}
                   InputProps={tab === 2 ? {
@@ -471,7 +480,7 @@ export default function LabBorrowManagement() {
                   />
                 )}
               </Grid>
-              {(tab === 0 || tab === 3) && (
+              {(tab === 0 || tab === 3 || tab === 4) && (
                 <Grid item xs={12} sm={3} md={2}>
                   <TextField
                     select
@@ -481,16 +490,27 @@ export default function LabBorrowManagement() {
                     value={status}
                     onChange={(event) => { setPage(1); setStatus(event.target.value) }}
                   >
-                    {tab === 3 ? (
+                    {tab === 4 ? (
+                      <>
+                        <MenuItem value="Returned">Đã trả</MenuItem>
+                        <MenuItem value="">Tất cả lịch sử</MenuItem>
+                      </>
+                    ) : tab === 3 ? (
                       <>
                         <MenuItem value="Borrowing">Đang mượn</MenuItem>
                         <MenuItem value="Overdue">Quá hạn</MenuItem>
+                        <MenuItem value="Returned">Đã trả (Vừa trả xong)</MenuItem>
+                        <MenuItem value="">Tất cả</MenuItem>
                       </>
                     ) : (
                       <>
+                        <MenuItem value="">Tất cả trạng thái</MenuItem>
                         <MenuItem value="Approved">Đã duyệt</MenuItem>
                         <MenuItem value="Ready">Sẵn sàng giao</MenuItem>
-                        <MenuItem value="">Tất cả</MenuItem>
+                        <MenuItem value="Borrowing">Đang mượn</MenuItem>
+                        <MenuItem value="Overdue">Quá hạn</MenuItem>
+                        <MenuItem value="Returned">Đã trả</MenuItem>
+                        <MenuItem value="Cancelled">Đã hủy</MenuItem>
                       </>
                     )}
                   </TextField>
@@ -540,7 +560,10 @@ export default function LabBorrowManagement() {
                       <TableCell>{formatVietnamDate(request.expectedBorrowDate || request.borrowDate)}</TableCell>
                       <TableCell>
                         <Stack spacing={0.5} alignItems="flex-start">
-                          <Chip size="small" label={request.status} color={statusColor(request.status)} />
+                          {(() => {
+                            const meta = getBorrowRequestStatusMeta(request.status)
+                            return <Chip size="small" label={meta.label} sx={meta.sx} />
+                          })()}
                           {isOverdue(request) && (
                             <Stack direction="row" spacing={0.75} alignItems="center">
                               <Chip size="small" color="error" label="Quá hạn" />
@@ -555,7 +578,19 @@ export default function LabBorrowManagement() {
                       </TableCell>
                     </TableRow>
                   ))}
-                  {!requests.length && <TableRow><TableCell colSpan={6} align="center">{tab === 2 ? 'Không tìm thấy đơn sẵn sàng giao.' : tab === 3 ? 'Không có đơn đang mượn cần nhận trả.' : 'Không có đơn phù hợp.'}</TableCell></TableRow>}
+                  {!requests.length && (
+                    <TableRow>
+                      <TableCell colSpan={6} align="center">
+                        {tab === 2
+                          ? 'Không tìm thấy đơn sẵn sàng giao.'
+                          : tab === 3
+                            ? 'Không có đơn đang mượn cần nhận trả.'
+                            : tab === 4
+                              ? 'Không tìm thấy đơn mượn nào đã hoàn tất trả đồ.'
+                              : 'Không có đơn phù hợp.'}
+                      </TableCell>
+                    </TableRow>
+                  )}
                 </TableBody>
               </Table>
             </TableContainer>
@@ -610,7 +645,7 @@ export default function LabBorrowManagement() {
           />
         </Paper>
 
-        {(tab === 0 || tab === 2 || tab === 3) && (
+        {(tab === 0 || tab === 2 || tab === 3 || tab === 4) && (
           <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
             {!selectedRequestId ? (
               <Typography color="text.secondary">Chọn một đơn để xem chi tiết và xử lý.</Typography>
@@ -627,7 +662,10 @@ export default function LabBorrowManagement() {
                       {requestDetail.requesterName} · {requestDetail.classCode} · {requestDetail.projectTitle}
                     </Typography>
                   </Box>
-                  <Chip label={requestDetail.status} color={statusColor(requestDetail.status)} />
+                  {(() => {
+                    const meta = getBorrowRequestStatusMeta(requestDetail.status)
+                    return <Chip label={meta.label} sx={meta.sx} />
+                  })()}
                 </Stack>
                 <Grid container spacing={2}>
                   <Grid item xs={12} sm={4}><Typography variant="caption" color="text.secondary">Lab nhận</Typography><Typography>{requestDetail.roomName || requestDetail.roomCode || '—'}</Typography></Grid>

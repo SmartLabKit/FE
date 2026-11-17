@@ -76,7 +76,11 @@ export const issueReportService = {
    */
   async cancelIssueReport(id) {
     try {
-      return unwrap(await api.post(`/api/issue-reports/${id}/cancel`))
+      return unwrap(
+        await api.post(`/api/issue-reports/${id}/cancel`, {}, {
+          headers: { 'Content-Type': 'application/json' },
+        })
+      )
     } catch (error) {
       throw new Error(extractErrorMessage(error, 'Không thể hủy báo cáo sự cố'), { cause: error })
     }
