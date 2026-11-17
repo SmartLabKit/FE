@@ -92,6 +92,14 @@ export const inventoryService = {
 
     return items
   },
+  async getComponent(id) {
+    try {
+      return unwrap(await api.get(`/api/components/${id}`))
+    } catch {
+      const all = await inventoryService.getComponents()
+      return all.find((c) => (c.componentId || c.id || c.ComponentId || c.Id) === id) || null
+    }
+  },
   async createComponent(data) {
     return unwrap(await api.post('/api/components', data))
   },
@@ -101,6 +109,7 @@ export const inventoryService = {
   async uploadComponentImage(id, file) {
     const formData = new FormData()
     formData.append('file', file)
+    formData.append('image', file)
     return unwrap(await api.post(`/api/components/${id}/images`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }))
@@ -111,9 +120,16 @@ export const inventoryService = {
   async uploadDatasheet(id, file) {
     const formData = new FormData()
     formData.append('file', file)
-    return unwrap(await api.put(`/api/components/${id}/datasheet`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    }))
+    formData.append('datasheet', file)
+    try {
+      return unwrap(await api.put(`/api/components/${id}/datasheet`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      }))
+    } catch {
+      return unwrap(await api.post(`/api/components/${id}/datasheet`, formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      }))
+    }
   },
   async deleteDatasheet(id) {
     return api.delete(`/api/components/${id}/datasheet`)

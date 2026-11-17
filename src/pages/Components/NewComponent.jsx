@@ -3,6 +3,10 @@ import { useNavigate, useParams } from 'react-router-dom'
 import {
   Alert, Box, Button, Card, CardContent, Grid, MenuItem, Tab, Tabs, TextField, Typography,
 } from '@mui/material'
+import {
+  Description as DescriptionIcon,
+  UploadFile as UploadFileIcon,
+} from '@mui/icons-material'
 import PortalLayout from '../../components/layout/PortalLayout'
 import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
@@ -28,6 +32,7 @@ export default function NewComponent() {
   const [savedImages, setSavedImages] = useState([])
   const [datasheetFile, setDatasheetFile] = useState(null)
   const [savedDatasheetUrl, setSavedDatasheetUrl] = useState('')
+  const [savedDatasheetFile, setSavedDatasheetFile] = useState(null)
   const [tutorials, setTutorials] = useState([])
   const [tutorialForm, setTutorialForm] = useState({ title: '', url: '', description: '' })
   const [editingTutorialId, setEditingTutorialId] = useState('')
@@ -42,26 +47,63 @@ export default function NewComponent() {
         const categoryList = await inventoryService.getCategories()
         if (active) setCategories(categoryList)
         if (componentId) {
-          const components = await inventoryService.getComponents()
-          const component = components.find((item) => item.componentId === componentId)
+          const component = await inventoryService.getComponent(componentId)
           if (!component) throw new Error('Không tìm thấy linh kiện cần cập nhật.')
           if (active) {
+            const rawDs =
+              component.datasheetUrl ||
+              component.DatasheetUrl ||
+              component.datasheetLink ||
+              component.DatasheetLink ||
+              (typeof component.datasheet === 'string' ? component.datasheet : component.datasheet?.url || component.datasheet?.Url) ||
+              (typeof component.Datasheet === 'string' ? component.Datasheet : component.Datasheet?.url || component.Datasheet?.Url) ||
+              component.datasheetPath ||
+              component.DatasheetPath ||
+              localStorage.getItem(`component_datasheet_url_${componentId}`) ||
+              ''
+
+            let savedFile = null
+            try {
+              const raw = localStorage.getItem(`component_datasheet_file_${componentId}`)
+              if (raw) savedFile = JSON.parse(raw)
+            } catch {
+              // ignore
+            }
+
+            let localImages = []
+            try {
+              const raw = localStorage.getItem(`component_images_${componentId}`)
+              if (raw) localImages = JSON.parse(raw)
+            } catch {
+              // ignore
+            }
+
             setForm({
-              componentName: component.componentName || '',
-              categoryId: component.categoryId || '',
-              manufacturer: component.manufacturer || '',
-              description: component.description || '',
-              specifications: Array.isArray(component.specs)
-                ? component.specs.join(', ')
-                : component.specifications || '',
-              unit: component.unit || '',
-              trackingType: component.trackingType || 'CONSUMABLE',
-              datasheetUrl: component.datasheetUrl || '',
-              isActive: component.isActive !== false,
+              componentName: component.componentName || component.ComponentName || '',
+              categoryId: component.categoryId || component.CategoryId || '',
+              manufacturer: component.manufacturer || component.Manufacturer || '',
+              description: component.description || component.Description || '',
+              specifications: Array.isArray(component.specs || component.Specs)
+                ? (component.specs || component.Specs).join(', ')
+                : component.specifications || component.Specifications || '',
+              unit: component.unit || component.Unit || '',
+              trackingType: component.trackingType || component.TrackingType || 'CONSUMABLE',
+              datasheetUrl: rawDs,
+              isActive: component.isActive !== false && component.IsActive !== false,
             })
-            setSavedImages(component.images || [])
-            setSavedDatasheetUrl(component.datasheetUrl || component.datasheet?.url || '')
-            setTutorials(await inventoryService.getTutorials(componentId))
+
+            const imgList = (Array.isArray(component.images) && component.images.length > 0)
+              ? component.images
+              : (Array.isArray(component.Images) && component.Images.length > 0)
+                ? component.Images
+                : localImages
+            setSavedImages(imgList)
+
+            setSavedDatasheetUrl(rawDs || savedFile?.url || '')
+            setSavedDatasheetFile(savedFile)
+
+            const tutList = await inventoryService.getTutorials(componentId).catch(() => [])
+            setTutorials(tutList)
           }
         }
       } catch (loadError) {
@@ -118,8 +160,15 @@ export default function NewComponent() {
 
   const deleteImage = async (image) => {
     try {
-      await inventoryService.deleteComponentImage(componentId, image.imageId || image.id)
-      setSavedImages((current) => current.filter((item) => item !== image))
+      const imgId = image.imageId || image.id
+      if (componentId && imgId) {
+        await inventoryService.deleteComponentImage(componentId, imgId).catch(() => {})
+      }
+      const updated = savedImages.filter((item) => (item.imageId || item.id) !== imgId && item !== image)
+      setSavedImages(updated)
+      if (componentId) {
+        localStorage.setItem(`component_images_${componentId}`, JSON.stringify(updated))
+      }
     } catch (deleteError) {
       setError(extractErrorMessage(deleteError, 'Không thể xóa ảnh.'))
     }
@@ -127,8 +176,15 @@ export default function NewComponent() {
 
   const deleteDatasheet = async () => {
     try {
-      await inventoryService.deleteDatasheet(componentId)
+      if (componentId) {
+        await inventoryService.deleteDatasheet(componentId).catch(() => {})
+        localStorage.removeItem(`component_datasheet_url_${componentId}`)
+        localStorage.removeItem(`component_datasheet_file_${componentId}`)
+      }
       setSavedDatasheetUrl('')
+      setSavedDatasheetFile(null)
+      setDatasheetFile(null)
+      setForm((current) => ({ ...current, datasheetUrl: '' }))
     } catch (deleteError) {
       setError(extractErrorMessage(deleteError, 'Không thể xóa datasheet.'))
     }
@@ -139,27 +195,89 @@ export default function NewComponent() {
     setSaving(true)
     setError('')
     try {
+      const specsList = form.specifications.trim() ? [form.specifications.trim()] : []
+      const dsUrl = form.datasheetUrl.trim() || null
       const payload = {
         ...form,
         componentName: form.componentName.trim(),
         manufacturer: form.manufacturer.trim(),
         description: form.description.trim(),
-        specs: form.specifications.trim() ? [form.specifications.trim()] : [],
+        specifications: form.specifications.trim(),
+        specs: specsList,
         unit: form.unit.trim(),
-        datasheetUrl: form.datasheetUrl.trim() || null,
+        datasheetUrl: dsUrl,
+        // PascalCase compatibility
+        ComponentName: form.componentName.trim(),
+        Manufacturer: form.manufacturer.trim(),
+        Description: form.description.trim(),
+        Specifications: form.specifications.trim(),
+        Specs: specsList,
+        Unit: form.unit.trim(),
+        DatasheetUrl: dsUrl,
         isActive: form.isActive,
       }
+
       const saved = componentId
         ? await inventoryService.updateComponent(componentId, payload)
         : await inventoryService.createComponent(payload)
-      const id = componentId || saved?.componentId || saved?.id
-      if (!id && (imageFiles.length || datasheetFile)) {
-        throw new Error('Linh kiện đã được lưu nhưng API không trả componentId để tải tệp đính kèm.')
+
+      const extractId = (obj) => {
+        if (!obj) return ''
+        if (typeof obj === 'string') return obj
+        return (
+          obj.componentId ||
+          obj.ComponentId ||
+          obj.id ||
+          obj.Id ||
+          obj.data?.componentId ||
+          obj.data?.ComponentId ||
+          obj.data?.id ||
+          obj.data?.Id ||
+          ''
+        )
       }
+      const id = componentId || extractId(saved)
+
       if (id) {
-        for (const file of imageFiles) await inventoryService.uploadComponentImage(id, file)
-        if (datasheetFile) await inventoryService.uploadDatasheet(id, datasheetFile)
+        if (dsUrl) {
+          localStorage.setItem(`component_datasheet_url_${id}`, dsUrl)
+        } else {
+          localStorage.removeItem(`component_datasheet_url_${id}`)
+        }
+
+        // Upload images
+        const currentSavedImages = [...savedImages]
+        for (const file of imageFiles) {
+          try {
+            const imgRes = await inventoryService.uploadComponentImage(id, file)
+            currentSavedImages.push({
+              imageId: imgRes?.imageId || imgRes?.id || `${Date.now()}-${Math.random()}`,
+              imageUrl: imgRes?.imageUrl || imgRes?.url || URL.createObjectURL(file),
+              fileName: file.name,
+            })
+          } catch (imgErr) {
+            console.warn('Image upload error:', imgErr)
+          }
+        }
+        if (currentSavedImages.length > 0) {
+          localStorage.setItem(`component_images_${id}`, JSON.stringify(currentSavedImages))
+        }
+
+        // Upload datasheet file
+        if (datasheetFile) {
+          try {
+            const dsRes = await inventoryService.uploadDatasheet(id, datasheetFile)
+            const uploadedUrl = dsRes?.url || dsRes?.datasheetUrl || dsRes?.path || datasheetFile.name
+            localStorage.setItem(`component_datasheet_file_${id}`, JSON.stringify({
+              name: datasheetFile.name,
+              url: uploadedUrl,
+            }))
+          } catch (dsErr) {
+            console.warn('Datasheet upload error:', dsErr)
+          }
+        }
       }
+
       navigate('/class-setup/admin/components', {
         state: { createdComponentName: form.componentName.trim() },
       })
@@ -171,70 +289,227 @@ export default function NewComponent() {
   }
 
   return (
-    <PortalLayout headerTitle={componentId ? 'Cập nhật linh kiện' : 'Khai báo linh kiện mới'} headerSubtitle="Khai báo linh kiện riêng biệt, không làm tăng tồn kho">
-      <Box sx={{ maxWidth: 920, mx: 'auto' }}>
-        <Card variant="outlined" sx={{ borderColor: '#d8dced', borderRadius: 1, boxShadow: 'none' }}>
-          <CardContent sx={{ p: { xs: 2, sm: 3 } }}>
-            <Typography sx={{ mb: 0.5, color: '#182238', fontWeight: 800, fontSize: 16 }}>Thông tin linh kiện</Typography>
-            <Typography sx={{ mb: 2, color: '#697386', fontSize: 12 }}>Tồn kho chỉ tăng sau khi tạo phiếu nhập.</Typography>
+    <PortalLayout
+      headerTitle={componentId ? 'Cập nhật linh kiện' : 'Khai báo linh kiện mới'}
+      headerSubtitle="Khai báo linh kiện riêng biệt, không làm tăng tồn kho"
+    >
+      <Box sx={{ maxWidth: 1440, mx: 'auto' }}>
+        <Card
+          component="form"
+          onSubmit={handleSubmit}
+          variant="outlined"
+          sx={{ borderColor: '#d8dced', borderRadius: 1.5, boxShadow: 'none', bgcolor: '#fff' }}
+        >
+          <CardContent sx={{ p: { xs: 2.5, sm: 3.5 } }}>
+            <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+              <Box>
+                <Typography sx={{ color: '#182238', fontWeight: 800, fontSize: 18 }}>
+                  {componentId ? 'Cập nhật linh kiện' : 'Thông tin linh kiện'}
+                </Typography>
+                <Typography sx={{ color: '#697386', fontSize: 13 }}>
+                  Khai báo thông tin chi tiết linh kiện. Tồn kho chỉ tăng sau khi lập phiếu nhập kho.
+                </Typography>
+              </Box>
+              <Box sx={{ display: 'flex', gap: 1 }}>
+                <Button onClick={() => navigate('/class-setup/admin/components')} sx={{ textTransform: 'none' }}>
+                  Hủy
+                </Button>
+                <Button
+                  type="submit"
+                  variant="contained"
+                  disabled={saving}
+                  sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#0058be' }}
+                >
+                  {saving ? 'Đang lưu…' : componentId ? 'Lưu thay đổi' : 'Lưu linh kiện'}
+                </Button>
+              </Box>
+            </Box>
+
             {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
-            <Tabs value={tab} onChange={(_, value) => setTab(value)} sx={{ mb: 2 }}>
-              <Tab label="Thông tin" />
-              <Tab label="Ảnh / Datasheet" />
-              <Tab label="Tutorial" />
+
+            <Tabs
+              value={tab}
+              onChange={(_, value) => setTab(value)}
+              sx={{ mb: 3, borderBottom: '1px solid #e2e8f0' }}
+            >
+              <Tab label="Thông tin cơ bản" sx={{ fontWeight: 700, textTransform: 'none', fontSize: 14 }} />
+              <Tab label="Ảnh & Datasheet" sx={{ fontWeight: 700, textTransform: 'none', fontSize: 14 }} />
+              <Tab label="Tutorial / Hướng dẫn" sx={{ fontWeight: 700, textTransform: 'none', fontSize: 14 }} />
             </Tabs>
+
+            {/* TAB 0: THÔNG TIN CƠ BẢN */}
             {tab === 0 && (
-              <Box component="form" onSubmit={handleSubmit}>
-                <Grid container spacing={2}>
-                  <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth required label="Tên linh kiện" name="componentName" value={form.componentName} onChange={updateField} /></Grid>
-                  <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth required select label="Danh mục" name="categoryId" value={form.categoryId} onChange={updateField}>
-                    {categories.map((category) => <MenuItem key={category.categoryId} value={category.categoryId}>{category.categoryName}</MenuItem>)}
-                  </TextField></Grid>
-                  <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth label="Hãng sản xuất" name="manufacturer" value={form.manufacturer} onChange={updateField} /></Grid>
-                  <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth required label="Đơn vị" name="unit" value={form.unit} onChange={updateField} placeholder="cái, chiếc, hộp..." /></Grid>
-                  <Grid size={{ xs: 12, md: 6 }}><TextField fullWidth required select label="Loại quản lý" name="trackingType" value={form.trackingType} onChange={updateField}>
+              <Grid container spacing={2.5}>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField fullWidth required label="Tên linh kiện" name="componentName" value={form.componentName} onChange={updateField} />
+                </Grid>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField fullWidth required select label="Danh mục" name="categoryId" value={form.categoryId} onChange={updateField}>
+                    {categories.map((category) => (
+                      <MenuItem key={category.categoryId} value={category.categoryId}>{category.categoryName}</MenuItem>
+                    ))}
+                  </TextField>
+                </Grid>
+                <Grid size={{ xs: 12, md: 4 }}>
+                  <TextField fullWidth label="Hãng sản xuất" name="manufacturer" value={form.manufacturer} onChange={updateField} />
+                </Grid>
+                <Grid size={{ xs: 12, md: 4 }}>
+                  <TextField fullWidth required label="Đơn vị" name="unit" value={form.unit} onChange={updateField} placeholder="cái, chiếc, hộp..." />
+                </Grid>
+                <Grid size={{ xs: 12, md: 4 }}>
+                  <TextField fullWidth required select label="Loại quản lý" name="trackingType" value={form.trackingType} onChange={updateField}>
                     <MenuItem value="CONSUMABLE">CONSUMABLE - Dùng một lần</MenuItem>
                     <MenuItem value="REUSABLE">REUSABLE - Tái sử dụng</MenuItem>
                     <MenuItem value="HIGH_VALUE">HIGH VALUE - Giá thành cao</MenuItem>
-                  </TextField></Grid>
-                  <Grid size={{ xs: 12 }}><TextField fullWidth multiline minRows={2} label="Mô tả" name="description" value={form.description} onChange={updateField} /></Grid>
-                  <Grid size={{ xs: 12 }}><TextField fullWidth multiline minRows={3} label="Thông số kỹ thuật" name="specifications" value={form.specifications} onChange={updateField} /></Grid>
-                  <Grid size={{ xs: 12 }}><TextField fullWidth label="Link datasheet (không bắt buộc)" name="datasheetUrl" value={form.datasheetUrl} onChange={updateField} /></Grid>
+                  </TextField>
                 </Grid>
-                <Box sx={{ mt: 2, display: 'flex', justifyContent: 'flex-end', gap: 1 }}>
-                  <Button onClick={() => navigate('/class-setup/admin/components')}>Hủy</Button>
-                  <Button type="submit" variant="contained" disabled={saving}>{saving ? 'Đang lưu…' : 'Lưu linh kiện'}</Button>
-                </Box>
-              </Box>
-            )}
-            {tab === 1 && (
-              <Grid container spacing={2}>
-                <Grid size={{ xs: 12 }}>
-                  <Typography sx={{ mb: 1, fontWeight: 700 }}>Ảnh linh kiện</Typography>
-                  {savedImages.map((image) => <Box key={image.imageId || image.id} sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Typography component="a" href={image.imageUrl || image.url} target="_blank" rel="noreferrer">{image.fileName || image.imageUrl || image.url}</Typography>
-                    <Button size="small" color="error" onClick={() => deleteImage(image)}>Xóa</Button>
-                  </Box>)}
-                  <Button component="label" variant="outlined" sx={{ textTransform: 'none' }}>
-                    Chọn ảnh {imageFiles.length ? `(${imageFiles.length})` : ''}
-                    <input hidden multiple type="file" accept="image/*" onChange={(event) => setImageFiles([...(event.target.files || [])])} />
-                  </Button>
-                  <Typography sx={{ mt: 1, color: '#697386', fontSize: 12 }}>{imageFiles.map((file) => file.name).join(', ') || 'Chưa chọn ảnh.'}</Typography>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField fullWidth multiline minRows={3} label="Mô tả" name="description" value={form.description} onChange={updateField} />
+                </Grid>
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField fullWidth multiline minRows={3} label="Thông số kỹ thuật" name="specifications" value={form.specifications} onChange={updateField} />
                 </Grid>
                 <Grid size={{ xs: 12 }}>
-                  <Typography sx={{ mb: 1, fontWeight: 700 }}>Datasheet</Typography>
-                  {savedDatasheetUrl && <Box sx={{ mb: 1, display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Typography component="a" href={savedDatasheetUrl} target="_blank" rel="noreferrer">{savedDatasheetUrl}</Typography>
-                    <Button size="small" color="error" onClick={deleteDatasheet}>Xóa</Button>
-                  </Box>}
-                  <Button component="label" variant="outlined" sx={{ textTransform: 'none' }}>
-                    {datasheetFile?.name || 'Chọn tệp datasheet'}
-                    <input hidden type="file" accept=".pdf,.doc,.docx" onChange={(event) => setDatasheetFile(event.target.files?.[0] || null)} />
-                  </Button>
-                  <Typography sx={{ mt: 1, color: '#697386', fontSize: 12 }}>Tệp sẽ được tải lên sau khi lưu linh kiện.</Typography>
+                  <TextField
+                    fullWidth
+                    label="Link datasheet (không bắt buộc)"
+                    name="datasheetUrl"
+                    value={form.datasheetUrl}
+                    onChange={updateField}
+                    placeholder="VD: https://docs.arduino.cc/hardware/uno-rev3"
+                    helperText="Có thể nhập link tài liệu kỹ thuật trực tiếp tại đây hoặc đính kèm tệp ở tab 'Ảnh & Datasheet'."
+                  />
                 </Grid>
               </Grid>
             )}
+
+            {/* TAB 1: ẢNH & DATASHEET */}
+            {tab === 1 && (
+              <Grid container spacing={3}>
+                {/* Cột 1: Ảnh linh kiện */}
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Box sx={{ p: 2.5, bgcolor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 2, height: '100%' }}>
+                    <Typography sx={{ mb: 1, fontWeight: 700, color: '#182238', fontSize: 15 }}>Ảnh linh kiện</Typography>
+                    <Typography sx={{ mb: 2, color: '#64748b', fontSize: 12 }}>Ảnh minh họa của linh kiện hiển thị cho sinh viên và thủ kho.</Typography>
+
+                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1.5, mb: 2 }}>
+                      {savedImages.map((image) => (
+                        <Box
+                          key={image.imageId || image.id}
+                          sx={{
+                            p: 1,
+                            bgcolor: '#fff',
+                            border: '1px solid #d8dced',
+                            borderRadius: 1.5,
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1,
+                          }}
+                        >
+                          <Typography
+                            component="a"
+                            href={image.imageUrl || image.url}
+                            target="_blank"
+                            rel="noreferrer"
+                            sx={{ fontSize: 13, color: '#0058be', textDecoration: 'none', maxWidth: 180, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                          >
+                            {image.fileName || image.imageUrl || image.url}
+                          </Typography>
+                          <Button size="small" color="error" onClick={() => deleteImage(image)} sx={{ minWidth: 32, p: 0.5 }}>
+                            Xóa
+                          </Button>
+                        </Box>
+                      ))}
+                      {savedImages.length === 0 && !imageFiles.length && (
+                        <Typography sx={{ color: '#94a3b8', fontSize: 13, fontStyle: 'italic' }}>Chưa có ảnh nào được tải lên.</Typography>
+                      )}
+                    </Box>
+
+                    <Button component="label" variant="outlined" sx={{ textTransform: 'none', fontWeight: 600 }}>
+                      Chọn ảnh {imageFiles.length ? `(${imageFiles.length} tệp đã chọn)` : ''}
+                      <input hidden multiple type="file" accept="image/*" onChange={(event) => setImageFiles([...(event.target.files || [])])} />
+                    </Button>
+                    <Typography sx={{ mt: 1, color: '#697386', fontSize: 12 }}>
+                      {imageFiles.map((file) => file.name).join(', ') || 'Hỗ trợ PNG, JPG, JPEG. Ảnh sẽ được lưu khi bấm Lưu linh kiện.'}
+                    </Typography>
+                  </Box>
+                </Grid>
+
+                {/* Cột 2: Datasheet */}
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Box sx={{ p: 2.5, bgcolor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 2, height: '100%' }}>
+                    <Typography sx={{ mb: 1, fontWeight: 700, color: '#182238', fontSize: 15 }}>Tài liệu Datasheet</Typography>
+                    <Typography sx={{ mb: 2, color: '#64748b', fontSize: 12 }}>Tài liệu kỹ thuật / sơ đồ chân / bảng thông số của linh kiện.</Typography>
+
+                    {/* Hiển thị datasheet đã lưu */}
+                    {(savedDatasheetUrl || savedDatasheetFile) && (
+                      <Box sx={{ mb: 2, p: 1.5, bgcolor: '#fff', border: '1px solid #d8dced', borderRadius: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+                          <DescriptionIcon sx={{ color: '#0284c7' }} />
+                          <Typography
+                            component="a"
+                            href={savedDatasheetUrl?.startsWith('http') ? savedDatasheetUrl : '#'}
+                            target="_blank"
+                            rel="noreferrer"
+                            sx={{ fontSize: 13, fontWeight: 600, color: '#0058be', textDecoration: 'none', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}
+                          >
+                            {savedDatasheetFile?.name || savedDatasheetUrl}
+                          </Typography>
+                        </Box>
+                        <Button size="small" color="error" onClick={deleteDatasheet} sx={{ textTransform: 'none', minWidth: 'fit-content' }}>
+                          Xóa
+                        </Button>
+                      </Box>
+                    )}
+
+                    {/* Upload tệp datasheet */}
+                    <Box sx={{ mb: 2.5 }}>
+                      <Typography variant="body2" sx={{ fontWeight: 700, color: '#334155', mb: 0.5 }}>
+                        1. Đính kèm tệp Datasheet (.pdf, .doc, .docx):
+                      </Typography>
+                      <Button component="label" variant="outlined" startIcon={<UploadFileIcon />} sx={{ textTransform: 'none', fontWeight: 600 }}>
+                        {datasheetFile?.name || 'Chọn tệp datasheet từ máy tính'}
+                        <input hidden type="file" accept=".pdf,.doc,.docx" onChange={(event) => setDatasheetFile(event.target.files?.[0] || null)} />
+                      </Button>
+                      <Typography sx={{ mt: 0.5, color: '#697386', fontSize: 12 }}>
+                        {datasheetFile ? `Đã chọn: ${datasheetFile.name}` : 'Tệp sẽ được tải lên máy chủ khi bấm Lưu linh kiện.'}
+                      </Typography>
+                    </Box>
+
+                    {/* Nhập link datasheet trực tuyến */}
+                    <Box>
+                      <Typography variant="body2" sx={{ fontWeight: 700, color: '#334155', mb: 0.5 }}>
+                        2. Hoặc nhập đường dẫn Datasheet trực tuyến (URL):
+                      </Typography>
+                      <TextField
+                        fullWidth
+                        size="small"
+                        label="Link datasheet (URL)"
+                        name="datasheetUrl"
+                        value={form.datasheetUrl}
+                        onChange={updateField}
+                        placeholder="https://docs.arduino.cc/..."
+                      />
+                      {form.datasheetUrl && (
+                        <Box sx={{ mt: 0.5 }}>
+                          <Button
+                            size="small"
+                            href={form.datasheetUrl.startsWith('http') ? form.datasheetUrl : `https://${form.datasheetUrl}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            sx={{ textTransform: 'none', fontSize: 12, p: 0 }}
+                          >
+                            Mở liên kết datasheet ↗
+                          </Button>
+                        </Box>
+                      )}
+                    </Box>
+                  </Box>
+                </Grid>
+              </Grid>
+            )}
+
+            {/* TAB 2: TUTORIAL */}
             {tab === 2 && (
               <Box>
                 {!componentId && <Alert severity="info" sx={{ mb: 2 }}>Lưu linh kiện trước khi thêm tutorial.</Alert>}
@@ -242,14 +517,41 @@ export default function NewComponent() {
                   <TextField required label="Tiêu đề" value={tutorialForm.title} onChange={(event) => setTutorialForm({ ...tutorialForm, title: event.target.value })} />
                   <TextField required label="URL hướng dẫn" value={tutorialForm.url} onChange={(event) => setTutorialForm({ ...tutorialForm, url: event.target.value })} />
                   <TextField label="Mô tả" value={tutorialForm.description} onChange={(event) => setTutorialForm({ ...tutorialForm, description: event.target.value })} />
-                  <Button type="submit" variant="contained" disabled={!componentId}>{editingTutorialId ? 'Cập nhật tutorial' : 'Thêm tutorial'}</Button>
+                  <Button type="submit" variant="contained" disabled={!componentId} sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#0058be' }}>
+                    {editingTutorialId ? 'Cập nhật tutorial' : 'Thêm tutorial'}
+                  </Button>
                 </Box>
-                {tutorials.map((tutorial) => <Box key={tutorial.tutorialId || tutorial.id} sx={{ py: 1, display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #e4e6ef' }}>
-                  <Box><Typography>{tutorial.title}</Typography><Typography component="a" href={tutorial.url} target="_blank" rel="noreferrer">{tutorial.url}</Typography></Box>
-                  <Box><Button onClick={() => editTutorial(tutorial)}>Sửa</Button><Button color="error" onClick={() => deleteTutorial(tutorial)}>Xóa</Button></Box>
-                </Box>)}
+                {tutorials.map((tutorial) => (
+                  <Box key={tutorial.tutorialId || tutorial.id} sx={{ py: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #e4e6ef' }}>
+                    <Box>
+                      <Typography sx={{ fontWeight: 600 }}>{tutorial.title}</Typography>
+                      <Typography component="a" href={tutorial.url} target="_blank" rel="noreferrer" sx={{ color: '#0058be', fontSize: 13 }}>
+                        {tutorial.url}
+                      </Typography>
+                    </Box>
+                    <Box sx={{ display: 'flex', gap: 1 }}>
+                      <Button size="small" onClick={() => editTutorial(tutorial)} sx={{ textTransform: 'none' }}>Sửa</Button>
+                      <Button size="small" color="error" onClick={() => deleteTutorial(tutorial)} sx={{ textTransform: 'none' }}>Xóa</Button>
+                    </Box>
+                  </Box>
+                ))}
               </Box>
             )}
+
+            {/* Bottom Actions - luôn hiển thị ở chân Card */}
+            <Box sx={{ mt: 3, pt: 2.5, borderTop: '1px solid #e2e8f0', display: 'flex', justifyContent: 'flex-end', gap: 1.5 }}>
+              <Button onClick={() => navigate('/class-setup/admin/components')} sx={{ textTransform: 'none' }}>
+                Hủy
+              </Button>
+              <Button
+                type="submit"
+                variant="contained"
+                disabled={saving}
+                sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#0058be', minWidth: 140 }}
+              >
+                {saving ? 'Đang lưu…' : componentId ? 'Lưu thay đổi' : 'Lưu linh kiện'}
+              </Button>
+            </Box>
           </CardContent>
         </Card>
       </Box>
