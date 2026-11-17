@@ -57,6 +57,7 @@ function getSemesterWeight(semCode = '') {
 }
 
 const emptyForm = () => ({ title: '', description: '', components: [], selfSuppliedItems: [] })
+const suggestionCacheKey = (projectId) => `smartlabkit:project-suggestions:${projectId}`
 
 function normalizeProjectForm(project) {
   return {
@@ -75,6 +76,39 @@ function normalizeProjectForm(project) {
       clientKey: `existing-self-${index}`,
     })),
   }
+}
+
+function mergeCachedSuggestionsIntoForm(form, selectedSuggestions = []) {
+  const mergedForm = { ...form, components: [...form.components], selfSuppliedItems: [...form.selfSuppliedItems] }
+  selectedSuggestions.forEach((selection, index) => {
+    if (selection.type === 'component' && selection.componentId) {
+      const existing = mergedForm.components.find((item) => item.componentId === selection.componentId)
+      if (existing) {
+        existing.quantity = Math.max(Number(existing.quantity) || 1, Number(selection.quantity) || 1)
+        if (!existing.note && selection.note) existing.note = selection.note
+      } else {
+        mergedForm.components.push({
+          componentId: selection.componentId,
+          quantity: Number(selection.quantity) || 1,
+          note: selection.note || '',
+          clientKey: `cached-suggestion-${selection.componentId}`,
+        })
+      }
+    } else if (selection.type === 'self' && selection.itemName) {
+      const alreadyAdded = mergedForm.selfSuppliedItems.some(
+        (item) => item.itemName.trim().toLocaleLowerCase() === selection.itemName.trim().toLocaleLowerCase()
+      )
+      if (!alreadyAdded) {
+        mergedForm.selfSuppliedItems.push({
+          itemName: selection.itemName,
+          quantity: Number(selection.quantity) || 1,
+          note: selection.note || '',
+          clientKey: `cached-suggestion-self-${index}`,
+        })
+      }
+    }
+  })
+  return mergedForm
 }
 
 function getFormError(form) {
@@ -155,6 +189,69 @@ function ProjectStatus({ status }) {
   )
 }
 
+function QuantityLabel({ name, quantity }) {
+  return (
+    <Box component="span" sx={{ display: 'inline-flex', alignItems: 'center', gap: 1, minWidth: 0 }}>
+      <Typography
+        component="span"
+        variant="body2"
+        sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap', fontWeight: 600 }}
+      >
+        {name}
+      </Typography>
+      <Box
+        component="span"
+        sx={{
+          flexShrink: 0,
+          minWidth: 24,
+          px: 0.75,
+          py: 0.15,
+          borderRadius: 999,
+          bgcolor: '#eff6ff',
+          border: '1px solid #bfdbfe',
+          color: '#1d4ed8',
+          fontSize: 11,
+          fontWeight: 800,
+          lineHeight: 1.4,
+          textAlign: 'center',
+        }}
+      >
+        {quantity}
+      </Box>
+    </Box>
+  )
+}
+
+const selectedChipStyles = {
+  height: 'auto',
+  minHeight: 36,
+  maxWidth: '100%',
+  border: '1px solid #cbd5e1',
+  borderRadius: 2,
+  bgcolor: '#fff',
+  boxShadow: '0 1px 2px rgba(15, 23, 42, 0.08)',
+  cursor: 'pointer',
+  '& .MuiChip-label': { display: 'block', px: 1.1, py: 0.55, minWidth: 0 },
+  '& .MuiChip-deleteIcon': { color: '#64748b', mr: 0.5, '&:hover': { color: '#dc2626' } },
+  '&:hover': { borderColor: '#2563eb', bgcolor: '#eff6ff', boxShadow: '0 2px 6px rgba(37, 99, 235, 0.14)' },
+  '&:active': { bgcolor: '#dbeafe' },
+}
+
+const suggestedChipStyles = {
+  height: 'auto',
+  minHeight: 36,
+  maxWidth: '100%',
+  border: '1px solid #bfdbfe',
+  borderRadius: 2,
+  bgcolor: '#f8fbff',
+  color: '#1e40af',
+  boxShadow: '0 1px 2px rgba(15, 23, 42, 0.07)',
+  cursor: 'pointer',
+  '& .MuiChip-label': { display: 'block', px: 1.1, py: 0.55, minWidth: 0 },
+  '&:hover': { borderColor: '#2563eb', bgcolor: '#eff6ff', boxShadow: '0 2px 6px rgba(37, 99, 235, 0.16)' },
+  '&:active': { bgcolor: '#dbeafe' },
+}
+
 export default function ProjectManagement() {
   const { teamId } = useParams()
   const navigate = useNavigate()
@@ -170,8 +267,11 @@ export default function ProjectManagement() {
   const [submitting, setSubmitting] = useState(false)
   const [withdrawing, setWithdrawing] = useState(false)
   const [suggestions, setSuggestions] = useState(null)
+  const [selectedSuggestions, setSelectedSuggestions] = useState([])
   const [submitDialogOpen, setSubmitDialogOpen] = useState(false)
   const [editingChip, setEditingChip] = useState(null)
+  const [addItemDialogType, setAddItemDialogType] = useState(null)
+  const [newItemDraft, setNewItemDraft] = useState({ componentId: '', itemName: '', quantity: 1, note: '' })
   const [borrowDate, setBorrowDate] = useState(localDateValue())
   const [borrowDeadline, setBorrowDeadline] = useState(null)
   const [loadingDeadline, setLoadingDeadline] = useState(false)
@@ -270,6 +370,18 @@ export default function ProjectManagement() {
     setToast({ open: true, message, severity })
   }
 
+  const writeSuggestionCache = (nextSuggestions, nextSelected = selectedSuggestions) => {
+    if (!project?.projectId || !nextSuggestions) return
+    try {
+      localStorage.setItem(
+        suggestionCacheKey(project.projectId),
+        JSON.stringify({ suggestions: nextSuggestions, selected: nextSelected })
+      )
+    } catch (error) {
+      showToast(error.message || 'Không thể lưu bộ nhớ tạm kết quả gợi ý.', 'warning')
+    }
+  }
+
   const openSubmitDialog = async () => {
     if (!project?.projectId) return
     setBorrowDeadline(null)
@@ -348,11 +460,43 @@ export default function ProjectManagement() {
       const teamProject = projects.find((item) => item.teamId === teamData.teamId)
       if (teamProject?.projectId) {
         const detail = await projectService.getProject(teamProject.projectId)
+        const projectForm = normalizeProjectForm(detail)
         setProject(detail)
-        setForm(normalizeProjectForm(detail))
+        try {
+          const cachedValue = localStorage.getItem(suggestionCacheKey(detail.projectId))
+          if (cachedValue) {
+            const cached = JSON.parse(cachedValue)
+            const cachedSuggestions = cached?.suggestions
+            const cachedSelections = Array.isArray(cached?.selected) ? cached.selected : []
+            if (cachedSuggestions && typeof cachedSuggestions === 'object') {
+              setSuggestions(cachedSuggestions)
+              setSelectedSuggestions(cachedSelections)
+              setForm(mergeCachedSuggestionsIntoForm(projectForm, cachedSelections))
+            } else {
+              setSuggestions(null)
+              setSelectedSuggestions([])
+              setForm(projectForm)
+            }
+          } else {
+            setSuggestions(null)
+            setSelectedSuggestions([])
+            setForm(projectForm)
+          }
+        } catch (error) {
+          setSuggestions(null)
+          setSelectedSuggestions([])
+          setForm(projectForm)
+          setToast({
+            open: true,
+            message: error.message || 'Không thể khôi phục kết quả gợi ý đã lưu.',
+            severity: 'warning',
+          })
+        }
       } else {
         setProject(null)
         setForm(emptyForm())
+        setSuggestions(null)
+        setSelectedSuggestions([])
       }
     } catch (error) {
       setLoadError(error.message || 'Không thể tải dữ liệu project.')
@@ -373,35 +517,70 @@ export default function ProjectManagement() {
 
   const updateForm = (key, value) => setForm((current) => ({ ...current, [key]: value }))
 
-  const addComponent = () =>
-    updateForm('components', [
-      ...form.components,
-      { componentId: '', quantity: 1, note: '', clientKey: nextRowKey('component') },
-    ])
-
-  const updateComponent = (clientKey, key, value) =>
+  const updateComponent = (clientKey, key, value) => {
+    const updatedItem = form.components.find((item) => item.clientKey === clientKey)
     updateForm(
       'components',
       form.components.map((item) => item.clientKey === clientKey ? { ...item, [key]: value } : item)
     )
+    if (updatedItem) {
+      const nextSelected = selectedSuggestions.map((selection) =>
+        selection.type === 'component' && selection.componentId === updatedItem.componentId
+          ? { ...selection, [key]: value }
+          : selection
+      )
+      if (nextSelected.some((selection, index) => selection !== selectedSuggestions[index])) {
+        setSelectedSuggestions(nextSelected)
+        writeSuggestionCache(suggestions, nextSelected)
+      }
+    }
+  }
 
-  const removeComponent = (clientKey) =>
+  const removeComponent = (clientKey) => {
+    const removedItem = form.components.find((item) => item.clientKey === clientKey)
     updateForm('components', form.components.filter((item) => item.clientKey !== clientKey))
+    if (removedItem) {
+      const nextSelected = selectedSuggestions.filter(
+        (selection) => selection.type !== 'component' || selection.componentId !== removedItem.componentId
+      )
+      setSelectedSuggestions(nextSelected)
+      writeSuggestionCache(suggestions, nextSelected)
+    }
+  }
 
-  const addSelfSuppliedItem = () =>
-    updateForm('selfSuppliedItems', [
-      ...form.selfSuppliedItems,
-      { itemName: '', quantity: 1, note: '', clientKey: nextRowKey('self') },
-    ])
-
-  const updateSelfSuppliedItem = (clientKey, key, value) =>
+  const updateSelfSuppliedItem = (clientKey, key, value) => {
+    const updatedItem = form.selfSuppliedItems.find((item) => item.clientKey === clientKey)
     updateForm(
       'selfSuppliedItems',
       form.selfSuppliedItems.map((item) => item.clientKey === clientKey ? { ...item, [key]: value } : item)
     )
+    if (updatedItem) {
+      const itemName = updatedItem.itemName.trim().toLocaleLowerCase()
+      const nextSelected = selectedSuggestions.map((selection) =>
+        selection.type === 'self' && selection.itemName.trim().toLocaleLowerCase() === itemName
+          ? { ...selection, [key]: value }
+          : selection
+      )
+      if (nextSelected.some((selection, index) => selection !== selectedSuggestions[index])) {
+        setSelectedSuggestions(nextSelected)
+        writeSuggestionCache(suggestions, nextSelected)
+      }
+    }
+  }
 
-  const removeSelfSuppliedItem = (clientKey) =>
+  const removeSelfSuppliedItem = (clientKey) => {
+    const removedItem = form.selfSuppliedItems.find((item) => item.clientKey === clientKey)
     updateForm('selfSuppliedItems', form.selfSuppliedItems.filter((item) => item.clientKey !== clientKey))
+    if (removedItem) {
+      const nextSelected = selectedSuggestions.filter(
+        (selection) =>
+          selection.type !== 'self' ||
+          selection.itemName.trim().toLocaleLowerCase() !== removedItem.itemName.trim().toLocaleLowerCase()
+      )
+      setSelectedSuggestions(nextSelected)
+      writeSuggestionCache(suggestions, nextSelected)
+    }
+  }
 
   const saveProject = async () => {
     if (!canEdit) return
@@ -420,7 +599,6 @@ export default function ProjectManagement() {
         : await projectService.createProject(team.teamId, payload)
       setProject(saved)
       setForm(normalizeProjectForm(saved))
-      setSuggestions(null)
       showToast(project ? 'Đã lưu thay đổi project.' : 'Đã tạo project ở trạng thái bản nháp.')
     } catch (error) {
       showToast(error.message || 'Không thể lưu project.', 'error')
@@ -436,7 +614,10 @@ export default function ProjectManagement() {
     }
     setSuggesting(true)
     try {
-      setSuggestions(await projectService.suggestComponents(form.description.trim()))
+      const result = await projectService.suggestComponents(form.description.trim())
+      setSuggestions(result)
+      setSelectedSuggestions([])
+      writeSuggestionCache(result, [])
     } catch (error) {
       showToast(error.message || 'Không thể lấy gợi ý linh kiện.', 'error')
     } finally {
@@ -446,31 +627,102 @@ export default function ProjectManagement() {
 
   const addSuggestedComponent = (suggested) => {
     const existing = form.components.find((item) => item.componentId === suggested.componentId)
+    const quantity = existing
+      ? Number(existing.quantity) + Number(suggested.quantity || 1)
+      : Number(suggested.quantity) || 1
     if (existing) {
-      updateComponent(existing.clientKey, 'quantity', Number(existing.quantity) + Number(suggested.quantity || 1))
-      return
+      updateComponent(existing.clientKey, 'quantity', quantity)
+    } else {
+      updateForm('components', [
+        ...form.components,
+        {
+          componentId: suggested.componentId,
+          quantity,
+          note: suggested.reason || '',
+          clientKey: nextRowKey(`suggest-${suggested.componentId}`),
+        },
+      ])
     }
-    updateForm('components', [
-      ...form.components,
-      {
-        componentId: suggested.componentId,
-        quantity: Number(suggested.quantity) || 1,
-        note: suggested.reason || '',
-        clientKey: nextRowKey(`suggest-${suggested.componentId}`),
-      },
-    ])
+    const nextSelected = [
+      ...selectedSuggestions.filter(
+        (selection) => selection.type !== 'component' || selection.componentId !== suggested.componentId
+      ),
+      { type: 'component', componentId: suggested.componentId, quantity, note: existing?.note || suggested.reason || '' },
+    ]
+    setSelectedSuggestions(nextSelected)
+    writeSuggestionCache(suggestions, nextSelected)
   }
 
   const addSuggestedSelfItem = (suggested) => {
+    const quantity = Number(suggested.quantity) || 1
+    const note = suggested.reason || ''
     updateForm('selfSuppliedItems', [
       ...form.selfSuppliedItems,
       {
         itemName: suggested.itemName,
-        quantity: Number(suggested.quantity) || 1,
-        note: suggested.reason || '',
+        quantity,
+        note,
         clientKey: nextRowKey('suggest-self'),
       },
     ])
+    const nextSelected = [
+      ...selectedSuggestions.filter(
+        (selection) =>
+          selection.type !== 'self' ||
+          selection.itemName.trim().toLocaleLowerCase() !== suggested.itemName.trim().toLocaleLowerCase()
+      ),
+      { type: 'self', itemName: suggested.itemName, quantity, note },
+    ]
+    setSelectedSuggestions(nextSelected)
+    writeSuggestionCache(suggestions, nextSelected)
+  }
+
+  const addComponent = () => {
+    setNewItemDraft({ componentId: '', itemName: '', quantity: 1, note: '' })
+    setAddItemDialogType('component')
+  }
+
+  const addSelfSuppliedItem = () => {
+    setNewItemDraft({ componentId: '', itemName: '', quantity: 1, note: '' })
+    setAddItemDialogType('self')
+  }
+
+  const confirmAddItem = () => {
+    const quantity = Number(newItemDraft.quantity)
+    if (!Number.isInteger(quantity) || quantity < 1) {
+      showToast('Vui lòng nhập số lượng nguyên lớn hơn 0.', 'warning')
+      return
+    }
+    if (addItemDialogType === 'component') {
+      if (!newItemDraft.componentId) {
+        showToast('Vui lòng chọn loại linh kiện.', 'warning')
+        return
+      }
+      updateForm('components', [
+        ...form.components,
+        {
+          componentId: newItemDraft.componentId,
+          quantity,
+          note: newItemDraft.note.trim(),
+          clientKey: nextRowKey('component'),
+        },
+      ])
+    } else if (addItemDialogType === 'self') {
+      if (!newItemDraft.itemName.trim()) {
+        showToast('Vui lòng nhập tên món tự mua.', 'warning')
+        return
+      }
+      updateForm('selfSuppliedItems', [
+        ...form.selfSuppliedItems,
+        {
+          itemName: newItemDraft.itemName.trim(),
+          quantity,
+          note: newItemDraft.note.trim(),
+          clientKey: nextRowKey('self'),
+        },
+      ])
+    }
+    setAddItemDialogType(null)
   }
 
   const submitProject = async () => {
@@ -857,27 +1109,28 @@ export default function ProjectManagement() {
                   <>
                     <Divider />
                     <Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <Box>
-                          <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Linh kiện mượn kho</Typography>
-                          <Typography variant="caption" color="text.secondary">Chọn loại linh kiện và số lượng; không chọn serial.</Typography>
-                        </Box>
-                        <Button startIcon={<AddIcon />} onClick={addComponent} disabled={!canEdit} sx={{ textTransform: 'none' }}>
-                          Thêm loại
-                        </Button>
+                      <Box sx={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', columnGap: 1, rowGap: 0.25, mb: 1.25 }}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Linh kiện mượn kho</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          · Chọn loại linh kiện và số lượng; không chọn serial.
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          · Double-click vào linh kiện để chỉnh sửa hoặc thêm ghi chú.
+                        </Typography>
                       </Box>
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
                         {form.components.map((item) => (
                           <Tooltip
                             key={item.clientKey}
-                            title={item.note || 'Nhấn để chỉnh sửa số lượng hoặc ghi chú.'}
+                            title={item.note || 'Double-click để chỉnh sửa số lượng hoặc ghi chú.'}
                           >
                             <Chip
-                              label={`${getComponentName(item.componentId) || 'Linh kiện'} x${item.quantity}`}
+                              label={<QuantityLabel name={getComponentName(item.componentId) || 'Linh kiện'} quantity={item.quantity} />}
                               onClick={canEdit ? () => setEditingChip({ type: 'component', clientKey: item.clientKey }) : undefined}
+                              onDoubleClick={canEdit ? () => setEditingChip({ type: 'component', clientKey: item.clientKey }) : undefined}
                               onDelete={canEdit ? () => removeComponent(item.clientKey) : undefined}
                               disabled={!canEdit}
-                              sx={{ width: 'fit-content', maxWidth: '100%', cursor: canEdit ? 'pointer' : 'default' }}
+                              sx={{ ...selectedChipStyles, width: 'fit-content', cursor: canEdit ? 'pointer' : 'default' }}
                             />
                           </Tooltip>
                         ))}
@@ -886,32 +1139,53 @@ export default function ProjectManagement() {
                             Chưa thêm linh kiện mượn kho.
                           </Alert>
                         )}
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          startIcon={<AddIcon />}
+                          onClick={addComponent}
+                          disabled={!canEdit}
+                          sx={{
+                            minHeight: 36,
+                            px: 1.25,
+                            borderStyle: 'dashed',
+                            borderColor: '#93c5fd',
+                            color: '#1d4ed8',
+                            bgcolor: '#fff',
+                            textTransform: 'none',
+                            fontWeight: 700,
+                            '&:hover': { borderStyle: 'dashed', borderColor: '#2563eb', bgcolor: '#eff6ff' },
+                          }}
+                        >
+                          Thêm loại
+                        </Button>
                       </Box>
                     </Box>
 
                     <Divider />
                     <Box>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1, mb: 1 }}>
-                        <Box>
-                          <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Món tự mua</Typography>
-                          <Typography variant="caption" color="text.secondary">Các vật tư nhóm tự chuẩn bị, không mượn từ kho.</Typography>
-                        </Box>
-                        <Button startIcon={<AddIcon />} onClick={addSelfSuppliedItem} disabled={!canEdit} sx={{ textTransform: 'none' }}>
-                          Thêm món
-                        </Button>
+                      <Box sx={{ display: 'flex', alignItems: 'baseline', flexWrap: 'wrap', columnGap: 1, rowGap: 0.25, mb: 1.25 }}>
+                        <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Món tự mua</Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          · Vật tư nhóm tự chuẩn bị, không mượn từ kho.
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">
+                          · Double-click vào món để chỉnh sửa hoặc thêm ghi chú.
+                        </Typography>
                       </Box>
-                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
                         {form.selfSuppliedItems.map((item) => (
                           <Tooltip
                             key={item.clientKey}
-                            title={item.note || 'Nhấn để chỉnh sửa số lượng hoặc ghi chú.'}
+                            title={item.note || 'Double-click để chỉnh sửa số lượng hoặc ghi chú.'}
                           >
                             <Chip
-                              label={`${item.itemName || 'Món tự mua'} x${item.quantity}`}
+                              label={<QuantityLabel name={item.itemName || 'Món tự mua'} quantity={item.quantity} />}
                               onClick={canEdit ? () => setEditingChip({ type: 'self', clientKey: item.clientKey }) : undefined}
+                              onDoubleClick={canEdit ? () => setEditingChip({ type: 'self', clientKey: item.clientKey }) : undefined}
                               onDelete={canEdit ? () => removeSelfSuppliedItem(item.clientKey) : undefined}
                               disabled={!canEdit}
-                              sx={{ width: 'fit-content', maxWidth: '100%', cursor: canEdit ? 'pointer' : 'default' }}
+                              sx={{ ...selectedChipStyles, width: 'fit-content', cursor: canEdit ? 'pointer' : 'default' }}
                             />
                           </Tooltip>
                         ))}
@@ -920,6 +1194,26 @@ export default function ProjectManagement() {
                             Chưa thêm món tự mua.
                           </Alert>
                         )}
+                        <Button
+                          variant="outlined"
+                          size="small"
+                          startIcon={<AddIcon />}
+                          onClick={addSelfSuppliedItem}
+                          disabled={!canEdit}
+                          sx={{
+                            minHeight: 36,
+                            px: 1.25,
+                            borderStyle: 'dashed',
+                            borderColor: '#93c5fd',
+                            color: '#1d4ed8',
+                            bgcolor: '#fff',
+                            textTransform: 'none',
+                            fontWeight: 700,
+                            '&:hover': { borderStyle: 'dashed', borderColor: '#2563eb', bgcolor: '#eff6ff' },
+                          }}
+                        >
+                          Thêm món
+                        </Button>
                       </Box>
                     </Box>
 
@@ -936,7 +1230,7 @@ export default function ProjectManagement() {
                           {suggesting ? 'Đang lấy gợi ý...' : 'AI gợi ý linh kiện'}
                         </Button>
                         <Typography variant="caption" color="text.secondary">
-                          Gợi ý chưa được lưu; hãy thêm hoặc bỏ từng mục rồi bấm Lưu. Tối đa 10 lượt mỗi giờ.
+                          Gợi ý được lưu tạm trên thiết bị; hãy thêm hoặc bỏ mục rồi bấm Lưu. Tối đa 10 lượt mỗi giờ.
                         </Typography>
                       </Box>
                       {suggestions && (
@@ -951,13 +1245,19 @@ export default function ProjectManagement() {
                             {availableBorrowableSuggestions.map((suggestion) => (
                               <Tooltip key={`borrow-${suggestion.componentId}`} title={suggestion.reason || 'Nhấn để thêm vào danh sách mượn kho.'}>
                                 <Chip
-                                  label={`${suggestion.componentName} x${Number(suggestion.quantity) || 1}`}
-                                  color="success"
-                                  variant="outlined"
+                                  label={<QuantityLabel name={suggestion.componentName} quantity={Number(suggestion.quantity) || 1} />}
                                   clickable={canEdit}
                                   disabled={!canEdit}
                                   onClick={() => addSuggestedComponent(suggestion)}
-                                  sx={{ width: 'fit-content', maxWidth: '100%' }}
+                                  sx={{
+                                    ...suggestedChipStyles,
+                                    width: 'fit-content',
+                                    borderColor: '#86efac',
+                                    bgcolor: '#f0fdf4',
+                                    color: '#166534',
+                                    '&:hover': { borderColor: '#16a34a', bgcolor: '#ecfdf5', boxShadow: '0 2px 6px rgba(22, 163, 74, 0.15)' },
+                                    '&:active': { bgcolor: '#dcfce7' },
+                                  }}
                                 />
                               </Tooltip>
                             ))}
@@ -967,24 +1267,33 @@ export default function ProjectManagement() {
                                 title={`Cần ${suggestion.quantity}, hiện có ${suggestion.available}.${suggestion.reason ? ` ${suggestion.reason}` : ''}`}
                               >
                                 <Chip
-                                  label={`${suggestion.componentName} x${Number(suggestion.quantity) || 1}`}
-                                  color="warning"
-                                  variant="outlined"
+                                  label={<QuantityLabel name={suggestion.componentName} quantity={Number(suggestion.quantity) || 1} />}
                                   disabled
-                                  sx={{ width: 'fit-content', maxWidth: '100%' }}
+                                  sx={{
+                                    ...suggestedChipStyles,
+                                    width: 'fit-content',
+                                    borderColor: '#fcd34d',
+                                    bgcolor: '#fffbeb',
+                                    color: '#92400e',
+                                    cursor: 'not-allowed',
+                                  }}
                                 />
                               </Tooltip>
                             ))}
                             {availableSelfSuppliedSuggestions.map((suggestion, index) => (
                               <Tooltip key={`self-${suggestion.itemName}-${index}`} title={suggestion.reason || 'Nhấn để thêm vào danh sách tự mua.'}>
                                 <Chip
-                                  label={`${suggestion.itemName} x${Number(suggestion.quantity) || 1}`}
-                                  color="info"
-                                  variant="outlined"
+                                  label={<QuantityLabel name={suggestion.itemName} quantity={Number(suggestion.quantity) || 1} />}
                                   clickable={canEdit}
                                   disabled={!canEdit}
                                   onClick={() => addSuggestedSelfItem(suggestion)}
-                                  sx={{ width: 'fit-content', maxWidth: '100%' }}
+                                  sx={{
+                                    ...suggestedChipStyles,
+                                    width: 'fit-content',
+                                    borderColor: '#93c5fd',
+                                    bgcolor: '#eff6ff',
+                                    color: '#1e40af',
+                                  }}
                                 />
                               </Tooltip>
                             ))}
@@ -1058,6 +1367,74 @@ export default function ProjectManagement() {
           </Stack>
         )}
       </Container>
+
+      <Dialog
+        open={Boolean(addItemDialogType)}
+        onClose={() => setAddItemDialogType(null)}
+        fullWidth
+        maxWidth="sm"
+      >
+        <DialogTitle sx={{ fontWeight: 800 }}>
+          {addItemDialogType === 'component' ? 'Thêm linh kiện mượn kho' : 'Thêm món tự mua'}
+        </DialogTitle>
+        <DialogContent>
+          <Stack spacing={2} sx={{ pt: 1 }}>
+            {addItemDialogType === 'component' ? (
+              <TextField
+                select
+                label="Loại linh kiện"
+                value={newItemDraft.componentId}
+                onChange={(event) => setNewItemDraft((current) => ({ ...current, componentId: event.target.value }))}
+                disabled={!canEdit || saving}
+                required
+                fullWidth
+              >
+                <MenuItem value="">Chọn linh kiện</MenuItem>
+                {componentTypes.map((component) => (
+                  <MenuItem key={component.componentId} value={component.componentId}>
+                    {component.componentName} ({component.componentCode})
+                  </MenuItem>
+                ))}
+              </TextField>
+            ) : (
+              <TextField
+                label="Tên món"
+                value={newItemDraft.itemName}
+                onChange={(event) => setNewItemDraft((current) => ({ ...current, itemName: event.target.value }))}
+                disabled={!canEdit || saving}
+                required
+                fullWidth
+                autoFocus
+              />
+            )}
+            <TextField
+              label="Số lượng"
+              type="number"
+              inputProps={{ min: 1, step: 1 }}
+              value={newItemDraft.quantity}
+              onChange={(event) => setNewItemDraft((current) => ({ ...current, quantity: event.target.value }))}
+              disabled={!canEdit || saving}
+              required
+              fullWidth
+            />
+            <TextField
+              label="Ghi chú"
+              value={newItemDraft.note}
+              onChange={(event) => setNewItemDraft((current) => ({ ...current, note: event.target.value }))}
+              disabled={!canEdit || saving}
+              fullWidth
+              multiline
+              minRows={2}
+            />
+          </Stack>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setAddItemDialogType(null)} disabled={saving}>Hủy</Button>
+          <Button variant="contained" onClick={confirmAddItem} disabled={!canEdit || saving}>
+            Thêm vào danh sách
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog
         open={Boolean(editingItem)}
