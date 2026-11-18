@@ -397,7 +397,16 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
     >
       <DialogTitle>Giao đồ · {request?.requestCode}</DialogTitle>
       <DialogContent>
-        <Stepper activeStep={step} sx={{ py: 2 }}>
+        <Stepper
+          activeStep={step}
+          sx={{
+            py: 1,
+            maxWidth: 448,
+            mx: 'auto',
+            '& .MuiStepLabel-label': { fontSize: 12, fontWeight: 500 },
+            '& .MuiStepIcon-root': { fontSize: 20 },
+          }}
+        >
           <Step><StepLabel>Chụp ảnh xác thực</StepLabel></Step>
           <Step><StepLabel>Chọn linh kiện giao</StepLabel></Step>
         </Stepper>
@@ -507,7 +516,7 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
                 <CircularProgress />
               </Box>
             ) : (
-              <Grid container spacing={1.5}>
+              <Grid container spacing={1.5} alignItems="flex-start">
                 <Grid size={{ xs: 12, md: 5 }} sx={{ minWidth: 0 }}>
                   <Typography fontWeight={700} sx={{ mb: 1 }}>
                     Linh kiện trong đơn
@@ -540,7 +549,7 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
                           }}
                         >
                           {complete ? (
-                            <CheckCircleRoundedIcon sx={{ color: '#16a34a', flex: '0 0 auto' }} />
+                            <CheckCircleRoundedIcon sx={{ color: 'primary.main', flex: '0 0 auto' }} />
                           ) : (
                             <RadioButtonUncheckedRoundedIcon sx={{ color: '#64748b', flex: '0 0 auto' }} />
                           )}
@@ -564,8 +573,11 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
                   </Stack>
                 </Grid>
 
-                <Grid size={{ xs: 12, md: 7 }} sx={{ minWidth: 0 }}>
-                  <Paper variant="outlined" sx={{ p: 1.5, minHeight: 250 }}>
+                <Grid size={{ xs: 12, md: 7 }} sx={{ minWidth: 0, alignSelf: 'flex-start' }}>
+                  <Paper
+                    variant="outlined"
+                    sx={{ p: 1.5, height: 'fit-content', alignSelf: 'flex-start' }}
+                  >
                     {!activeLine ? (
                       <Typography color="text.secondary">
                         Các vật tư tiêu hao sẽ tự động trừ kho khi xác nhận bàn giao.
@@ -601,7 +613,7 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
                             <CircularProgress size={24} />
                           </Box>
                         ) : (
-                          <TableContainer sx={{ maxHeight: 370 }}>
+                          <TableContainer sx={{ maxHeight: 340, overflowY: 'auto' }}>
                             <Table size="small" stickyHeader>
                               <TableHead>
                                 <TableRow>
@@ -619,7 +631,11 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
                                   const maxReached = selected.length >= Number(activeLine.quantity)
                                   const statusMeta = getItemStatusMeta(inventoryItem.status)
                                   return (
-                                    <TableRow key={inventoryItem.itemId} hover>
+                                    <TableRow
+                                      key={inventoryItem.itemId}
+                                      hover
+                                      sx={{ '&:last-child td, &:last-child th': { borderBottom: 0 } }}
+                                    >
                                       <TableCell padding="checkbox">
                                         <Checkbox
                                           checked={checked}
