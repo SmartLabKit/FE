@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   Add as AddIcon,
   ArrowBack as ArrowBackIcon,
@@ -6,7 +6,6 @@ import {
   AutoAwesome as AutoAwesomeIcon,
   Close as CloseIcon,
   Groups as GroupsIcon,
-  InfoOutlined as InfoOutlinedIcon,
   Save as SaveIcon,
   School as SchoolIcon,
   Search as SearchIcon,
@@ -151,6 +150,10 @@ function getProjectFormSnapshot(form) {
   return JSON.stringify(toProjectPayload(form))
 }
 
+function getSuggestionNote(suggestion) {
+  return suggestion.note || suggestion.reason || suggestion.description || suggestion.purpose || suggestion.role || ''
+}
+
 function formatStatus(status) {
   const labels = {
     Draft: 'Bản nháp',
@@ -242,19 +245,63 @@ const selectedChipStyles = {
   '&:active': { bgcolor: '#e2e8f0' },
 }
 
-const suggestedChipStyles = {
-  height: 'auto',
-  minHeight: 36,
-  maxWidth: '100%',
-  borderRadius: 2,
-  border: 0,
-  bgcolor: '#e8f5f8',
-  color: '#155e75',
-  boxShadow: 'none',
-  cursor: 'pointer',
-  '& .MuiChip-label': { display: 'block', px: 1.1, py: 0.55, minWidth: 0 },
-  '&:hover': { border: 0, bgcolor: '#d9edf1', boxShadow: 'none' },
-  '&:active': { bgcolor: '#cce5eb' },
+function SuggestionCard({ suggestion, name, onSelect, disabled = false }) {
+  const note = getSuggestionNote(suggestion)
+  const quantity = Number(suggestion.quantity) || 1
+
+  return (
+    <Box
+      role={disabled ? undefined : 'button'}
+      tabIndex={disabled ? undefined : 0}
+      aria-disabled={disabled || undefined}
+      onClick={disabled ? undefined : onSelect}
+      onKeyDown={(event) => {
+        if (!disabled && (event.key === 'Enter' || event.key === ' ')) {
+          event.preventDefault()
+          onSelect()
+        }
+      }}
+      sx={{
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'flex-start',
+        gap: 0.25,
+        width: 'fit-content',
+        maxWidth: { xs: '100%', sm: 340 },
+        minWidth: 180,
+        px: 1.25,
+        py: 0.85,
+        border: 0,
+        borderRadius: 2,
+        bgcolor: disabled ? '#fffbeb' : '#e8f5f8',
+        color: disabled ? '#92400e' : '#155e75',
+        cursor: disabled ? 'not-allowed' : 'pointer',
+        textAlign: 'left',
+        '&:hover': disabled ? undefined : { bgcolor: '#d9edf1' },
+        '&:focus-visible': disabled ? undefined : { outline: '2px solid #0e7490', outlineOffset: 2 },
+      }}
+    >
+      <Typography variant="body2" sx={{ fontWeight: 700, lineHeight: 1.35 }}>
+        {name} ×{quantity}
+      </Typography>
+      <Typography
+        variant="caption"
+        sx={{
+          color: disabled ? '#a16207' : '#64748b',
+          fontSize: 11,
+          lineHeight: 1.35,
+          whiteSpace: 'normal',
+        }}
+      >
+        {note || 'AI chưa cung cấp ghi chú.'}
+      </Typography>
+      {disabled && suggestion.available != null && (
+        <Typography variant="caption" sx={{ color: '#92400e', fontSize: 10, lineHeight: 1.3 }}>
+          Tồn kho hiện có: {suggestion.available}
+        </Typography>
+      )}
+    </Box>
+  )
 }
 
 export default function ProjectManagement() {
@@ -275,7 +322,6 @@ export default function ProjectManagement() {
   const [suggestions, setSuggestions] = useState(null)
   const [selectedSuggestions, setSelectedSuggestions] = useState([])
   const [submitDialogOpen, setSubmitDialogOpen] = useState(false)
-  const [editingChip, setEditingChip] = useState(null)
   const [inlineDraft, setInlineDraft] = useState(null)
   const [borrowDeadline, setBorrowDeadline] = useState(null)
   const [loadingDeadline, setLoadingDeadline] = useState(false)
@@ -584,26 +630,6 @@ export default function ProjectManagement() {
     }
   }
 
-  const updateSelfSuppliedItem = (clientKey, key, value) => {
-    const updatedItem = form.selfSuppliedItems.find((item) => item.clientKey === clientKey)
-    updateForm(
-      'selfSuppliedItems',
-      form.selfSuppliedItems.map((item) => item.clientKey === clientKey ? { ...item, [key]: value } : item)
-    )
-    if (updatedItem) {
-      const itemName = updatedItem.itemName.trim().toLocaleLowerCase()
-      const nextSelected = selectedSuggestions.map((selection) =>
-        selection.type === 'self' && selection.itemName.trim().toLocaleLowerCase() === itemName
-          ? { ...selection, [key]: value }
-          : selection
-      )
-      if (nextSelected.some((selection, index) => selection !== selectedSuggestions[index])) {
-        setSelectedSuggestions(nextSelected)
-        writeSuggestionCache(suggestions, nextSelected)
-      }
-    }
-  }
-
   const removeSelfSuppliedItem = (clientKey) => {
     const removedItem = form.selfSuppliedItems.find((item) => item.clientKey === clientKey)
     updateForm('selfSuppliedItems', form.selfSuppliedItems.filter((item) => item.clientKey !== clientKey))
@@ -668,6 +694,7 @@ export default function ProjectManagement() {
     const quantity = existing
       ? Number(existing.quantity) + Number(suggested.quantity || 1)
       : Number(suggested.quantity) || 1
+    const note = getSuggestionNote(suggested)
     if (existing) {
       updateComponent(existing.clientKey, 'quantity', quantity)
     } else {
@@ -676,7 +703,7 @@ export default function ProjectManagement() {
         {
           componentId: suggested.componentId,
           quantity,
-          note: suggested.reason || '',
+          note,
           clientKey: nextRowKey(`suggest-${suggested.componentId}`),
         },
       ])
@@ -685,7 +712,7 @@ export default function ProjectManagement() {
       ...selectedSuggestions.filter(
         (selection) => selection.type !== 'component' || selection.componentId !== suggested.componentId
       ),
-      { type: 'component', componentId: suggested.componentId, quantity, note: existing?.note || suggested.reason || '' },
+      { type: 'component', componentId: suggested.componentId, quantity, note: existing?.note || note },
     ]
     setSelectedSuggestions(nextSelected)
     writeSuggestionCache(suggestions, nextSelected)
@@ -693,7 +720,7 @@ export default function ProjectManagement() {
 
   const addSuggestedSelfItem = (suggested) => {
     const quantity = Number(suggested.quantity) || 1
-    const note = suggested.reason || ''
+    const note = getSuggestionNote(suggested)
     updateForm('selfSuppliedItems', [
       ...form.selfSuppliedItems,
       {
@@ -732,11 +759,31 @@ export default function ProjectManagement() {
   const startInlineCreation = (type) => {
     if (inlineDraftRef.current) return
     const draft = {
+      mode: 'create',
       type,
       componentId: '',
       searchText: '',
       itemName: '',
       quantity: 1,
+      note: '',
+    }
+    inlineDraftRef.current = draft
+    inlineDraftFocusedRef.current = false
+    setInlineDraft(draft)
+  }
+
+  const startInlineEdit = (type, item) => {
+    if (!canEdit || inlineDraftRef.current) return
+    const componentName = type === 'component' ? getComponentName(item.componentId) : ''
+    const draft = {
+      mode: 'edit',
+      type,
+      clientKey: item.clientKey,
+      componentId: item.componentId || '',
+      searchText: componentName,
+      itemName: item.itemName || '',
+      quantity: item.quantity || 1,
+      note: item.note || '',
     }
     inlineDraftRef.current = draft
     inlineDraftFocusedRef.current = false
@@ -759,25 +806,76 @@ export default function ProjectManagement() {
       return
     }
     if (draft.type === 'component') {
-      updateForm('components', [
-        ...form.components,
-        {
-          componentId: draft.componentId,
-          quantity,
-          note: '',
-          clientKey: nextRowKey('component'),
-        },
-      ])
+      if (draft.mode === 'edit') {
+        const oldItem = form.components.find((item) => item.clientKey === draft.clientKey)
+        updateForm('components', form.components.map((item) => (
+          item.clientKey === draft.clientKey
+            ? { ...item, componentId: draft.componentId, quantity, note: draft.note }
+            : item
+        )))
+        if (oldItem && oldItem.componentId !== draft.componentId) {
+          const nextSelected = selectedSuggestions.filter(
+            (selection) => selection.type !== 'component' || selection.componentId !== oldItem.componentId
+          )
+          setSelectedSuggestions(nextSelected)
+          writeSuggestionCache(suggestions, nextSelected)
+        } else if (oldItem) {
+          const nextSelected = selectedSuggestions.map((selection) => (
+            selection.type === 'component' && selection.componentId === oldItem.componentId
+              ? { ...selection, quantity, note: draft.note }
+              : selection
+          ))
+          setSelectedSuggestions(nextSelected)
+          writeSuggestionCache(suggestions, nextSelected)
+        }
+      } else {
+        updateForm('components', [
+          ...form.components,
+          {
+            componentId: draft.componentId,
+            quantity,
+            note: draft.note || '',
+            clientKey: nextRowKey('component'),
+          },
+        ])
+      }
     } else {
-      updateForm('selfSuppliedItems', [
-        ...form.selfSuppliedItems,
-        {
-          itemName: name,
-          quantity,
-          note: '',
-          clientKey: nextRowKey('self'),
-        },
-      ])
+      if (draft.mode === 'edit') {
+        const oldItem = form.selfSuppliedItems.find((item) => item.clientKey === draft.clientKey)
+        updateForm('selfSuppliedItems', form.selfSuppliedItems.map((item) => (
+          item.clientKey === draft.clientKey
+            ? { ...item, itemName: name, quantity, note: draft.note }
+            : item
+        )))
+        if (oldItem && oldItem.itemName.trim().toLocaleLowerCase() !== name.trim().toLocaleLowerCase()) {
+          const nextSelected = selectedSuggestions.filter(
+            (selection) =>
+              selection.type !== 'self' ||
+              selection.itemName.trim().toLocaleLowerCase() !== oldItem.itemName.trim().toLocaleLowerCase()
+          )
+          setSelectedSuggestions(nextSelected)
+          writeSuggestionCache(suggestions, nextSelected)
+        } else if (oldItem) {
+          const normalizedName = oldItem.itemName.trim().toLocaleLowerCase()
+          const nextSelected = selectedSuggestions.map((selection) => (
+            selection.type === 'self' && selection.itemName.trim().toLocaleLowerCase() === normalizedName
+              ? { ...selection, quantity, note: draft.note }
+              : selection
+          ))
+          setSelectedSuggestions(nextSelected)
+          writeSuggestionCache(suggestions, nextSelected)
+        }
+      } else {
+        updateForm('selfSuppliedItems', [
+          ...form.selfSuppliedItems,
+          {
+            itemName: name,
+            quantity,
+            note: draft.note || '',
+            clientKey: nextRowKey('self'),
+          },
+        ])
+      }
     }
     cancelInlineDraft()
   }
@@ -1037,14 +1135,16 @@ export default function ProjectManagement() {
   const availableBorrowableSuggestions = (suggestions?.borrowable || []).filter(
     (item) => !selectedComponentIds.has(item.componentId)
   )
+  const unavailableBorrowableSuggestions = (suggestions?.notEnoughStock || []).filter(
+    (item) => !selectedComponentIds.has(item.componentId)
+  )
+  const warehouseSuggestions = [
+    ...availableBorrowableSuggestions,
+    ...unavailableBorrowableSuggestions,
+  ]
   const availableSelfSuppliedSuggestions = (suggestions?.selfSupplied || []).filter(
     (item) => !selectedSelfItemNames.has(item.itemName.trim().toLocaleLowerCase())
   )
-  const editingItem = editingChip?.type === 'component'
-    ? form.components.find((item) => item.clientKey === editingChip.clientKey)
-    : editingChip?.type === 'self'
-      ? form.selfSuppliedItems.find((item) => item.clientKey === editingChip.clientKey)
-      : null
   return (
     <PortalLayout headerTitle="Thiết lập dự án" headerSubtitle={team?.teamName || 'Quản lý đồ án nhóm'}>
       <Container maxWidth="xl" disableGutters sx={{ width: '100%', maxWidth: 1600, minWidth: 0, mx: 'auto', boxSizing: 'border-box', pb: 5 }}>
@@ -1382,43 +1482,34 @@ export default function ProjectManagement() {
                     <Box>
                       <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 1.25 }}>
                         <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Linh kiện mượn kho</Typography>
-                        {canEdit && (
-                          <Chip
-                            icon={<InfoOutlinedIcon sx={{ fontSize: '15px !important' }} />}
-                            label="Ấn đúp linh kiện để chỉnh sửa ghi chú"
-                            size="small"
-                            sx={{
-                              height: 24,
-                              bgcolor: '#eff6ff',
-                              color: '#1d4ed8',
-                              fontSize: 11,
-                              fontWeight: 600,
-                              '& .MuiChip-icon': { color: '#2563eb', ml: 0.75 },
-                            }}
-                          />
-                        )}
                       </Box>
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
                         {form.components.map((item) => (
-                          <Tooltip
-                            key={item.clientKey}
-                            title={item.note || (canEdit ? 'Double-click để chỉnh sửa số lượng hoặc ghi chú.' : '')}
-                          >
-                            <Chip
-                              label={<QuantityLabel name={getComponentName(item.componentId) || 'Linh kiện'} quantity={item.quantity} />}
-                              deleteIcon={<CloseIcon sx={{ fontSize: '17px !important' }} />}
-                              onDoubleClick={canEdit ? () => setEditingChip({ type: 'component', clientKey: item.clientKey }) : undefined}
-                              onDelete={canEdit ? () => removeComponent(item.clientKey) : undefined}
-                              sx={{ ...selectedChipStyles, width: 'fit-content', cursor: canEdit ? 'pointer' : 'default' }}
-                            />
-                          </Tooltip>
+                          inlineDraft?.mode === 'edit' &&
+                          inlineDraft.type === 'component' &&
+                          inlineDraft.clientKey === item.clientKey
+                            ? <Fragment key={item.clientKey}>{inlineDraftView}</Fragment>
+                            : (
+                              <Tooltip
+                                key={item.clientKey}
+                                title={item.note || ''}
+                              >
+                                <Chip
+                                  label={<QuantityLabel name={getComponentName(item.componentId) || 'Linh kiện'} quantity={item.quantity} />}
+                                  deleteIcon={<CloseIcon sx={{ fontSize: '17px !important' }} />}
+                                  onDoubleClick={canEdit ? () => startInlineEdit('component', item) : undefined}
+                                  onDelete={canEdit ? () => removeComponent(item.clientKey) : undefined}
+                                  sx={{ ...selectedChipStyles, width: 'fit-content', cursor: canEdit ? 'pointer' : 'default' }}
+                                />
+                              </Tooltip>
+                            )
                         ))}
                         {form.components.length === 0 && (
                           <Alert severity="info" sx={{ display: 'inline-flex', width: 'fit-content', py: 0.25 }}>
                             Chưa thêm linh kiện mượn kho.
                           </Alert>
                         )}
-                        {canEdit && inlineDraft?.type === 'component' && inlineDraftView}
+                        {canEdit && inlineDraft?.mode === 'create' && inlineDraft.type === 'component' && inlineDraftView}
                         {canEdit && (
                           <Button
                             variant="outlined"
@@ -1451,25 +1542,28 @@ export default function ProjectManagement() {
                       </Box>
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
                         {form.selfSuppliedItems.map((item) => (
-                          <Tooltip
-                            key={item.clientKey}
-                            title={item.note || (canEdit ? 'Double-click để chỉnh sửa số lượng hoặc ghi chú.' : '')}
-                          >
-                            <Chip
-                              label={<QuantityLabel name={item.itemName || 'Món tự mua'} quantity={item.quantity} />}
-                              deleteIcon={<CloseIcon sx={{ fontSize: '17px !important' }} />}
-                              onDoubleClick={canEdit ? () => setEditingChip({ type: 'self', clientKey: item.clientKey }) : undefined}
-                              onDelete={canEdit ? () => removeSelfSuppliedItem(item.clientKey) : undefined}
-                              sx={{ ...selectedChipStyles, width: 'fit-content', cursor: canEdit ? 'pointer' : 'default' }}
-                            />
-                          </Tooltip>
+                          inlineDraft?.mode === 'edit' &&
+                          inlineDraft.type === 'self' &&
+                          inlineDraft.clientKey === item.clientKey
+                            ? <Fragment key={item.clientKey}>{inlineDraftView}</Fragment>
+                            : (
+                              <Tooltip key={item.clientKey} title={item.note || ''}>
+                                <Chip
+                                  label={<QuantityLabel name={item.itemName || 'Món tự mua'} quantity={item.quantity} />}
+                                  deleteIcon={<CloseIcon sx={{ fontSize: '17px !important' }} />}
+                                  onDoubleClick={canEdit ? () => startInlineEdit('self', item) : undefined}
+                                  onDelete={canEdit ? () => removeSelfSuppliedItem(item.clientKey) : undefined}
+                                  sx={{ ...selectedChipStyles, width: 'fit-content', cursor: canEdit ? 'pointer' : 'default' }}
+                                />
+                              </Tooltip>
+                            )
                         ))}
                         {form.selfSuppliedItems.length === 0 && (
                           <Alert severity="info" sx={{ display: 'inline-flex', width: 'fit-content', py: 0.25 }}>
                             Chưa thêm món tự mua.
                           </Alert>
                         )}
-                        {canEdit && inlineDraft?.type === 'self' && inlineDraftView}
+                        {canEdit && inlineDraft?.mode === 'create' && inlineDraft.type === 'self' && inlineDraftView}
                         {canEdit && (
                           <Button
                             variant="outlined"
@@ -1513,62 +1607,57 @@ export default function ProjectManagement() {
                               Tối đa 10 lượt mỗi giờ.
                             </Typography>
                           </Box>
-                          {suggestions && (
+                          {suggestions && (warehouseSuggestions.length > 0 || availableSelfSuppliedSuggestions.length > 0) && (
                             <Stack spacing={1.5} sx={{ mt: 2 }}>
                               {suggestions.hint && (
                                 <Alert severity="info" sx={{ display: 'inline-flex', width: 'fit-content', maxWidth: '100%' }}>
                                   {suggestions.hint}
                                 </Alert>
                               )}
-                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                                {availableBorrowableSuggestions.map((suggestion) => (
-                                  <Tooltip key={`borrow-${suggestion.componentId}`} title={suggestion.reason || 'Nhấn để thêm vào danh sách mượn kho.'}>
-                                    <Chip
-                                      label={<QuantityLabel name={suggestion.componentName} quantity={Number(suggestion.quantity) || 1} />}
-                                      clickable
-                                      onClick={() => addSuggestedComponent(suggestion)}
-                                      sx={{ ...suggestedChipStyles, width: 'fit-content' }}
-                                    />
-                                  </Tooltip>
-                                ))}
-                                {(suggestions.notEnoughStock || []).map((suggestion) => (
-                                  <Tooltip
-                                    key={`stock-${suggestion.componentId}`}
-                                    title={`Cần ${suggestion.quantity}, hiện có ${suggestion.available}.${suggestion.reason ? ` ${suggestion.reason}` : ''}`}
-                                  >
-                                    <Chip
-                                      label={<QuantityLabel name={suggestion.componentName} quantity={Number(suggestion.quantity) || 1} />}
-                                      disabled
-                                      sx={{
-                                        ...suggestedChipStyles,
-                                        width: 'fit-content',
-                                        bgcolor: '#fffbeb',
-                                        color: '#92400e',
-                                        cursor: 'not-allowed',
-                                      }}
-                                    />
-                                  </Tooltip>
-                                ))}
-                                {availableSelfSuppliedSuggestions.map((suggestion, index) => (
-                                  <Tooltip key={`self-${suggestion.itemName}-${index}`} title={suggestion.reason || 'Nhấn để thêm vào danh sách tự mua.'}>
-                                    <Chip
-                                      label={<QuantityLabel name={suggestion.itemName} quantity={Number(suggestion.quantity) || 1} />}
-                                      clickable
-                                      onClick={() => addSuggestedSelfItem(suggestion)}
-                                      sx={{ ...suggestedChipStyles, width: 'fit-content' }}
-                                    />
-                                  </Tooltip>
-                                ))}
-                              </Box>
-                              {!availableBorrowableSuggestions.length &&
-                                !(suggestions.notEnoughStock || []).length &&
-                                !availableSelfSuppliedSuggestions.length && (
-                                  <Alert severity="info" sx={{ display: 'inline-flex', width: 'fit-content' }}>
-                                    {(suggestions.borrowable?.length || suggestions.selfSupplied?.length)
-                                      ? 'Đã thêm tất cả gợi ý vào danh sách.'
-                                      : 'AI chưa có gợi ý phù hợp cho mô tả hiện tại.'}
-                                  </Alert>
+                              <Stack spacing={1}>
+                                {warehouseSuggestions.length > 0 && (
+                                  <Box>
+                                    <Typography variant="caption" sx={{ display: 'block', mb: 0.75, fontWeight: 700, color: '#475569' }}>
+                                      Gợi ý Linh kiện mượn kho
+                                    </Typography>
+                                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                      {availableBorrowableSuggestions.map((suggestion) => (
+                                        <SuggestionCard
+                                          key={`borrow-${suggestion.componentId}`}
+                                          suggestion={suggestion}
+                                          name={suggestion.componentName}
+                                          onSelect={() => addSuggestedComponent(suggestion)}
+                                        />
+                                      ))}
+                                      {unavailableBorrowableSuggestions.map((suggestion) => (
+                                        <SuggestionCard
+                                          key={`stock-${suggestion.componentId}`}
+                                          suggestion={suggestion}
+                                          name={suggestion.componentName}
+                                          disabled
+                                        />
+                                      ))}
+                                    </Box>
+                                  </Box>
                                 )}
+                                {availableSelfSuppliedSuggestions.length > 0 && (
+                                  <Box>
+                                    <Typography variant="caption" sx={{ display: 'block', mb: 0.75, fontWeight: 700, color: '#475569' }}>
+                                      Gợi ý Món tự mua
+                                    </Typography>
+                                    <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                                      {availableSelfSuppliedSuggestions.map((suggestion, index) => (
+                                        <SuggestionCard
+                                          key={`self-${suggestion.itemName}-${index}`}
+                                          suggestion={suggestion}
+                                          name={suggestion.itemName}
+                                          onSelect={() => addSuggestedSelfItem(suggestion)}
+                                        />
+                                      ))}
+                                    </Box>
+                                  </Box>
+                                )}
+                              </Stack>
                             </Stack>
                           )}
                         </Box>
@@ -1767,62 +1856,6 @@ export default function ProjectManagement() {
           </Stack>
         )}
       </Container>
-
-      <Dialog
-        open={Boolean(editingItem)}
-        onClose={() => setEditingChip(null)}
-        fullWidth
-        maxWidth="xs"
-      >
-        <DialogTitle sx={{ fontWeight: 800 }}>
-          Chỉnh sửa {editingChip?.type === 'component' ? 'linh kiện mượn kho' : 'món tự mua'}
-        </DialogTitle>
-        {editingItem && (
-          <DialogContent>
-            <Stack spacing={2} sx={{ pt: 1 }}>
-              <Typography variant="body2" sx={{ fontWeight: 700 }}>
-                {editingChip.type === 'component'
-                  ? getComponentName(editingItem.componentId)
-                  : editingItem.itemName}
-              </Typography>
-              <TextField
-                label="Số lượng"
-                type="number"
-                inputProps={{ min: 1 }}
-                value={editingItem.quantity}
-                onChange={(event) => {
-                  if (editingChip.type === 'component') {
-                    updateComponent(editingItem.clientKey, 'quantity', event.target.value)
-                  } else {
-                    updateSelfSuppliedItem(editingItem.clientKey, 'quantity', event.target.value)
-                  }
-                }}
-                disabled={!canEdit || saving}
-                fullWidth
-                autoFocus
-              />
-              <TextField
-                label="Ghi chú"
-                value={editingItem.note}
-                onChange={(event) => {
-                  if (editingChip.type === 'component') {
-                    updateComponent(editingItem.clientKey, 'note', event.target.value)
-                  } else {
-                    updateSelfSuppliedItem(editingItem.clientKey, 'note', event.target.value)
-                  }
-                }}
-                disabled={!canEdit || saving}
-                fullWidth
-                multiline
-                minRows={2}
-              />
-            </Stack>
-          </DialogContent>
-        )}
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setEditingChip(null)}>Đóng</Button>
-        </DialogActions>
-      </Dialog>
 
       <Dialog open={submitDialogOpen} onClose={() => !submitting && !loadingDeadline && setSubmitDialogOpen(false)} fullWidth maxWidth="sm">
         <DialogTitle sx={{ fontWeight: 800 }}>Xác nhận gửi duyệt đề tài</DialogTitle>
