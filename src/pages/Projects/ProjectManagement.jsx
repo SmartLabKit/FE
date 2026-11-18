@@ -742,6 +742,87 @@ export default function ProjectManagement() {
     writeSuggestionCache(suggestions, nextSelected)
   }
 
+  const addAllSuggestedComponents = () => {
+    if (availableBorrowableSuggestions.length < 2) return
+
+    const nextComponents = [...form.components]
+    const nextSelected = [...selectedSuggestions]
+    availableBorrowableSuggestions.forEach((suggested) => {
+      const quantity = Number(suggested.quantity) || 1
+      const suggestedNote = getSuggestionNote(suggested)
+      const existingIndex = nextComponents.findIndex((item) => item.componentId === suggested.componentId)
+      let totalQuantity = quantity
+      let note = suggestedNote
+      if (existingIndex >= 0) {
+        const existing = nextComponents[existingIndex]
+        totalQuantity += Number(existing.quantity) || 0
+        note = existing.note || suggestedNote
+        nextComponents[existingIndex] = { ...existing, quantity: totalQuantity, note }
+      } else {
+        nextComponents.push({
+          componentId: suggested.componentId,
+          quantity,
+          note,
+          clientKey: nextRowKey(`suggest-${suggested.componentId}`),
+        })
+      }
+
+      const selectedIndex = nextSelected.findIndex(
+        (selection) => selection.type === 'component' && selection.componentId === suggested.componentId
+      )
+      const selectedValue = { type: 'component', componentId: suggested.componentId, quantity: totalQuantity, note }
+      if (selectedIndex >= 0) nextSelected[selectedIndex] = selectedValue
+      else nextSelected.push(selectedValue)
+    })
+
+    updateForm('components', nextComponents)
+    setSelectedSuggestions(nextSelected)
+    writeSuggestionCache(suggestions, nextSelected)
+  }
+
+  const addAllSuggestedSelfItems = () => {
+    if (availableSelfSuppliedSuggestions.length < 2) return
+
+    const nextItems = [...form.selfSuppliedItems]
+    const nextSelected = [...selectedSuggestions]
+    availableSelfSuppliedSuggestions.forEach((suggested) => {
+      const quantity = Number(suggested.quantity) || 1
+      const note = getSuggestionNote(suggested)
+      const normalizedName = suggested.itemName.trim().toLocaleLowerCase()
+      const existingIndex = nextItems.findIndex(
+        (item) => item.itemName.trim().toLocaleLowerCase() === normalizedName
+      )
+      let totalQuantity = quantity
+      let selectedNote = note
+      if (existingIndex >= 0) {
+        const existing = nextItems[existingIndex]
+        totalQuantity += Number(existing.quantity) || 0
+        selectedNote = existing.note || note
+        nextItems[existingIndex] = { ...existing, quantity: totalQuantity, note: selectedNote }
+      } else {
+        nextItems.push({
+          itemName: suggested.itemName,
+          quantity,
+          note,
+          clientKey: nextRowKey('suggest-self'),
+        })
+      }
+
+      const selectedIndex = nextSelected.findIndex(
+        (selection) =>
+          selection.type === 'self' &&
+          selection.itemName.trim().toLocaleLowerCase() === normalizedName
+      )
+      const selectedValue = { type: 'self', itemName: suggested.itemName, quantity: totalQuantity, note: selectedNote }
+      if (selectedIndex >= 0) nextSelected[selectedIndex] = selectedValue
+      else nextSelected.push(selectedValue)
+    })
+
+    updateForm('selfSuppliedItems', nextItems)
+    setSelectedSuggestions(nextSelected)
+    writeSuggestionCache(suggestions, nextSelected)
+  }
+
   const updateInlineDraft = (changes) => {
     const current = inlineDraftRef.current
     if (!current) return
@@ -1617,9 +1698,30 @@ export default function ProjectManagement() {
                               <Stack spacing={1}>
                                 {warehouseSuggestions.length > 0 && (
                                   <Box>
-                                    <Typography variant="caption" sx={{ display: 'block', mb: 0.75, fontWeight: 700, color: '#475569' }}>
-                                      Gợi ý Linh kiện mượn kho
-                                    </Typography>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1, mb: 0.75 }}>
+                                      <Typography variant="caption" sx={{ fontWeight: 700, color: '#475569' }}>
+                                        Gợi ý Linh kiện mượn kho
+                                      </Typography>
+                                      {availableBorrowableSuggestions.length >= 2 && (
+                                        <Button
+                                          size="small"
+                                          onClick={addAllSuggestedComponents}
+                                          sx={{
+                                            minWidth: 0,
+                                            px: 1,
+                                            py: 0.5,
+                                            borderRadius: 1,
+                                            color: '#2563eb',
+                                            fontSize: 12,
+                                            fontWeight: 500,
+                                            textTransform: 'none',
+                                            '&:hover': { color: '#1d4ed8', bgcolor: '#eff6ff' },
+                                          }}
+                                        >
+                                          + Chọn tất cả
+                                        </Button>
+                                      )}
+                                    </Box>
                                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                                       {availableBorrowableSuggestions.map((suggestion) => (
                                         <SuggestionCard
@@ -1642,9 +1744,30 @@ export default function ProjectManagement() {
                                 )}
                                 {availableSelfSuppliedSuggestions.length > 0 && (
                                   <Box>
-                                    <Typography variant="caption" sx={{ display: 'block', mb: 0.75, fontWeight: 700, color: '#475569' }}>
-                                      Gợi ý Món tự mua
-                                    </Typography>
+                                    <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1, mb: 0.75 }}>
+                                      <Typography variant="caption" sx={{ fontWeight: 700, color: '#475569' }}>
+                                        Gợi ý Món tự mua
+                                      </Typography>
+                                      {availableSelfSuppliedSuggestions.length >= 2 && (
+                                        <Button
+                                          size="small"
+                                          onClick={addAllSuggestedSelfItems}
+                                          sx={{
+                                            minWidth: 0,
+                                            px: 1,
+                                            py: 0.5,
+                                            borderRadius: 1,
+                                            color: '#2563eb',
+                                            fontSize: 12,
+                                            fontWeight: 500,
+                                            textTransform: 'none',
+                                            '&:hover': { color: '#1d4ed8', bgcolor: '#eff6ff' },
+                                          }}
+                                        >
+                                          + Chọn tất cả
+                                        </Button>
+                                      )}
+                                    </Box>
                                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                                       {availableSelfSuppliedSuggestions.map((suggestion, index) => (
                                         <SuggestionCard
