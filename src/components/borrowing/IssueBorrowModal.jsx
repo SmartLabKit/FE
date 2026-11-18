@@ -610,7 +610,7 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
             disabled={!itemSelectionValid || loadingData || loadingItems || submitting || Boolean(scanningLineId)}
             onClick={submitIssue}
           >
-            {submitting ? <CircularProgress size={20} color="inherit" /> : 'Xác nhận giao đồ'}
+            {submitting ? <CircularProgress size={20} color="inherit" /> : 'Xác nhận bàn giao'}
           </Button>
         )}
       </DialogActions>

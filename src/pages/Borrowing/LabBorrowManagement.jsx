@@ -938,7 +938,7 @@ export default function LabBorrowManagement() {
                       disabled={Boolean(actionLoading)}
                       onClick={() => setIssueRequest(requestDetail)}
                     >
-                      Giao đồ
+                      Xác minh và bàn giao
                     </Button>
                   )}
                   {['Borrowing', 'Overdue'].includes(requestDetail.status) && (
