@@ -100,6 +100,29 @@ function getItemStatusMeta(status) {
   }
 }
 
+function ComponentCodeTag({ code }) {
+  return (
+    <Box
+      component="span"
+      sx={{
+        display: 'inline-flex',
+        alignItems: 'center',
+        px: 0.75,
+        py: 0.25,
+        borderRadius: 0.75,
+        bgcolor: '#f1f5f9',
+        color: '#475569',
+        fontFamily: 'monospace',
+        fontSize: 12,
+        lineHeight: 1.25,
+        whiteSpace: 'nowrap',
+      }}
+    >
+      {code || '—'}
+    </Box>
+  )
+}
+
 function getAiDetail(photo) {
   if (!photo?.aiDetail) return {}
   if (typeof photo.aiDetail === 'object') return photo.aiDetail
@@ -381,6 +404,16 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
   const activeAvailable = activeLine ? availableByLine[activeLine.borrowItemId] || [] : []
   const activeLoading = activeLine && Boolean(loadingByLine[activeLine.borrowItemId])
   const isHighValue = normalize(activeLine?.trackingType) === 'high_value'
+  const activeSelected = activeLine ? selectedByLine[activeLine.borrowItemId] || [] : []
+  const activeAvailableToSelect = activeAvailable.filter((item) => !selectedIdSet.has(item.itemId))
+  const activeQuantityRemaining = activeLine
+    ? Math.max(Number(activeLine.quantity) - activeSelected.length, 0)
+    : 0
+  const quickSelectDisabled = !activeLine ||
+    activeLoading ||
+    submitting ||
+    activeQuantityRemaining === 0 ||
+    activeAvailableToSelect.length === 0
   const searchTerm = normalize(itemSearch)
   const filteredAvailable = activeAvailable.filter((item) =>
     !searchTerm ||
@@ -521,56 +554,68 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
                   <Typography fontWeight={700} sx={{ mb: 1 }}>
                     Linh kiện trong đơn
                   </Typography>
-                  <Stack spacing={1} sx={{ maxHeight: 420, overflowY: 'auto', pr: 0.5 }}>
-                    {items.map((line) => {
-                      const consumable = isConsumable(line)
-                      const selectedCount = (selectedByLine[line.borrowItemId] || []).length
-                      const complete = consumable || selectedCount === Number(line.quantity)
-                      const isActive = line.borrowItemId === selectedLineId
-                      return (
-                        <ButtonBase
-                          key={line.borrowItemId}
-                          disabled={consumable}
-                          onClick={() => selectLine(line)}
-                          sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            justifyContent: 'flex-start',
-                            gap: 1.25,
-                            width: '100%',
-                            p: 1.25,
-                            border: '1px solid',
-                            borderColor: isActive ? 'primary.main' : 'divider',
-                            borderRadius: 1,
-                            bgcolor: isActive ? '#eff6ff' : '#fff',
-                            textAlign: 'left',
-                            '&:hover': { bgcolor: consumable ? '#fff' : '#f8fafc' },
-                            '&.Mui-disabled': { color: 'inherit', opacity: 1, cursor: 'default' },
-                          }}
-                        >
-                          {complete ? (
-                            <CheckCircleRoundedIcon sx={{ color: 'primary.main', flex: '0 0 auto' }} />
-                          ) : (
-                            <RadioButtonUncheckedRoundedIcon sx={{ color: '#64748b', flex: '0 0 auto' }} />
-                          )}
-                          <Box sx={{ minWidth: 0 }}>
-                            <Typography fontWeight={600} noWrap>
-                              {line.componentName} ({line.componentCode})
-                            </Typography>
-                            <Typography
-                              variant="body2"
-                              color={consumable || complete ? 'success.main' : 'text.secondary'}
-                              noWrap
-                            >
-                              {consumable
-                                ? `${line.quantity} ${line.unit || 'cái'} · tự động trừ kho`
-                                : `Đã chọn ${selectedCount}/${line.quantity}`}
-                            </Typography>
-                          </Box>
-                        </ButtonBase>
-                      )
-                    })}
-                  </Stack>
+                  <Box
+                    sx={{
+                      border: '1px solid #e2e8f0',
+                      borderRadius: 1.5,
+                      p: 1.25,
+                      bgcolor: 'rgba(248, 250, 252, 0.4)',
+                    }}
+                  >
+                    <Stack spacing={1} sx={{ maxHeight: 420, overflowY: 'auto', pr: 0.5 }}>
+                      {items.map((line) => {
+                        const consumable = isConsumable(line)
+                        const selectedCount = (selectedByLine[line.borrowItemId] || []).length
+                        const complete = consumable || selectedCount === Number(line.quantity)
+                        const isActive = line.borrowItemId === selectedLineId
+                        return (
+                          <ButtonBase
+                            key={line.borrowItemId}
+                            disabled={consumable}
+                            onClick={() => selectLine(line)}
+                            sx={{
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'flex-start',
+                              gap: 1.25,
+                              width: '100%',
+                              p: 1.25,
+                              border: '1px solid',
+                              borderColor: isActive ? 'primary.main' : 'divider',
+                              borderRadius: 1,
+                              bgcolor: isActive ? '#eff6ff' : '#fff',
+                              textAlign: 'left',
+                              '&:hover': { bgcolor: consumable ? '#fff' : '#f8fafc' },
+                              '&.Mui-disabled': { color: 'inherit', opacity: 1, cursor: 'default' },
+                            }}
+                          >
+                            {complete ? (
+                              <CheckCircleRoundedIcon sx={{ color: 'primary.main', flex: '0 0 auto' }} />
+                            ) : (
+                              <RadioButtonUncheckedRoundedIcon sx={{ color: '#64748b', flex: '0 0 auto' }} />
+                            )}
+                            <Box sx={{ minWidth: 0 }}>
+                              <Typography fontWeight={600} noWrap>
+                                {line.componentName}
+                              </Typography>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+                                <ComponentCodeTag code={line.componentCode} />
+                                <Typography
+                                  variant="body2"
+                                  color={consumable || complete ? 'success.main' : 'text.secondary'}
+                                  noWrap
+                                >
+                                  {consumable
+                                    ? `${line.quantity} ${line.unit || 'cái'} · tự động trừ kho`
+                                    : `Đã chọn ${selectedCount}/${line.quantity}`}
+                                </Typography>
+                              </Box>
+                            </Box>
+                          </ButtonBase>
+                        )
+                      })}
+                    </Stack>
+                  </Box>
                 </Grid>
 
                 <Grid size={{ xs: 12, md: 7 }} sx={{ minWidth: 0, alignSelf: 'flex-start' }}>
@@ -584,30 +629,75 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
                       </Typography>
                     ) : (
                       <>
-                        <Stack
-                          direction={{ xs: 'column', sm: 'row' }}
-                          alignItems={{ xs: 'stretch', sm: 'center' }}
-                          justifyContent="space-between"
-                          spacing={1}
-                          sx={{ mb: 1 }}
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'space-between',
+                            gap: 2,
+                            flexWrap: 'wrap',
+                            mb: 1,
+                          }}
                         >
                           <Box sx={{ minWidth: 0 }}>
                             <Typography fontWeight={700}>Mã con khả dụng</Typography>
-                            <Typography variant="body2" color="text.secondary" noWrap>
-                              {activeLine.componentName} ({activeLine.componentCode})
-                            </Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+                              <Typography variant="body2" color="text.secondary" noWrap>
+                                {activeLine.componentName}
+                              </Typography>
+                              <ComponentCodeTag code={activeLine.componentCode} />
+                            </Box>
                           </Box>
-                          {activeAvailable.length > 6 && (
-                            <TextField
+                          <Stack
+                            direction="row"
+                            alignItems="center"
+                            spacing={0.75}
+                            sx={{ ml: 'auto', flex: '0 0 auto' }}
+                          >
+                            <Button
                               size="small"
-                              value={itemSearch}
-                              onChange={(event) => setItemSearch(event.target.value)}
-                              placeholder="Lọc mã con..."
-                              inputProps={{ 'aria-label': 'Lọc mã con khả dụng' }}
-                              sx={{ width: { xs: '100%', sm: 200 }, flex: '0 0 auto' }}
-                            />
-                          )}
-                        </Stack>
+                              variant="outlined"
+                              disabled={quickSelectDisabled}
+                              onClick={() => {
+                                const additions = activeAvailableToSelect.slice(0, activeQuantityRemaining)
+                                const nextSelection = [...activeSelected, ...additions]
+                                setError('')
+                                setSelectedByLine((current) => ({
+                                  ...current,
+                                  [activeLine.borrowItemId]: nextSelection,
+                                }))
+                                if (nextSelection.length === Number(activeLine.quantity)) {
+                                  advanceToNextIncompleteLine(activeLine)
+                                }
+                              }}
+                              sx={{
+                                px: 1.25,
+                                py: 0.75,
+                                borderRadius: 0.75,
+                                borderColor: '#bfdbfe',
+                                bgcolor: '#eff6ff',
+                                color: '#2563eb',
+                                fontSize: 12,
+                                fontWeight: 500,
+                                whiteSpace: 'nowrap',
+                                textTransform: 'none',
+                                '&:hover': { bgcolor: '#dbeafe', borderColor: '#93c5fd' },
+                              }}
+                            >
+                              Chọn nhanh
+                            </Button>
+                            {activeAvailable.length > 6 && (
+                              <TextField
+                                size="small"
+                                value={itemSearch}
+                                onChange={(event) => setItemSearch(event.target.value)}
+                                placeholder="Lọc mã con..."
+                                inputProps={{ 'aria-label': 'Lọc mã con khả dụng' }}
+                                sx={{ width: 170, flex: '0 0 auto' }}
+                              />
+                            )}
+                          </Stack>
+                        </Box>
                         {activeLoading ? (
                           <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
                             <CircularProgress size={24} />
