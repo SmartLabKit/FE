@@ -9,7 +9,7 @@ function getRows(result) {
   return []
 }
 
-export function useLabBorrowRequests({ status, search, page, size = 20 }) {
+export function useLabBorrowRequests({ status, overdue, search, page, size = 20 }) {
   const [requests, setRequests] = useState([])
   const [transfers, setTransfers] = useState([])
   const [requestResult, setRequestResult] = useState(null)
@@ -27,6 +27,7 @@ export function useLabBorrowRequests({ status, search, page, size = 20 }) {
       const [requestsResponse, transfersResponse] = await Promise.all([
         borrowService.getLabBorrowRequests({
           status: status || undefined,
+          overdue: overdue ? true : undefined,
           search: search || undefined,
           page,
           size,
@@ -46,7 +47,7 @@ export function useLabBorrowRequests({ status, search, page, size = 20 }) {
     } finally {
       setLoading(false)
     }
-  }, [page, search, size, status])
+  }, [overdue, page, search, size, status])
 
   useEffect(() => {
     let active = true

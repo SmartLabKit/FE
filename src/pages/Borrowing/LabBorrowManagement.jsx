@@ -14,7 +14,6 @@ import {
   Grid,
   IconButton,
   InputAdornment,
-  MenuItem,
   Paper,
   Stack,
   Snackbar,
@@ -40,10 +39,36 @@ import ReturnBorrowModal from '../../components/borrowing/ReturnBorrowModal'
 import { useLabBorrowRequests } from '../../hooks/useLabBorrowRequests'
 import { borrowService } from '../../services/borrowService'
 import { extractErrorMessage } from '../../services/api'
-import { formatVietnamDate } from '../../utils/dateFormatting'
+import { formatVietnamDate, formatVietnamDateTime } from '../../utils/dateFormatting'
 import { getBorrowRequestStatusMeta } from './borrowHelpers'
 
 const PAGE_SIZE = 20
+
+const ORDER_STATUS_FILTERS = [
+  { key: 'ALL', label: 'Tất cả', status: '', overdue: false },
+  { key: 'Pending', label: 'Chờ duyệt', status: 'Pending', overdue: false },
+  { key: 'Approved', label: 'Chờ lab nhận', status: 'Approved', overdue: false },
+  { key: 'Ready', label: 'Sẵn sàng', status: 'Ready', overdue: false },
+  { key: 'Borrowing', label: 'Đang mượn', status: 'Borrowing', overdue: false },
+  { key: 'Overdue', label: 'Quá hạn', status: '', overdue: true },
+  { key: 'Returned', label: 'Đã trả', status: 'Returned', overdue: false },
+  { key: 'Rejected', label: 'Từ chối', status: 'Rejected', overdue: false },
+  { key: 'Cancelled', label: 'Đã hủy', status: 'Cancelled', overdue: false },
+]
+
+const RETURN_DESK_FILTERS = [
+  { key: 'Borrowing', label: 'Đang mượn', status: 'Borrowing', overdue: false },
+  { key: 'Overdue', label: 'Quá hạn', status: '', overdue: true },
+  { key: 'Returned', label: 'Đã trả', status: 'Returned', overdue: false },
+  { key: 'ALL', label: 'Tất cả', status: '', overdue: false },
+]
+
+const HISTORY_FILTERS = [
+  { key: 'Returned', label: 'Đã trả', status: 'Returned', overdue: false },
+  { key: 'Rejected', label: 'Từ chối', status: 'Rejected', overdue: false },
+  { key: 'Cancelled', label: 'Đã hủy', status: 'Cancelled', overdue: false },
+  { key: 'ALL', label: 'Tất cả đơn', status: '', overdue: false },
+]
 
 function getId(row) {
   return row?.borrowRequestId || row?.id
@@ -63,13 +88,6 @@ function getDaysOverdue(dueDate) {
 
 function isOverdue(request) {
   return Boolean(request?.isOverdue) || request?.status === 'Overdue'
-}
-
-function statusColor(status) {
-  if (status === 'Ready') return 'success'
-  if (status === 'Approved') return 'warning'
-  if (status === 'Cancelled' || status === 'Rejected' || status === 'Overdue') return 'error'
-  return 'default'
 }
 
 function getItemStatusInfo(item, requestStatus, isRemote) {
@@ -164,7 +182,7 @@ function getItemStatusInfo(item, requestStatus, isRemote) {
     }
   }
 
-  // 7. Theo item.status hoặc mặc định Chưa trả
+  // 7. Theo item.status hoặc mặc định Chờ giao
   const normStatus = String(item.status || '').toLowerCase()
   if (['damaged', 'hỏng hóc'].includes(normStatus)) {
     return { label: 'Hỏng hóc', bgcolor: '#fee2e2', textColor: '#dc2626' }
@@ -175,16 +193,20 @@ function getItemStatusInfo(item, requestStatus, isRemote) {
   if (['chưa trả', 'notreturned', 'borrowing', 'đang mượn', 'issued', 'đã giao'].includes(normStatus)) {
     return { label: 'Chưa trả', bgcolor: '#fffbeb', textColor: '#b45309' }
   }
+  if (['pending', 'chờ giao'].includes(normStatus)) {
+    return { label: 'Chờ giao', bgcolor: '#f1f5f9', textColor: '#475569' }
+  }
 
   return {
-    label: item.status || 'Chưa trả',
+    label: item.status || 'Chờ giao',
     bgcolor: '#f1f5f9',
     textColor: '#475569',
   }
 }
 
 export default function LabBorrowManagement() {
-  const [status, setStatus] = useState('Approved')
+  const [status, setStatus] = useState('')
+  const [overdueFilter, setOverdueFilter] = useState(false)
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
@@ -198,7 +220,7 @@ export default function LabBorrowManagement() {
     error,
     realtimeUnavailable,
     refresh,
-  } = useLabBorrowRequests({ status, search, page, size: PAGE_SIZE })
+  } = useLabBorrowRequests({ status, overdue: overdueFilter, search, page, size: PAGE_SIZE })
 
   const [selectedRequestId, setSelectedRequestId] = useState('')
   const [requestDetail, setRequestDetail] = useState(null)
@@ -423,9 +445,12 @@ export default function LabBorrowManagement() {
         <Paper variant="outlined" sx={{ mb: 2 }}>
           <Tabs
             value={tab}
+            variant="scrollable"
+            scrollButtons="auto"
             onChange={(_, value) => {
               setTab(value)
               setPage(1)
+              setOverdueFilter(false)
               if (value === 2) setStatus('Ready')
               else if (value === 3) setStatus('Borrowing')
               else if (value === 4) setStatus('Returned')
@@ -439,9 +464,11 @@ export default function LabBorrowManagement() {
             <Tab label="Quầy nhận trả" />
             <Tab label="Lịch sử đã trả" />
           </Tabs>
+
+          {/* Thanh tìm kiếm & bộ lọc trạng thái đơn mượn */}
           <Box component="form" onSubmit={handleSearch} sx={{ p: 2 }}>
             <Grid container spacing={1.5} alignItems="center">
-              <Grid item xs={12} sm={5} md={4}>
+              <Grid size={{ xs: 12, sm: 7, md: 6 }}>
                 <TextField
                   fullWidth
                   size="small"
@@ -454,20 +481,28 @@ export default function LabBorrowManagement() {
                   }
                   value={searchInput}
                   onChange={(event) => setSearchInput(event.target.value)}
-                  InputProps={tab === 2 ? {
-                    endAdornment: (
-                      <InputAdornment position="end">
-                        <IconButton
-                          aria-label="Chụp thẻ sinh viên"
-                          onClick={() => cardInputRef.current?.click()}
-                          disabled={cardLoading}
-                          edge="end"
-                        >
-                          {cardLoading ? <CircularProgress size={20} /> : <PhotoCameraIcon />}
-                        </IconButton>
-                      </InputAdornment>
-                    ),
-                  } : undefined}
+                  slotProps={
+                    tab === 2
+                      ? {
+                          input: {
+                            endAdornment: (
+                              <InputAdornment position="end">
+                                <Tooltip title="Quét thẻ sinh viên bằng AI">
+                                  <IconButton
+                                    aria-label="Chụp thẻ sinh viên"
+                                    onClick={() => cardInputRef.current?.click()}
+                                    disabled={cardLoading}
+                                    edge="end"
+                                  >
+                                    {cardLoading ? <CircularProgress size={20} /> : <PhotoCameraIcon />}
+                                  </IconButton>
+                                </Tooltip>
+                              </InputAdornment>
+                            ),
+                          },
+                        }
+                      : undefined
+                  }
                 />
                 {tab === 2 && (
                   <input
@@ -480,64 +515,92 @@ export default function LabBorrowManagement() {
                   />
                 )}
               </Grid>
-              {(tab === 0 || tab === 3 || tab === 4) && (
-                <Grid item xs={12} sm={3} md={2}>
-                  <TextField
-                    select
-                    fullWidth
-                    size="small"
-                    label="Trạng thái"
-                    value={status}
-                    onChange={(event) => { setPage(1); setStatus(event.target.value) }}
+              <Grid size={{ xs: 'auto' }}>
+                <Button type="submit" variant="contained" startIcon={<SearchIcon />} sx={{ textTransform: 'none', height: 40 }}>
+                  Tìm kiếm
+                </Button>
+              </Grid>
+              {search && (
+                <Grid size={{ xs: 'auto' }}>
+                  <Button
+                    variant="outlined"
+                    onClick={() => {
+                      setSearchInput('')
+                      setSearch('')
+                      setPage(1)
+                    }}
+                    sx={{ textTransform: 'none', height: 40 }}
                   >
-                    {tab === 4 ? (
-                      <>
-                        <MenuItem value="Returned">Đã trả</MenuItem>
-                        <MenuItem value="">Tất cả lịch sử</MenuItem>
-                      </>
-                    ) : tab === 3 ? (
-                      <>
-                        <MenuItem value="Borrowing">Đang mượn</MenuItem>
-                        <MenuItem value="Overdue">Quá hạn</MenuItem>
-                        <MenuItem value="Returned">Đã trả (Vừa trả xong)</MenuItem>
-                        <MenuItem value="">Tất cả</MenuItem>
-                      </>
-                    ) : (
-                      <>
-                        <MenuItem value="">Tất cả trạng thái</MenuItem>
-                        <MenuItem value="Approved">Đã duyệt</MenuItem>
-                        <MenuItem value="Ready">Sẵn sàng giao</MenuItem>
-                        <MenuItem value="Borrowing">Đang mượn</MenuItem>
-                        <MenuItem value="Overdue">Quá hạn</MenuItem>
-                        <MenuItem value="Returned">Đã trả</MenuItem>
-                        <MenuItem value="Cancelled">Đã hủy</MenuItem>
-                      </>
-                    )}
-                  </TextField>
+                    Xóa tìm
+                  </Button>
                 </Grid>
               )}
-              <Grid item>
-                <Button type="submit" variant="contained" startIcon={<SearchIcon />}>Tìm kiếm</Button>
-              </Grid>
             </Grid>
+
+            {/* Dải nút lọc trạng thái 1 chạm */}
+            {(tab === 0 || tab === 3 || tab === 4) && (() => {
+              const filterOptions =
+                tab === 4 ? HISTORY_FILTERS : tab === 3 ? RETURN_DESK_FILTERS : ORDER_STATUS_FILTERS
+              return (
+                <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center', mt: 1.75 }}>
+                  {filterOptions.map((opt) => {
+                    const active = overdueFilter === opt.overdue && status === opt.status
+                    return (
+                      <Button
+                        key={opt.key}
+                        type="button"
+                        size="small"
+                        variant={active ? 'contained' : 'outlined'}
+                        onClick={() => {
+                          setPage(1)
+                          setStatus(opt.status)
+                          setOverdueFilter(opt.overdue)
+                        }}
+                        sx={{
+                          textTransform: 'none',
+                          borderRadius: '999px',
+                          fontWeight: 700,
+                          fontSize: 12,
+                          px: 1.75,
+                          py: 0.35,
+                          boxShadow: 'none',
+                          bgcolor: active ? (opt.overdue ? '#dc2626' : '#0058be') : '#ffffff',
+                          borderColor: active ? (opt.overdue ? '#dc2626' : '#0058be') : '#cbd5e1',
+                          color: active ? '#ffffff' : '#334155',
+                          '&:hover': {
+                            bgcolor: active ? (opt.overdue ? '#b91c1c' : '#0049a3') : '#f1f5f9',
+                            borderColor: active ? (opt.overdue ? '#b91c1c' : '#0049a3') : '#94a3b8',
+                          },
+                        }}
+                      >
+                        {opt.label}
+                      </Button>
+                    )
+                  })}
+                </Box>
+              )
+            })()}
+
             {tab === 2 && cardMessage && (
               <Alert severity={cardMessage.severity} sx={{ mt: 1.5 }}>{cardMessage.text}</Alert>
             )}
           </Box>
+
           <Divider />
+
           {loading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}><CircularProgress /></Box>
           ) : tab !== 1 ? (
             <TableContainer>
               <Table size="small">
                 <TableHead>
-                  <TableRow>
-                    <TableCell>Mã đơn</TableCell>
-                    <TableCell>Sinh viên / Lớp</TableCell>
-                    <TableCell>Đề tài</TableCell>
-                    <TableCell>Lab nhận</TableCell>
-                    <TableCell>Ngày nhận dự kiến</TableCell>
-                    <TableCell>Trạng thái</TableCell>
+                  <TableRow sx={{ bgcolor: '#faf9ff' }}>
+                    <TableCell sx={{ fontWeight: 700 }}>Mã đơn</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Sinh viên / Lớp</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Đề tài / Số món</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Lab nhận</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Hạn trả</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Trạng thái</TableCell>
                   </TableRow>
                 </TableHead>
                 <TableBody>
@@ -553,11 +616,23 @@ export default function LabBorrowManagement() {
                       }}
                       sx={{ cursor: 'pointer' }}
                     >
-                      <TableCell>{request.requestCode || '—'}</TableCell>
-                      <TableCell>{request.requesterName || '—'}<br /><Typography variant="caption" color="text.secondary">{request.classCode || ''}</Typography></TableCell>
-                      <TableCell>{request.projectTitle || '—'}</TableCell>
+                      <TableCell sx={{ fontWeight: 700, color: '#0058be', whiteSpace: 'nowrap' }}>
+                        {request.requestCode || '—'}
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight={700}>{request.requesterName || '—'}</Typography>
+                        <Typography variant="caption" color="text.secondary">{request.classCode || ''}</Typography>
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" fontWeight={600}>{request.projectTitle || '—'}</Typography>
+                        {typeof request.itemCount === 'number' && (
+                          <Typography variant="caption" color="text.secondary">{request.itemCount} món</Typography>
+                        )}
+                      </TableCell>
                       <TableCell>{request.roomName || request.roomCode || '—'}</TableCell>
-                      <TableCell>{formatVietnamDate(request.expectedBorrowDate || request.borrowDate)}</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap', fontWeight: 600, color: isOverdue(request) ? '#dc2626' : 'inherit' }}>
+                        {formatVietnamDate(request.dueDate)}
+                      </TableCell>
                       <TableCell>
                         <Stack spacing={0.5} alignItems="flex-start">
                           {(() => {
@@ -580,7 +655,7 @@ export default function LabBorrowManagement() {
                   ))}
                   {!requests.length && (
                     <TableRow>
-                      <TableCell colSpan={6} align="center">
+                      <TableCell colSpan={6} align="center" sx={{ py: 4, color: 'text.secondary' }}>
                         {tab === 2
                           ? 'Không tìm thấy đơn sẵn sàng giao.'
                           : tab === 3
@@ -668,13 +743,37 @@ export default function LabBorrowManagement() {
                   })()}
                 </Stack>
                 <Grid container spacing={2}>
-                  <Grid item xs={12} sm={4}><Typography variant="caption" color="text.secondary">Lab nhận</Typography><Typography>{requestDetail.roomName || requestDetail.roomCode || '—'}</Typography></Grid>
-                  <Grid item xs={12} sm={4}><Typography variant="caption" color="text.secondary">Ngày nhận dự kiến</Typography><Typography>{formatVietnamDate(requestDetail.expectedBorrowDate || requestDetail.borrowDate)}</Typography></Grid>
-                  <Grid item xs={12} sm={4}><Typography variant="caption" color="text.secondary">Hạn trả</Typography><Typography>{formatVietnamDate(requestDetail.dueDate)}</Typography></Grid>
+                  <Grid size={{ xs: 12, sm: 3 }}>
+                    <Typography variant="caption" color="text.secondary">Sinh viên (MSSV / Lớp)</Typography>
+                    <Typography fontWeight={600}>
+                      {[requestDetail.studentCode, requestDetail.classCode].filter(Boolean).join(' · ') || '—'}
+                    </Typography>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 3 }}>
+                    <Typography variant="caption" color="text.secondary">Lab nhận đồ</Typography>
+                    <Typography fontWeight={600}>{requestDetail.roomName || requestDetail.roomCode || '—'}</Typography>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 3 }}>
+                    <Typography variant="caption" color="text.secondary">Ngày gửi đơn</Typography>
+                    <Typography fontWeight={600}>
+                      {formatVietnamDate(requestDetail.requestDate || requestDetail.expectedBorrowDate || requestDetail.borrowDate)}
+                    </Typography>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 3 }}>
+                    <Typography variant="caption" color="text.secondary">Hạn trả</Typography>
+                    <Typography fontWeight={600} color={isOverdue(requestDetail) ? 'error.main' : 'inherit'}>
+                      {formatVietnamDate(requestDetail.dueDate)}
+                    </Typography>
+                  </Grid>
                 </Grid>
+                {requestDetail.rejectReason && (
+                  <Alert severity="error" sx={{ py: 0.5 }}>
+                    <strong>Lý do {requestDetail.status === 'Cancelled' ? 'hủy' : 'từ chối'}:</strong> {requestDetail.rejectReason}
+                  </Alert>
+                )}
                 <Divider />
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1 }}>
-                  <Typography fontWeight={600}>Danh sách linh kiện yêu cầu:</Typography>
+                  <Typography fontWeight={600}>Danh sách linh kiện yêu cầu ({detailItems.length}):</Typography>
                   {['Borrowing', 'Overdue'].includes(requestDetail.status) && detailItems.length > 0 && (
                     <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
                       <Chip
@@ -734,6 +833,56 @@ export default function LabBorrowManagement() {
                     </TableBody>
                   </Table>
                 </TableContainer>
+
+                {requestDetail.purpose && (
+                  <Box sx={{ p: 1.75, borderRadius: 1.5, bgcolor: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                    <Typography variant="caption" sx={{ fontWeight: 700, color: '#64748b', display: 'block', mb: 0.4 }}>
+                      MỤC ĐÍCH
+                    </Typography>
+                    <Typography variant="body2" sx={{ color: '#1e293b', lineHeight: 1.6 }}>
+                      {requestDetail.purpose}
+                    </Typography>
+                  </Box>
+                )}
+
+                {Array.isArray(requestDetail.approvals) && requestDetail.approvals.length > 0 && (
+                  <Box>
+                    <Typography variant="caption" sx={{ fontWeight: 700, color: '#64748b', display: 'block', mb: 1 }}>
+                      LỊCH SỬ DUYỆT
+                    </Typography>
+                    <Stack spacing={1}>
+                      {requestDetail.approvals.map((app, idx) => {
+                        const appMeta = getBorrowRequestStatusMeta(app.status)
+                        return (
+                          <Paper
+                            key={`${app.approverId || idx}-${app.stepNo || idx}`}
+                            variant="outlined"
+                            sx={{
+                              p: 1.25,
+                              borderRadius: 1.5,
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              gap: 1.5,
+                              flexWrap: 'wrap',
+                            }}
+                          >
+                            <Box>
+                              <Typography variant="body2" fontWeight={700} color="#0f172a">
+                                {app.approverName || 'Người duyệt'}
+                              </Typography>
+                              <Typography variant="caption" color="text.secondary">
+                                {app.decidedAt ? formatVietnamDateTime(app.decidedAt) : 'Chờ xử lý'}
+                                {app.comment ? ` · ${app.comment}` : ''}
+                              </Typography>
+                            </Box>
+                            <Chip size="small" label={appMeta.label} sx={appMeta.sx} />
+                          </Paper>
+                        )
+                      })}
+                    </Stack>
+                  </Box>
+                )}
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="flex-end">
                   {requestDetail.status === 'Approved' && (
                     <Tooltip title={pendingTransfers.length ? 'Còn linh kiện đang chuyển về lab' : ''}>
