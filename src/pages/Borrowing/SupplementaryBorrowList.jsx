@@ -161,11 +161,14 @@ export default function SupplementaryBorrowList() {
     await loadData()
   }, [loadData])
 
-  // Thống kê số lượng project theo trạng thái cho Giảng viên
+  // Thống kê số lượng project theo trạng thái cho Giảng viên (bao gồm cả đề tài đã Approved nhưng có đơn mượn thêm Pending)
   const pendingCount = useMemo(
     () =>
-      lecturerProjects.filter((p) =>
-        ['Submitted', 'PendingApproval', 'PendingLecturer', 'Pending'].includes(p.status)
+      lecturerProjects.filter(
+        (p) =>
+          ['Submitted', 'PendingApproval', 'PendingLecturer', 'Pending'].includes(p.status) ||
+          Boolean(p.hasPendingApproval) ||
+          Boolean(p.isSupplementary)
       ).length,
     [lecturerProjects]
   )
@@ -185,9 +188,11 @@ export default function SupplementaryBorrowList() {
     return lecturerProjects.filter((project) => {
       // Lọc trạng thái
       if (projectStatusFilter === 'Submitted') {
-        if (!['Submitted', 'PendingApproval', 'PendingLecturer', 'Pending'].includes(project.status)) {
-          return false
-        }
+        const isPendingItem =
+          ['Submitted', 'PendingApproval', 'PendingLecturer', 'Pending'].includes(project.status) ||
+          Boolean(project.hasPendingApproval) ||
+          Boolean(project.isSupplementary)
+        if (!isPendingItem) return false
       } else if (projectStatusFilter === 'Approved') {
         if (project.status !== 'Approved') return false
       } else if (projectStatusFilter === 'Rejected') {
@@ -198,7 +203,7 @@ export default function SupplementaryBorrowList() {
       if (projectSearch.trim()) {
         const q = projectSearch.toLowerCase().trim()
         const matchTitle = project.title?.toLowerCase().includes(q)
-        const matchCode = project.requestCode?.toLowerCase().includes(q)
+        const matchCode = (project.pendingRequestCode || project.requestCode || '').toLowerCase().includes(q)
         const matchOwner = project.ownerName?.toLowerCase().includes(q)
         const matchTeam = project.teamName?.toLowerCase().includes(q)
         const matchClass = project.classCode?.toLowerCase().includes(q)
@@ -331,6 +336,18 @@ export default function SupplementaryBorrowList() {
       await refreshData()
     } catch (err) {
       setToast({ open: true, message: err.message || 'Duyệt gia hạn thất bại', severity: 'error' })
+    }
+  }
+
+  // Sinh viên rút lại đơn mượn bổ sung đang chờ giảng viên duyệt
+  const handleWithdrawSupplementary = async (req) => {
+    if (!req?.projectId) return
+    try {
+      await borrowService.withdrawSupplementaryBorrow(req.projectId)
+      setToast({ open: true, message: `Đã rút lại đơn mượn bổ sung ${req.requestCode || ''}.`, severity: 'success' })
+      await refreshData()
+    } catch (err) {
+      setToast({ open: true, message: err.message || 'Không thể rút lại đơn mượn bổ sung.', severity: 'error' })
     }
   }
 
@@ -580,7 +597,13 @@ export default function SupplementaryBorrowList() {
                       </TableRow>
                     ) : (
                       filteredLecturerProjects.map((project) => {
-                        const isPending = ['Submitted', 'PendingApproval', 'PendingLecturer', 'Pending'].includes(project.status)
+                        const isSupplementaryPending =
+                          Boolean(project.isSupplementary) ||
+                          (Boolean(project.hasPendingApproval) && project.status === 'Approved')
+                        const isPending =
+                          ['Submitted', 'PendingApproval', 'PendingLecturer', 'Pending'].includes(project.status) ||
+                          isSupplementaryPending ||
+                          Boolean(project.hasPendingApproval)
                         return (
                           <TableRow key={project.projectId} hover>
                             <TableCell>
@@ -588,7 +611,7 @@ export default function SupplementaryBorrowList() {
                                 {project.title}
                               </Typography>
                               <Typography variant="caption" sx={{ color: '#64748b' }}>
-                                {project.requestCode || '—'} · {project.ownerName || '—'}
+                                {project.pendingRequestCode || project.requestCode || '—'} · {project.ownerName || '—'}
                               </Typography>
                             </TableCell>
                             <TableCell sx={{ fontSize: 12, color: '#334155' }}>
@@ -603,7 +626,16 @@ export default function SupplementaryBorrowList() {
                               {formatVietnamDate(project.dueDate)}
                             </TableCell>
                             <TableCell>
-                              {getProjectStatusChip(project.status)}
+                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, alignItems: 'center' }}>
+                                {getProjectStatusChip(project.status)}
+                                {isSupplementaryPending && (
+                                  <Chip
+                                    label="Mượn thêm · Chờ duyệt"
+                                    size="small"
+                                    sx={{ bgcolor: '#fef3c7', color: '#b45309', fontWeight: 800, fontSize: 10.5 }}
+                                  />
+                                )}
+                              </Box>
                             </TableCell>
                             <TableCell align="right">
                               {isPending ? (
@@ -621,7 +653,7 @@ export default function SupplementaryBorrowList() {
                                     '&:hover': { bgcolor: '#004ca6' },
                                   }}
                                 >
-                                  Duyệt
+                                  {isSupplementaryPending ? 'Duyệt mượn thêm' : 'Duyệt'}
                                 </Button>
                               ) : (
                                 <Button
@@ -1072,20 +1104,38 @@ export default function SupplementaryBorrowList() {
                           <Chip label={meta.label} size="small" sx={meta.sx} />
                         </TableCell>
                         <TableCell sx={{ textAlign: 'right' }}>
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            onClick={() => navigate(`/borrow/requests/${req.borrowRequestId}`)}
-                            sx={{
-                              textTransform: 'none',
-                              fontWeight: 700,
-                              fontSize: 11,
-                              borderRadius: 1,
-                              borderColor: '#dcdfe6',
-                            }}
-                          >
-                            Chi tiết
-                          </Button>
+                          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                            {req.status === 'Pending' && req.projectId && (
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                color="warning"
+                                onClick={() => handleWithdrawSupplementary(req)}
+                                sx={{
+                                  textTransform: 'none',
+                                  fontWeight: 700,
+                                  fontSize: 11,
+                                  borderRadius: 1,
+                                }}
+                              >
+                                Rút lại
+                              </Button>
+                            )}
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={() => navigate(`/borrow/requests/${req.borrowRequestId}`)}
+                              sx={{
+                                textTransform: 'none',
+                                fontWeight: 700,
+                                fontSize: 11,
+                                borderRadius: 1,
+                                borderColor: '#dcdfe6',
+                              }}
+                            >
+                              Chi tiết
+                            </Button>
+                          </Box>
                         </TableCell>
                       </TableRow>
                     )

@@ -10,17 +10,26 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
+  Paper,
   Stack,
   TextField,
   Tooltip,
   Typography,
 } from '@mui/material'
+import { ArrowForward as ArrowForwardIcon } from '@mui/icons-material'
+import { useNavigate } from 'react-router-dom'
 import ProjectStatusChip from '../../components/borrowing/ProjectStatusChip'
 import { projectService } from '../../services/projectService'
+import { borrowService } from '../../services/borrowService'
 import { formatVietnamDate } from '../../utils/dateFormatting'
+import { getBorrowRequestStatusMeta } from './borrowHelpers'
+
+const COMMENT_MAX_LENGTH = 255
 
 export default function ProjectApprovalDialog({ project, open, onClose, onReviewed }) {
+  const navigate = useNavigate()
   const [detail, setDetail] = useState(null)
+  const [pendingBorrowDetail, setPendingBorrowDetail] = useState(null)
   const [loading, setLoading] = useState(false)
   const [busy, setBusy] = useState(false)
   const [comment, setComment] = useState('')
@@ -36,10 +45,28 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
       setLoading(true)
       setError('')
       setDetail(null)
+      setPendingBorrowDetail(null)
       setComment('')
       try {
         const result = await projectService.getProject(project.projectId)
-        if (active) setDetail(result)
+        if (!active) return
+        setDetail(result)
+
+        // Nếu đề tài đang có đơn mượn ở trạng thái Pending (đặc biệt là đơn mượn thêm),
+        // tải chi tiết đơn đó để hiển thị đúng danh sách linh kiện xin mượn thêm.
+        const borrows = Array.isArray(result?.borrowRequests) ? result.borrowRequests : []
+        const pendingBr =
+          borrows.find((br) => br.status === 'Pending') ||
+          (project?.pendingBorrowRequestId ? { borrowRequestId: project.pendingBorrowRequestId } : null)
+
+        if (pendingBr?.borrowRequestId) {
+          try {
+            const brDetail = await borrowService.getBorrowRequestById(pendingBr.borrowRequestId)
+            if (active) setPendingBorrowDetail(brDetail)
+          } catch {
+            // Không chặn hiển thị chi tiết project nếu không lấy được chi tiết đơn
+          }
+        }
       } catch (requestError) {
         if (active) setError(requestError.message || 'Không thể tải chi tiết project.')
       } finally {
@@ -50,16 +77,28 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
     return () => {
       active = false
     }
-  }, [open, project?.projectId])
+  }, [open, project?.projectId, project?.pendingBorrowRequestId])
+
+  const borrowRequests = Array.isArray(detail?.borrowRequests) ? detail.borrowRequests : []
+  const currentStatus = detail?.status || project?.status || ''
+  const pendingBorrowRequest = borrowRequests.find((br) => br.status === 'Pending') || null
+  const isProjectPending = ['Submitted', 'Pending', 'PendingApproval', 'PendingLecturer'].includes(currentStatus)
+  const isSupplementaryPending =
+    currentStatus === 'Approved' && (Boolean(pendingBorrowRequest) || Boolean(project?.isSupplementary))
+  const canReview = isProjectPending || isSupplementaryPending || Boolean(project?.hasPendingApproval)
 
   const handleApprove = async () => {
     setBusy(true)
     setError('')
     try {
       await projectService.approveProject(project.projectId, comment.trim())
-      onReviewed('Đã duyệt project thành công.')
+      onReviewed(
+        isSupplementaryPending
+          ? 'Đã duyệt đơn mượn thêm thành công.'
+          : 'Đã duyệt project thành công.'
+      )
     } catch (requestError) {
-      setError(requestError.message || 'Không thể duyệt project.')
+      setError(requestError.message || 'Không thể duyệt yêu cầu.')
     } finally {
       setBusy(false)
     }
@@ -74,22 +113,24 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
     setError('')
     try {
       await projectService.rejectProject(project.projectId, comment.trim())
-      onReviewed('Đã từ chối project và gửi lý do cho nhóm.')
+      onReviewed(
+        isSupplementaryPending
+          ? 'Đã từ chối đơn mượn thêm và gửi lý do cho nhóm (đề tài vẫn giữ trạng thái Đã duyệt).'
+          : 'Đã từ chối project và gửi lý do cho nhóm.'
+      )
     } catch (requestError) {
-      setError(requestError.message || 'Không thể từ chối project.')
+      setError(requestError.message || 'Không thể từ chối yêu cầu.')
     } finally {
       setBusy(false)
     }
   }
 
-  const borrowRequests = detail?.borrowRequests || []
-  const currentStatus = detail?.status || project?.status || ''
-  const isPending = ['Submitted', 'Pending', 'PendingApproval', 'PendingLecturer'].includes(currentStatus)
-  const borrowRequest = borrowRequests[0]
+  const borrowRequest = pendingBorrowRequest || borrowRequests[0]
   const teamName = detail?.teamName || project?.teamName || 'Nhóm'
   const classCode = detail?.classCode || project?.classCode || '—'
   const submittedAt = detail?.submittedAt || project?.submittedAt
-  const borrowDate = borrowRequest?.expectedBorrowDate ||
+  const borrowDate =
+    borrowRequest?.expectedBorrowDate ||
     detail?.expectedBorrowDate ||
     borrowRequest?.borrowDate ||
     detail?.borrowDate
@@ -100,35 +141,110 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
   const combineSubmissionAndBorrowDate = submittedDate !== '—' && submittedDate === borrowedDate
   const timeInfo = combineSubmissionAndBorrowDate
     ? [
-      { label: 'Thời gian gửi đề tài / Thời gian mượn LK', value: submittedDate },
-      { label: 'Thời gian trả LK', value: returnedDate },
-    ]
+        { label: 'Thời gian gửi đề tài / Thời gian mượn LK', value: submittedDate },
+        { label: 'Hạn trả LK', value: returnedDate },
+      ]
     : [
-      { label: 'Thời gian gửi đề tài', value: submittedDate },
-      { label: 'Thời gian mượn LK', value: borrowedDate },
-      { label: 'Thời gian trả LK', value: returnedDate },
-    ]
+        { label: 'Thời gian gửi đề tài', value: submittedDate },
+        { label: 'Thời gian mượn LK', value: borrowedDate },
+        { label: 'Hạn trả LK', value: returnedDate },
+      ]
+
+  const supplementaryReason =
+    pendingBorrowDetail?.purpose ||
+    pendingBorrowRequest?.purpose ||
+    project?.pendingPurpose ||
+    ''
 
   return (
     <Dialog open={open} onClose={() => !busy && onClose()} fullWidth maxWidth="md">
       <DialogTitle>
-        <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1.5}>
+        <Stack direction="row" alignItems="center" justifyContent="space-between" spacing={1.5} flexWrap="wrap" useFlexGap>
           <Typography variant="h6" sx={{ flex: 1, minWidth: 0, fontWeight: 800, overflowWrap: 'anywhere' }}>
-            {isPending ? 'Duyệt đề tài cho' : 'Chi tiết đề tài của'} {teamName} · Lớp {classCode}
+            {isSupplementaryPending
+              ? `Duyệt đơn mượn thêm · ${teamName} · Lớp ${classCode}`
+              : isProjectPending
+                ? `Duyệt đề tài cho ${teamName} · Lớp ${classCode}`
+                : `Chi tiết đề tài của ${teamName} · Lớp ${classCode}`}
           </Typography>
-          <ProjectStatusChip status={currentStatus} size="medium" />
+          <Stack direction="row" spacing={1} alignItems="center">
+            {isSupplementaryPending && (
+              <Chip
+                label="Mượn thêm · Chờ duyệt"
+                size="small"
+                sx={{ bgcolor: '#fef3c7', color: '#b45309', fontWeight: 800, fontSize: 11.5 }}
+              />
+            )}
+            <ProjectStatusChip status={currentStatus} size="medium" />
+          </Stack>
         </Stack>
       </DialogTitle>
+
       <DialogContent dividers>
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 6 }}>
             <CircularProgress />
           </Box>
         ) : (
-          <Stack spacing={2}>
+          <Stack spacing={2.25}>
             {error && error !== rejectValidationMessage && <Alert severity="error">{error}</Alert>}
+
             {detail && (
               <>
+                {/* Khối nổi bật khi có ĐƠN MƯỢN THÊM CHỜ DUYỆT */}
+                {isSupplementaryPending && (
+                  <Paper
+                    elevation={0}
+                    sx={{
+                      p: 2,
+                      borderRadius: 2,
+                      border: '1px solid #fcd34d',
+                      bgcolor: '#fffbeb',
+                    }}
+                  >
+                    <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1} sx={{ mb: 1 }}>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#92400e' }}>
+                        Đơn mượn thêm đang chờ duyệt:{' '}
+                        {pendingBorrowRequest?.requestCode || project?.pendingRequestCode || '—'}
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: '#92400e', fontWeight: 700 }}>
+                        Hạn trả: {formatVietnamDate(pendingBorrowRequest?.dueDate || pendingBorrowDetail?.dueDate)}
+                      </Typography>
+                    </Stack>
+
+                    {supplementaryReason && (
+                      <Typography variant="body2" sx={{ color: '#78350f', mb: 1.5, lineHeight: 1.6 }}>
+                        <strong>Lý do mượn thêm:</strong> {supplementaryReason}
+                      </Typography>
+                    )}
+
+                    <Typography variant="caption" sx={{ fontWeight: 800, color: '#92400e', display: 'block', mb: 0.75 }}>
+                      LINH KIỆN XIN MƯỢN THÊM ({pendingBorrowDetail?.items?.length || 0})
+                    </Typography>
+                    {pendingBorrowDetail?.items?.length ? (
+                      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
+                        {pendingBorrowDetail.items.map((item, idx) => (
+                          <Tooltip
+                            key={item.borrowItemId || `${item.componentId}-${idx}`}
+                            title={`${item.componentCode || ''} · ${item.trackingType || ''}`}
+                          >
+                            <Chip
+                              label={`${item.componentName} ×${item.quantity} ${item.unit || ''}`.trim()}
+                              size="small"
+                              sx={{ bgcolor: '#ffffff', color: '#92400e', border: '1px solid #fde68a', fontWeight: 700 }}
+                            />
+                          </Tooltip>
+                        ))}
+                      </Box>
+                    ) : (
+                      <Typography variant="caption" sx={{ color: '#92400e' }}>
+                        Bấm vào chi tiết đơn bên dưới để xem danh sách linh kiện cụ thể.
+                      </Typography>
+                    )}
+                  </Paper>
+                )}
+
+                {/* Thông tin đề tài */}
                 <Box
                   sx={{
                     display: 'grid',
@@ -147,6 +263,7 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
                     {detail.description || 'Chưa có mô tả.'}
                   </Typography>
                 </Box>
+
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'baseline', columnGap: 1.5, rowGap: 1 }}>
                   {timeInfo.map((item, index) => (
                     <Box key={item.label} sx={{ display: 'inline-flex', alignItems: 'baseline', gap: 0.75 }}>
@@ -166,8 +283,12 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
                 </Box>
 
                 <Divider />
+
+                {/* Linh kiện đã khai báo trên đề tài */}
                 <Box>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1 }}>Linh kiện mượn kho</Typography>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1 }}>
+                    Linh kiện mượn kho của đề tài ({detail.components?.length || 0})
+                  </Typography>
                   {detail.components?.length ? (
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                       {detail.components.map((item, index) => (
@@ -182,10 +303,15 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
                         </Tooltip>
                       ))}
                     </Box>
-                  ) : <Typography variant="body2" color="text.secondary">Không có linh kiện mượn kho.</Typography>}
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">Không có linh kiện mượn kho.</Typography>
+                  )}
                 </Box>
+
                 <Box>
-                  <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1 }}>Món tự mua</Typography>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1 }}>
+                    Món tự mua ({detail.selfSuppliedItems?.length || 0})
+                  </Typography>
                   {detail.selfSuppliedItems?.length ? (
                     <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
                       {detail.selfSuppliedItems.map((item, index) => (
@@ -200,24 +326,104 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
                         </Tooltip>
                       ))}
                     </Box>
-                  ) : <Typography variant="body2" color="text.secondary">Không có món tự mua.</Typography>}
+                  ) : (
+                    <Typography variant="body2" color="text.secondary">Không có món tự mua.</Typography>
+                  )}
                 </Box>
 
                 <Divider />
-                {isPending ? (
+
+                {/* Danh sách toàn bộ ĐƠN MƯỢN của đề tài (giống Mobile Hình 4) */}
+                <Box>
+                  <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1.25 }}>
+                    Đơn mượn của đề tài ({borrowRequests.length})
+                  </Typography>
+                  {borrowRequests.length === 0 ? (
+                    <Typography variant="body2" color="text.secondary">
+                      Chưa có đơn mượn nào được tạo từ đề tài này.
+                    </Typography>
+                  ) : (
+                    <Stack spacing={1}>
+                      {borrowRequests.map((br) => {
+                        const meta = getBorrowRequestStatusMeta(br.status)
+                        return (
+                          <Paper
+                            key={br.borrowRequestId}
+                            variant="outlined"
+                            sx={{
+                              p: 1.5,
+                              borderRadius: 1.5,
+                              borderColor: br.status === 'Pending' ? '#fcd34d' : '#e2e8f0',
+                              bgcolor: br.status === 'Pending' ? '#fffbeb' : '#f8fafc',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              flexWrap: 'wrap',
+                              gap: 1.25,
+                            }}
+                          >
+                            <Box sx={{ minWidth: 0, flex: 1 }}>
+                              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                                <Typography variant="body2" sx={{ fontWeight: 800, color: '#0058be' }}>
+                                  #{br.requestCode || '—'}
+                                </Typography>
+                                <Chip label={meta.label} size="small" sx={meta.sx} />
+                                {br.roomName && (
+                                  <Typography variant="caption" sx={{ color: '#64748b' }}>
+                                    · {br.roomName}
+                                  </Typography>
+                                )}
+                              </Stack>
+                              <Typography variant="caption" sx={{ color: '#475569', display: 'block', mt: 0.35 }}>
+                                Hạn trả: <strong>{br.dueDate ? formatVietnamDate(br.dueDate) : '—'}</strong>
+                                {br.purpose ? ` · ${br.purpose}` : ''}
+                              </Typography>
+                            </Box>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              endIcon={<ArrowForwardIcon sx={{ fontSize: 13 }} />}
+                              onClick={() => {
+                                onClose()
+                                navigate(`/borrow/requests/${br.borrowRequestId}`)
+                              }}
+                              sx={{ textTransform: 'none', fontWeight: 700, fontSize: 11.5, borderRadius: 1.25 }}
+                            >
+                              Chi tiết đơn
+                            </Button>
+                          </Paper>
+                        )
+                      })}
+                    </Stack>
+                  )}
+                </Box>
+
+                <Divider />
+
+                {/* Khối nhận xét / trạng thái phê duyệt */}
+                {canReview ? (
                   <TextField
-                    label="Nhận xét (bắt buộc nếu từ chối)"
+                    label={
+                      isSupplementaryPending
+                        ? 'Nhận xét duyệt đơn mượn thêm (bắt buộc nếu từ chối)'
+                        : 'Nhận xét (bắt buộc nếu từ chối)'
+                    }
                     value={comment}
                     onChange={(event) => {
-                      setComment(event.target.value)
-                      if (error === 'Vui lòng nhập lý do từ chối.') setError('')
+                      setComment(event.target.value.slice(0, COMMENT_MAX_LENGTH))
+                      if (error === rejectValidationMessage) setError('')
                     }}
                     multiline
                     minRows={2}
                     fullWidth
                     disabled={busy}
                     error={error === rejectValidationMessage && !comment.trim()}
-                    helperText={error === rejectValidationMessage ? error : ''}
+                    helperText={
+                      error === rejectValidationMessage
+                        ? error
+                        : `${comment.length}/${COMMENT_MAX_LENGTH} ký tự`
+                    }
+                    slotProps={{ htmlInput: { maxLength: COMMENT_MAX_LENGTH } }}
                   />
                 ) : (
                   <>
@@ -240,15 +446,19 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
           </Stack>
         )}
       </DialogContent>
+
       <DialogActions sx={{ px: 3, py: 2, flexWrap: 'wrap' }}>
-        <Button onClick={onClose} disabled={busy}>Đóng</Button>
-        {isPending && (
+        <Button onClick={onClose} disabled={busy} sx={{ textTransform: 'none' }}>
+          Đóng
+        </Button>
+        {canReview && (
           <>
             <Button
               color="error"
               variant="outlined"
               onClick={handleReject}
               disabled={loading || !detail || busy}
+              sx={{ textTransform: 'none', fontWeight: 700 }}
             >
               {busy ? 'Đang xử lý...' : 'Từ chối'}
             </Button>
@@ -256,8 +466,9 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
               variant="contained"
               onClick={handleApprove}
               disabled={loading || !detail || busy}
+              sx={{ bgcolor: '#16a34a', textTransform: 'none', fontWeight: 700, '&:hover': { bgcolor: '#15803d' } }}
             >
-              {busy ? 'Đang xử lý...' : 'Duyệt'}
+              {busy ? 'Đang xử lý...' : isSupplementaryPending ? 'Duyệt đơn mượn thêm' : 'Duyệt'}
             </Button>
           </>
         )}

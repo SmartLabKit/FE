@@ -608,11 +608,77 @@ export const borrowService = {
 
   async getAvailableComponents(search = '') {
     try {
-      const response = await api.get('/api/components', { params: { search, isAvailable: true } })
-      return response.data?.data?.items || response.data?.items || response.data || []
+      const response = await api.get('/api/components', {
+        params: {
+          search: search?.trim() || undefined,
+          isActive: true,
+          page: 1,
+          size: 100,
+        },
+      })
+      return extractPagedItems(response.data?.data ?? response.data)
     } catch (error) {
       throw new Error(extractErrorMessage(error, 'Không thể tải danh sách linh kiện'), { cause: error })
     }
+  },
+
+  /**
+   * Lấy danh sách các đề tài của nhóm sinh viên đã được duyệt (Approved) để tạo phiếu mượn thêm (MF5.1).
+   */
+  async getStudentApprovedProjects() {
+    const classesRes = await academicService.getMyClasses()
+    const classes = extractPagedItems(classesRes)
+    if (classes.length === 0) return []
+
+    const classTeams = await Promise.all(
+      classes.map(async (cls) => {
+        try {
+          const team = await teamService.getMyTeam(cls.classId)
+          return team ? { cls, team } : null
+        } catch {
+          return null
+        }
+      })
+    )
+    const validTeams = classTeams.filter(Boolean)
+    if (validTeams.length === 0) return []
+
+    const projectLists = await Promise.all(
+      validTeams.map(async ({ cls, team }) => {
+        try {
+          const projects = await projectService.getProjectsByClass(cls.classId)
+          const teamProjects = (Array.isArray(projects) ? projects : []).filter(
+            (p) => p.teamId === team.teamId && p.status === 'Approved'
+          )
+          const details = await Promise.all(
+            teamProjects.map(async (p) => {
+              try {
+                const detail = await projectService.getProject(p.projectId)
+                return {
+                  ...detail,
+                  classCode: detail.classCode || cls.classCode || team.classCode,
+                  courseName: cls.courseName || '',
+                  semesterCode: cls.semesterCode || '',
+                  instructorName: cls.instructorName || detail.reviewedByName || '',
+                  teamName: detail.teamName || team.teamName,
+                  teamLeaderId: team.leaderId || detail.ownerId,
+                  teamMembers: Array.isArray(team.members) ? team.members : [],
+                }
+              } catch {
+                return null
+              }
+            })
+          )
+          return details.filter(Boolean)
+        } catch {
+          return []
+        }
+      })
+    )
+
+    return projectLists.flat().sort(
+      (a, b) => new Date(b.updatedAt || b.createdAt || 0).getTime() - new Date(a.updatedAt || a.createdAt || 0).getTime()
+    )
   },
 
   async createSupplementaryBorrow(projectId, data) {
