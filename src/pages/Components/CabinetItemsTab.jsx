@@ -28,8 +28,8 @@ const PAGE_SIZE = 20
 const headCellSx = { fontWeight: 700, color: '#334155' }
 
 const RETIRE_OPTIONS = [
-  { value: 'Lost', label: 'Báo mất' },
-  { value: 'Retired', label: 'Thanh lý (loại khỏi kho)' },
+  { value: 'Lost', label: 'Báo thất lạc (vẫn lưu trong hệ thống, có thể khôi phục khi tìm lại)' },
+  { value: 'Retired', label: 'Thanh lý (loại vĩnh viễn khỏi kho)' },
 ]
 
 function EditItemDialog({ itemId, onClose, onSaved }) {

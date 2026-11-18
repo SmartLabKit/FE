@@ -69,10 +69,13 @@ function MoveStockDialog({ stock, cabinets, onClose, onSaved }) {
             type="number"
             label="Số lượng chuyển"
             value={quantity}
+            onKeyDown={(e) => {
+              if (['-', '+', 'e', 'E', '.', ','].includes(e.key)) e.preventDefault()
+            }}
             onChange={(event) => setQuantity(event.target.value)}
             error={!validQuantity}
             helperText={`Hiện có ${stock.quantity} trong tủ`}
-            slotProps={{ htmlInput: { min: 1, max: stock.quantity } }}
+            slotProps={{ htmlInput: { min: 1, max: stock.quantity, step: 1 } }}
             fullWidth
           />
           <TextField label="Lý do (không bắt buộc)" value={reason} onChange={(event) => setReason(event.target.value)} fullWidth />
@@ -132,10 +135,13 @@ function AdjustStockDialog({ stock, onClose, onSaved }) {
             type="number"
             label="Số đếm thực tế"
             value={countedQuantity}
+            onKeyDown={(e) => {
+              if (['-', '+', 'e', 'E', '.', ','].includes(e.key)) e.preventDefault()
+            }}
             onChange={(event) => setCountedQuantity(event.target.value)}
             error={!validCount}
             helperText={`Hệ thống đang ghi ${stock.quantity}${validCount && difference !== 0 ? ` · chênh lệch ${difference > 0 ? '+' : ''}${difference}` : ''}`}
-            slotProps={{ htmlInput: { min: 0 } }}
+            slotProps={{ htmlInput: { min: 0, step: 1 } }}
             fullWidth
           />
           <TextField label="Lý do (bắt buộc)" value={reason} onChange={(event) => setReason(event.target.value)} multiline minRows={2} required fullWidth />

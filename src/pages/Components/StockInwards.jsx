@@ -3,16 +3,27 @@ import {
   Add as AddIcon,
   ArrowBack as BackIcon,
   CancelOutlined as CancelIcon,
+  CardGiftcard as GiftIcon,
+  CloudUpload as UploadIcon,
   Delete as DeleteIcon,
+  Download as DownloadIcon,
+  FilterList as FilterIcon,
+  InfoOutlined as InfoIcon,
+  TableChart as ExcelIcon,
 } from '@mui/icons-material'
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Card,
   CardContent,
+  Checkbox,
+  Chip,
+  FormControlLabel,
   Grid,
   MenuItem,
+  Stack,
   Table,
   TableBody,
   TableCell,
@@ -27,63 +38,128 @@ import PortalLayout from '../../components/layout/PortalLayout'
 import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
 import {
+  formatVietnamDate,
+  getDefaultWarrantyDateVn,
   getVietnamDateInputValue,
+  isValidYmdDate,
   toReceiptReceivedAtIso,
   toSafeInvoiceDateIso,
+  toSafeWarrantyDateIso,
 } from '../../utils/dateFormatting'
+import {
+  downloadStockReceiptTemplate,
+  parseStockReceiptExcel,
+} from '../../utils/excelHelper'
+import {
+  getComponentReferencePrice,
+  getComponentShortCode,
+  normalizeSearchText,
+  saveComponentReferencePrice,
+} from './componentHelpers'
 
-const today = getVietnamDateInputValue()
-const defaultWarrantyDate = () => {
-  const d = new Date()
-  d.setFullYear(d.getFullYear() + 1)
-  return d.toISOString().slice(0, 10)
-}
+const MAX_DROPDOWN_OPTIONS = 50
 
 const newLine = () => ({
   key: `${Date.now()}-${Math.random()}`,
   componentId: '',
   quantity: '1',
-  unitPrice: '0',
+  unitPrice: '',
+  isGift: false,
   cabinetId: '',
   serialsText: '',
   version: '1.0',
-  warrantyExpiresAt: defaultWarrantyDate(),
+  warrantyExpiresAt: getDefaultWarrantyDateVn(1),
 })
+
 const lineArray = (receipt) => receipt?.items || receipt?.lines || receipt?.receiptLines || []
 const serialList = (value) => (Array.isArray(value) ? value : [])
+
+// Chặn nhập các ký tự âm, thập phân, ký hiệu khoa học vào ô số nguyên dương
+const blockNonIntegerKey = (event) => {
+  if (['-', '+', 'e', 'E', '.', ','].includes(event.key)) {
+    event.preventDefault()
+  }
+}
 
 export default function StockInwards() {
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const editId = searchParams.get('edit')
   const [components, setComponents] = useState([])
+  const [categories, setCategories] = useState([])
   const [cabinets, setCabinets] = useState([])
+  const [apiSuppliers, setApiSuppliers] = useState([])
+  const [categoryFilter, setCategoryFilter] = useState('')
   const [supplier, setSupplier] = useState('')
   const [invoiceNumber, setInvoiceNumber] = useState('')
-  const [receivedAt, setReceivedAt] = useState(getVietnamDateInputValue())
+  const [receivedAt, setReceivedAt] = useState(() => getVietnamDateInputValue())
   const [invoiceDate, setInvoiceDate] = useState('')
   const [note, setNote] = useState('')
   const [lines, setLines] = useState([newLine()])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
+  const [excelNotice, setExcelNotice] = useState('')
   const [initialLoading, setInitialLoading] = useState(true)
+
+  const todayVn = getVietnamDateInputValue()
 
   const componentMap = useMemo(
     () => new Map(components.map((item) => [item.componentId, item])),
     [components]
   )
 
+  const activeCabinets = useMemo(
+    () => cabinets.filter((cabinet) => cabinet.isActive !== false),
+    [cabinets]
+  )
+
+  // Danh mục linh kiện dùng cho bộ lọc thu hẹp danh sách chọn linh kiện
+  const categoryOptions = useMemo(() => {
+    const map = new Map()
+    categories.forEach((c) => {
+      const id = c.categoryId || c.id
+      const name = c.categoryName || c.name
+      if (id && name) map.set(id, name)
+    })
+    components.forEach((c) => {
+      const id = c.categoryId || c.CategoryId
+      const name = c.categoryName
+      if (id && name && !map.has(id)) map.set(id, name)
+    })
+    return Array.from(map.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'vi'))
+  }, [categories, components])
+
+  // Danh sách linh kiện sau khi lọc theo danh mục (không load scroll toàn bộ hàng ngàn linh kiện)
+  const filteredComponentsByCategory = useMemo(() => {
+    if (!categoryFilter) return components
+    return components.filter(
+      (c) => (c.categoryId || c.CategoryId) === categoryFilter || c.categoryName === categoryFilter
+    )
+  }, [components, categoryFilter])
+
   useEffect(() => {
     let active = true
     const load = async () => {
       try {
-        const [componentList, cabinetList] = await Promise.all([
+        const [componentList, cabinetList, categoryList, receiptList] = await Promise.all([
           inventoryService.getComponents(),
           inventoryService.getCabinets(),
+          inventoryService.getCategories().catch(() => []),
+          inventoryService.getStockReceipts().catch(() => []),
         ])
         if (!active) return
         setComponents(componentList)
         setCabinets(cabinetList)
+        setCategories(Array.isArray(categoryList) ? categoryList : [])
+        // Trích xuất danh sách nhà cung cấp đã có từ API phiếu nhập (không dùng mock data)
+        const supplierSet = new Set()
+        ;(Array.isArray(receiptList) ? receiptList : []).forEach((r) => {
+          if (r?.supplierName?.trim()) supplierSet.add(r.supplierName.trim())
+        })
+        setApiSuppliers(Array.from(supplierSet).sort((a, b) => a.localeCompare(b, 'vi')))
+
         if (editId) {
           const receipt = await inventoryService.getStockReceipt(editId)
           if (!active) return
@@ -116,6 +192,7 @@ export default function StockInwards() {
                 cabinetName: line.cabinetName || line.cabinetCode || '',
                 quantity: String(line.quantity ?? ''),
                 unitPrice: String(line.unitPrice ?? ''),
+                isGift: Number(line.unitPrice ?? 0) === 0,
                 cabinetId: line.cabinetId || '',
                 serialsText:
                   units.length > 0
@@ -125,8 +202,8 @@ export default function StockInwards() {
                         .join('\n'),
                 version: firstUnit.hardwareVersion || firstUnit.HardwareVersion || line.version || '1.0',
                 warrantyExpiresAt: firstUnit.warrantyExpiresAt
-                  ? firstUnit.warrantyExpiresAt.slice(0, 10)
-                  : defaultWarrantyDate(),
+                  ? getVietnamDateInputValue(firstUnit.warrantyExpiresAt)
+                  : getDefaultWarrantyDateVn(1),
               }
             })
           )
@@ -145,7 +222,138 @@ export default function StockInwards() {
 
   const updateLine = (key, patch) =>
     setLines((current) => current.map((line) => (line.key === key ? { ...line, ...patch } : line)))
+
   const selectedComponent = (line) => componentMap.get(line.componentId)
+
+  // Khi chọn linh kiện trên dòng: tự động điền đơn giá chuẩn đã quy định (nếu có và không phải hàng cho tặng)
+  const handleSelectComponent = (line, comp) => {
+    if (!comp) {
+      updateLine(line.key, { componentId: '' })
+      return
+    }
+    const refPrice = getComponentReferencePrice(comp)
+    const patch = { componentId: comp.componentId }
+    if (!line.isGift && (!line.unitPrice || Number(line.unitPrice) <= 0) && refPrice > 0) {
+      patch.unitPrice = String(refPrice)
+    }
+    updateLine(line.key, patch)
+  }
+
+  // Bật/tắt chế độ hàng cho tặng (đơn giá = 0₫)
+  const handleToggleGift = (line, checked) => {
+    if (checked) {
+      updateLine(line.key, { isGift: true, unitPrice: '0' })
+    } else {
+      const comp = selectedComponent(line)
+      const refPrice = comp ? getComponentReferencePrice(comp) : 0
+      updateLine(line.key, {
+        isGift: false,
+        unitPrice: refPrice > 0 ? String(refPrice) : '',
+      })
+    }
+  }
+
+  // Nhập nhanh danh sách dòng hàng từ file Excel template (.xlsx / .xls / .csv)
+  const handleExcelUpload = async (event) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+
+    setError('')
+    setExcelNotice('')
+
+    try {
+      const parsedRows = await parseStockReceiptExcel(file)
+      if (parsedRows.length === 0) {
+        setError('File Excel không có dòng hàng nào. Vui lòng kiểm tra lại theo file mẫu.')
+        return
+      }
+
+      const unmatchedWarnings = []
+      const importedLines = parsedRows.map((row) => {
+        // Tìm linh kiện theo Mã hệ thống, Mã viết tắt hoặc Tên linh kiện
+        const normCode = normalizeSearchText(row.componentCode)
+        const normName = normalizeSearchText(row.componentName)
+        const matchedComp = components.find((c) => {
+          const cCode = normalizeSearchText(c.componentCode)
+          const cShort = normalizeSearchText(getComponentShortCode(c))
+          const cName = normalizeSearchText(c.componentName)
+          return (
+            (normCode && (cCode === normCode || cShort === normCode)) ||
+            (normName && cName === normName)
+          )
+        })
+
+        // Tìm tủ lưu trữ theo Mã tủ hoặc Tên tủ
+        const normCab = normalizeSearchText(row.cabinetCode)
+        const matchedCab = activeCabinets.find((cab) => {
+          const cabCode = normalizeSearchText(cab.cabinetCode)
+          const cabName = normalizeSearchText(cab.cabinetName || cab.name)
+          return normCab && (cabCode === normCab || cabName === normCab)
+        })
+
+        if (!matchedComp) {
+          unmatchedWarnings.push(`Dòng #${row.rowNumber}: không tìm thấy linh kiện "${row.componentCode || row.componentName}"`)
+        }
+        if (!matchedCab && row.cabinetCode) {
+          unmatchedWarnings.push(`Dòng #${row.rowNumber}: không tìm thấy tủ "${row.cabinetCode}"`)
+        }
+
+        const refPrice = matchedComp ? getComponentReferencePrice(matchedComp) : 0
+        const rawQty = Number(row.quantity)
+        const safeQty = Number.isInteger(rawQty) && rawQty > 0 ? String(rawQty) : '1'
+        const rawPrice = Number(row.unitPrice)
+        const safePrice = row.isGift
+          ? '0'
+          : row.unitPrice !== '' && !Number.isNaN(rawPrice) && rawPrice >= 0
+            ? String(rawPrice)
+            : refPrice > 0
+              ? String(refPrice)
+              : ''
+
+        return {
+          ...newLine(),
+          componentId: matchedComp?.componentId || '',
+          quantity: safeQty,
+          unitPrice: safePrice,
+          isGift: Boolean(row.isGift),
+          cabinetId: matchedCab?.cabinetId || activeCabinets[0]?.cabinetId || '',
+          serialsText: row.serialsText || '',
+          version: row.version || '1.0',
+          warrantyExpiresAt: row.warrantyExpiresAt || getDefaultWarrantyDateVn(1),
+        }
+      })
+
+      setLines(importedLines)
+      setExcelNotice(
+        `Đã đọc ${importedLines.length} dòng hàng từ file "${file.name}".` +
+          (unmatchedWarnings.length > 0
+            ? ` Lưu ý cần chọn lại thủ công: ${unmatchedWarnings.slice(0, 3).join('; ')}${unmatchedWarnings.length > 3 ? ` (+${unmatchedWarnings.length - 3} cảnh báo khác)` : ''}.`
+            : ' Vui lòng kiểm tra thông tin phiếu và bấm "Lưu phiếu và nhập kho".')
+      )
+    } catch (parseErr) {
+      setError(`Không thể đọc file Excel: ${parseErr.message || 'Định dạng không hợp lệ.'}`)
+    }
+  }
+
+  // Tổng số lượng và tổng tiền dự kiến của phiếu nhập
+  const summary = useMemo(() => {
+    let totalQty = 0
+    let totalAmount = 0
+    let giftLines = 0
+    lines.forEach((line) => {
+      const q = Number(line.quantity)
+      const p = Number(line.unitPrice)
+      if (Number.isInteger(q) && q > 0) {
+        totalQty += q
+        if (!Number.isNaN(p) && p >= 0) {
+          totalAmount += q * p
+        }
+      }
+      if (line.isGift) giftLines += 1
+    })
+    return { totalQty, totalAmount, giftLines }
+  }, [lines])
 
   // Hủy phiếu hiện tại và tạo phiếu mới khi có sai sót về mặt hàng
   const handleCancelAndRecreate = async () => {
@@ -166,17 +374,32 @@ export default function StockInwards() {
   const handleSubmit = async (event) => {
     event.preventDefault()
     setError('')
-    const todayVn = getVietnamDateInputValue()
-    if (!supplier.trim()) return setError('Vui lòng nhập nhà cung cấp.')
-    if (!receivedAt) return setError('Vui lòng chọn ngày nhận hàng.')
-    if (receivedAt > todayVn) return setError('Ngày nhận hàng không được ở tương lai.')
-    if (invoiceDate && invoiceDate > todayVn) return setError('Ngày hóa đơn không được ở tương lai.')
+    const currentTodayVn = getVietnamDateInputValue()
+
+    if (!supplier.trim()) return setError('Vui lòng nhập hoặc chọn nhà cung cấp (VD: HShop.vn).')
+    if (!receivedAt || !isValidYmdDate(receivedAt)) {
+      return setError('Ngày nhập kho không hợp lệ. Vui lòng chọn ngày đúng định dạng.')
+    }
+    if (receivedAt > currentTodayVn) {
+      return setError('Ngày nhập kho không được lớn hơn ngày hiện tại.')
+    }
+    if (invoiceDate) {
+      if (!isValidYmdDate(invoiceDate)) {
+        return setError('Ngày hóa đơn không hợp lệ.')
+      }
+      if (invoiceDate > currentTodayVn) {
+        return setError('Ngày hóa đơn không được ở tương lai.')
+      }
+      if (invoiceDate > receivedAt) {
+        return setError('Ngày hóa đơn (trên chứng từ NCC) không được sau ngày nhập kho thực tế.')
+      }
+    }
 
     const noteVal = note.trim() || null
     const isoReceivedAt = toReceiptReceivedAtIso(receivedAt)
     const isoInvoiceDate = toSafeInvoiceDateIso(invoiceDate)
 
-    // TRƯỜNG HỢP SỬA PHIẾU: Chỉ được sửa các thông tin Nhà cung cấp, Số hóa đơn, Ngày nhận, Ngày hóa đơn, Ghi chú
+    // TRƯỜNG HỢP SỬA PHIẾU: Chỉ được sửa Nhà cung cấp, Số hóa đơn, Ngày nhập kho, Ngày hóa đơn, Ghi chú
     if (editId) {
       setLoading(true)
       try {
@@ -225,10 +448,23 @@ export default function StockInwards() {
       const compName = comp ? `${comp.componentCode} - ${comp.componentName}` : `Dòng #${index + 1}`
       if (!line.componentId) return setError(`Vui lòng chọn linh kiện ở dòng #${index + 1}.`)
       if (!line.cabinetId) return setError(`Vui lòng chọn tủ cất cho ${compName}.`)
+
       const q = Number(line.quantity)
-      if (!Number.isInteger(q) || q <= 0) return setError(`Số lượng của ${compName} phải là số nguyên > 0.`)
-      const p = Number(line.unitPrice)
-      if (Number.isNaN(p) || p < 0) return setError(`Đơn giá của ${compName} không hợp lệ.`)
+      if (line.quantity === '' || !Number.isInteger(q) || q <= 0) {
+        return setError(`Số lượng của ${compName} phải là số nguyên dương (>= 1), không được âm hoặc bằng 0.`)
+      }
+
+      const p = line.isGift ? 0 : Number(line.unitPrice)
+      if (!line.isGift) {
+        if (line.unitPrice === '' || Number.isNaN(p) || p <= 0) {
+          return setError(
+            `Đơn giá của ${compName} bắt buộc phải > 0 ₫. Nếu đây là hàng cho tặng/tài trợ, hãy tích chọn "Cho tặng (0₫)".`
+          )
+        }
+      } else if (Number.isNaN(p) || p !== 0) {
+        return setError(`Hàng cho tặng ${compName} phải có đơn giá bằng 0 ₫.`)
+      }
+
       if (comp?.trackingType === 'HIGH_VALUE') {
         const serials = line.serialsText
           .split('\n')
@@ -243,8 +479,11 @@ export default function StockInwards() {
         if (set.size !== serials.length) {
           return setError(`Danh sách serial của "${comp.componentName}" bị trùng lặp. Mỗi máy phải có serial riêng.`)
         }
-        if (!line.warrantyExpiresAt) {
-          return setError(`Vui lòng chọn ngày "Bảo hành đến" cho ${compName}.`)
+        if (!line.warrantyExpiresAt || !isValidYmdDate(line.warrantyExpiresAt)) {
+          return setError(`Vui lòng chọn ngày "Bảo hành đến" hợp lệ cho ${compName}.`)
+        }
+        if (line.warrantyExpiresAt < receivedAt) {
+          return setError(`Ngày hết hạn bảo hành của ${compName} không được trước ngày nhập kho (${formatVietnamDate(receivedAt)}).`)
         }
       }
     }
@@ -261,6 +500,7 @@ export default function StockInwards() {
       items: lines.map((line) => {
         const comp = selectedComponent(line)
         const isHighValue = comp?.trackingType === 'HIGH_VALUE'
+        const finalUnitPrice = line.isGift ? 0 : Number(line.unitPrice)
         const serialNumbers = isHighValue
           ? line.serialsText
               .split('\n')
@@ -271,10 +511,10 @@ export default function StockInwards() {
           componentId: line.componentId,
           cabinetId: line.cabinetId,
           quantity: Number(line.quantity),
-          unitPrice: Number(line.unitPrice),
+          unitPrice: finalUnitPrice,
           ...(isHighValue
             ? {
-                warrantyExpiresAt: line.warrantyExpiresAt ? `${line.warrantyExpiresAt}T00:00:00Z` : undefined,
+                warrantyExpiresAt: toSafeWarrantyDateIso(line.warrantyExpiresAt),
                 serialNumbers,
                 version: (line.version || '1.0').trim(),
               }
@@ -288,6 +528,15 @@ export default function StockInwards() {
       const receipt = await inventoryService.createStockReceipt(payload)
       const id = receipt?.receiptId || receipt?.id
       if (!id) throw new Error('Phiếu đã gửi nhưng API không trả receiptId.')
+
+      // Lưu lại đơn giá tham khảo cho linh kiện nếu chưa có để lần nhập sau tự gợi ý
+      lines.forEach((line) => {
+        const comp = selectedComponent(line)
+        if (comp && !line.isGift && Number(line.unitPrice) > 0 && getComponentReferencePrice(comp) === 0) {
+          saveComponentReferencePrice(comp.componentId, Number(line.unitPrice), comp.componentCode)
+        }
+      })
+
       if (invoiceDate) {
         localStorage.setItem(`receipt_invoice_date_${id}`, invoiceDate)
       }
@@ -304,29 +553,61 @@ export default function StockInwards() {
     }
   }
 
+  // Filter nhanh danh sách linh kiện trong Autocomplete (không dấu, giới hạn 50 dòng để không lag với hàng ngàn linh kiện)
+  const filterComponentOptions = (options, { inputValue }) => {
+    const q = normalizeSearchText(inputValue)
+    const matched = !q
+      ? options
+      : options.filter((item) => {
+          const target = normalizeSearchText(
+            `${item.componentCode || ''} ${getComponentShortCode(item)} ${item.componentName || ''} ${item.categoryName || ''} ${item.manufacturer || ''}`
+          )
+          return target.includes(q)
+        })
+    return matched.slice(0, MAX_DROPDOWN_OPTIONS)
+  }
+
   return (
     <PortalLayout
       headerTitle={editId ? 'Sửa thông tin phiếu nhập' : 'Lập phiếu nhập kho'}
       headerSubtitle={
         editId
-          ? 'Chỉ được sửa Nhà cung cấp, Số hóa đơn, Ngày nhận và Ngày hóa đơn. Không được sửa mặt hàng.'
-          : 'Chọn tủ cất trên từng dòng; lưu phiếu là hàng vào kho ngay'
+          ? 'Chỉ được sửa Nhà cung cấp, Số hóa đơn, Ngày nhập kho, Ngày hóa đơn và Ghi chú. Không được sửa mặt hàng.'
+          : 'Nhập hàng từ Excel Template hoặc chọn linh kiện theo danh mục; lưu phiếu là hàng vào kho ngay'
       }
     >
       <Box sx={{ maxWidth: 1440, mx: 'auto' }}>
-        <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+        <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
           <Button
             startIcon={<BackIcon />}
             onClick={() =>
               navigate(editId ? `/class-setup/admin/stock-receipts/${editId}` : '/class-setup/admin/stock-receipts')
             }
-            sx={{ textTransform: 'none' }}
+            sx={{ textTransform: 'none', fontWeight: 600 }}
           >
             {editId ? 'Chi tiết phiếu nhập' : 'Danh sách phiếu nhập'}
           </Button>
-          <Button onClick={() => navigate('/class-setup/admin/components')} sx={{ textTransform: 'none' }}>
-            Danh sách linh kiện
-          </Button>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {!editId && (
+              <Button
+                variant="outlined"
+                startIcon={<ExcelIcon />}
+                onClick={() => navigate('/class-setup/admin/components/import')}
+                sx={{
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  borderColor: '#16a34a',
+                  color: '#15803d',
+                  '&:hover': { bgcolor: '#f0fdf4', borderColor: '#15803d' },
+                }}
+              >
+                Khai báo linh kiện mới từ Excel
+              </Button>
+            )}
+            <Button onClick={() => navigate('/class-setup/admin/components')} sx={{ textTransform: 'none', fontWeight: 600 }}>
+              Danh sách linh kiện
+            </Button>
+          </Box>
         </Box>
 
         <Card
@@ -336,12 +617,24 @@ export default function StockInwards() {
           sx={{ borderColor: '#d8dced', boxShadow: 'none' }}
         >
           <CardContent sx={{ p: 2.5 }}>
-            <Typography sx={{ mb: 0.5, fontWeight: 800, color: '#182238' }}>Thông tin phiếu</Typography>
-            <Typography sx={{ mb: 2, color: '#697386', fontSize: 12 }}>
-              {editId
-                ? 'Chỉ chỉnh sửa thông tin chứng từ. Hàng hóa đã vào kho không thể sửa trực tiếp.'
-                : 'Linh kiện cần được khai báo trước. Việc khai báo không làm tăng tồn kho.'}
-            </Typography>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: 1, mb: 2 }}>
+              <Box>
+                <Typography sx={{ mb: 0.5, fontWeight: 800, color: '#182238' }}>Thông tin chứng từ &amp; nhập kho</Typography>
+                <Typography sx={{ color: '#697386', fontSize: 12 }}>
+                  {editId
+                    ? 'Chỉ chỉnh sửa thông tin chứng từ. Hàng hóa đã vào kho không thể sửa trực tiếp.'
+                    : 'Phân biệt rõ Ngày hóa đơn (ngày trên chứng từ mua hàng từ nhà cung cấp) và Ngày nhập kho (ngày thực tế hàng vào Lab).'}
+                </Typography>
+              </Box>
+              {!editId && (
+                <Chip
+                  size="small"
+                  icon={<InfoIcon />}
+                  label={`Ngày tạo phiếu (hệ thống): ${formatVietnamDate(todayVn)}`}
+                  sx={{ bgcolor: '#f1f5f9', color: '#334155', fontWeight: 600, fontSize: 12 }}
+                />
+              )}
+            </Box>
 
             {editId && (
               <Alert severity="warning" sx={{ mb: 2.5 }}>
@@ -350,27 +643,50 @@ export default function StockInwards() {
               </Alert>
             )}
 
-            {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+            {error && (
+              <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
+                {error}
+              </Alert>
+            )}
 
-            {/* Các trường thông tin phiếu: Nhà cung cấp, Số hóa đơn, Ngày nhận, Ngày hóa đơn, Ghi chú */}
+            {excelNotice && (
+              <Alert severity="success" sx={{ mb: 2 }} onClose={() => setExcelNotice('')}>
+                {excelNotice}
+              </Alert>
+            )}
+
+            {/* Các trường thông tin phiếu: Nhà cung cấp (gợi ý NCC thực tế), Số hóa đơn, Ngày nhập kho, Ngày hóa đơn, Ghi chú */}
             <Grid container spacing={2} sx={{ mb: 2 }}>
               <Grid size={{ xs: 12, md: 6 }}>
-                <TextField
-                  fullWidth
-                  required
-                  label="Nhà cung cấp"
-                  placeholder="Nhập tên nhà cung cấp..."
-                  value={supplier}
-                  onChange={(event) => setSupplier(event.target.value)}
+                <Autocomplete
+                  freeSolo
+                  options={apiSuppliers}
+                  inputValue={supplier}
+                  onInputChange={(_, newValue) => setSupplier(newValue)}
+                  renderInput={(params) => (
+                    <TextField
+                      {...params}
+                      fullWidth
+                      required
+                      label="Nhà cung cấp"
+                      placeholder="Nhập tên nhà cung cấp thực tế..."
+                      helperText={
+                        apiSuppliers.length > 0
+                          ? `Gợi ý từ ${apiSuppliers.length} nhà cung cấp đã có trong hệ thống, hoặc nhập tên mới.`
+                          : 'Nhập tên nhà cung cấp thực tế trên chứng từ mua hàng.'
+                      }
+                    />
+                  )}
                 />
               </Grid>
               <Grid size={{ xs: 12, md: 6 }}>
                 <TextField
                   fullWidth
-                  label="Số hóa đơn"
-                  placeholder="Nhập số hóa đơn..."
+                  label="Số hóa đơn / Chứng từ"
+                  placeholder="VD: HD-HSHOP-20261118"
                   value={invoiceNumber}
                   onChange={(event) => setInvoiceNumber(event.target.value)}
+                  helperText="Số hóa đơn VAT hoặc mã đơn hàng từ nhà cung cấp (nếu có)."
                 />
               </Grid>
               <Grid size={{ xs: 12, md: 6 }}>
@@ -378,12 +694,13 @@ export default function StockInwards() {
                   fullWidth
                   required
                   type="date"
-                  label="Ngày nhận"
+                  label="Ngày nhập kho (thực tế) *"
                   value={receivedAt}
                   onChange={(event) => setReceivedAt(event.target.value)}
+                  helperText="Ngày thực tế hàng về kho Lab và được cộng vào tồn kho (≤ hôm nay)."
                   slotProps={{
                     inputLabel: { shrink: true },
-                    htmlInput: { max: getVietnamDateInputValue() },
+                    htmlInput: { max: todayVn },
                   }}
                 />
               </Grid>
@@ -391,12 +708,18 @@ export default function StockInwards() {
                 <TextField
                   fullWidth
                   type="date"
-                  label="Ngày hóa đơn"
+                  label="Ngày hóa đơn (trên chứng từ NCC)"
                   value={invoiceDate}
                   onChange={(event) => setInvoiceDate(event.target.value)}
+                  error={Boolean(invoiceDate && receivedAt && invoiceDate > receivedAt)}
+                  helperText={
+                    invoiceDate && receivedAt && invoiceDate > receivedAt
+                      ? 'Lỗi: Ngày hóa đơn không được sau ngày nhập kho!'
+                      : 'Ngày phát hành ghi trên hóa đơn thực tế (phải ≤ ngày nhập kho).'
+                  }
                   slotProps={{
                     inputLabel: { shrink: true },
-                    htmlInput: { max: getVietnamDateInputValue() },
+                    htmlInput: { max: receivedAt || todayVn },
                   }}
                 />
               </Grid>
@@ -405,8 +728,8 @@ export default function StockInwards() {
                   fullWidth
                   multiline
                   minRows={2}
-                  label="Ghi chú"
-                  placeholder="Không bắt buộc"
+                  label="Ghi chú phiếu nhập"
+                  placeholder="VD: Nhập bổ sung kit thực hành IoT học kỳ Fall 2026 từ HShop.vn (không bắt buộc)"
                   value={note}
                   onChange={(event) => setNote(event.target.value)}
                 />
@@ -415,7 +738,6 @@ export default function StockInwards() {
 
             {/* DÒNG HÀNG */}
             {editId ? (
-              // KHI SỬA PHIẾU: Hiển thị bảng chỉ xem, KHÔNG CHO PHÉP SỬA MẶT HÀNG
               <Box sx={{ mt: 3 }}>
                 <Box sx={{ mb: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Typography sx={{ fontWeight: 800 }}>
@@ -440,7 +762,13 @@ export default function StockInwards() {
                               {comp ? `${comp.componentCode} — ${comp.componentName}` : line.componentName || '—'}
                             </TableCell>
                             <TableCell>{line.quantity}</TableCell>
-                            <TableCell>{Number(line.unitPrice || 0).toLocaleString('vi-VN')} ₫</TableCell>
+                            <TableCell>
+                              {Number(line.unitPrice || 0) === 0 ? (
+                                <Chip size="small" label="0 ₫ (Cho tặng)" color="info" variant="outlined" />
+                              ) : (
+                                `${Number(line.unitPrice || 0).toLocaleString('vi-VN')} ₫`
+                              )}
+                            </TableCell>
                             <TableCell>
                               {cabinets.find((c) => c.cabinetId === line.cabinetId)?.cabinetName || line.cabinetName || '—'}
                             </TableCell>
@@ -462,51 +790,185 @@ export default function StockInwards() {
                 </Typography>
               </Box>
             ) : (
-              // KHI TẠO MỚI PHIẾU: Cho phép thêm dòng hàng và chỉnh sửa linh kiện bình thường
               <Box sx={{ mt: 3 }}>
-                <Box sx={{ mb: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                  <Typography sx={{ fontWeight: 800 }}>Dòng hàng</Typography>
+                {/* Thanh công cụ Template Excel & Bộ lọc phân loại danh mục linh kiện */}
+                <Box
+                  sx={{
+                    mb: 2,
+                    p: 2,
+                    bgcolor: '#f8fafc',
+                    borderRadius: 2,
+                    border: '1px solid #e2e8f0',
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: 1.5,
+                  }}
+                >
+                  <Box>
+                    <Typography sx={{ fontWeight: 800, color: '#182238', fontSize: 14.5 }}>
+                      Nhập nhanh danh sách hàng từ Template Excel
+                    </Typography>
+                    <Typography sx={{ fontSize: 12, color: '#64748b' }}>
+                      Tải file mẫu (đã kèm sẵn mã linh kiện &amp; mã tủ trong hệ thống), điền số lượng/đơn giá rồi tải lên thay vì nhập thủ công từng dòng.
+                    </Typography>
+                  </Box>
+                  <Stack direction="row" spacing={1} flexWrap="wrap">
+                    <Button
+                      size="small"
+                      variant="outlined"
+                      startIcon={<DownloadIcon />}
+                      disabled={initialLoading}
+                      onClick={() => downloadStockReceiptTemplate(components, cabinets)}
+                      sx={{
+                        textTransform: 'none',
+                        fontWeight: 700,
+                        borderColor: '#16a34a',
+                        color: '#15803d',
+                        '&:hover': { bgcolor: '#f0fdf4', borderColor: '#15803d' },
+                      }}
+                    >
+                      Tải Template Phiếu Nhập (.xlsx)
+                    </Button>
+                    <Button
+                      size="small"
+                      component="label"
+                      variant="contained"
+                      startIcon={<UploadIcon />}
+                      disabled={initialLoading}
+                      sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#0058be' }}
+                    >
+                      Đọc từ Excel
+                      <input hidden type="file" accept=".xlsx,.xls,.csv" onChange={handleExcelUpload} />
+                    </Button>
+                  </Stack>
+                </Box>
+
+                {/* Header bảng dòng hàng + Filter phân loại danh mục linh kiện */}
+                <Box sx={{ mb: 1.5, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
+                  <Stack direction="row" spacing={1.5} alignItems="center" flexWrap="wrap">
+                    <Typography sx={{ fontWeight: 800 }}>Dòng hàng ({lines.length})</Typography>
+                    <TextField
+                      select
+                      size="small"
+                      label="Lọc linh kiện theo danh mục"
+                      value={categoryFilter}
+                      onChange={(e) => setCategoryFilter(e.target.value)}
+                      sx={{ minWidth: 230, bgcolor: '#fff' }}
+                      slotProps={{
+                        input: {
+                          startAdornment: <FilterIcon sx={{ fontSize: 16, color: '#64748b', mr: 0.5 }} />,
+                        },
+                      }}
+                    >
+                      <MenuItem value="">
+                        Tất cả danh mục ({components.length} linh kiện)
+                      </MenuItem>
+                      {categoryOptions.map((cat) => (
+                        <MenuItem key={cat.id} value={cat.id}>
+                          {cat.name}
+                        </MenuItem>
+                      ))}
+                    </TextField>
+                  </Stack>
                   <Button
+                    variant="outlined"
+                    size="small"
                     startIcon={<AddIcon />}
                     onClick={() => setLines((current) => [...current, newLine()])}
-                    sx={{ textTransform: 'none' }}
+                    sx={{ textTransform: 'none', fontWeight: 700 }}
                   >
                     Thêm dòng
                   </Button>
                 </Box>
-                <TableContainer sx={{ border: '1px solid #d8dced' }}>
+
+                <TableContainer sx={{ border: '1px solid #d8dced', borderRadius: 1 }}>
                   <Table size="small">
                     <TableHead>
                       <TableRow sx={{ bgcolor: '#faf9ff' }}>
-                        {['Linh kiện', 'Số lượng', 'Đơn giá', 'Tủ cất', 'Thông tin máy (Serial / Version / Bảo hành)', ''].map(
-                          (head, idx) => (
-                            <TableCell key={head || idx}>{head}</TableCell>
-                          )
-                        )}
+                        {[
+                          'Linh kiện (tìm theo tên / mã viết tắt)',
+                          'Số lượng',
+                          'Đơn giá (VNĐ) & Cho tặng',
+                          'Thành tiền',
+                          'Tủ cất',
+                          'Thông tin máy (Serial / Version / Bảo hành)',
+                          '',
+                        ].map((head, idx) => (
+                          <TableCell key={head || idx} sx={{ fontWeight: 700, color: '#334155' }}>
+                            {head}
+                          </TableCell>
+                        ))}
                       </TableRow>
                     </TableHead>
                     <TableBody>
                       {lines.map((line) => {
                         const component = selectedComponent(line)
                         const isHighValue = component?.trackingType === 'HIGH_VALUE'
+                        const qtyNum = Number(line.quantity)
+                        const qtyInvalid = line.quantity === '' || !Number.isInteger(qtyNum) || qtyNum <= 0
+                        const priceNum = line.isGift ? 0 : Number(line.unitPrice)
+                        const priceInvalid = !line.isGift && (line.unitPrice === '' || Number.isNaN(priceNum) || priceNum <= 0)
+                        const lineTotal = !qtyInvalid && !Number.isNaN(priceNum) && priceNum >= 0 ? qtyNum * priceNum : 0
+                        const warrantyInvalid =
+                          isHighValue &&
+                          (!line.warrantyExpiresAt || !isValidYmdDate(line.warrantyExpiresAt) || line.warrantyExpiresAt < receivedAt)
+
+                        // Đảm bảo linh kiện đang chọn vẫn hiển thị kể cả khi người dùng đổi bộ lọc danh mục
+                        const optionsForRow =
+                          component && !filteredComponentsByCategory.some((c) => c.componentId === component.componentId)
+                            ? [component, ...filteredComponentsByCategory]
+                            : filteredComponentsByCategory
+
                         return (
-                          <TableRow key={line.key}>
-                            <TableCell sx={{ minWidth: 240 }}>
-                              <TextField
-                                fullWidth
-                                required
-                                select
+                          <TableRow key={line.key} sx={{ verticalAlign: 'top' }}>
+                            <TableCell sx={{ minWidth: 300 }}>
+                              <Autocomplete
                                 size="small"
-                                label="Chọn linh kiện"
-                                value={line.componentId}
-                                onChange={(event) => updateLine(line.key, { componentId: event.target.value })}
-                              >
-                                {components.map((item) => (
-                                  <MenuItem key={item.componentId} value={item.componentId}>
-                                    {item.componentCode} — {item.componentName} ({item.trackingType})
-                                  </MenuItem>
-                                ))}
-                              </TextField>
+                                options={optionsForRow}
+                                value={component || null}
+                                onChange={(_, newValue) => handleSelectComponent(line, newValue)}
+                                filterOptions={filterComponentOptions}
+                                isOptionEqualToValue={(option, value) => option.componentId === value?.componentId}
+                                getOptionLabel={(option) => {
+                                  if (!option) return ''
+                                  const sc = getComponentShortCode(option)
+                                  return `${option.componentCode}${sc && sc !== option.componentCode ? ` (${sc})` : ''} — ${option.componentName}`
+                                }}
+                                noOptionsText="Không tìm thấy linh kiện phù hợp — thử đổi danh mục hoặc từ khóa"
+                                renderOption={(props, option) => {
+                                  const { key, ...rest } = props
+                                  const sc = getComponentShortCode(option)
+                                  const refP = getComponentReferencePrice(option)
+                                  return (
+                                    <Box component="li" key={key} {...rest} sx={{ display: 'block !important', py: 0.75 }}>
+                                      <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
+                                        {option.componentName}
+                                      </Typography>
+                                      <Typography sx={{ fontSize: 11.5, color: '#64748b' }}>
+                                        {option.componentCode}
+                                        {sc && sc !== option.componentCode ? ` · ${sc}` : ''} · {option.categoryName || 'Chưa phân loại'} ·{' '}
+                                        {option.trackingType}
+                                        {refP > 0 ? ` · Giá chuẩn: ${refP.toLocaleString('vi-VN')} ₫` : ''}
+                                      </Typography>
+                                    </Box>
+                                  )
+                                }}
+                                renderInput={(params) => (
+                                  <TextField
+                                    {...params}
+                                    required
+                                    label="Tìm & chọn linh kiện"
+                                    placeholder="Gõ tên hoặc mã viết tắt..."
+                                    helperText={
+                                      filteredComponentsByCategory.length > MAX_DROPDOWN_OPTIONS
+                                        ? `Đang hiển thị tối đa ${MAX_DROPDOWN_OPTIONS}/${filteredComponentsByCategory.length} linh kiện — gõ từ khóa hoặc lọc danh mục.`
+                                        : undefined
+                                    }
+                                  />
+                                )}
+                              />
                             </TableCell>
                             <TableCell sx={{ minWidth: 105 }}>
                               <TextField
@@ -515,20 +977,59 @@ export default function StockInwards() {
                                 size="small"
                                 label="SL"
                                 value={line.quantity}
-                                onChange={(event) => updateLine(line.key, { quantity: event.target.value })}
+                                error={qtyInvalid}
+                                helperText={qtyInvalid ? 'Số nguyên ≥ 1' : ''}
+                                onKeyDown={blockNonIntegerKey}
+                                onChange={(event) => {
+                                  const raw = event.target.value
+                                  if (raw === '' || /^\d+$/.test(raw)) {
+                                    updateLine(line.key, { quantity: raw })
+                                  }
+                                }}
                                 slotProps={{ htmlInput: { min: 1, step: 1 } }}
                               />
                             </TableCell>
-                            <TableCell sx={{ minWidth: 145 }}>
+                            <TableCell sx={{ minWidth: 185 }}>
                               <TextField
-                                required
+                                required={!line.isGift}
+                                disabled={line.isGift}
                                 type="number"
                                 size="small"
-                                label="Đơn giá"
-                                value={line.unitPrice}
-                                onChange={(event) => updateLine(line.key, { unitPrice: event.target.value })}
-                                slotProps={{ htmlInput: { min: 0, step: 1 } }}
+                                fullWidth
+                                label={line.isGift ? 'Đơn giá (Cho tặng)' : 'Đơn giá (VNĐ) *'}
+                                placeholder="VD: 115000"
+                                value={line.isGift ? '0' : line.unitPrice}
+                                error={priceInvalid}
+                                helperText={priceInvalid ? 'Bắt buộc > 0 (hoặc tích Cho tặng)' : ''}
+                                onKeyDown={blockNonIntegerKey}
+                                onChange={(event) => {
+                                  const raw = event.target.value
+                                  if (raw === '' || /^\d+$/.test(raw)) {
+                                    updateLine(line.key, { unitPrice: raw })
+                                  }
+                                }}
+                                slotProps={{ htmlInput: { min: line.isGift ? 0 : 1, step: 1000 } }}
                               />
+                              <FormControlLabel
+                                sx={{ mt: 0.25, ml: -0.5 }}
+                                control={
+                                  <Checkbox
+                                    size="small"
+                                    checked={Boolean(line.isGift)}
+                                    onChange={(e) => handleToggleGift(line, e.target.checked)}
+                                  />
+                                }
+                                label={
+                                  <Typography sx={{ fontSize: 11.5, color: line.isGift ? '#0284c7' : '#64748b', fontWeight: line.isGift ? 700 : 500, display: 'flex', alignItems: 'center', gap: 0.4 }}>
+                                    <GiftIcon sx={{ fontSize: 13 }} /> Cho tặng / Tài trợ (0₫)
+                                  </Typography>
+                                }
+                              />
+                            </TableCell>
+                            <TableCell sx={{ minWidth: 120, pt: 1.5 }}>
+                              <Typography sx={{ fontWeight: 700, fontSize: 13, color: line.isGift ? '#0284c7' : '#0f172a' }}>
+                                {line.isGift ? '0 ₫ (Tặng)' : `${lineTotal.toLocaleString('vi-VN')} ₫`}
+                              </Typography>
                             </TableCell>
                             <TableCell sx={{ minWidth: 210 }}>
                               <TextField
@@ -540,17 +1041,15 @@ export default function StockInwards() {
                                 value={line.cabinetId}
                                 onChange={(event) => updateLine(line.key, { cabinetId: event.target.value })}
                               >
-                                {cabinets
-                                  .filter((cabinet) => cabinet.isActive !== false)
-                                  .map((cabinet) => (
-                                    <MenuItem key={cabinet.cabinetId} value={cabinet.cabinetId}>
-                                      {cabinet.cabinetCode} — {cabinet.cabinetName || cabinet.name}{' '}
-                                      {cabinet.labRoomName ? `(${cabinet.labRoomName})` : ''}
-                                    </MenuItem>
-                                  ))}
+                                {activeCabinets.map((cabinet) => (
+                                  <MenuItem key={cabinet.cabinetId} value={cabinet.cabinetId}>
+                                    {cabinet.cabinetCode} — {cabinet.cabinetName || cabinet.name}{' '}
+                                    {cabinet.labRoomName ? `(${cabinet.labRoomName})` : ''}
+                                  </MenuItem>
+                                ))}
                               </TextField>
                             </TableCell>
-                            <TableCell sx={{ minWidth: 280 }}>
+                            <TableCell sx={{ minWidth: 270 }}>
                               {isHighValue ? (
                                 <Box sx={{ display: 'grid', gap: 1 }}>
                                   <TextField
@@ -561,7 +1060,11 @@ export default function StockInwards() {
                                         ? `Serial (${line.quantity} máy, mỗi dòng 1 serial) *`
                                         : 'Số Serial *'
                                     }
-                                    placeholder={Number(line.quantity) > 1 ? 'SN-001\nSN-002' : 'VD: SE2027_2351_2132'}
+                                    placeholder={
+                                      Number(line.quantity) > 1
+                                        ? 'RIGOL-DS1054Z-001\nRIGOL-DS1054Z-002'
+                                        : 'VD: RIGOL-DS1054Z-001'
+                                    }
                                     multiline={Number(line.quantity) > 1}
                                     minRows={Number(line.quantity) > 1 ? 2 : 1}
                                     value={line.serialsText}
@@ -581,15 +1084,20 @@ export default function StockInwards() {
                                       size="small"
                                       label="Bảo hành đến *"
                                       value={line.warrantyExpiresAt}
+                                      error={warrantyInvalid}
+                                      helperText={warrantyInvalid ? 'Phải ≥ ngày nhập' : ''}
                                       onChange={(event) =>
                                         updateLine(line.key, { warrantyExpiresAt: event.target.value })
                                       }
-                                      slotProps={{ inputLabel: { shrink: true } }}
+                                      slotProps={{
+                                        inputLabel: { shrink: true },
+                                        htmlInput: { min: receivedAt || undefined },
+                                      }}
                                     />
                                   </Box>
                                 </Box>
                               ) : (
-                                <Typography color="text.secondary" fontSize={12}>
+                                <Typography color="text.secondary" fontSize={12} sx={{ pt: 1 }}>
                                   {component ? component.trackingType : 'Chọn linh kiện'}
                                 </Typography>
                               )}
@@ -598,7 +1106,9 @@ export default function StockInwards() {
                               <Button
                                 aria-label="Xóa dòng"
                                 color="error"
+                                disabled={lines.length <= 1}
                                 onClick={() => setLines((current) => current.filter((item) => item.key !== line.key))}
+                                sx={{ minWidth: 36 }}
                               >
                                 <DeleteIcon />
                               </Button>
@@ -609,6 +1119,39 @@ export default function StockInwards() {
                     </TableBody>
                   </Table>
                 </TableContainer>
+
+                {/* Tóm tắt tổng số lượng & tổng giá trị phiếu nhập */}
+                <Box
+                  sx={{
+                    mt: 1.5,
+                    p: 1.5,
+                    bgcolor: '#faf9ff',
+                    border: '1px solid #d8dced',
+                    borderRadius: 1,
+                    display: 'flex',
+                    justifyContent: 'space-between',
+                    alignItems: 'center',
+                    flexWrap: 'wrap',
+                    gap: 2,
+                  }}
+                >
+                  <Stack direction="row" spacing={1.5} flexWrap="wrap">
+                    <Chip size="small" label={`Số dòng hàng: ${lines.length}`} sx={{ fontWeight: 600 }} />
+                    <Chip size="small" label={`Tổng số lượng: ${summary.totalQty.toLocaleString('vi-VN')}`} sx={{ fontWeight: 600 }} />
+                    {summary.giftLines > 0 && (
+                      <Chip
+                        size="small"
+                        color="info"
+                        variant="outlined"
+                        label={`Hàng cho tặng (0₫): ${summary.giftLines} dòng`}
+                        sx={{ fontWeight: 600 }}
+                      />
+                    )}
+                  </Stack>
+                  <Typography sx={{ fontWeight: 800, fontSize: 16, color: '#0058be' }}>
+                    Tổng giá trị phiếu: {summary.totalAmount.toLocaleString('vi-VN')} ₫
+                  </Typography>
+                </Box>
               </Box>
             )}
 
@@ -646,7 +1189,7 @@ export default function StockInwards() {
                 type="submit"
                 variant="contained"
                 disabled={loading || initialLoading}
-                sx={{ textTransform: 'none', fontWeight: 600 }}
+                sx={{ textTransform: 'none', fontWeight: 600, bgcolor: '#0058be' }}
               >
                 {loading ? 'Đang lưu…' : editId ? 'Lưu thay đổi' : 'Lưu phiếu và nhập kho'}
               </Button>

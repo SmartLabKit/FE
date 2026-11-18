@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from 'react'
+import { useState, useEffect, useMemo, useCallback } from 'react'
 import {
   Alert,
   Box,
@@ -28,9 +28,6 @@ import {
   CheckCircle as CheckCircleIcon,
   HourglassEmpty as HourglassIcon,
   Cancel as CancelIcon,
-  ArrowForward as ArrowForwardIcon,
-  AssignmentReturn as AssignmentReturnIcon,
-  Check as CheckIcon,
   Update as UpdateIcon,
   Search as SearchIcon,
 } from '@mui/icons-material'
@@ -38,17 +35,43 @@ import { useNavigate } from 'react-router-dom'
 import PortalLayout from '../../components/layout/PortalLayout'
 import ProjectApprovalDialog from './ProjectApprovalDialog'
 import ProjectStatusChip from '../../components/borrowing/ProjectStatusChip'
-import {
-  borrowService,
-} from '../../services/borrowService'
+import { borrowService } from '../../services/borrowService'
 import { projectService } from '../../services/projectService'
 import { useAuth } from '../../context/AuthContext'
 import { formatVietnamDate } from '../../utils/dateFormatting'
 import { getBorrowRequestStatusMeta } from './borrowHelpers'
 
+const ACTIVE_BORROW_STATUSES = ['Pending', 'PendingApproval', 'PendingLecturer', 'Submitted', 'Approved', 'Ready', 'Borrowing']
+const HISTORY_BORROW_STATUSES = ['Returned', 'Cancelled', 'Rejected']
+
+function isRequestOverdue(borrow) {
+  if (!borrow) return false
+  if (borrow.status === 'Overdue') return true
+  return Boolean(borrow.isOverdue) && !HISTORY_BORROW_STATUSES.includes(borrow.status)
+}
+
+function addDaysToIso(dateValue, days) {
+  const base = dateValue ? new Date(dateValue) : new Date()
+  if (Number.isNaN(base.getTime())) return ''
+  const next = new Date(base.getTime() + Number(days || 0) * 86400000)
+  return next.toISOString()
+}
+
+function getExtensionDays(oldDueDate, newDueDate, fallbackDays) {
+  if (oldDueDate && newDueDate) {
+    const start = new Date(oldDueDate)
+    const end = new Date(newDueDate)
+    if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime())) {
+      const diff = Math.round((end.getTime() - start.getTime()) / 86400000)
+      if (diff > 0) return diff
+    }
+  }
+  return fallbackDays || null
+}
+
 /**
  * SupplementaryBorrowList Component
- * Danh sách Đơn mượn, Mượn bổ sung (MF5.1), Trả linh kiện (MF5.2) & Quản lý Gia hạn (Extensions)
+ * Danh sách Đơn mượn, Mượn bổ sung (MF5.1) & Quản lý Gia hạn (Extensions)
  */
 export default function SupplementaryBorrowList() {
   const navigate = useNavigate()
@@ -57,9 +80,11 @@ export default function SupplementaryBorrowList() {
   const isLecturer = user?.roleLabel === 'LECTURER' || user?.roles?.includes('Lecturer')
 
   const [supplementaryRequests, setSupplementaryRequests] = useState([])
-  const [returnRequests, setReturnRequests] = useState([])
   const [borrowRequests, setBorrowRequests] = useState([])
-  const [borrowStatusFilter, setBorrowStatusFilter] = useState('all') // 'all', 'active', 'returned'
+  const [loadingStudentData, setLoadingStudentData] = useState(false)
+  const [studentDataError, setStudentDataError] = useState('')
+  const [borrowStatusFilter, setBorrowStatusFilter] = useState('all') // 'all' | 'active' | 'overdue' | 'history'
+  const [borrowSearch, setBorrowSearch] = useState('')
   const [extensions, setExtensions] = useState([])
   const [lecturerProjects, setLecturerProjects] = useState([])
   const [loadingLecturerProjects, setLoadingLecturerProjects] = useState(false)
@@ -82,90 +107,68 @@ export default function SupplementaryBorrowList() {
   const [rejectReason, setRejectReason] = useState('')
   const [rejectSubmitting, setRejectSubmitting] = useState(false)
 
-  // Tải dữ liệu ban đầu
-  useEffect(() => {
-    let isMounted = true
-
-    Promise.all([
-      borrowService.getReturnRequests().catch(() => []),
-      borrowService.getMyBorrowRequests().catch(() => ({ items: [] })),
-      borrowService.getBorrowExtensions().catch(() => ({ items: [] })),
-      borrowService.getPendingApprovalProjects().catch(() => []),
-    ])
-      .then(([retData, myBorrows, extData, pendingProjects]) => {
-        if (!isMounted) return
-        if (retData) setReturnRequests(Array.isArray(retData) ? retData : retData?.items || [])
-        if (myBorrows) setBorrowRequests(Array.isArray(myBorrows) ? myBorrows : myBorrows?.items || myBorrows?.data?.items || [])
-        if (extData?.items) setExtensions(extData.items)
-        if (Array.isArray(pendingProjects)) {
-          setSupplementaryRequests(pendingProjects)
-        } else if (pendingProjects?.items) {
-          setSupplementaryRequests(pendingProjects.items)
-        }
-      })
-      .catch((err) => {
-        console.warn('Lỗi tải dữ liệu mượn trả:', err)
-      })
-
+  // Hàm tải toàn bộ dữ liệu theo vai trò (Sinh viên vs Giảng viên)
+  const loadData = useCallback(async () => {
     if (isLecturer) {
-      Promise.resolve().then(async () => {
-        if (!isMounted) return
-        setLoadingLecturerProjects(true)
-        try {
-          const data = await projectService.getLecturerProjects()
-          if (!isMounted) return
-          setLecturerProjects(Array.isArray(data) ? data : [])
-          setLecturerProjectsError('')
-        } catch (err) {
-          if (!isMounted) return
-          setLecturerProjectsError(err.message || 'Không thể tải danh sách project của sinh viên.')
-        } finally {
-          if (isMounted) setLoadingLecturerProjects(false)
-        }
-      })
+      setLoadingLecturerProjects(true)
+      try {
+        const [projects, extData] = await Promise.all([
+          projectService.getLecturerProjects(),
+          borrowService.getBorrowExtensions({ page: 1, size: 100 }).catch(() => ({ items: [] })),
+        ])
+        setLecturerProjects(Array.isArray(projects) ? projects : [])
+        setLecturerProjectsError('')
+        const extItems = Array.isArray(extData) ? extData : extData?.items || extData?.data?.items || []
+        setExtensions(extItems)
+      } catch (err) {
+        setLecturerProjectsError(err.message || 'Không thể tải danh sách project của sinh viên.')
+      } finally {
+        setLoadingLecturerProjects(false)
+      }
+      return
     }
 
-    return () => {
-      isMounted = false
+    setLoadingStudentData(true)
+    setStudentDataError('')
+    try {
+      const overview = await borrowService.getStudentBorrowOverview({ includeExtensions: true })
+      setBorrowRequests(overview.borrowRequests || [])
+      setSupplementaryRequests(overview.supplementaryRequests || [])
+      setExtensions(overview.extensions || [])
+      if (overview.error) {
+        setStudentDataError(overview.error)
+      }
+    } catch (err) {
+      setStudentDataError(err.message || 'Không thể tải danh sách đơn mượn của bạn.')
+    } finally {
+      setLoadingStudentData(false)
     }
   }, [isLecturer])
 
-  const refreshData = async () => {
-    if (isLecturer) {
-      try {
-        const projects = await projectService.getLecturerProjects()
-        setLecturerProjects(Array.isArray(projects) ? projects : [])
-        setLecturerProjectsError('')
-      } catch (err) {
-        setLecturerProjectsError(err.message || 'Không thể tải danh sách project của sinh viên.')
-      }
+  // Tải dữ liệu ban đầu và khi tài khoản đăng nhập thay đổi
+  useEffect(() => {
+    let active = true
+    const timer = window.setTimeout(() => {
+      if (active) loadData()
+    }, 0)
+    return () => {
+      active = false
+      window.clearTimeout(timer)
     }
-    try {
-      const [retData, myBorrows, extData, pendingProjects] = await Promise.all([
-        borrowService.getReturnRequests().catch(() => []),
-        borrowService.getMyBorrowRequests().catch(() => ({ items: [] })),
-        borrowService.getBorrowExtensions().catch(() => ({ items: [] })),
-        borrowService.getPendingApprovalProjects().catch(() => []),
-      ])
+  }, [loadData, user?.userId])
 
-      if (retData) setReturnRequests(Array.isArray(retData) ? retData : retData?.items || [])
-      if (myBorrows?.items) setBorrowRequests(myBorrows.items)
-      if (extData?.items) setExtensions(extData.items)
-      if (Array.isArray(pendingProjects)) {
-        setSupplementaryRequests(pendingProjects)
-      } else if (pendingProjects?.items) {
-        setSupplementaryRequests(pendingProjects.items)
-      }
-    } catch (err) {
-      console.warn('Lỗi tải lại dữ liệu mượn trả:', err)
-    }
-  }
+  const refreshData = useCallback(async () => {
+    await loadData()
+  }, [loadData])
 
-  // Thống kê số lượng project theo trạng thái cho Giảng viên
+  // Thống kê số lượng project theo trạng thái cho Giảng viên (bao gồm cả đề tài đã Approved nhưng có đơn mượn thêm Pending)
   const pendingCount = useMemo(
     () =>
-      lecturerProjects.filter((p) =>
-        ['Submitted', 'PendingApproval', 'PendingLecturer', 'Pending'].includes(p.status)
+      lecturerProjects.filter(
+        (p) =>
+          ['Submitted', 'PendingApproval', 'PendingLecturer', 'Pending'].includes(p.status) ||
+          Boolean(p.hasPendingApproval) ||
+          Boolean(p.isSupplementary)
       ).length,
     [lecturerProjects]
   )
@@ -185,9 +188,11 @@ export default function SupplementaryBorrowList() {
     return lecturerProjects.filter((project) => {
       // Lọc trạng thái
       if (projectStatusFilter === 'Submitted') {
-        if (!['Submitted', 'PendingApproval', 'PendingLecturer', 'Pending'].includes(project.status)) {
-          return false
-        }
+        const isPendingItem =
+          ['Submitted', 'PendingApproval', 'PendingLecturer', 'Pending'].includes(project.status) ||
+          Boolean(project.hasPendingApproval) ||
+          Boolean(project.isSupplementary)
+        if (!isPendingItem) return false
       } else if (projectStatusFilter === 'Approved') {
         if (project.status !== 'Approved') return false
       } else if (projectStatusFilter === 'Rejected') {
@@ -198,7 +203,7 @@ export default function SupplementaryBorrowList() {
       if (projectSearch.trim()) {
         const q = projectSearch.toLowerCase().trim()
         const matchTitle = project.title?.toLowerCase().includes(q)
-        const matchCode = project.requestCode?.toLowerCase().includes(q)
+        const matchCode = (project.pendingRequestCode || project.requestCode || '').toLowerCase().includes(q)
         const matchOwner = project.ownerName?.toLowerCase().includes(q)
         const matchTeam = project.teamName?.toLowerCase().includes(q)
         const matchClass = project.classCode?.toLowerCase().includes(q)
@@ -211,78 +216,45 @@ export default function SupplementaryBorrowList() {
     })
   }, [lecturerProjects, projectStatusFilter, projectSearch])
 
+  // Thống kê đơn mượn của sinh viên theo nhóm trạng thái (đồng bộ với Mobile: Đang xử lý / Quá hạn / Lịch sử)
+  const studentBorrowCounts = useMemo(() => {
+    const active = borrowRequests.filter(
+      (b) => ACTIVE_BORROW_STATUSES.includes(b.status) && !isRequestOverdue(b)
+    ).length
+    const overdue = borrowRequests.filter((b) => isRequestOverdue(b)).length
+    const history = borrowRequests.filter((b) => HISTORY_BORROW_STATUSES.includes(b.status)).length
+    return {
+      all: borrowRequests.length,
+      active,
+      overdue,
+      history,
+    }
+  }, [borrowRequests])
+
   const filteredBorrowRequests = useMemo(() => {
     return borrowRequests.filter((b) => {
       if (borrowStatusFilter === 'active') {
-        return ['Borrowing', 'Ready', 'Approved', 'Overdue'].includes(b.status)
+        if (!ACTIVE_BORROW_STATUSES.includes(b.status) || isRequestOverdue(b)) return false
+      } else if (borrowStatusFilter === 'overdue') {
+        if (!isRequestOverdue(b)) return false
+      } else if (borrowStatusFilter === 'history') {
+        if (!HISTORY_BORROW_STATUSES.includes(b.status)) return false
       }
-      if (borrowStatusFilter === 'returned') {
-        return b.status === 'Returned'
+
+      if (borrowSearch.trim()) {
+        const q = borrowSearch.toLowerCase().trim()
+        const matchCode = b.requestCode?.toLowerCase().includes(q)
+        const matchTitle = b.projectTitle?.toLowerCase().includes(q)
+        const matchClass = b.classCode?.toLowerCase().includes(q)
+        const matchRoom = (b.roomName || b.roomCode || '').toLowerCase().includes(q)
+        if (!matchCode && !matchTitle && !matchClass && !matchRoom) return false
       }
+
       return true
     })
-  }, [borrowRequests, borrowStatusFilter])
+  }, [borrowRequests, borrowStatusFilter, borrowSearch])
 
   const getProjectStatusChip = (status) => <ProjectStatusChip status={status} />
-
-  const getStatusChip = (status) => {
-    switch (status) {
-      case 'PendingLecturer':
-        return (
-          <Chip
-            icon={<HourglassIcon sx={{ fontSize: '14px !important' }} />}
-            label="Chờ giảng viên duyệt"
-            size="small"
-            sx={{ bgcolor: '#fef3c7', color: '#b45309', fontWeight: 800, fontSize: 11 }}
-          />
-        )
-      case 'Rejected':
-        return (
-          <Chip
-            icon={<CancelIcon sx={{ fontSize: '14px !important' }} />}
-            label="Bị từ chối"
-            size="small"
-            sx={{ bgcolor: '#fee2e2', color: '#dc2626', fontWeight: 800, fontSize: 11 }}
-          />
-        )
-      case 'Approved':
-        return (
-          <Chip
-            icon={<CheckCircleIcon sx={{ fontSize: '14px !important' }} />}
-            label="Đã duyệt"
-            size="small"
-            sx={{ bgcolor: '#dcfce7', color: '#15803d', fontWeight: 800, fontSize: 11 }}
-          />
-        )
-      default:
-        return <Chip label={status || 'Bản nháp'} size="small" />
-    }
-  }
-
-  const getReturnStatusChip = (status) => {
-    switch (status) {
-      case 'PendingLab':
-        return (
-          <Chip
-            icon={<HourglassIcon sx={{ fontSize: '14px !important' }} />}
-            label="Chờ Lab kiểm tra"
-            size="small"
-            sx={{ bgcolor: '#fef3c7', color: '#b45309', fontWeight: 800, fontSize: 11 }}
-          />
-        )
-      case 'Returned':
-        return (
-          <Chip
-            icon={<CheckIcon sx={{ fontSize: '14px !important' }} />}
-            label="Đã trả"
-            size="small"
-            sx={{ bgcolor: '#dcfce7', color: '#15803d', fontWeight: 800, fontSize: 11 }}
-          />
-        )
-      default:
-        return <Chip label={status || 'Đang xử lý'} size="small" />
-    }
-  }
 
   const getExtensionStatusChip = (status) => {
     switch (status) {
@@ -314,7 +286,7 @@ export default function SupplementaryBorrowList() {
           />
         )
       default:
-        return <Chip label={status} size="small" />
+        return <Chip label={status || '—'} size="small" />
     }
   }
 
@@ -334,10 +306,16 @@ export default function SupplementaryBorrowList() {
       return
     }
 
+    const newDueDate = addDaysToIso(selectedBorrow.dueDate, requestedDays)
+    if (!newDueDate) {
+      setToast({ open: true, message: 'Không xác định được hạn trả mới hợp lệ', severity: 'error' })
+      return
+    }
+
     setExtSubmitting(true)
     try {
       await borrowService.requestExtension(selectedBorrow.borrowRequestId, {
-        requestedDays: Number(requestedDays),
+        newDueDate,
         reason: extReason.trim(),
       })
       setToast({ open: true, message: 'Đã gửi yêu cầu gia hạn đến giảng viên thành công!', severity: 'success' })
@@ -358,6 +336,18 @@ export default function SupplementaryBorrowList() {
       await refreshData()
     } catch (err) {
       setToast({ open: true, message: err.message || 'Duyệt gia hạn thất bại', severity: 'error' })
+    }
+  }
+
+  // Sinh viên rút lại đơn mượn bổ sung đang chờ giảng viên duyệt
+  const handleWithdrawSupplementary = async (req) => {
+    if (!req?.projectId) return
+    try {
+      await borrowService.withdrawSupplementaryBorrow(req.projectId)
+      setToast({ open: true, message: `Đã rút lại đơn mượn bổ sung ${req.requestCode || ''}.`, severity: 'success' })
+      await refreshData()
+    } catch (err) {
+      setToast({ open: true, message: err.message || 'Không thể rút lại đơn mượn bổ sung.', severity: 'error' })
     }
   }
 
@@ -399,33 +389,17 @@ export default function SupplementaryBorrowList() {
         <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
           <Box>
             <Typography variant="h4" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 24, mb: 0.5 }}>
-              {isLecturer ? 'Danh sách yêu cầu mượn & gia hạn chờ duyệt' : 'Đơn mượn của tôi & Mượn / Trả / Gia hạn'}
+              {isLecturer ? 'Danh sách yêu cầu mượn & gia hạn chờ duyệt' : 'Đơn mượn của tôi & Mượn bổ sung / Gia hạn'}
             </Typography>
             <Typography variant="body2" sx={{ color: '#556070', fontSize: 13 }}>
               {isLecturer
                 ? 'Phê duyệt hoặc từ chối các yêu cầu mượn bổ sung và xin gia hạn thời gian mượn của sinh viên'
-                : 'Theo dõi tiến trình đơn mượn, gửi phiếu mượn bổ sung, xin gia hạn và tạo phiếu trả cho Lab'}
+                : 'Theo dõi tiến trình đơn mượn, lịch sử mượn trả, gửi phiếu mượn bổ sung và xin gia hạn thời gian mượn'}
             </Typography>
           </Box>
 
           {!isLecturer && (
             <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
-              <Button
-                variant="outlined"
-                startIcon={<AssignmentReturnIcon />}
-                onClick={() => navigate('/borrow/return/create')}
-                sx={{
-                  borderColor: '#0058be',
-                  color: '#0058be',
-                  textTransform: 'none',
-                  fontWeight: 700,
-                  fontSize: 13,
-                  borderRadius: 1.5,
-                  '&:hover': { bgcolor: '#eff6ff', borderColor: '#0058be' },
-                }}
-              >
-                Tạo phiếu trả linh kiện (MF5.2)
-              </Button>
               <Button
                 variant="contained"
                 startIcon={<AddIcon />}
@@ -623,7 +597,13 @@ export default function SupplementaryBorrowList() {
                       </TableRow>
                     ) : (
                       filteredLecturerProjects.map((project) => {
-                        const isPending = ['Submitted', 'PendingApproval', 'PendingLecturer', 'Pending'].includes(project.status)
+                        const isSupplementaryPending =
+                          Boolean(project.isSupplementary) ||
+                          (Boolean(project.hasPendingApproval) && project.status === 'Approved')
+                        const isPending =
+                          ['Submitted', 'PendingApproval', 'PendingLecturer', 'Pending'].includes(project.status) ||
+                          isSupplementaryPending ||
+                          Boolean(project.hasPendingApproval)
                         return (
                           <TableRow key={project.projectId} hover>
                             <TableCell>
@@ -631,7 +611,7 @@ export default function SupplementaryBorrowList() {
                                 {project.title}
                               </Typography>
                               <Typography variant="caption" sx={{ color: '#64748b' }}>
-                                {project.requestCode || '—'} · {project.ownerName || '—'}
+                                {project.pendingRequestCode || project.requestCode || '—'} · {project.ownerName || '—'}
                               </Typography>
                             </TableCell>
                             <TableCell sx={{ fontSize: 12, color: '#334155' }}>
@@ -646,7 +626,16 @@ export default function SupplementaryBorrowList() {
                               {formatVietnamDate(project.dueDate)}
                             </TableCell>
                             <TableCell>
-                              {getProjectStatusChip(project.status)}
+                              <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.75, alignItems: 'center' }}>
+                                {getProjectStatusChip(project.status)}
+                                {isSupplementaryPending && (
+                                  <Chip
+                                    label="Mượn thêm · Chờ duyệt"
+                                    size="small"
+                                    sx={{ bgcolor: '#fef3c7', color: '#b45309', fontWeight: 800, fontSize: 10.5 }}
+                                  />
+                                )}
+                              </Box>
                             </TableCell>
                             <TableCell align="right">
                               {isPending ? (
@@ -664,7 +653,7 @@ export default function SupplementaryBorrowList() {
                                     '&:hover': { bgcolor: '#004ca6' },
                                   }}
                                 >
-                                  Duyệt
+                                  {isSupplementaryPending ? 'Duyệt mượn thêm' : 'Duyệt'}
                                 </Button>
                               ) : (
                                 <Button
@@ -696,7 +685,7 @@ export default function SupplementaryBorrowList() {
           </Paper>
         )}
 
-        {/* ===================== BẢNG 1: ĐƠN MƯỢN CHÍNH HIỆN TẠI & XIN GIA HẠN ===================== */}
+        {/* ===================== BẢNG 1: QUẢN LÝ ĐƠN MƯỢN LINH KIỆN CỦA TÔI ===================== */}
         {!isLecturer && (
           <Paper
             elevation={0}
@@ -714,140 +703,210 @@ export default function SupplementaryBorrowList() {
                   Quản lý đơn mượn linh kiện của tôi
                 </Typography>
                 <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                  Theo dõi trạng thái đơn mượn, xin gia hạn và xem lại lịch sử các đơn đã trả
+                  Theo dõi tiến trình đơn mượn, đơn quá hạn, xin gia hạn và xem lại lịch sử các đơn trước đây
                 </Typography>
               </Box>
+              <Chip
+                label={`${studentBorrowCounts.all} đơn`}
+                size="small"
+                sx={{ bgcolor: '#eff6ff', color: '#0058be', fontWeight: 800, fontSize: 11 }}
+              />
+            </Box>
+
+            {/* Thanh lọc trạng thái (Tất cả / Đang xử lý / Quá hạn / Lịch sử) & Tìm kiếm */}
+            <Box
+              sx={{
+                display: 'flex',
+                flexWrap: 'wrap',
+                alignItems: 'center',
+                justifyContent: 'space-between',
+                gap: 1.5,
+                mb: 2,
+              }}
+            >
               <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
                 <Button
                   size="small"
                   variant={borrowStatusFilter === 'all' ? 'contained' : 'outlined'}
                   onClick={() => setBorrowStatusFilter('all')}
-                  sx={{ textTransform: 'none', borderRadius: 1.5, fontSize: 12, py: 0.25 }}
+                  sx={{ textTransform: 'none', borderRadius: 1.5, fontSize: 12, fontWeight: 700, py: 0.35 }}
                 >
-                  Tất cả ({borrowRequests.length})
+                  Tất cả ({studentBorrowCounts.all})
                 </Button>
                 <Button
                   size="small"
                   variant={borrowStatusFilter === 'active' ? 'contained' : 'outlined'}
                   onClick={() => setBorrowStatusFilter('active')}
-                  sx={{ textTransform: 'none', borderRadius: 1.5, fontSize: 12, py: 0.25 }}
+                  sx={{ textTransform: 'none', borderRadius: 1.5, fontSize: 12, fontWeight: 700, py: 0.35 }}
                 >
-                  Đang mượn ({borrowRequests.filter((b) => ['Borrowing', 'Ready', 'Approved', 'Overdue'].includes(b.status)).length})
+                  Đang xử lý ({studentBorrowCounts.active})
                 </Button>
                 <Button
                   size="small"
-                  variant={borrowStatusFilter === 'returned' ? 'contained' : 'outlined'}
-                  onClick={() => setBorrowStatusFilter('returned')}
-                  sx={{ textTransform: 'none', borderRadius: 1.5, fontSize: 12, py: 0.25 }}
+                  color="error"
+                  variant={borrowStatusFilter === 'overdue' ? 'contained' : 'outlined'}
+                  onClick={() => setBorrowStatusFilter('overdue')}
+                  sx={{ textTransform: 'none', borderRadius: 1.5, fontSize: 12, fontWeight: 700, py: 0.35 }}
                 >
-                  Đã trả ({borrowRequests.filter((b) => b.status === 'Returned').length})
+                  Quá hạn ({studentBorrowCounts.overdue})
+                </Button>
+                <Button
+                  size="small"
+                  color="success"
+                  variant={borrowStatusFilter === 'history' ? 'contained' : 'outlined'}
+                  onClick={() => setBorrowStatusFilter('history')}
+                  sx={{ textTransform: 'none', borderRadius: 1.5, fontSize: 12, fontWeight: 700, py: 0.35 }}
+                >
+                  Lịch sử ({studentBorrowCounts.history})
                 </Button>
               </Box>
+
+              <TextField
+                placeholder="Tìm mã đơn, đề tài, lớp, phòng lab..."
+                size="small"
+                value={borrowSearch}
+                onChange={(e) => setBorrowSearch(e.target.value)}
+                slotProps={{
+                  input: {
+                    startAdornment: (
+                      <InputAdornment position="start">
+                        <SearchIcon sx={{ color: '#94a3b8', fontSize: 18 }} />
+                      </InputAdornment>
+                    ),
+                  },
+                }}
+                sx={{
+                  width: { xs: '100%', sm: 290 },
+                  '& .MuiOutlinedInput-root': {
+                    borderRadius: 1.5,
+                    fontSize: 12,
+                    bgcolor: '#f8fafc',
+                  },
+                }}
+              />
             </Box>
 
-            <TableContainer sx={{ border: '1px solid #f0f2f5', borderRadius: 1.5 }}>
-              <Table size="small">
-                <TableHead sx={{ bgcolor: '#fafbff' }}>
-                  <TableRow>
-                    <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280', py: 1.2 }}>MÃ ĐƠN</TableCell>
-                    <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>ĐỀ TÀI / DỰ ÁN</TableCell>
-                    <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>LỚP MÔN HỌC</TableCell>
-                    <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>HẠN TRẢ</TableCell>
-                    <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>TRẠNG THÁI</TableCell>
-                    <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280', textAlign: 'right' }}>THAO TÁC</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {filteredBorrowRequests.map((b) => (
-                    <TableRow key={b.borrowRequestId} hover>
-                      <TableCell sx={{ fontWeight: 800, fontSize: 13, color: '#0058be' }}>
-                        {b.requestCode}
-                      </TableCell>
-                      <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#131b2e' }}>
-                        {b.projectTitle}
-                      </TableCell>
-                      <TableCell sx={{ fontSize: 12, color: '#424754' }}>
-                        {b.classCode}
-                      </TableCell>
-                      <TableCell sx={{ fontSize: 12, color: '#131b2e', fontWeight: 600 }}>
-                        {b.dueDate}
-                      </TableCell>
-                      <TableCell>
-                        {(() => {
-                          const meta = getBorrowRequestStatusMeta(b.status)
-                          return <Chip label={meta.label} size="small" sx={meta.sx} />
-                        })()}
-                      </TableCell>
-                      <TableCell sx={{ textAlign: 'right' }}>
-                        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                          {/* Nút Xin gia hạn */}
-                          {b.status === 'Borrowing' && (
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              startIcon={<UpdateIcon sx={{ fontSize: 13 }} />}
-                              onClick={() => handleOpenExtModal(b)}
-                              sx={{
-                                textTransform: 'none',
-                                fontWeight: 700,
-                                fontSize: 11,
-                                borderRadius: 1,
-                                borderColor: '#b45309',
-                                color: '#b45309',
-                                bgcolor: '#fffbeb',
-                                '&:hover': { bgcolor: '#fef3c7' },
-                              }}
-                            >
-                              Xin gia hạn
-                            </Button>
-                          )}
+            {studentDataError && (
+              <Alert
+                severity="error"
+                sx={{ mb: 2 }}
+                action={
+                  <Button color="inherit" size="small" onClick={refreshData} sx={{ textTransform: 'none', fontWeight: 700 }}>
+                    Thử lại
+                  </Button>
+                }
+              >
+                {studentDataError}
+              </Alert>
+            )}
 
-                          {/* Nút Trả linh kiện chỉ hiển thị khi đang mượn */}
-                          {b.status === 'Borrowing' && (
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              startIcon={<AssignmentReturnIcon sx={{ fontSize: 13 }} />}
-                              onClick={() => navigate('/borrow/return/create')}
-                              sx={{
-                                textTransform: 'none',
-                                fontWeight: 700,
-                                fontSize: 11,
-                                borderRadius: 1,
-                                borderColor: '#dcdfe6',
-                              }}
-                            >
-                              Trả linh kiện
-                            </Button>
-                          )}
-
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            onClick={() => navigate(`/borrow/requests/${b.borrowRequestId}`)}
-                            sx={{ textTransform: 'none', fontWeight: 700, fontSize: 11, borderRadius: 1 }}
-                          >
-                            Chi tiết
-                          </Button>
-
-                        </Box>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {filteredBorrowRequests.length === 0 && (
+            {loadingStudentData ? (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
+                <CircularProgress size={30} />
+              </Box>
+            ) : (
+              <TableContainer sx={{ border: '1px solid #f0f2f5', borderRadius: 1.5 }}>
+                <Table size="small">
+                  <TableHead sx={{ bgcolor: '#fafbff' }}>
                     <TableRow>
-                      <TableCell colSpan={6} align="center" sx={{ py: 3, color: 'text.secondary' }}>
-                        {borrowStatusFilter === 'returned'
-                          ? 'Bạn chưa có đơn mượn nào ở trạng thái Đã trả.'
-                          : borrowStatusFilter === 'active'
-                            ? 'Không có đơn mượn nào đang mượn.'
-                            : 'Chưa có đơn mượn nào.'}
-                      </TableCell>
+                      <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280', py: 1.2 }}>MÃ ĐƠN</TableCell>
+                      <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>ĐỀ TÀI / DỰ ÁN</TableCell>
+                      <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>LỚP MÔN HỌC</TableCell>
+                      <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>HẠN TRẢ</TableCell>
+                      <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>TRẠNG THÁI</TableCell>
+                      <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280', textAlign: 'right' }}>THAO TÁC</TableCell>
                     </TableRow>
-                  )}
-                </TableBody>
-              </Table>
-            </TableContainer>
+                  </TableHead>
+                  <TableBody>
+                    {filteredBorrowRequests.map((b) => {
+                      const overdue = isRequestOverdue(b)
+                      const meta = getBorrowRequestStatusMeta(overdue ? 'Overdue' : b.status)
+                      return (
+                        <TableRow key={b.borrowRequestId} hover>
+                          <TableCell sx={{ fontWeight: 800, fontSize: 13, color: '#0058be', whiteSpace: 'nowrap' }}>
+                            {b.requestCode || '—'}
+                          </TableCell>
+                          <TableCell>
+                            <Typography variant="body2" sx={{ fontWeight: 700, fontSize: 12.5, color: '#131b2e' }}>
+                              {b.projectTitle || '—'}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: '#64748b', fontSize: 11 }}>
+                              {b.roomName || b.roomCode || 'Phòng Lab'}
+                              {typeof b.itemCount === 'number' && b.itemCount > 0 ? ` · ${b.itemCount} món` : ''}
+                            </Typography>
+                          </TableCell>
+                          <TableCell sx={{ fontSize: 12, color: '#424754' }}>
+                            <Typography variant="body2" sx={{ fontSize: 12, fontWeight: 600, color: '#334155' }}>
+                              {b.classCode || '—'}
+                            </Typography>
+                            {b.teamName && (
+                              <Typography variant="caption" sx={{ color: '#64748b', fontSize: 11 }}>
+                                {b.teamName}
+                              </Typography>
+                            )}
+                          </TableCell>
+                          <TableCell sx={{ fontSize: 12, color: overdue ? '#dc2626' : '#131b2e', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                            {b.dueDate ? formatVietnamDate(b.dueDate) : '—'}
+                          </TableCell>
+                          <TableCell>
+                            <Chip label={meta.label} size="small" sx={meta.sx} />
+                          </TableCell>
+                          <TableCell sx={{ textAlign: 'right' }}>
+                            <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                              {/* Nút Xin gia hạn (chỉ cho đơn đang mượn và chưa quá hạn) */}
+                              {b.status === 'Borrowing' && !overdue && (
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  startIcon={<UpdateIcon sx={{ fontSize: 13 }} />}
+                                  onClick={() => handleOpenExtModal(b)}
+                                  sx={{
+                                    textTransform: 'none',
+                                    fontWeight: 700,
+                                    fontSize: 11,
+                                    borderRadius: 1,
+                                    borderColor: '#b45309',
+                                    color: '#b45309',
+                                    bgcolor: '#fffbeb',
+                                    '&:hover': { bgcolor: '#fef3c7' },
+                                  }}
+                                >
+                                  Xin gia hạn
+                                </Button>
+                              )}
+
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                onClick={() => navigate(`/borrow/requests/${b.borrowRequestId}`)}
+                                sx={{ textTransform: 'none', fontWeight: 700, fontSize: 11, borderRadius: 1 }}
+                              >
+                                Chi tiết
+                              </Button>
+                            </Box>
+                          </TableCell>
+                        </TableRow>
+                      )
+                    })}
+                    {filteredBorrowRequests.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={6} align="center" sx={{ py: 3.5, color: 'text.secondary' }}>
+                          {borrowSearch.trim()
+                            ? 'Không tìm thấy đơn mượn nào phù hợp với từ khóa.'
+                            : borrowStatusFilter === 'history'
+                              ? 'Bạn chưa có đơn mượn nào trong lịch sử (Đã trả / Đã hủy / Từ chối).'
+                              : borrowStatusFilter === 'overdue'
+                                ? 'Không có đơn mượn nào đang quá hạn.'
+                                : borrowStatusFilter === 'active'
+                                  ? 'Không có đơn mượn nào đang xử lý.'
+                                  : 'Chưa có đơn mượn nào.'}
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
+            )}
           </Paper>
         )}
 
@@ -868,7 +927,7 @@ export default function SupplementaryBorrowList() {
                 Yêu cầu gia hạn đơn mượn (Borrow Extensions)
               </Typography>
               <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                GET /api/borrow-extensions · Sinh viên xin gia hạn, giảng viên duyệt/từ chối
+                Sinh viên xin gia hạn thời gian mượn trước khi quá hạn, giảng viên duyệt hoặc từ chối
               </Typography>
             </Box>
             <Chip
@@ -892,288 +951,206 @@ export default function SupplementaryBorrowList() {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {extensions.map((ext) => (
-                  <TableRow key={ext.extensionId} hover>
-                    <TableCell sx={{ fontWeight: 800, fontSize: 13, color: '#0058be' }}>
-                      {ext.requestCode}
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontWeight: 800, fontSize: 12, color: '#131b2e' }}>
-                        {ext.studentName}
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: '#81899a', fontSize: 11 }}>
-                        {ext.projectTitle}
-                      </Typography>
-                    </TableCell>
-                    <TableCell sx={{ fontSize: 12, color: '#64748b' }}>
-                      {ext.currentDueDate}
-                    </TableCell>
-                    <TableCell sx={{ fontSize: 12, color: '#15803d', fontWeight: 700 }}>
-                      +{ext.requestedDays} ngày ({ext.newDueDate})
-                    </TableCell>
-                    <TableCell sx={{ fontSize: 12, color: '#424754', maxWidth: 280 }}>
-                      {ext.reason}
-                    </TableCell>
-                    <TableCell>
-                      {getExtensionStatusChip(ext.status)}
-                    </TableCell>
-                    <TableCell sx={{ textAlign: 'right' }}>
-                      {isLecturer && ext.status === 'Pending' ? (
-                        <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                          <Button
-                            size="small"
-                            variant="contained"
-                            color="success"
-                            onClick={() => handleApproveExtension(ext)}
-                            sx={{
-                              textTransform: 'none',
-                              fontWeight: 700,
-                              fontSize: 11,
-                              borderRadius: 1,
-                              boxShadow: 'none',
-                            }}
-                          >
-                            Duyệt
-                          </Button>
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            color="error"
-                            onClick={() => handleOpenRejectExt(ext)}
-                            sx={{
-                              textTransform: 'none',
-                              fontWeight: 700,
-                              fontSize: 11,
-                              borderRadius: 1,
-                            }}
-                          >
-                            Từ chối
-                          </Button>
-                        </Box>
-                      ) : (
-                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                          {ext.status === 'Approved' ? 'Đã duyệt' : ext.status === 'Rejected' ? 'Đã từ chối' : 'Chờ giảng viên'}
+                {extensions.map((ext) => {
+                  const oldDate = ext.oldDueDate || ext.currentDueDate
+                  const extraDays = getExtensionDays(oldDate, ext.newDueDate, ext.requestedDays)
+                  return (
+                    <TableRow key={ext.extensionId} hover>
+                      <TableCell sx={{ fontWeight: 800, fontSize: 13, color: '#0058be', whiteSpace: 'nowrap' }}>
+                        {ext.requestCode || '—'}
+                      </TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ fontWeight: 800, fontSize: 12, color: '#131b2e' }}>
+                          {ext.requesterName || ext.studentName || '—'}
                         </Typography>
-                      )}
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
-
-        {/* ===================== BẢNG 3: PHIẾU TRẢ LINH KIỆN (MF5.2) ===================== */}
-        <Paper
-          elevation={0}
-          sx={{
-            p: 3,
-            mb: 4,
-            borderRadius: 2,
-            border: '1px solid #e4e6ef',
-            bgcolor: '#ffffff',
-          }}
-        >
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 16 }}>
-                Phiếu trả linh kiện (MF5.2 - Return Process)
-              </Typography>
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                Quy trình trả linh kiện: Gửi phiếu trả → Lab tiếp nhận & kiểm tra → Xác nhận & cập nhật kho
-              </Typography>
-            </Box>
-            <Chip
-              label={`${returnRequests.length} phiếu`}
-              size="small"
-              sx={{ bgcolor: '#dcfce7', color: '#15803d', fontWeight: 800, fontSize: 11 }}
-            />
-          </Box>
-
-          <TableContainer sx={{ border: '1px solid #f0f2f5', borderRadius: 1.5 }}>
-            <Table size="small">
-              <TableHead sx={{ bgcolor: '#fafbff' }}>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280', py: 1.2 }}>MÃ PHIẾU TRẢ</TableCell>
-                  <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>ĐƠN GỐC</TableCell>
-                  <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>NHÓM / NGƯỜI TRẢ</TableCell>
-                  <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>NGÀY TRẢ DỰ KIẾN</TableCell>
-                  <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>ĐỊA ĐIỂM</TableCell>
-                  <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>TRẠNG THÁI</TableCell>
-                  <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280', textAlign: 'right' }}>THAO TÁC</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {returnRequests.map((req) => (
-                  <TableRow key={req.returnId || req.requestCode} hover>
-                    <TableCell sx={{ fontWeight: 800, fontSize: 13, color: '#0058be' }}>
-                      {req.requestCode}
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#424754' }}>
-                      {req.originalBorrowCode}
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontWeight: 800, fontSize: 12, color: '#131b2e' }}>
-                        {req.teamName}
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: '#81899a', fontSize: 11 }}>
-                        {req.leaderName} ({req.leaderCode})
-                      </Typography>
-                    </TableCell>
-                    <TableCell sx={{ fontSize: 12, color: '#131b2e', fontWeight: 600 }}>
-                      {req.returnDate}
-                    </TableCell>
-                    <TableCell sx={{ fontSize: 12, color: '#424754' }}>
-                      {req.returnLocation}
-                    </TableCell>
-                    <TableCell>
-                      {getReturnStatusChip(req.status)}
-                    </TableCell>
-                    <TableCell sx={{ textAlign: 'right' }}>
-                      <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          onClick={() => navigate(`/borrow/return/${req.returnId || req.requestCode}`)}
-                          sx={{
-                            textTransform: 'none',
-                            fontWeight: 700,
-                            fontSize: 11,
-                            borderRadius: 1,
-                            borderColor: '#dcdfe6',
-                          }}
-                        >
-                          Chi tiết (SV)
-                        </Button>
-                        <Button
-                          size="small"
-                          variant="contained"
-                          onClick={() => navigate(`/borrow/return/confirm/${req.returnId || req.requestCode}`)}
-                          sx={{
-                            textTransform: 'none',
-                            fontWeight: 700,
-                            fontSize: 11,
-                            borderRadius: 1,
-                            bgcolor: '#16a34a',
-                            '&:hover': { bgcolor: '#15803d' },
-                            boxShadow: 'none',
-                          }}
-                        >
-                          Xác nhận trả (Lab)
-                        </Button>
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
-
-        {/* ===================== BẢNG 4: PHIẾU MƯỢN BỔ SUNG (MF5.1) ===================== */}
-        {!isLecturer && (
-        <Paper
-          elevation={0}
-          sx={{
-            p: 3,
-            borderRadius: 2,
-            border: '1px solid #e4e6ef',
-            bgcolor: '#ffffff',
-          }}
-        >
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 16 }}>
-              Phiếu mượn bổ sung (MF5.1 - Supplementary Borrowing)
-            </Typography>
-            <Chip
-              label={`${supplementaryRequests.length} phiếu`}
-              size="small"
-              sx={{ bgcolor: '#eaedff', color: '#0058be', fontWeight: 800, fontSize: 11 }}
-            />
-          </Box>
-
-          <TableContainer sx={{ border: '1px solid #f0f2f5', borderRadius: 1.5 }}>
-            <Table size="small">
-              <TableHead sx={{ bgcolor: '#fafbff' }}>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280', py: 1.2 }}>MÃ PHIẾU</TableCell>
-                  <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>ĐƠN GỐC</TableCell>
-                  <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>NHÓM / NGƯỜI ĐỀ NGHỊ</TableCell>
-                  <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>GIẢNG VIÊN</TableCell>
-                  <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>HẠN TRẢ</TableCell>
-                  <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>TRẠNG THÁI</TableCell>
-                  <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280', textAlign: 'right' }}>THAO TÁC</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {supplementaryRequests.map((req) => (
-                  <TableRow key={req.supplementaryId || req.requestCode} hover>
-                    <TableCell sx={{ fontWeight: 800, fontSize: 13, color: '#0058be' }}>
-                      {req.requestCode}
-                    </TableCell>
-                    <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#424754' }}>
-                      {req.originalBorrowCode}
-                    </TableCell>
-                    <TableCell>
-                      <Typography variant="body2" sx={{ fontWeight: 800, fontSize: 12, color: '#131b2e' }}>
-                        {req.teamName}
-                      </Typography>
-                      <Typography variant="caption" sx={{ color: '#81899a', fontSize: 11 }}>
-                        {req.leaderName} ({req.leaderCode})
-                      </Typography>
-                    </TableCell>
-                    <TableCell sx={{ fontSize: 12, color: '#424754', fontWeight: 600 }}>
-                      {req.lecturerName}
-                    </TableCell>
-                    <TableCell sx={{ fontSize: 12, color: '#131b2e', fontWeight: 600 }}>
-                      {req.dueDate}
-                    </TableCell>
-                    <TableCell>
-                      {getStatusChip(req.status)}
-                    </TableCell>
-                    <TableCell sx={{ textAlign: 'right' }}>
-                      <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                        <Button
-                          size="small"
-                          variant="outlined"
-                          onClick={() => navigate(`/borrow/supplementary/${req.supplementaryId || req.requestCode}`)}
-                          sx={{
-                            textTransform: 'none',
-                            fontWeight: 700,
-                            fontSize: 11,
-                            borderRadius: 1,
-                            borderColor: '#dcdfe6',
-                          }}
-                        >
-                          Chi tiết
-                        </Button>
-
-                        {isLecturer && req.status === 'PendingLecturer' && (
-                          <Button
-                            size="small"
-                            variant="contained"
-                            endIcon={<ArrowForwardIcon sx={{ fontSize: 13 }} />}
-                            onClick={() => navigate(`/borrow/supplementary/review/${req.supplementaryId || req.requestCode}`)}
-                            sx={{
-                              textTransform: 'none',
-                              fontWeight: 800,
-                              fontSize: 11,
-                              borderRadius: 1,
-                              bgcolor: '#0058be',
-                              boxShadow: 'none',
-                            }}
-                          >
-                            Xem xét
-                          </Button>
+                        <Typography variant="caption" sx={{ color: '#81899a', fontSize: 11 }}>
+                          {ext.projectTitle || '—'}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ fontSize: 12, color: '#64748b', whiteSpace: 'nowrap' }}>
+                        {oldDate ? formatVietnamDate(oldDate) : '—'}
+                      </TableCell>
+                      <TableCell sx={{ fontSize: 12, color: '#15803d', fontWeight: 700, whiteSpace: 'nowrap' }}>
+                        {extraDays ? `+${extraDays} ngày ` : ''}
+                        {ext.newDueDate ? `(${formatVietnamDate(ext.newDueDate)})` : '—'}
+                      </TableCell>
+                      <TableCell sx={{ fontSize: 12, color: '#424754', maxWidth: 280 }}>
+                        {ext.reason || '—'}
+                      </TableCell>
+                      <TableCell>
+                        {getExtensionStatusChip(ext.status)}
+                      </TableCell>
+                      <TableCell sx={{ textAlign: 'right' }}>
+                        {isLecturer && ext.status === 'Pending' ? (
+                          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
+                            <Button
+                              size="small"
+                              variant="contained"
+                              color="success"
+                              onClick={() => handleApproveExtension(ext)}
+                              sx={{
+                                textTransform: 'none',
+                                fontWeight: 700,
+                                fontSize: 11,
+                                borderRadius: 1,
+                                boxShadow: 'none',
+                              }}
+                            >
+                              Duyệt
+                            </Button>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              color="error"
+                              onClick={() => handleOpenRejectExt(ext)}
+                              sx={{
+                                textTransform: 'none',
+                                fontWeight: 700,
+                                fontSize: 11,
+                                borderRadius: 1,
+                              }}
+                            >
+                              Từ chối
+                            </Button>
+                          </Box>
+                        ) : (
+                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                            {ext.status === 'Approved' ? 'Đã duyệt' : ext.status === 'Rejected' ? 'Đã từ chối' : 'Chờ giảng viên'}
+                          </Typography>
                         )}
-                      </Box>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+                {extensions.length === 0 && (
+                  <TableRow>
+                    <TableCell colSpan={7} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                      Chưa có yêu cầu gia hạn nào.
                     </TableCell>
                   </TableRow>
-                ))}
+                )}
               </TableBody>
             </Table>
           </TableContainer>
         </Paper>
+
+        {/* ===================== BẢNG 3: PHIẾU MƯỢN BỔ SUNG (MF5.1) ===================== */}
+        {!isLecturer && (
+          <Paper
+            elevation={0}
+            sx={{
+              p: 3,
+              borderRadius: 2,
+              border: '1px solid #e4e6ef',
+              bgcolor: '#ffffff',
+            }}
+          >
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+              <Box>
+                <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 16 }}>
+                  Phiếu mượn bổ sung (MF5.1 - Supplementary Borrowing)
+                </Typography>
+                <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                  Danh sách các phiếu mượn thêm linh kiện phát sinh cho đề tài đã duyệt
+                </Typography>
+              </Box>
+              <Chip
+                label={`${supplementaryRequests.length} phiếu`}
+                size="small"
+                sx={{ bgcolor: '#eaedff', color: '#0058be', fontWeight: 800, fontSize: 11 }}
+              />
+            </Box>
+
+            <TableContainer sx={{ border: '1px solid #f0f2f5', borderRadius: 1.5 }}>
+              <Table size="small">
+                <TableHead sx={{ bgcolor: '#fafbff' }}>
+                  <TableRow>
+                    <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280', py: 1.2 }}>MÃ PHIẾU</TableCell>
+                    <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>ĐƠN GỐC</TableCell>
+                    <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>ĐỀ TÀI / LỚP</TableCell>
+                    <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>PHÒNG LAB / SỐ MÓN</TableCell>
+                    <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>HẠN TRẢ</TableCell>
+                    <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>TRẠNG THÁI</TableCell>
+                    <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280', textAlign: 'right' }}>THAO TÁC</TableCell>
+                  </TableRow>
+                </TableHead>
+                <TableBody>
+                  {supplementaryRequests.map((req) => {
+                    const meta = getBorrowRequestStatusMeta(isRequestOverdue(req) ? 'Overdue' : req.status)
+                    return (
+                      <TableRow key={req.borrowRequestId || req.requestCode} hover>
+                        <TableCell sx={{ fontWeight: 800, fontSize: 13, color: '#0058be', whiteSpace: 'nowrap' }}>
+                          {req.requestCode || '—'}
+                        </TableCell>
+                        <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#424754', whiteSpace: 'nowrap' }}>
+                          {req.originalBorrowCode || '—'}
+                        </TableCell>
+                        <TableCell>
+                          <Typography variant="body2" sx={{ fontWeight: 800, fontSize: 12, color: '#131b2e' }}>
+                            {req.projectTitle || '—'}
+                          </Typography>
+                          <Typography variant="caption" sx={{ color: '#81899a', fontSize: 11 }}>
+                            {req.classCode || '—'}{req.teamName ? ` · ${req.teamName}` : ''}
+                          </Typography>
+                        </TableCell>
+                        <TableCell sx={{ fontSize: 12, color: '#424754' }}>
+                          {req.roomName || req.roomCode || '—'}
+                          {typeof req.itemCount === 'number' && req.itemCount > 0 ? ` · ${req.itemCount} món` : ''}
+                        </TableCell>
+                        <TableCell sx={{ fontSize: 12, color: '#131b2e', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                          {req.dueDate ? formatVietnamDate(req.dueDate) : '—'}
+                        </TableCell>
+                        <TableCell>
+                          <Chip label={meta.label} size="small" sx={meta.sx} />
+                        </TableCell>
+                        <TableCell sx={{ textAlign: 'right' }}>
+                          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
+                            {req.status === 'Pending' && req.projectId && (
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                color="warning"
+                                onClick={() => handleWithdrawSupplementary(req)}
+                                sx={{
+                                  textTransform: 'none',
+                                  fontWeight: 700,
+                                  fontSize: 11,
+                                  borderRadius: 1,
+                                }}
+                              >
+                                Rút lại
+                              </Button>
+                            )}
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              onClick={() => navigate(`/borrow/requests/${req.borrowRequestId}`)}
+                              sx={{
+                                textTransform: 'none',
+                                fontWeight: 700,
+                                fontSize: 11,
+                                borderRadius: 1,
+                                borderColor: '#dcdfe6',
+                              }}
+                            >
+                              Chi tiết
+                            </Button>
+                          </Box>
+                        </TableCell>
+                      </TableRow>
+                    )
+                  })}
+                  {supplementaryRequests.length === 0 && (
+                    <TableRow>
+                      <TableCell colSpan={7} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                        Chưa có phiếu mượn bổ sung nào.
+                      </TableCell>
+                    </TableRow>
+                  )}
+                </TableBody>
+              </Table>
+            </TableContainer>
+          </Paper>
         )}
 
         {/* ===================== MODAL XIN GIA HẠN ĐƠN MƯỢN ===================== */}
@@ -1188,7 +1165,7 @@ export default function SupplementaryBorrowList() {
 
             <TextField
               label="Hạn trả hiện tại"
-              value={selectedBorrow?.dueDate || ''}
+              value={selectedBorrow?.dueDate ? formatVietnamDate(selectedBorrow.dueDate) : '—'}
               fullWidth
               disabled
               size="small"
@@ -1199,10 +1176,15 @@ export default function SupplementaryBorrowList() {
               label="Số ngày muốn gia hạn thêm (Tối đa 14 ngày)"
               type="number"
               value={requestedDays}
-              onChange={(e) => setRequestedDays(Math.max(1, Math.min(14, Number(e.target.value))))}
+              onChange={(e) => setRequestedDays(Math.max(1, Math.min(14, Number(e.target.value) || 1)))}
               fullWidth
               size="small"
-              inputProps={{ min: 1, max: 14 }}
+              helperText={
+                selectedBorrow?.dueDate
+                  ? `Hạn trả mới dự kiến: ${formatVietnamDate(addDaysToIso(selectedBorrow.dueDate, requestedDays))}`
+                  : ''
+              }
+              slotProps={{ htmlInput: { min: 1, max: 14 } }}
               sx={{ mb: 2 }}
             />
 

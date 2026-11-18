@@ -167,12 +167,21 @@ export default function StockReceipts() {
   }
 
   const handleFromDateChange = (e) => {
-    setFromDate(e.target.value)
+    const val = e.target.value
+    setFromDate(val)
+    // Nếu ngày bắt đầu vượt quá ngày kết thúc, tự động đồng bộ ngày kết thúc để tránh khoảng ngày vô nghĩa
+    if (val && toDate && val > toDate) {
+      setToDate(val)
+    }
     setPage(0)
   }
 
   const handleToDateChange = (e) => {
-    setToDate(e.target.value)
+    const val = e.target.value
+    setToDate(val)
+    if (val && fromDate && val < fromDate) {
+      setFromDate(val)
+    }
     setPage(0)
   }
 
@@ -264,7 +273,7 @@ export default function StockReceipts() {
                   onChange={handleFromDateChange}
                   slotProps={{
                     inputLabel: { shrink: true },
-                    htmlInput: { max: getVietnamDateInputValue() },
+                    htmlInput: { max: toDate || getVietnamDateInputValue() },
                   }}
                 />
               </Grid>
@@ -277,7 +286,10 @@ export default function StockReceipts() {
                   onChange={handleToDateChange}
                   slotProps={{
                     inputLabel: { shrink: true },
-                    htmlInput: { max: getVietnamDateInputValue() },
+                    htmlInput: {
+                      min: fromDate || undefined,
+                      max: getVietnamDateInputValue(),
+                    },
                   }}
                 />
               </Grid>
@@ -336,7 +348,7 @@ export default function StockReceipts() {
           <Table size="small">
             <TableHead>
               <TableRow sx={{ bgcolor: '#faf9ff' }}>
-                {['Mã phiếu', 'Nhà cung cấp', 'Ngày nhận', 'Tổng tiền', 'Trạng thái', 'Số dòng', ''].map((head) => (
+                {['Mã phiếu', 'Nhà cung cấp', 'Ngày nhập kho', 'Ngày hóa đơn', 'Tổng tiền', 'Trạng thái', 'Số dòng', ''].map((head) => (
                   <TableCell key={head} sx={{ fontWeight: 600, color: '#334155' }}>
                     {head}
                   </TableCell>
@@ -344,34 +356,42 @@ export default function StockReceipts() {
               </TableRow>
             </TableHead>
             <TableBody>
-              {paginatedReceipts.map((receipt) => (
-                <TableRow key={receipt.receiptId} hover>
-                  <TableCell sx={{ fontWeight: 500 }}>{receipt.receiptCode || receipt.receiptId}</TableCell>
-                  <TableCell>{receipt.supplierName || '—'}</TableCell>
-                  <TableCell>{formatDate(receipt.receivedAt)}</TableCell>
-                  <TableCell>{formatMoney(receipt.totalAmount)} ₫</TableCell>
-                  <TableCell>
-                    <Chip
-                      size="small"
-                      label={receipt.status || '—'}
-                      color={receipt.status === 'Completed' ? 'success' : 'default'}
-                    />
-                  </TableCell>
-                  <TableCell>{receipt.lineCount ?? receipt.items?.length ?? '—'}</TableCell>
-                  <TableCell align="right">
-                    <Button
-                      size="small"
-                      onClick={() => navigate(`/class-setup/admin/stock-receipts/${receipt.receiptId}`)}
-                      sx={{ textTransform: 'none', fontWeight: 500 }}
-                    >
-                      Chi tiết
-                    </Button>
-                  </TableCell>
-                </TableRow>
-              ))}
+              {paginatedReceipts.map((receipt) => {
+                const invDate =
+                  receipt.invoiceDate ||
+                  receipt.InvoiceDate ||
+                  localStorage.getItem(`receipt_invoice_date_${receipt.receiptId}`) ||
+                  ''
+                return (
+                  <TableRow key={receipt.receiptId} hover>
+                    <TableCell sx={{ fontWeight: 500 }}>{receipt.receiptCode || receipt.receiptId}</TableCell>
+                    <TableCell>{receipt.supplierName || '—'}</TableCell>
+                    <TableCell>{formatDate(receipt.receivedAt)}</TableCell>
+                    <TableCell>{invDate ? formatDate(invDate) : '—'}</TableCell>
+                    <TableCell>{formatMoney(receipt.totalAmount)} ₫</TableCell>
+                    <TableCell>
+                      <Chip
+                        size="small"
+                        label={receipt.status || '—'}
+                        color={receipt.status === 'Completed' ? 'success' : 'default'}
+                      />
+                    </TableCell>
+                    <TableCell>{receipt.lineCount ?? receipt.items?.length ?? '—'}</TableCell>
+                    <TableCell align="right">
+                      <Button
+                        size="small"
+                        onClick={() => navigate(`/class-setup/admin/stock-receipts/${receipt.receiptId}`)}
+                        sx={{ textTransform: 'none', fontWeight: 500 }}
+                      >
+                        Chi tiết
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
               {filteredReceipts.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={7} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                  <TableCell colSpan={8} align="center" sx={{ py: 3, color: 'text.secondary' }}>
                     {receipts.length === 0
                       ? 'Chưa có phiếu nhập.'
                       : 'Không tìm thấy phiếu nhập nào phù hợp với bộ lọc.'}

@@ -82,10 +82,18 @@ export const projectService = {
     pendingList.forEach((p) => {
       if (p?.projectId) {
         const existing = projectMap.get(p.projectId) || {}
+        const isSupp = Boolean(p.isSupplementary)
         projectMap.set(p.projectId, {
           ...existing,
           ...p,
-          status: p.status || 'Submitted',
+          // Với đơn mượn thêm, project vẫn ở trạng thái Approved nhưng có đơn bổ sung chờ duyệt
+          status: existing.status || (isSupp ? 'Approved' : p.status || 'Submitted'),
+          hasPendingApproval: true,
+          isSupplementary: isSupp,
+          pendingBorrowRequestId: p.borrowRequestId || null,
+          pendingRequestCode: p.requestCode || null,
+          pendingPurpose: p.purpose || '',
+          pendingComponentCount: p.componentCount ?? null,
         })
       }
     })

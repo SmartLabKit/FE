@@ -21,7 +21,11 @@ import { useNavigate } from 'react-router-dom'
 import PortalLayout from '../../components/layout/PortalLayout'
 import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
-import { getComponentImage } from './componentHelpers'
+import {
+  getComponentImage,
+  getComponentShortCode,
+  normalizeSearchText,
+} from './componentHelpers'
 
 /**
  * ComponentCatalog: Màn hình hiển thị danh mục linh kiện có hình ảnh dạng lưới (Catalog / E-commerce)
@@ -96,13 +100,13 @@ export default function ComponentCatalog() {
         }
       }
 
-      // 2. Lọc theo tên hoặc mã linh kiện
+      // 2. Lọc theo tên, mã hệ thống hoặc mã viết tắt (không dấu)
       if (search.trim()) {
-        const term = search.trim().toLowerCase()
-        const name = String(comp.componentName || '').toLowerCase()
-        const code = String(comp.componentCode || '').toLowerCase()
-        const desc = String(comp.description || '').toLowerCase()
-        if (!name.includes(term) && !code.includes(term) && !desc.includes(term)) {
+        const term = normalizeSearchText(search)
+        const target = normalizeSearchText(
+          `${comp.componentName || ''} ${comp.componentCode || ''} ${getComponentShortCode(comp)} ${comp.description || ''} ${comp.manufacturer || ''}`
+        )
+        if (!target.includes(term)) {
           return false
         }
       }

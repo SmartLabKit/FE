@@ -25,6 +25,8 @@ import {
   MenuBookOutlined as TutorialIcon,
   PhotoCameraOutlined as CameraIcon,
   PhotoLibraryOutlined as GalleryIcon,
+  PictureAsPdf as PdfIcon,
+  PlayCircle as YoutubeIcon,
 } from '@mui/icons-material'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import PortalLayout from '../../components/layout/PortalLayout'
@@ -32,9 +34,13 @@ import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 import {
+  classifyTutorialType,
   getComponentImages,
+  getComponentReferencePrice,
+  getComponentShortCode,
   getDatasheetInfo,
   getLabStocksForComponent,
+  getLocalTutorials,
 } from './componentHelpers'
 
 /**
@@ -80,7 +86,6 @@ export default function ComponentDetail() {
     let active = true
     if (!componentId) return
 
-    setLoading(true)
     inventoryService
       .getComponent(componentId)
       .then((data) => {
@@ -98,15 +103,18 @@ export default function ComponentDetail() {
         setLoading(false)
       })
 
-    // Tải tài liệu hướng dẫn
+    // Tải tài liệu hướng dẫn (kèm fallback localStorage cho YouTube / PDF)
     inventoryService
       .getTutorials(componentId)
       .then((tutList) => {
-        if (active && Array.isArray(tutList)) {
-          setTutorials(tutList)
-        }
+        if (!active) return
+        const apiList = Array.isArray(tutList) ? tutList : []
+        const localList = getLocalTutorials(componentId)
+        setTutorials(apiList.length > 0 ? apiList : localList)
       })
-      .catch(() => {})
+      .catch(() => {
+        if (active) setTutorials(getLocalTutorials(componentId))
+      })
 
     return () => {
       active = false
@@ -118,7 +126,6 @@ export default function ComponentDetail() {
     let active = true
     if (!component) return
 
-    setLoadingLabStocks(true)
     getLabStocksForComponent(component, inventoryService)
       .then((stocks) => {
         if (!active) return
@@ -131,14 +138,6 @@ export default function ComponentDetail() {
 
     return () => {
       active = false
-    }
-  }, [component])
-
-  // Cập nhật danh sách ảnh khi component thay đổi
-  useEffect(() => {
-    if (component) {
-      const imgList = getComponentImages(component)
-      setImages(imgList)
     }
   }, [component])
 
@@ -171,7 +170,7 @@ export default function ComponentDetail() {
       setImages(updated)
       localStorage.setItem(`component_images_${componentId}`, JSON.stringify(updated))
       setGalleryNotice('Đã thêm ảnh mới thành công.')
-    } catch (uploadErr) {
+    } catch {
       setGalleryNotice('Không thể tải ảnh lên. Vui lòng thử lại.')
     } finally {
       setUploadingImage(false)
@@ -223,6 +222,8 @@ export default function ComponentDetail() {
   const availableQty = Number(component?.availableQuantity ?? component?.stock ?? 0)
   const unit = component?.unit || 'cái'
   const datasheet = getDatasheetInfo(component)
+  const shortCode = getComponentShortCode(component)
+  const refPrice = getComponentReferencePrice(component)
 
   return (
     <PortalLayout headerTitle="Chi tiết linh kiện">
@@ -359,24 +360,41 @@ export default function ComponentDetail() {
               mb: 1.5,
             }}
           >
-            {component?.componentCode} · {component?.categoryName || 'Linh kiện'}
+            {component?.componentCode}
+            {shortCode && shortCode !== component?.componentCode ? ` (${shortCode})` : ''} · {component?.categoryName || 'Linh kiện'}
           </Typography>
 
-          {/* Badge tồn kho: Còn 11 (Màu xanh lá bo tròn - Đúng theo hình 3) */}
-          <Chip
-            label={`Còn ${availableQty.toLocaleString('vi-VN')} ${unit}`}
-            size="small"
-            sx={{
-              bgcolor: '#ecfdf5',
-              color: '#059669',
-              fontWeight: 700,
-              fontSize: 13,
-              borderRadius: '9999px',
-              height: 28,
-              px: 0.5,
-              mb: 2,
-            }}
-          />
+          {/* Badge tồn kho & đơn giá chuẩn */}
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
+            <Chip
+              label={`Còn ${availableQty.toLocaleString('vi-VN')} ${unit}`}
+              size="small"
+              sx={{
+                bgcolor: '#ecfdf5',
+                color: '#059669',
+                fontWeight: 700,
+                fontSize: 13,
+                borderRadius: '9999px',
+                height: 28,
+                px: 0.5,
+              }}
+            />
+            {refPrice > 0 && (
+              <Chip
+                label={`Đơn giá chuẩn: ${refPrice.toLocaleString('vi-VN')} ₫`}
+                size="small"
+                sx={{
+                  bgcolor: '#eff6ff',
+                  color: '#0058be',
+                  fontWeight: 700,
+                  fontSize: 12.5,
+                  borderRadius: '9999px',
+                  height: 28,
+                  px: 0.5,
+                }}
+              />
+            )}
+          </Box>
 
           {/* Mô tả linh kiện */}
           <Typography
@@ -517,7 +535,7 @@ export default function ComponentDetail() {
           </Box>
         </Box>
 
-        {/* KHỐI TÀI LIỆU & HƯỚNG DẪN (Đúng theo hình 3) */}
+        {/* KHỐI 1: TÀI LIỆU KỸ THUẬT (DATASHEET TỪ NHÀ SẢN XUẤT) */}
         <Box sx={{ mb: 3 }}>
           <Typography
             sx={{
@@ -529,7 +547,7 @@ export default function ComponentDetail() {
               mb: 1,
             }}
           >
-            TÀI LIỆU & HƯỚNG DẪN
+            TÀI LIỆU KỸ THUẬT (DATASHEET NSX)
           </Typography>
 
           <Box
@@ -540,13 +558,13 @@ export default function ComponentDetail() {
               overflow: 'hidden',
             }}
           >
-            {/* Mục Datasheet */}
             <Box
               sx={{
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'space-between',
                 p: 2,
+                gap: 1.5,
               }}
             >
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
@@ -555,21 +573,22 @@ export default function ComponentDetail() {
                     width: 36,
                     height: 36,
                     borderRadius: 2,
-                    bgcolor: '#fee2e2',
-                    color: '#ef4444',
+                    bgcolor: '#e0f2fe',
+                    color: '#0284c7',
                     display: 'flex',
                     alignItems: 'center',
                     justifyContent: 'center',
+                    flexShrink: 0,
                   }}
                 >
                   <DocIcon sx={{ fontSize: 20 }} />
                 </Box>
                 <Box>
                   <Typography sx={{ fontSize: 14, fontWeight: 600, color: '#1e293b' }}>
-                    Datasheet
+                    Datasheet kỹ thuật
                   </Typography>
                   <Typography sx={{ fontSize: 12, color: '#64748b' }}>
-                    {datasheet.name || 'Tài liệu thông số kỹ thuật'}
+                    {datasheet.name || 'Sơ đồ chân (pinout), thông số điện áp từ nhà sản xuất'}
                   </Typography>
                 </Box>
               </Box>
@@ -582,9 +601,9 @@ export default function ComponentDetail() {
                   target="_blank"
                   rel="noopener noreferrer"
                   endIcon={<LaunchIcon sx={{ fontSize: 14 }} />}
-                  sx={{ textTransform: 'none', borderRadius: '9999px', fontSize: 12.5 }}
+                  sx={{ textTransform: 'none', borderRadius: '9999px', fontSize: 12.5, whiteSpace: 'nowrap' }}
                 >
-                  Xem tài liệu
+                  Xem Datasheet
                 </Button>
               ) : (
                 <Typography sx={{ fontSize: 12, color: '#94a3b8', fontStyle: 'italic' }}>
@@ -592,62 +611,103 @@ export default function ComponentDetail() {
                 </Typography>
               )}
             </Box>
+          </Box>
+        </Box>
 
-            {/* Danh sách các bài hướng dẫn (Tutorials) nếu có */}
-            {tutorials.length > 0 && (
-              <>
-                <Divider sx={{ borderColor: '#f1f5f9' }} />
-                {tutorials.map((tut) => (
-                  <Box
-                    key={tut.tutorialId || tut.id}
-                    sx={{
-                      display: 'flex',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                      p: 2,
-                    }}
-                  >
-                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-                      <Box
-                        sx={{
-                          width: 36,
-                          height: 36,
-                          borderRadius: 2,
-                          bgcolor: '#e0e7ff',
-                          color: '#4f46e5',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'center',
-                        }}
-                      >
-                        <TutorialIcon sx={{ fontSize: 20 }} />
+        {/* KHỐI 2: HƯỚNG DẪN SỬ DỤNG (VIDEO YOUTUBE & TÀI LIỆU PDF) */}
+        <Box sx={{ mb: 3 }}>
+          <Typography
+            sx={{
+              fontSize: 12,
+              fontWeight: 700,
+              color: '#64748b',
+              letterSpacing: 0.6,
+              textTransform: 'uppercase',
+              mb: 1,
+            }}
+          >
+            TUTORIAL / HƯỚNG DẪN SỬ DỤNG (YOUTUBE &amp; PDF)
+          </Typography>
+
+          <Box
+            sx={{
+              bgcolor: '#ffffff',
+              borderRadius: 3,
+              border: '1px solid #e2e8f0',
+              overflow: 'hidden',
+            }}
+          >
+            {tutorials.length === 0 ? (
+              <Box sx={{ p: 2, textAlign: 'center', color: '#94a3b8', fontSize: 13 }}>
+                Chưa có video YouTube hoặc PDF hướng dẫn thực hành cho linh kiện này.
+              </Box>
+            ) : (
+              tutorials.map((tut, idx) => {
+                const kind = classifyTutorialType(tut)
+                const isYt = kind === 'youtube'
+                const isPdf = kind === 'pdf'
+                return (
+                  <Box key={tut.tutorialId || tut.id || idx}>
+                    <Box
+                      sx={{
+                        display: 'flex',
+                        alignItems: 'center',
+                        justifyContent: 'space-between',
+                        p: 2,
+                        gap: 1.5,
+                      }}
+                    >
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, minWidth: 0 }}>
+                        <Box
+                          sx={{
+                            width: 36,
+                            height: 36,
+                            borderRadius: 2,
+                            bgcolor: isYt ? '#fee2e2' : isPdf ? '#fef3c7' : '#e0e7ff',
+                            color: isYt ? '#dc2626' : isPdf ? '#d97706' : '#4f46e5',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            flexShrink: 0,
+                          }}
+                        >
+                          {isYt ? (
+                            <YoutubeIcon sx={{ fontSize: 21 }} />
+                          ) : isPdf ? (
+                            <PdfIcon sx={{ fontSize: 20 }} />
+                          ) : (
+                            <TutorialIcon sx={{ fontSize: 20 }} />
+                          )}
+                        </Box>
+                        <Box sx={{ minWidth: 0 }}>
+                          <Typography sx={{ fontSize: 14, fontWeight: 600, color: '#1e293b' }}>
+                            {tut.title || tut.Title || 'Hướng dẫn sử dụng'}
+                          </Typography>
+                          <Typography sx={{ fontSize: 12, color: '#64748b' }}>
+                            {tut.description || tut.content?.slice(0, 80) || (isYt ? 'Video hướng dẫn trên YouTube' : isPdf ? 'Tài liệu PDF hướng dẫn' : 'Chi tiết cách lắp mạch')}
+                          </Typography>
+                        </Box>
                       </Box>
-                      <Box>
-                        <Typography sx={{ fontSize: 14, fontWeight: 600, color: '#1e293b' }}>
-                          {tut.title || 'Hướng dẫn sử dụng'}
-                        </Typography>
-                        <Typography sx={{ fontSize: 12, color: '#64748b' }}>
-                          {tut.description || tut.content?.slice(0, 50) || 'Chi tiết cách lắp mạch'}
-                        </Typography>
-                      </Box>
+
+                      {(tut.url || tut.Url) && (
+                        <Button
+                          size="small"
+                          variant="outlined"
+                          color={isYt ? 'error' : isPdf ? 'warning' : 'primary'}
+                          href={tut.url || tut.Url}
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          endIcon={<LaunchIcon sx={{ fontSize: 14 }} />}
+                          sx={{ textTransform: 'none', borderRadius: '9999px', fontSize: 12.5, whiteSpace: 'nowrap' }}
+                        >
+                          {isYt ? 'Xem YouTube' : isPdf ? 'Mở PDF' : 'Xem'}
+                        </Button>
+                      )}
                     </Box>
-
-                    {tut.url && (
-                      <Button
-                        size="small"
-                        variant="text"
-                        href={tut.url}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        endIcon={<LaunchIcon sx={{ fontSize: 14 }} />}
-                        sx={{ textTransform: 'none', fontSize: 12.5 }}
-                      >
-                        Xem
-                      </Button>
-                    )}
+                    {idx < tutorials.length - 1 && <Divider sx={{ borderColor: '#f1f5f9' }} />}
                   </Box>
-                ))}
-              </>
+                )
+              })
             )}
           </Box>
         </Box>

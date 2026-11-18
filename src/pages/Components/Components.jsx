@@ -4,16 +4,38 @@ import {
   GridView as GridViewIcon,
   Inventory as InventoryIcon,
   ReceiptLong as ReceiptIcon,
+  TableChart as ExcelIcon,
 } from '@mui/icons-material'
 import {
-  Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Grid, MenuItem, Table, TableBody,
-  TableCell, TableContainer, TableHead, TablePagination, TableRow, TextField, Typography,
+  Alert,
+  Box,
+  Button,
+  Card,
+  CardContent,
+  Chip,
+  CircularProgress,
+  Grid,
+  MenuItem,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TablePagination,
+  TableRow,
+  TextField,
+  Typography,
 } from '@mui/material'
 import { useLocation, useNavigate } from 'react-router-dom'
 import PortalLayout from '../../components/layout/PortalLayout'
 import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
+import {
+  getComponentReferencePrice,
+  getComponentShortCode,
+  normalizeSearchText,
+} from './componentHelpers'
 
 const TRACKING_TYPE_OPTIONS = [
   { value: '', label: 'Tất cả loại quản lý' },
@@ -33,22 +55,30 @@ export default function Components() {
   const navigate = useNavigate()
   const location = useLocation()
   const [components, setComponents] = useState([])
+  const [categories, setCategories] = useState([])
   const [query, setQuery] = useState('')
+  const [categoryFilter, setCategoryFilter] = useState('')
   const [typeFilter, setTypeFilter] = useState('')
   const [page, setPage] = useState(0)
   const [rowsPerPage, setRowsPerPage] = useState(10)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
-  const [notice, setNotice] = useState(location.state?.createdComponentName
-    ? `Đã lưu "${location.state.createdComponentName}". Tồn kho chưa thay đổi.`
-    : '')
+  const [notice, setNotice] = useState(
+    location.state?.createdComponentName
+      ? `Đã lưu "${location.state.createdComponentName}". Tồn kho chưa thay đổi.`
+      : ''
+  )
 
   useEffect(() => {
     let active = true
-    inventoryService.getComponents()
-      .then((items) => {
+    Promise.all([
+      inventoryService.getComponents(),
+      inventoryService.getCategories().catch(() => []),
+    ])
+      .then(([items, catList]) => {
         if (active) {
           setComponents(items)
+          setCategories(Array.isArray(catList) ? catList : [])
           setLoading(false)
         }
       })
@@ -58,11 +88,36 @@ export default function Components() {
           setLoading(false)
         }
       })
-    return () => { active = false }
+    return () => {
+      active = false
+    }
   }, [])
+
+  // Danh sách danh mục duy nhất cho bộ lọc phân loại linh kiện
+  const categoryOptions = useMemo(() => {
+    const map = new Map()
+    categories.forEach((c) => {
+      const id = c.categoryId || c.id
+      const name = c.categoryName || c.name
+      if (id && name) map.set(id, name)
+    })
+    components.forEach((c) => {
+      const id = c.categoryId || c.CategoryId
+      const name = c.categoryName
+      if (id && name && !map.has(id)) map.set(id, name)
+    })
+    return Array.from(map.entries())
+      .map(([id, name]) => ({ id, name }))
+      .sort((a, b) => a.name.localeCompare(b.name, 'vi'))
+  }, [categories, components])
 
   const handleQueryChange = (event) => {
     setQuery(event.target.value)
+    setPage(0)
+  }
+
+  const handleCategoryFilterChange = (value) => {
+    setCategoryFilter(value)
     setPage(0)
   }
 
@@ -80,22 +135,35 @@ export default function Components() {
     setPage(0)
   }
 
-  const filtered = components.filter((component) => {
-    // Lọc theo Loại quản lý (HIGH_VALUE / CONSUMABLE / REUSABLE)
-    if (typeFilter) {
-      const cType = String(component.trackingType || '').toUpperCase()
-      if (cType !== typeFilter.toUpperCase()) return false
-    }
+  const filtered = useMemo(() => {
+    const normQuery = normalizeSearchText(query)
+    return components.filter((component) => {
+      // 1. Lọc theo Danh mục linh kiện
+      if (categoryFilter) {
+        const compCatId = component.categoryId || component.CategoryId || ''
+        if (compCatId !== categoryFilter && component.categoryName !== categoryFilter) {
+          return false
+        }
+      }
 
-    // Lọc theo từ khóa tìm kiếm
-    if (query.trim()) {
-      const q = query.trim().toLowerCase()
-      const searchTarget = `${component.componentName || ''} ${component.componentCode || ''} ${component.categoryName || ''} ${component.trackingType || ''}`.toLowerCase()
-      if (!searchTarget.includes(q)) return false
-    }
+      // 2. Lọc theo Loại quản lý (HIGH_VALUE / CONSUMABLE / REUSABLE)
+      if (typeFilter) {
+        const cType = String(component.trackingType || '').toUpperCase()
+        if (cType !== typeFilter.toUpperCase()) return false
+      }
 
-    return true
-  })
+      // 3. Tìm kiếm không dấu theo tên, mã hệ thống, mã viết tắt kiểu thuốc y tế, danh mục, hãng SX
+      if (normQuery) {
+        const shortCode = getComponentShortCode(component)
+        const searchTarget = normalizeSearchText(
+          `${component.componentName || ''} ${component.componentCode || ''} ${shortCode} ${component.categoryName || ''} ${component.manufacturer || ''} ${component.trackingType || ''}`
+        )
+        if (!searchTarget.includes(normQuery)) return false
+      }
+
+      return true
+    })
+  }, [components, categoryFilter, typeFilter, query])
 
   const paginatedRows = useMemo(() => {
     const start = page * rowsPerPage
@@ -108,11 +176,19 @@ export default function Components() {
   return (
     <PortalLayout
       headerTitle={canManage ? 'Quản lý linh kiện' : 'Tra cứu linh kiện'}
-      headerSubtitle={canManage ? 'Danh mục linh kiện và tồn kho hiện tại' : 'Tra cứu thông tin linh kiện phục vụ môn học và đồ án'}
+      headerSubtitle={
+        canManage
+          ? 'Danh mục linh kiện, mã viết tắt tra cứu nhanh, đơn giá chuẩn và tồn kho hiện tại'
+          : 'Tra cứu thông tin linh kiện phục vụ môn học và đồ án'
+      }
     >
       <Box sx={{ maxWidth: 1440, mx: 'auto' }}>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-        {notice && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setNotice('')}>{notice}</Alert>}
+        {notice && (
+          <Alert severity="success" sx={{ mb: 2 }} onClose={() => setNotice('')}>
+            {notice}
+          </Alert>
+        )}
 
         <Grid container spacing={2} sx={{ mb: 2 }}>
           {[
@@ -154,7 +230,6 @@ export default function Components() {
               size="small"
               sx={{ fontWeight: 600, fontSize: 11, bgcolor: '#f1f5f9' }}
             />
-            {/* Quick filter chips */}
             <Box sx={{ display: 'flex', gap: 0.8, ml: { xs: 0, sm: 1 }, flexWrap: 'wrap' }}>
               {TRACKING_TYPE_OPTIONS.map((opt) => (
                 <Chip
@@ -179,10 +254,25 @@ export default function Components() {
             <TextField
               select
               size="small"
+              label="Phân loại danh mục"
+              value={categoryFilter}
+              onChange={(e) => handleCategoryFilterChange(e.target.value)}
+              sx={{ minWidth: 185 }}
+            >
+              <MenuItem value="">Tất cả danh mục</MenuItem>
+              {categoryOptions.map((cat) => (
+                <MenuItem key={cat.id} value={cat.id}>
+                  {cat.name}
+                </MenuItem>
+              ))}
+            </TextField>
+            <TextField
+              select
+              size="small"
               label="Lọc theo loại"
               value={typeFilter}
               onChange={(e) => handleTypeFilterChange(e.target.value)}
-              sx={{ minWidth: 190 }}
+              sx={{ minWidth: 185 }}
             >
               {TRACKING_TYPE_OPTIONS.map((opt) => (
                 <MenuItem key={opt.value} value={opt.value}>
@@ -194,8 +284,8 @@ export default function Components() {
               size="small"
               value={query}
               onChange={handleQueryChange}
-              placeholder="Tìm tên, mã, danh mục..."
-              sx={{ minWidth: 200 }}
+              placeholder="Tìm tên, mã, mã viết tắt (VD: CBNDDA)..."
+              sx={{ minWidth: 230 }}
             />
             <Button
               startIcon={<GridViewIcon />}
@@ -210,7 +300,7 @@ export default function Components() {
                 '&:hover': { bgcolor: '#f0f7ff', borderColor: '#004aa3' },
               }}
             >
-              Dạng lưới (Catalog)
+              Catalog
             </Button>
             {canManage && (
               <>
@@ -221,6 +311,20 @@ export default function Components() {
                   sx={{ textTransform: 'none', fontWeight: 600 }}
                 >
                   Phiếu nhập
+                </Button>
+                <Button
+                  startIcon={<ExcelIcon />}
+                  variant="outlined"
+                  onClick={() => navigate('/class-setup/admin/components/import')}
+                  sx={{
+                    textTransform: 'none',
+                    fontWeight: 700,
+                    borderColor: '#16a34a',
+                    color: '#15803d',
+                    '&:hover': { bgcolor: '#f0fdf4', borderColor: '#15803d' },
+                  }}
+                >
+                  Nhập từ Excel
                 </Button>
                 <Button
                   startIcon={<AddIcon />}
@@ -240,19 +344,22 @@ export default function Components() {
             <TableHead>
               <TableRow sx={{ bgcolor: '#faf9ff' }}>
                 <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Tên linh kiện</TableCell>
-                <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Mã</TableCell>
+                <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Mã / Mã viết tắt</TableCell>
                 <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Danh mục</TableCell>
                 <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Loại quản lý</TableCell>
+                <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Đơn giá chuẩn</TableCell>
                 <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Tổng tồn</TableCell>
                 <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Khả dụng</TableCell>
                 <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Trạng thái</TableCell>
-                <TableCell sx={{ width: canManage ? 110 : 70, fontWeight: 700, color: '#334155' }}>Thao tác</TableCell>
+                <TableCell sx={{ width: canManage ? 110 : 70, fontWeight: 700, color: '#334155' }}>
+                  Thao tác
+                </TableCell>
               </TableRow>
             </TableHead>
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 6 }}>
+                  <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
                     <CircularProgress size={28} sx={{ color: '#0058be', mb: 1 }} />
                     <Typography variant="body2" sx={{ color: '#64748b' }}>
                       Đang tải danh sách linh kiện...
@@ -261,75 +368,101 @@ export default function Components() {
                 </TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={8} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                  <TableCell colSpan={9} align="center" sx={{ py: 4, color: 'text.secondary' }}>
                     Không có linh kiện phù hợp với bộ lọc.
                   </TableCell>
                 </TableRow>
               ) : (
-                paginatedRows.map((component) => (
-                  <TableRow key={component.componentId} hover>
-                    <TableCell
-                      onClick={() => navigate(`/components/${component.componentId}`, { state: { component } })}
-                      sx={{
-                        fontWeight: 600,
-                        cursor: 'pointer',
-                        '&:hover': { color: '#0058be', textDecoration: 'underline' },
-                      }}
-                      title="Xem chi tiết linh kiện"
-                    >
-                      {component.componentName}
-                    </TableCell>
-                    <TableCell sx={{ color: '#0058be', fontWeight: 600 }}>{component.componentCode}</TableCell>
-                    <TableCell>{component.categoryName || '—'}</TableCell>
-                    <TableCell>
-                      <Chip
-                        size="small"
-                        label={component.trackingType || '—'}
-                        color={
-                          component.trackingType === 'HIGH_VALUE'
-                            ? 'secondary'
-                            : component.trackingType === 'CONSUMABLE'
-                              ? 'warning'
-                              : component.trackingType === 'REUSABLE'
-                                ? 'primary'
-                                : 'default'
-                        }
-                        variant="outlined"
-                        sx={{ fontWeight: 600, fontSize: 11 }}
-                      />
-                    </TableCell>
-                    <TableCell>{Number(component.totalQuantity || 0).toLocaleString('vi-VN')} {component.unit || ''}</TableCell>
-                    <TableCell sx={{ fontWeight: 600 }}>{Number(component.availableQuantity || 0).toLocaleString('vi-VN')}</TableCell>
-                    <TableCell>
-                      <Chip
-                        size="small"
-                        label={component.isLowStock ? 'Sắp hết' : component.isActive === false ? 'Ngừng hoạt động' : 'Đang hoạt động'}
-                        color={component.isLowStock ? 'warning' : 'success'}
-                        sx={{ fontWeight: 600, fontSize: 11 }}
-                      />
-                    </TableCell>
-                    <TableCell>
-                      <Box sx={{ display: 'flex', gap: 0.5 }}>
-                        <Button
+                paginatedRows.map((component) => {
+                  const shortCode = getComponentShortCode(component)
+                  const refPrice = getComponentReferencePrice(component)
+                  return (
+                    <TableRow key={component.componentId} hover>
+                      <TableCell
+                        onClick={() => navigate(`/components/${component.componentId}`, { state: { component } })}
+                        sx={{
+                          fontWeight: 600,
+                          cursor: 'pointer',
+                          '&:hover': { color: '#0058be', textDecoration: 'underline' },
+                        }}
+                        title="Xem chi tiết linh kiện"
+                      >
+                        {component.componentName}
+                      </TableCell>
+                      <TableCell>
+                        <Typography sx={{ color: '#0058be', fontWeight: 700, fontSize: 13 }}>
+                          {component.componentCode}
+                        </Typography>
+                        {shortCode && shortCode !== component.componentCode && (
+                          <Typography sx={{ color: '#64748b', fontSize: 11, fontWeight: 600 }}>
+                            {shortCode}
+                          </Typography>
+                        )}
+                      </TableCell>
+                      <TableCell>{component.categoryName || '—'}</TableCell>
+                      <TableCell>
+                        <Chip
                           size="small"
-                          onClick={() => navigate(`/components/${component.componentId}`, { state: { component } })}
-                          sx={{ textTransform: 'none', fontWeight: 600 }}
-                        >
-                          Xem
-                        </Button>
-                        {canManage && (
+                          label={component.trackingType || '—'}
+                          color={
+                            component.trackingType === 'HIGH_VALUE'
+                              ? 'secondary'
+                              : component.trackingType === 'CONSUMABLE'
+                                ? 'warning'
+                                : component.trackingType === 'REUSABLE'
+                                  ? 'primary'
+                                  : 'default'
+                          }
+                          variant="outlined"
+                          sx={{ fontWeight: 600, fontSize: 11 }}
+                        />
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 600, color: refPrice > 0 ? '#0f172a' : '#94a3b8' }}>
+                        {refPrice > 0 ? `${refPrice.toLocaleString('vi-VN')} ₫` : '—'}
+                      </TableCell>
+                      <TableCell>
+                        {Number(component.totalQuantity || 0).toLocaleString('vi-VN')} {component.unit || ''}
+                      </TableCell>
+                      <TableCell sx={{ fontWeight: 600 }}>
+                        {Number(component.availableQuantity || 0).toLocaleString('vi-VN')}
+                      </TableCell>
+                      <TableCell>
+                        <Chip
+                          size="small"
+                          label={
+                            component.isLowStock
+                              ? 'Sắp hết'
+                              : component.isActive === false
+                                ? 'Ngừng hoạt động'
+                                : 'Đang hoạt động'
+                          }
+                          color={component.isLowStock ? 'warning' : 'success'}
+                          sx={{ fontWeight: 600, fontSize: 11 }}
+                        />
+                      </TableCell>
+                      <TableCell>
+                        <Box sx={{ display: 'flex', gap: 0.5 }}>
                           <Button
                             size="small"
-                            onClick={() => navigate(`/class-setup/admin/components/${component.componentId}/edit`)}
+                            onClick={() => navigate(`/components/${component.componentId}`, { state: { component } })}
                             sx={{ textTransform: 'none', fontWeight: 600 }}
                           >
-                            Sửa
+                            Xem
                           </Button>
-                        )}
-                      </Box>
-                    </TableCell>
-                  </TableRow>
-                ))
+                          {canManage && (
+                            <Button
+                              size="small"
+                              onClick={() => navigate(`/class-setup/admin/components/${component.componentId}/edit`)}
+                              sx={{ textTransform: 'none', fontWeight: 600 }}
+                            >
+                              Sửa
+                            </Button>
+                          )}
+                        </Box>
+                      </TableCell>
+                    </TableRow>
+                  )
+                })
               )}
             </TableBody>
           </Table>

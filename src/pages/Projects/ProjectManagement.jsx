@@ -41,10 +41,12 @@ import { useNavigate, useParams } from 'react-router-dom'
 import PortalLayout from '../../components/layout/PortalLayout'
 import { useAuth } from '../../context/AuthContext'
 import { academicService } from '../../services/academicService'
+import { borrowService } from '../../services/borrowService'
 import { inventoryService } from '../../services/inventoryService'
 import { projectService } from '../../services/projectService'
 import { teamService } from '../../services/teamService'
 import { formatVietnamDate, getVietnamDateInputValue } from '../../utils/dateFormatting'
+import { getBorrowRequestStatusMeta } from '../Borrowing/borrowHelpers'
 import FinalSubmissionPanel from './FinalSubmissionPanel'
 
 function getSemesterWeight(semCode = '') {
@@ -878,6 +880,20 @@ export default function ProjectManagement() {
     }
   }
 
+  const withdrawSupplementaryBorrow = async () => {
+    if (!project?.projectId) return
+    setWithdrawing(true)
+    try {
+      const result = await borrowService.withdrawSupplementaryBorrow(project.projectId)
+      setProject(result)
+      showToast('Đã rút lại đơn mượn thêm đang chờ duyệt.')
+    } catch (error) {
+      showToast(error.message || 'Không thể rút lại đơn mượn thêm.', 'error')
+    } finally {
+      setWithdrawing(false)
+    }
+  }
+
   const getComponentName = (componentId) =>
     componentTypes.find((component) => component.componentId === componentId)?.componentName ||
     project?.components?.find((component) => component.componentId === componentId)?.componentName ||
@@ -1603,6 +1619,142 @@ export default function ProjectManagement() {
                 </Box>
               )}
             </Paper>
+
+            {project?.status === 'Approved' && (() => {
+              const projectBorrows = Array.isArray(project.borrowRequests) ? project.borrowRequests : []
+              const pendingSupplementary = projectBorrows.find((br) => br.status === 'Pending')
+              const isFinalLocked = ['Pending', 'Accepted'].includes(project.finalStatus)
+              return (
+                <Paper
+                  elevation={0}
+                  sx={{
+                    p: { xs: 2.5, sm: 3 },
+                    borderRadius: 2.5,
+                    border: '1px solid #e2e8f0',
+                    bgcolor: '#ffffff',
+                  }}
+                >
+                  <Box
+                    sx={{
+                      display: 'flex',
+                      justifyContent: 'space-between',
+                      alignItems: 'center',
+                      flexWrap: 'wrap',
+                      gap: 1.5,
+                      mb: 2,
+                    }}
+                  >
+                    <Box>
+                      <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#0f172a' }}>
+                        Đơn mượn của đề tài ({projectBorrows.length})
+                      </Typography>
+                      <Typography variant="caption" sx={{ color: '#64748b' }}>
+                        Theo dõi các đơn mượn kho và gửi yêu cầu mượn thêm linh kiện phát sinh khi cần
+                      </Typography>
+                    </Box>
+
+                    {isLeader && !isFinalLocked && !pendingSupplementary && (
+                      <Button
+                        variant="contained"
+                        size="small"
+                        startIcon={<AddIcon />}
+                        onClick={() => navigate(`/borrow/supplementary/create?projectId=${project.projectId}`)}
+                        sx={{
+                          bgcolor: '#0058be',
+                          textTransform: 'none',
+                          fontWeight: 700,
+                          borderRadius: 1.5,
+                          boxShadow: 'none',
+                          '&:hover': { bgcolor: '#0049a3' },
+                        }}
+                      >
+                        Mượn thêm linh kiện
+                      </Button>
+                    )}
+                  </Box>
+
+                  {pendingSupplementary && (
+                    <Alert
+                      severity="warning"
+                      sx={{ mb: 2, borderRadius: 1.5 }}
+                      action={
+                        isLeader ? (
+                          <Button
+                            size="small"
+                            color="warning"
+                            variant="outlined"
+                            startIcon={withdrawing ? <CircularProgress size={14} /> : <UndoIcon fontSize="small" />}
+                            disabled={withdrawing}
+                            onClick={withdrawSupplementaryBorrow}
+                            sx={{ textTransform: 'none', fontWeight: 700 }}
+                          >
+                            {withdrawing ? 'Đang rút...' : 'Rút lại đơn mượn thêm'}
+                          </Button>
+                        ) : null
+                      }
+                    >
+                      Đang có đơn mượn thêm <strong>{pendingSupplementary.requestCode}</strong> chờ giảng viên duyệt.
+                    </Alert>
+                  )}
+
+                  {projectBorrows.length === 0 ? (
+                    <Typography variant="body2" color="text.secondary">
+                      Đề tài chưa có đơn mượn linh kiện kho nào.
+                    </Typography>
+                  ) : (
+                    <Stack spacing={1.25}>
+                      {projectBorrows.map((br) => {
+                        const meta = getBorrowRequestStatusMeta(br.status)
+                        return (
+                          <Paper
+                            key={br.borrowRequestId}
+                            variant="outlined"
+                            sx={{
+                              p: 1.75,
+                              borderRadius: 1.75,
+                              borderColor: br.status === 'Pending' ? '#fcd34d' : '#e2e8f0',
+                              bgcolor: br.status === 'Pending' ? '#fffbeb' : '#fafbff',
+                              display: 'flex',
+                              alignItems: 'center',
+                              justifyContent: 'space-between',
+                              flexWrap: 'wrap',
+                              gap: 1.5,
+                            }}
+                          >
+                            <Box sx={{ minWidth: 0, flex: 1 }}>
+                              <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap" useFlexGap>
+                                <Typography variant="body2" sx={{ fontWeight: 800, color: '#0058be' }}>
+                                  #{br.requestCode || '—'}
+                                </Typography>
+                                <Chip label={meta.label} size="small" sx={meta.sx} />
+                                {br.roomName && (
+                                  <Typography variant="caption" sx={{ color: '#64748b' }}>
+                                    · {br.roomName}
+                                  </Typography>
+                                )}
+                              </Stack>
+                              <Typography variant="caption" sx={{ color: '#475569', display: 'block', mt: 0.4 }}>
+                                Hạn trả: <strong>{br.dueDate ? formatVietnamDate(br.dueDate) : '—'}</strong>
+                                {br.purpose ? ` · ${br.purpose}` : ''}
+                              </Typography>
+                            </Box>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              endIcon={<ArrowForwardIcon sx={{ fontSize: 14 }} />}
+                              onClick={() => navigate(`/borrow/requests/${br.borrowRequestId}`)}
+                              sx={{ textTransform: 'none', fontWeight: 700, borderRadius: 1.5 }}
+                            >
+                              Chi tiết
+                            </Button>
+                          </Paper>
+                        )
+                      })}
+                    </Stack>
+                  )}
+                </Paper>
+              )
+            })()}
 
             {project?.status === 'Approved' && (
               <FinalSubmissionPanel

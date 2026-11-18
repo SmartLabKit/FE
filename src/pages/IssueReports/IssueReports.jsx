@@ -97,78 +97,111 @@ export default function IssueReports() {
         <Box
           sx={{
             p: 2,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            gap: 1.5,
-            flexWrap: 'wrap',
             bgcolor: '#fff',
             border: '1px solid #d8dced',
             borderRadius: '6px 6px 0 0',
           }}
         >
-          {showFilters && (
-            <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-              <TextField
-                select
-                size="small"
-                label="Trạng thái"
-                value={status}
-                onChange={(event) => {
-                  setStatus(event.target.value)
-                  setPage(1)
-                }}
-                sx={{ minWidth: 170 }}
-              >
-                <MenuItem value="">Tất cả trạng thái</MenuItem>
-                {ISSUE_STATUSES.map((item) => <MenuItem key={item.value} value={item.value}>{item.label}</MenuItem>)}
-              </TextField>
-              <TextField
-                select
-                size="small"
-                label="Loại sự cố"
-                value={issueType}
-                onChange={(event) => {
-                  setIssueType(event.target.value)
-                  setPage(1)
-                }}
-                sx={{ minWidth: 150 }}
-              >
-                <MenuItem value="">Tất cả loại</MenuItem>
-                {ISSUE_TYPES.map((item) => <MenuItem key={item.value} value={item.value}>{item.label}</MenuItem>)}
-              </TextField>
-              <Box
-                component="form"
-                onSubmit={(event) => {
-                  event.preventDefault()
-                  setItemCode(itemCodeInput.trim())
-                  setPage(1)
-                }}
-              >
+          <Box
+            sx={{
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'space-between',
+              gap: 1.5,
+              flexWrap: 'wrap',
+            }}
+          >
+            {showFilters && (
+              <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
                 <TextField
+                  select
                   size="small"
-                  placeholder="Mã thiết bị (Enter để tìm)"
-                  value={itemCodeInput}
-                  onChange={(event) => setItemCodeInput(event.target.value)}
-                  sx={{ minWidth: 220 }}
-                  slotProps={{
-                    input: {
-                      startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment>,
-                    },
+                  label="Loại sự cố"
+                  value={issueType}
+                  onChange={(event) => {
+                    setIssueType(event.target.value)
+                    setPage(1)
                   }}
-                />
+                  sx={{ minWidth: 155 }}
+                >
+                  <MenuItem value="">Tất cả loại</MenuItem>
+                  {ISSUE_TYPES.map((item) => <MenuItem key={item.value} value={item.value}>{item.label}</MenuItem>)}
+                </TextField>
+                <Box
+                  component="form"
+                  onSubmit={(event) => {
+                    event.preventDefault()
+                    setItemCode(itemCodeInput.trim())
+                    setPage(1)
+                  }}
+                >
+                  <TextField
+                    size="small"
+                    placeholder="Mã thiết bị (Enter để tìm)"
+                    value={itemCodeInput}
+                    onChange={(event) => setItemCodeInput(event.target.value)}
+                    sx={{ minWidth: 230 }}
+                    slotProps={{
+                      input: {
+                        startAdornment: <InputAdornment position="start"><SearchIcon fontSize="small" /></InputAdornment>,
+                      },
+                    }}
+                  />
+                </Box>
               </Box>
+            )}
+            {canCreate && (
+              <Button
+                variant="contained"
+                startIcon={<ReportIcon />}
+                onClick={() => setCreateOpen(true)}
+                sx={{ ml: 'auto', textTransform: 'none', fontWeight: 700, bgcolor: '#0058be' }}
+              >
+                Báo sự cố
+              </Button>
+            )}
+          </Box>
+
+          {/* Dải nút lọc trạng thái sự cố 1 chạm đồng bộ Mobile */}
+          {showFilters && (
+            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center', mt: 1.5 }}>
+              {[
+                { value: '', label: 'Tất cả' },
+                { value: 'Open', label: 'Đang mở' },
+                ...ISSUE_STATUSES.filter((s) => s.value !== 'Open').map((s) => ({ value: s.value, label: s.label })),
+              ].map((opt) => {
+                const active = status === opt.value
+                return (
+                  <Button
+                    key={opt.value || 'ALL'}
+                    size="small"
+                    variant={active ? 'contained' : 'outlined'}
+                    onClick={() => {
+                      setStatus(opt.value)
+                      setPage(1)
+                    }}
+                    sx={{
+                      textTransform: 'none',
+                      borderRadius: '999px',
+                      fontWeight: 700,
+                      fontSize: 12,
+                      px: 1.75,
+                      py: 0.35,
+                      boxShadow: 'none',
+                      bgcolor: active ? '#0058be' : '#ffffff',
+                      borderColor: active ? '#0058be' : '#cbd5e1',
+                      color: active ? '#ffffff' : '#334155',
+                      '&:hover': {
+                        bgcolor: active ? '#0049a3' : '#f1f5f9',
+                        borderColor: active ? '#0049a3' : '#94a3b8',
+                      },
+                    }}
+                  >
+                    {opt.label}
+                  </Button>
+                )
+              })}
             </Box>
-          )}
-          {canCreate && (
-            <Button
-              variant="contained"
-              startIcon={<ReportIcon />}
-              onClick={() => setCreateOpen(true)}
-              sx={{ ml: 'auto', textTransform: 'none', fontWeight: 700, bgcolor: '#0058be' }}
-            >
-              Báo sự cố
-            </Button>
           )}
         </Box>
 
