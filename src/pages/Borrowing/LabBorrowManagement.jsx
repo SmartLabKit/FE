@@ -33,6 +33,7 @@ import {
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
 import SearchIcon from '@mui/icons-material/Search'
 import PortalLayout from '../../components/layout/PortalLayout'
+import TrackingTypeBadge from '../../components/common/TrackingTypeBadge'
 import IssueBorrowModal from '../../components/borrowing/IssueBorrowModal'
 import ReceiveTransferModal from '../../components/borrowing/ReceiveTransferModal'
 import ReturnBorrowModal from '../../components/borrowing/ReturnBorrowModal'
@@ -730,7 +731,7 @@ export default function LabBorrowManagement() {
               <Alert severity="error">{detailError}</Alert>
             ) : requestDetail ? (
               <Stack spacing={2}>
-                <Stack direction={{ xs: 'column', sm: 'row' }} justifyContent="space-between" spacing={1}>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
                   <Box>
                     <Typography variant="h6" fontWeight={700}>{requestDetail.requestCode}</Typography>
                     <Typography color="text.secondary">
@@ -741,7 +742,7 @@ export default function LabBorrowManagement() {
                     const meta = getBorrowRequestStatusMeta(requestDetail.status)
                     return <Chip label={meta.label} sx={meta.sx} />
                   })()}
-                </Stack>
+                </Box>
                 <Grid container spacing={2}>
                   <Grid size={{ xs: 12, sm: 3 }}>
                     <Typography variant="caption" color="text.secondary">Sinh viên (MSSV / Lớp)</Typography>
@@ -790,11 +791,27 @@ export default function LabBorrowManagement() {
                   )}
                 </Box>
                 {pendingTransfers.length > 0 && (
-                  <Alert severity="warning">Còn linh kiện đang chuyển về lab. Chưa thể chấp nhận đơn.</Alert>
+                  <Alert
+                    severity="warning"
+                    sx={{
+                      width: 'fit-content',
+                      display: 'inline-flex',
+                      alignItems: 'center',
+                      gap: 1,
+                      px: 1.5,
+                      py: 0.75,
+                      fontSize: 12,
+                      borderRadius: 1,
+                      '& .MuiAlert-icon': { p: 0, mr: 0.5 },
+                      '& .MuiAlert-message': { p: 0 },
+                    }}
+                  >
+                    Còn linh kiện đang chuyển về lab. Chưa thể chấp nhận đơn.
+                  </Alert>
                 )}
                 <TableContainer>
                   <Table size="small">
-                    <TableHead><TableRow><TableCell>Linh kiện</TableCell><TableCell>Loại theo dõi</TableCell><TableCell>Số lượng</TableCell><TableCell>Nguồn</TableCell><TableCell>Trạng thái dòng</TableCell><TableCell /></TableRow></TableHead>
+                    <TableHead><TableRow><TableCell>Linh kiện</TableCell><TableCell>Loại quản lý</TableCell><TableCell>Số lượng</TableCell><TableCell>Nguồn</TableCell><TableCell>Trạng thái dòng</TableCell><TableCell /></TableRow></TableHead>
                     <TableBody>
                       {detailItems.map((item) => {
                         const transferLine = transfers.find((line) => line.borrowItemId === item.borrowItemId)
@@ -803,7 +820,7 @@ export default function LabBorrowManagement() {
                         return (
                           <TableRow key={item.borrowItemId}>
                             <TableCell>{item.componentName}<br /><Typography variant="caption" color="text.secondary">{item.componentCode}</Typography></TableCell>
-                            <TableCell>{item.trackingType || '—'}</TableCell>
+                            <TableCell><TrackingTypeBadge type={item.trackingType} /></TableCell>
                             <TableCell>{item.quantity} {item.unit || ''}</TableCell>
                             <TableCell>{item.sourceRoomCode || 'Lab nhận'}</TableCell>
                             <TableCell>
@@ -823,7 +840,25 @@ export default function LabBorrowManagement() {
                                 <Button size="small" onClick={() => dispatchLine(transferLine)} disabled={Boolean(actionLoading)}>Xác nhận gửi</Button>
                               )}
                               {transferLine?.canReceive && (
-                                <Button size="small" onClick={() => openReceiveDialog(transferLine)} disabled={Boolean(actionLoading)}>Xác nhận nhận</Button>
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  onClick={() => openReceiveDialog(transferLine)}
+                                  disabled={Boolean(actionLoading)}
+                                  sx={{
+                                    px: 1.5,
+                                    py: 0.75,
+                                    fontSize: 12,
+                                    fontWeight: 700,
+                                    borderRadius: 1,
+                                    borderColor: '#2563eb',
+                                    color: '#2563eb',
+                                    whiteSpace: 'nowrap',
+                                    '&:hover': { bgcolor: '#eff6ff', borderColor: '#1d4ed8' },
+                                  }}
+                                >
+                                  Chuyển linh kiện
+                                </Button>
                               )}
                             </TableCell>
                           </TableRow>

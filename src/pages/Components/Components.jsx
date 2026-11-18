@@ -28,6 +28,7 @@ import {
 } from '@mui/material'
 import { useLocation, useNavigate } from 'react-router-dom'
 import PortalLayout from '../../components/layout/PortalLayout'
+import TrackingTypeBadge from '../../components/common/TrackingTypeBadge'
 import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
@@ -401,21 +402,7 @@ export default function Components() {
                       </TableCell>
                       <TableCell>{component.categoryName || '—'}</TableCell>
                       <TableCell>
-                        <Chip
-                          size="small"
-                          label={component.trackingType || '—'}
-                          color={
-                            component.trackingType === 'HIGH_VALUE'
-                              ? 'secondary'
-                              : component.trackingType === 'CONSUMABLE'
-                                ? 'warning'
-                                : component.trackingType === 'REUSABLE'
-                                  ? 'primary'
-                                  : 'default'
-                          }
-                          variant="outlined"
-                          sx={{ fontWeight: 600, fontSize: 11 }}
-                        />
+                        <TrackingTypeBadge type={component.trackingType} />
                       </TableCell>
                       <TableCell sx={{ fontWeight: 600, color: refPrice > 0 ? '#0f172a' : '#94a3b8' }}>
                         {refPrice > 0 ? `${refPrice.toLocaleString('vi-VN')} ₫` : '—'}

@@ -6,6 +6,7 @@ import PortalLayout from '../../components/layout/PortalLayout'
 import { useAuth } from '../../context/AuthContext'
 import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
+import TrackingTypeBadge from '../../components/common/TrackingTypeBadge'
 import CabinetItemsTab from './CabinetItemsTab'
 import CabinetConsumablesTab from './CabinetConsumablesTab'
 import { rowsOf } from './inventoryLabels'
@@ -135,7 +136,6 @@ export default function CabinetDetail() {
                   {contents.map((item, index) => {
                     const totalQty = item.totalQuantity ?? item.quantity ?? 0
                     const availQty = item.availableQuantity ?? totalQty
-                    const trackingType = item.trackingType || '—'
                     return (
                       <TableRow key={item.componentId || item.stockId || index} hover>
                         <TableCell sx={{ fontWeight: 600 }}>{item.componentName || item.name || '—'}</TableCell>
@@ -152,28 +152,7 @@ export default function CabinetDetail() {
                             sx={{ height: 22, fontSize: 11 }}
                           />
                         </TableCell>
-                        <TableCell>
-                          <Chip
-                            size="small"
-                            label={
-                              trackingType === 'HIGH_VALUE'
-                                ? 'Thiết bị đắt tiền'
-                                : trackingType === 'SERIALIZED'
-                                ? 'Theo dõi Serial'
-                                : trackingType === 'CONSUMABLE'
-                                ? 'Tiêu hao'
-                                : trackingType
-                            }
-                            color={
-                              trackingType === 'HIGH_VALUE'
-                                ? 'secondary'
-                                : trackingType === 'SERIALIZED'
-                                ? 'primary'
-                                : 'default'
-                            }
-                            sx={{ height: 22, fontSize: 11 }}
-                          />
-                        </TableCell>
+                        <TableCell><TrackingTypeBadge type={item.trackingType} /></TableCell>
                       </TableRow>
                     )
                   })}

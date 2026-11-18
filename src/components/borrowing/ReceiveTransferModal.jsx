@@ -360,7 +360,7 @@ export default function ReceiveTransferModal({ open, line, loading, onClose, onR
       <DialogActions>
         <Button onClick={onClose} disabled={loading || scanning}>Đóng</Button>
         <Button variant="contained" onClick={submit} disabled={!canSubmit}>
-          {loading ? <CircularProgress size={20} color="inherit" /> : 'Xác nhận đã nhận'}
+          {loading ? <CircularProgress size={20} color="inherit" /> : 'Xác nhận chuyển'}
         </Button>
       </DialogActions>
     </Dialog>
