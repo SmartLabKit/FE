@@ -550,79 +550,81 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
               </Box>
             ) : (
               <Grid container spacing={1.5} alignItems="flex-start">
-                <Grid size={{ xs: 12, md: 5 }} sx={{ minWidth: 0 }}>
+                <Grid
+                  size={{ xs: 12, md: 5 }}
+                  sx={{
+                    minWidth: 0,
+                    borderRight: { xs: 0, md: '1px solid #e2e8f0' },
+                    pr: { xs: 0, md: 2.5 },
+                  }}
+                >
                   <Typography fontWeight={700} sx={{ mb: 1 }}>
                     Linh kiện trong đơn
                   </Typography>
-                  <Box
-                    sx={{
-                      border: '1px solid #e2e8f0',
-                      borderRadius: 1.5,
-                      p: 1.25,
-                      bgcolor: 'rgba(248, 250, 252, 0.4)',
-                    }}
-                  >
-                    <Stack spacing={1} sx={{ maxHeight: 420, overflowY: 'auto', pr: 0.5 }}>
-                      {items.map((line) => {
-                        const consumable = isConsumable(line)
-                        const selectedCount = (selectedByLine[line.borrowItemId] || []).length
-                        const complete = consumable || selectedCount === Number(line.quantity)
-                        const isActive = line.borrowItemId === selectedLineId
-                        return (
-                          <ButtonBase
-                            key={line.borrowItemId}
-                            disabled={consumable}
-                            onClick={() => selectLine(line)}
-                            sx={{
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'flex-start',
-                              gap: 1.25,
-                              width: '100%',
-                              p: 1.25,
-                              border: '1px solid',
-                              borderColor: isActive ? 'primary.main' : 'divider',
-                              borderRadius: 1,
-                              bgcolor: isActive ? '#eff6ff' : '#fff',
-                              textAlign: 'left',
-                              '&:hover': { bgcolor: consumable ? '#fff' : '#f8fafc' },
-                              '&.Mui-disabled': { color: 'inherit', opacity: 1, cursor: 'default' },
-                            }}
-                          >
-                            {complete ? (
-                              <CheckCircleRoundedIcon sx={{ color: 'primary.main', flex: '0 0 auto' }} />
-                            ) : (
-                              <RadioButtonUncheckedRoundedIcon sx={{ color: '#64748b', flex: '0 0 auto' }} />
-                            )}
-                            <Box sx={{ minWidth: 0 }}>
-                              <Typography fontWeight={600} noWrap>
-                                {line.componentName}
+                  <Stack spacing={1} sx={{ maxHeight: 420, overflowY: 'auto', pr: 0.5 }}>
+                    {items.map((line) => {
+                      const consumable = isConsumable(line)
+                      const selectedCount = (selectedByLine[line.borrowItemId] || []).length
+                      const complete = consumable || selectedCount === Number(line.quantity)
+                      const isActive = line.borrowItemId === selectedLineId
+                      return (
+                        <ButtonBase
+                          key={line.borrowItemId}
+                          disabled={consumable}
+                          onClick={() => selectLine(line)}
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'flex-start',
+                            gap: 1.25,
+                            width: '100%',
+                            p: 1.25,
+                            border: '1px solid',
+                            borderColor: isActive ? 'primary.main' : 'divider',
+                            borderRadius: 1,
+                            bgcolor: isActive ? '#eff6ff' : '#fff',
+                            textAlign: 'left',
+                            '&:hover': { bgcolor: consumable ? '#fff' : '#f8fafc' },
+                            '&.Mui-disabled': { color: 'inherit', opacity: 1, cursor: 'default' },
+                          }}
+                        >
+                          {complete ? (
+                            <CheckCircleRoundedIcon sx={{ color: 'primary.main', flex: '0 0 auto' }} />
+                          ) : (
+                            <RadioButtonUncheckedRoundedIcon sx={{ color: '#64748b', flex: '0 0 auto' }} />
+                          )}
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography fontWeight={600} noWrap>
+                              {line.componentName}
+                            </Typography>
+                            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
+                              <ComponentCodeTag code={line.componentCode} />
+                              <Typography
+                                variant="body2"
+                                color={consumable || complete ? 'success.main' : 'text.secondary'}
+                                noWrap
+                              >
+                                {consumable
+                                  ? `${line.quantity} ${line.unit || 'cái'} · tự động trừ kho`
+                                  : `Đã chọn ${selectedCount}/${line.quantity}`}
                               </Typography>
-                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75, flexWrap: 'wrap' }}>
-                                <ComponentCodeTag code={line.componentCode} />
-                                <Typography
-                                  variant="body2"
-                                  color={consumable || complete ? 'success.main' : 'text.secondary'}
-                                  noWrap
-                                >
-                                  {consumable
-                                    ? `${line.quantity} ${line.unit || 'cái'} · tự động trừ kho`
-                                    : `Đã chọn ${selectedCount}/${line.quantity}`}
-                                </Typography>
-                              </Box>
                             </Box>
-                          </ButtonBase>
-                        )
-                      })}
-                    </Stack>
-                  </Box>
+                          </Box>
+                        </ButtonBase>
+                      )
+                    })}
+                  </Stack>
                 </Grid>
 
-                <Grid size={{ xs: 12, md: 7 }} sx={{ minWidth: 0, alignSelf: 'flex-start' }}>
-                  <Paper
-                    variant="outlined"
-                    sx={{ p: 1.5, height: 'fit-content', alignSelf: 'flex-start' }}
-                  >
+                <Grid
+                  size={{ xs: 12, md: 7 }}
+                  sx={{
+                    minWidth: 0,
+                    alignSelf: 'flex-start',
+                    pl: { xs: 0, md: 2.5 },
+                  }}
+                >
+                  <Box sx={{ height: 'fit-content', alignSelf: 'flex-start' }}>
                     {!activeLine ? (
                       <Typography color="text.secondary">
                         Các vật tư tiêu hao sẽ tự động trừ kho khi xác nhận bàn giao.
@@ -654,9 +656,18 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
                             spacing={0.75}
                             sx={{ ml: 'auto', flex: '0 0 auto' }}
                           >
+                            {activeAvailable.length > 6 && (
+                              <TextField
+                                size="small"
+                                value={itemSearch}
+                                onChange={(event) => setItemSearch(event.target.value)}
+                                placeholder="Lọc mã con..."
+                                inputProps={{ 'aria-label': 'Lọc mã con khả dụng' }}
+                                sx={{ width: 170, flex: '0 0 auto' }}
+                              />
+                            )}
                             <Button
-                              size="small"
-                              variant="outlined"
+                              variant="contained"
                               disabled={quickSelectDisabled}
                               onClick={() => {
                                 const additions = activeAvailableToSelect.slice(0, activeQuantityRemaining)
@@ -670,32 +681,9 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
                                   advanceToNextIncompleteLine(activeLine)
                                 }
                               }}
-                              sx={{
-                                px: 1.25,
-                                py: 0.75,
-                                borderRadius: 0.75,
-                                borderColor: '#bfdbfe',
-                                bgcolor: '#eff6ff',
-                                color: '#2563eb',
-                                fontSize: 12,
-                                fontWeight: 500,
-                                whiteSpace: 'nowrap',
-                                textTransform: 'none',
-                                '&:hover': { bgcolor: '#dbeafe', borderColor: '#93c5fd' },
-                              }}
                             >
                               Chọn nhanh
                             </Button>
-                            {activeAvailable.length > 6 && (
-                              <TextField
-                                size="small"
-                                value={itemSearch}
-                                onChange={(event) => setItemSearch(event.target.value)}
-                                placeholder="Lọc mã con..."
-                                inputProps={{ 'aria-label': 'Lọc mã con khả dụng' }}
-                                sx={{ width: 170, flex: '0 0 auto' }}
-                              />
-                            )}
                           </Stack>
                         </Box>
                         {activeLoading ? (
@@ -774,7 +762,7 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
                         )}
                       </>
                     )}
-                  </Paper>
+                  </Box>
                 </Grid>
               </Grid>
             )}
