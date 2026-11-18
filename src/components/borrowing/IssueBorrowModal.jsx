@@ -1,11 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
   Alert,
   Box,
   Button,
+  ButtonBase,
   Checkbox,
   CircularProgress,
   Dialog,
@@ -27,7 +25,8 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded'
+import RadioButtonUncheckedRoundedIcon from '@mui/icons-material/RadioButtonUncheckedRounded'
 import { alpha } from '@mui/material/styles'
 import { extractErrorMessage } from '../../services/api'
 import { borrowService } from '../../services/borrowService'
@@ -52,6 +51,53 @@ function isConsumable(item) {
 
 function isAvailable(item) {
   return normalize(item.status) === 'available'
+}
+
+async function getAvailableItems(line, cabinetIds, signal) {
+  const result = await inventoryService.getComponentItems({
+    componentId: line.componentId,
+    status: 'Available',
+    page: 1,
+    size: 100,
+  }, { signal })
+  return [...new Map(getRows(result)
+    .filter((item) =>
+      item.componentId === line.componentId &&
+      cabinetIds.includes(item.cabinetId) &&
+      isAvailable(item) &&
+      item.itemId,
+    )
+    .map((item) => [item.itemId, item])).values()]
+}
+
+function getItemStatusMeta(status) {
+  switch (normalize(status)) {
+    case 'available':
+      return {
+        label: 'Sẵn sàng',
+        sx: { bgcolor: '#ecfdf5', color: '#047857', borderColor: '#a7f3d0' },
+      }
+    case 'borrowed':
+      return {
+        label: 'Đang mượn',
+        sx: { bgcolor: '#eff6ff', color: '#1d4ed8', borderColor: '#bfdbfe' },
+      }
+    case 'lost':
+      return {
+        label: 'Thất lạc',
+        sx: { bgcolor: '#fff7ed', color: '#c2410c', borderColor: '#fed7aa' },
+      }
+    case 'retired':
+      return {
+        label: 'Thanh lý',
+        sx: { bgcolor: '#f1f5f9', color: '#475569', borderColor: '#cbd5e1' },
+      }
+    default:
+      return {
+        label: status || '—',
+        sx: { bgcolor: '#f8fafc', color: '#475569', borderColor: '#cbd5e1' },
+      }
+  }
 }
 
 function getAiDetail(photo) {
@@ -85,14 +131,13 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
   const [overrideReason, setOverrideReason] = useState('')
   const [availableByLine, setAvailableByLine] = useState({})
   const [cabinetIds, setCabinetIds] = useState([])
-  const [expandedByLine, setExpandedByLine] = useState({})
   const [loadedByLine, setLoadedByLine] = useState({})
   const [loadingByLine, setLoadingByLine] = useState({})
   const [selectedByLine, setSelectedByLine] = useState({})
-  const [barcodeByLine, setBarcodeByLine] = useState({})
+  const [selectedLineId, setSelectedLineId] = useState('')
+  const [itemSearch, setItemSearch] = useState('')
   const [loadingData, setLoadingData] = useState(true)
   const [uploading, setUploading] = useState(false)
-  const [scanningLineId, setScanningLineId] = useState('')
   const [error, setError] = useState('')
   const lineLoadsRef = useRef(new Set())
   const lineControllersRef = useRef(new Map())
@@ -103,8 +148,9 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
   const detectedStudentCode = parsedAiDetail.studentCode || 'Không xác định'
   const selectedIds = Object.values(selectedByLine).flat().map((item) => item.itemId)
   const selectedIdSet = new Set(selectedIds)
-  const itemSelectionValid = items.every((line) =>
-    isConsumable(line) || (selectedByLine[line.borrowItemId] || []).length === Number(line.quantity),
+  const selectableItems = items.filter((line) => !isConsumable(line))
+  const itemSelectionValid = selectableItems.every((line) =>
+    (selectedByLine[line.borrowItemId] || []).length === Number(line.quantity),
   ) && selectedIds.length === selectedIdSet.size
 
   useEffect(() => {
@@ -117,11 +163,11 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
       setError('')
       setAvailableByLine({})
       setCabinetIds([])
-      setExpandedByLine({})
       setLoadedByLine({})
       setLoadingByLine({})
       setSelectedByLine({})
-      setBarcodeByLine({})
+      setSelectedLineId(items.find((line) => !isConsumable(line))?.borrowItemId || '')
+      setItemSearch('')
       setPhoto(null)
       setPhotoPreviewUrl('')
       setOverrideReason('')
@@ -130,7 +176,7 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
       lineControllersRef.current.forEach((controller) => controller.abort())
       lineControllers.clear()
       try {
-        if (items.every(isConsumable)) {
+        if (!items.some((line) => !isConsumable(line))) {
           setLoadingData(false)
           return
         }
@@ -146,6 +192,29 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
         if (active) {
           setCabinetIds(roomCabinetIds)
           setLoadingData(false)
+          const firstLine = items.find((line) => !isConsumable(line))
+          if (firstLine && roomCabinetIds.length) {
+            const lineId = firstLine.borrowItemId
+            const controller = new AbortController()
+            lineLoadsRef.current.add(lineId)
+            lineControllersRef.current.set(lineId, controller)
+            setLoadingByLine({ [lineId]: true })
+            try {
+              const available = await getAvailableItems(firstLine, roomCabinetIds, controller.signal)
+              if (active) {
+                setAvailableByLine((current) => ({ ...current, [lineId]: available }))
+                setLoadedByLine((current) => ({ ...current, [lineId]: true }))
+              }
+            } catch (loadError) {
+              if (active && !controller.signal.aborted) {
+                setError(extractErrorMessage(loadError, `Không thể tải mã con của ${firstLine.componentCode}.`))
+              }
+            } finally {
+              lineLoadsRef.current.delete(lineId)
+              lineControllersRef.current.delete(lineId)
+              if (active) setLoadingByLine((current) => ({ ...current, [lineId]: false }))
+            }
+          }
         }
       } catch (loadError) {
         if (active) {
@@ -177,25 +246,12 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
     setLoadingByLine((current) => ({ ...current, [lineId]: true }))
     setError('')
     try {
-      const result = await inventoryService.getComponentItems({
-        componentId: line.componentId,
-        status: 'Available',
-        page: 1,
-        size: 100,
-      }, { signal: controller.signal })
-      const available = [...new Map(getRows(result)
-        .filter((item) =>
-          item.componentId === line.componentId &&
-          cabinetIds.includes(item.cabinetId) &&
-          isAvailable(item) &&
-          item.itemId,
-        )
-        .map((item) => [item.itemId, item])).values()]
+      const available = await getAvailableItems(line, cabinetIds, controller.signal)
       setAvailableByLine((current) => ({ ...current, [lineId]: available }))
       setLoadedByLine((current) => ({ ...current, [lineId]: true }))
     } catch (loadError) {
       if (!controller.signal.aborted) {
-        setError(extractErrorMessage(loadError, `Không thể tải linh kiện ${line.componentCode}.`))
+        setError(extractErrorMessage(loadError, `Không thể tải mã con của ${line.componentCode}.`))
       }
     } finally {
       lineLoadsRef.current.delete(lineId)
@@ -204,23 +260,28 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
     }
   }
 
-  const toggleLine = (line) => {
-    const willExpand = !expandedByLine[line.borrowItemId]
-    setExpandedByLine((current) => ({ ...current, [line.borrowItemId]: willExpand }))
-    if (willExpand) loadLineItems(line)
+  const selectLine = (line) => {
+    if (isConsumable(line)) return
+    setSelectedLineId(line.borrowItemId)
+    setItemSearch('')
+    setError('')
+    loadLineItems(line)
   }
 
-  const addItemToLine = (line, item) => {
-    if (selectedIdSet.has(item.itemId)) {
-      setError('Linh kiện này đã được chọn cho một dòng khác trong đơn.')
-      return
+  const advanceToNextIncompleteLine = (line) => {
+    const currentIndex = selectableItems.findIndex((item) => item.borrowItemId === line.borrowItemId)
+    const orderedLines = [
+      ...selectableItems.slice(currentIndex + 1),
+      ...selectableItems.slice(0, currentIndex),
+    ]
+    const nextLine = orderedLines.find((item) =>
+      (selectedByLine[item.borrowItemId] || []).length < Number(item.quantity),
+    )
+    if (nextLine) {
+      setSelectedLineId(nextLine.borrowItemId)
+      setItemSearch('')
+      loadLineItems(nextLine)
     }
-    setError('')
-    setSelectedByLine((current) => {
-      const selected = current[line.borrowItemId] || []
-      if (selected.length >= Number(line.quantity)) return current
-      return { ...current, [line.borrowItemId]: [...selected, item] }
-    })
   }
 
   const toggleItem = (line, item) => {
@@ -234,57 +295,20 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
       }))
       return
     }
-    addItemToLine(line, item)
-  }
-
-  const handleScanItem = async (event, line) => {
-    event.preventDefault()
-    const code = String(barcodeByLine[line.borrowItemId] || '').trim()
-    if (!code) return
-    const selected = selectedByLine[line.borrowItemId] || []
-    if (selected.length >= Number(line.quantity)) {
-      setError(`Dòng ${line.componentCode} đã chọn đủ ${line.quantity} linh kiện.`)
+    if (selectedIdSet.has(item.itemId)) {
+      setError('Linh kiện này đã được chọn cho một dòng khác trong đơn.')
       return
     }
+    if (selected.length >= Number(line.quantity)) return
 
-    setScanningLineId(line.borrowItemId)
     setError('')
-    try {
-      const result = await inventoryService.getComponentItems({
-        search: code,
-        componentId: line.componentId,
-        status: 'Available',
-        page: 1,
-        size: 50,
-      })
-      const expectedCode = normalize(line.trackingType) === 'high_value' ? 'serialNumber' : 'itemCode'
-      const matches = getRows(result).filter((item) =>
-        item.componentId === line.componentId &&
-        cabinetIds.includes(item.cabinetId) &&
-        isAvailable(item) &&
-        normalize(item[expectedCode]) === normalize(code),
-      )
-      const uniqueMatches = [...new Map(matches.map((item) => [item.itemId, item])).values()]
-      if (uniqueMatches.length !== 1) {
-        throw new Error(uniqueMatches.length
-          ? 'Mã quét khớp với nhiều linh kiện. Vui lòng kiểm tra mã.'
-          : `Không tìm thấy mã ${expectedCode === 'itemCode' ? 'itemCode' : 'serialNumber'} đang Available tại lab.`)
-      }
-      const matchedItem = uniqueMatches[0]
-      addItemToLine(line, matchedItem)
-      setAvailableByLine((current) => {
-        const existing = current[line.borrowItemId] || []
-        return existing.some((item) => item.itemId === matchedItem.itemId)
-          ? current
-          : { ...current, [line.borrowItemId]: [...existing, matchedItem] }
-      })
-      setLoadedByLine((current) => ({ ...current, [line.borrowItemId]: true }))
-      setExpandedByLine((current) => ({ ...current, [line.borrowItemId]: true }))
-      setBarcodeByLine((current) => ({ ...current, [line.borrowItemId]: '' }))
-    } catch (scanError) {
-      setError(extractErrorMessage(scanError, 'Không thể tra cứu mã linh kiện.'))
-    } finally {
-      setScanningLineId('')
+    const nextSelection = [...selected, item]
+    setSelectedByLine((current) => ({
+      ...current,
+      [line.borrowItemId]: nextSelection,
+    }))
+    if (nextSelection.length === Number(line.quantity)) {
+      advanceToNextIncompleteLine(line)
     }
   }
 
@@ -339,11 +363,9 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
     const success = await onIssue({
       photoId: photo.photoId,
       overrideReason: needsOverride ? overrideReason.trim() : null,
-      units: items.map((line) => ({
+      units: selectableItems.map((line) => ({
         borrowItemId: line.borrowItemId,
-        itemIds: isConsumable(line)
-          ? []
-          : (selectedByLine[line.borrowItemId] || []).map((item) => item.itemId),
+        itemIds: (selectedByLine[line.borrowItemId] || []).map((item) => item.itemId),
       })),
     })
     if (success) onClose()
@@ -355,13 +377,23 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
     (!needsOverride || overrideReason.trim()),
   )
   const loadingItems = Object.values(loadingByLine).some(Boolean)
+  const activeLine = selectableItems.find((line) => line.borrowItemId === selectedLineId)
+  const activeAvailable = activeLine ? availableByLine[activeLine.borrowItemId] || [] : []
+  const activeLoading = activeLine && Boolean(loadingByLine[activeLine.borrowItemId])
+  const isHighValue = normalize(activeLine?.trackingType) === 'high_value'
+  const searchTerm = normalize(itemSearch)
+  const filteredAvailable = activeAvailable.filter((item) =>
+    !searchTerm ||
+    normalize(item.itemCode).includes(searchTerm) ||
+    normalize(item.serialNumber).includes(searchTerm),
+  )
 
   return (
     <Dialog
       open={open}
-      onClose={() => { if (!submitting && !uploading && !scanningLineId) onClose() }}
+      onClose={() => { if (!submitting && !uploading) onClose() }}
       fullWidth
-      maxWidth="md"
+      maxWidth="lg"
     >
       <DialogTitle>Giao đồ · {request?.requestCode}</DialogTitle>
       <DialogContent>
@@ -460,7 +492,7 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
                 fullWidth
                 multiline
                 minRows={2}
-                label="Lý do xác nhận thủ công / Override Reason"
+                label="Lý do xác nhận thủ công"
                 value={overrideReason}
                 onChange={(event) => setOverrideReason(event.target.value.slice(0, 500))}
                 helperText={`${overrideReason.length}/500 ký tự`}
@@ -469,128 +501,182 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
             )}
           </Stack>
         ) : (
-          <Stack spacing={2}>
+          <Box>
             {loadingData ? (
-              <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}><CircularProgress /></Box>
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
+                <CircularProgress />
+              </Box>
             ) : (
-              <>
-                {items.map((line) => {
-                  if (isConsumable(line)) {
-                    return (
-                      <Paper key={line.borrowItemId} variant="outlined" sx={{ p: 2 }}>
-                        <Typography fontWeight={600}>{line.componentName} ({line.componentCode})</Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          Giao {line.quantity} {line.unit || 'cái'} · Vật tư tiêu hao, hệ thống tự trừ kho.
-                        </Typography>
-                      </Paper>
-                    )
-                  }
-                  const available = availableByLine[line.borrowItemId] || []
-                  const selected = selectedByLine[line.borrowItemId] || []
-                  const selectedForLine = new Set(selected.map((item) => item.itemId))
-                  const maxReached = selected.length >= Number(line.quantity)
-                  const codeField = normalize(line.trackingType) === 'high_value' ? 'serialNumber' : 'itemCode'
-                  const lineLoading = Boolean(loadingByLine[line.borrowItemId])
-                  const lineExpanded = Boolean(expandedByLine[line.borrowItemId])
-                  return (
-                    <Accordion
-                      key={line.borrowItemId}
-                      expanded={lineExpanded}
-                      onChange={() => toggleLine(line)}
-                      disableGutters
-                      variant="outlined"
-                    >
-                      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-                        <Box>
-                          <Typography fontWeight={600}>{line.componentName} ({line.componentCode})</Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            Đã chọn {selected.length}/{line.quantity} · {line.trackingType}
-                          </Typography>
-                        </Box>
-                      </AccordionSummary>
-                      <AccordionDetails>
-                        {lineLoading ? (
-                          <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+              <Grid container spacing={1.5}>
+                <Grid size={{ xs: 12, md: 5 }} sx={{ minWidth: 0 }}>
+                  <Typography fontWeight={700} sx={{ mb: 1 }}>
+                    Linh kiện trong đơn
+                  </Typography>
+                  <Stack spacing={1} sx={{ maxHeight: 420, overflowY: 'auto', pr: 0.5 }}>
+                    {items.map((line) => {
+                      const consumable = isConsumable(line)
+                      const selectedCount = (selectedByLine[line.borrowItemId] || []).length
+                      const complete = consumable || selectedCount === Number(line.quantity)
+                      const isActive = line.borrowItemId === selectedLineId
+                      return (
+                        <ButtonBase
+                          key={line.borrowItemId}
+                          disabled={consumable}
+                          onClick={() => selectLine(line)}
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'flex-start',
+                            gap: 1.25,
+                            width: '100%',
+                            p: 1.25,
+                            border: '1px solid',
+                            borderColor: isActive ? 'primary.main' : 'divider',
+                            borderRadius: 1,
+                            bgcolor: isActive ? '#eff6ff' : '#fff',
+                            textAlign: 'left',
+                            '&:hover': { bgcolor: consumable ? '#fff' : '#f8fafc' },
+                            '&.Mui-disabled': { color: 'inherit', opacity: 1, cursor: 'default' },
+                          }}
+                        >
+                          {complete ? (
+                            <CheckCircleRoundedIcon sx={{ color: '#16a34a', flex: '0 0 auto' }} />
+                          ) : (
+                            <RadioButtonUncheckedRoundedIcon sx={{ color: '#64748b', flex: '0 0 auto' }} />
+                          )}
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography fontWeight={600} noWrap>
+                              {line.componentName} ({line.componentCode})
+                            </Typography>
+                            <Typography
+                              variant="body2"
+                              color={consumable || complete ? 'success.main' : 'text.secondary'}
+                              noWrap
+                            >
+                              {consumable
+                                ? `${line.quantity} ${line.unit || 'cái'} · tự động trừ kho`
+                                : `Đã chọn ${selectedCount}/${line.quantity}`}
+                            </Typography>
+                          </Box>
+                        </ButtonBase>
+                      )
+                    })}
+                  </Stack>
+                </Grid>
+
+                <Grid size={{ xs: 12, md: 7 }} sx={{ minWidth: 0 }}>
+                  <Paper variant="outlined" sx={{ p: 1.5, minHeight: 250 }}>
+                    {!activeLine ? (
+                      <Typography color="text.secondary">
+                        Các vật tư tiêu hao sẽ tự động trừ kho khi xác nhận bàn giao.
+                      </Typography>
+                    ) : (
+                      <>
+                        <Stack
+                          direction={{ xs: 'column', sm: 'row' }}
+                          alignItems={{ xs: 'stretch', sm: 'center' }}
+                          justifyContent="space-between"
+                          spacing={1}
+                          sx={{ mb: 1 }}
+                        >
+                          <Box sx={{ minWidth: 0 }}>
+                            <Typography fontWeight={700}>Mã con khả dụng</Typography>
+                            <Typography variant="body2" color="text.secondary" noWrap>
+                              {activeLine.componentName} ({activeLine.componentCode})
+                            </Typography>
+                          </Box>
+                          {activeAvailable.length > 6 && (
+                            <TextField
+                              size="small"
+                              value={itemSearch}
+                              onChange={(event) => setItemSearch(event.target.value)}
+                              placeholder="Lọc mã con..."
+                              inputProps={{ 'aria-label': 'Lọc mã con khả dụng' }}
+                              sx={{ width: { xs: '100%', sm: 200 }, flex: '0 0 auto' }}
+                            />
+                          )}
+                        </Stack>
+                        {activeLoading ? (
+                          <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
                             <CircularProgress size={24} />
                           </Box>
                         ) : (
-                          <Stack spacing={1.5}>
-                        <Box component="form" onSubmit={(event) => handleScanItem(event, line)}>
-                          <Grid container spacing={1}>
-                            <Grid item xs>
-                              <TextField
-                                fullWidth
-                                size="small"
-                                label={normalize(line.trackingType) === 'high_value' ? 'Quét serialNumber' : 'Quét itemCode'}
-                                value={barcodeByLine[line.borrowItemId] || ''}
-                                onChange={(event) => setBarcodeByLine((current) => ({
-                                  ...current,
-                                  [line.borrowItemId]: event.target.value,
-                                }))}
-                                disabled={Boolean(scanningLineId) || maxReached || loadingData}
-                              />
-                            </Grid>
-                            <Grid item>
-                              <Button
-                                type="submit"
-                                variant="outlined"
-                                disabled={!barcodeByLine[line.borrowItemId]?.trim() || Boolean(scanningLineId) || maxReached || loadingData}
-                              >
-                                {scanningLineId === line.borrowItemId ? <CircularProgress size={20} /> : 'Thêm'}
-                              </Button>
-                            </Grid>
-                          </Grid>
-                        </Box>
-                        <TableContainer sx={{ maxHeight: 220 }}>
-                          <Table size="small" stickyHeader>
-                            <TableHead>
-                              <TableRow>
-                                <TableCell padding="checkbox" />
-                                <TableCell>{codeField === 'itemCode' ? 'Mã con' : 'Serial number'}</TableCell>
-                                <TableCell>Trạng thái</TableCell>
-                              </TableRow>
-                            </TableHead>
-                            <TableBody>
-                              {available.map((inventoryItem) => {
-                                const checked = selectedForLine.has(inventoryItem.itemId)
-                                const assignedElsewhere = selectedIdSet.has(inventoryItem.itemId) && !checked
-                                return (
-                                  <TableRow key={inventoryItem.itemId} hover>
-                                    <TableCell padding="checkbox">
-                                      <Checkbox
-                                        checked={checked}
-                                        onChange={() => toggleItem(line, inventoryItem)}
-                                        disabled={assignedElsewhere || (!checked && maxReached)}
-                                      />
-                                    </TableCell>
-                                    <TableCell>{inventoryItem[codeField] || inventoryItem.itemCode || '—'}</TableCell>
-                                    <TableCell>{inventoryItem.status}</TableCell>
-                                  </TableRow>
-                                )
-                              })}
-                              {!available.length && (
+                          <TableContainer sx={{ maxHeight: 370 }}>
+                            <Table size="small" stickyHeader>
+                              <TableHead>
                                 <TableRow>
-                                  <TableCell colSpan={3} align="center">
-                                    Không có linh kiện Available tại lab này.
-                                  </TableCell>
+                                  <TableCell padding="checkbox" />
+                                  <TableCell>Mã con</TableCell>
+                                  {isHighValue && <TableCell>Serial number</TableCell>}
+                                  <TableCell>Trạng thái</TableCell>
                                 </TableRow>
-                              )}
-                            </TableBody>
-                          </Table>
-                        </TableContainer>
-                          </Stack>
+                              </TableHead>
+                              <TableBody>
+                                {filteredAvailable.map((inventoryItem) => {
+                                  const selected = selectedByLine[activeLine.borrowItemId] || []
+                                  const checked = selected.some((item) => item.itemId === inventoryItem.itemId)
+                                  const assignedElsewhere = selectedIdSet.has(inventoryItem.itemId) && !checked
+                                  const maxReached = selected.length >= Number(activeLine.quantity)
+                                  const statusMeta = getItemStatusMeta(inventoryItem.status)
+                                  return (
+                                    <TableRow key={inventoryItem.itemId} hover>
+                                      <TableCell padding="checkbox">
+                                        <Checkbox
+                                          checked={checked}
+                                          onChange={() => toggleItem(activeLine, inventoryItem)}
+                                          disabled={assignedElsewhere || (!checked && maxReached)}
+                                        />
+                                      </TableCell>
+                                      <TableCell>{inventoryItem.itemCode || '—'}</TableCell>
+                                      {isHighValue && (
+                                        <TableCell>{inventoryItem.serialNumber || '—'}</TableCell>
+                                      )}
+                                      <TableCell>
+                                        <Box
+                                          component="span"
+                                          sx={{
+                                            display: 'inline-flex',
+                                            alignItems: 'center',
+                                            px: 1,
+                                            py: 0.25,
+                                            border: '1px solid',
+                                            borderRadius: '9999px',
+                                            fontSize: 12,
+                                            fontWeight: 600,
+                                            whiteSpace: 'nowrap',
+                                            ...statusMeta.sx,
+                                          }}
+                                        >
+                                          {statusMeta.label}
+                                        </Box>
+                                      </TableCell>
+                                    </TableRow>
+                                  )
+                                })}
+                                {!filteredAvailable.length && (
+                                  <TableRow>
+                                    <TableCell colSpan={isHighValue ? 4 : 3} align="center">
+                                      {activeAvailable.length
+                                        ? 'Không tìm thấy mã con phù hợp.'
+                                        : 'Không có linh kiện sẵn sàng tại lab này.'}
+                                    </TableCell>
+                                  </TableRow>
+                                )}
+                              </TableBody>
+                            </Table>
+                          </TableContainer>
                         )}
-                      </AccordionDetails>
-                    </Accordion>
-                  )
-                })}
-              </>
+                      </>
+                    )}
+                  </Paper>
+                </Grid>
+              </Grid>
             )}
-          </Stack>
+          </Box>
         )}
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose} disabled={submitting || uploading || Boolean(scanningLineId)}>Hủy</Button>
+        <Button onClick={onClose} disabled={submitting || uploading}>Hủy</Button>
         {step === 1 && (
           <Button onClick={() => { setError(''); setStep(0) }} disabled={submitting || uploading}>
             Quay lại
@@ -607,7 +693,7 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
         ) : (
           <Button
             variant="contained"
-            disabled={!itemSelectionValid || loadingData || loadingItems || submitting || Boolean(scanningLineId)}
+            disabled={!itemSelectionValid || loadingData || loadingItems || submitting}
             onClick={submitIssue}
           >
             {submitting ? <CircularProgress size={20} color="inherit" /> : 'Xác nhận bàn giao'}
