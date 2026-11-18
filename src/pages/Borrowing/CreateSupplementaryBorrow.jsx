@@ -69,18 +69,21 @@ export default function CreateSupplementaryBorrow() {
   // Tải dữ liệu ban đầu từ API
   useEffect(() => {
     let ignore = false
-    borrowService.getMyBorrowRequests()
-      .then((res) => {
+    borrowService
+      .getAllMyBorrowRequests()
+      .then((items) => {
         if (ignore) return
-        const items = res?.items || (Array.isArray(res) ? res : [])
-        setOriginalBorrows(items)
-        if (items.length > 0 && !selectedBorrowCode) {
-          setSelectedBorrowCode(items[0].requestCode)
+        const validBorrows = (Array.isArray(items) ? items : []).filter((b) => b.projectId)
+        const list = validBorrows.length > 0 ? validBorrows : Array.isArray(items) ? items : []
+        setOriginalBorrows(list)
+        if (list.length > 0) {
+          setSelectedBorrowCode((prev) => prev || list[0].requestCode)
         }
       })
       .catch((err) => console.warn('Lỗi tải đơn mượn:', err))
 
-    borrowService.getAvailableComponents()
+    borrowService
+      .getAvailableComponents()
       .then((items) => {
         if (ignore) return
         if (Array.isArray(items)) {
@@ -92,7 +95,7 @@ export default function CreateSupplementaryBorrow() {
     return () => {
       ignore = true
     }
-  }, [selectedBorrowCode])
+  }, [])
 
   // Đơn gốc hiện tại
   const currentBorrow = useMemo(() => {
@@ -173,6 +176,10 @@ export default function CreateSupplementaryBorrow() {
 
   // Gửi yêu cầu mượn bổ sung
   const handleSubmit = async () => {
+    if (!currentBorrow?.projectId) {
+      setToast({ open: true, message: 'Vui lòng chọn đơn mượn gốc hợp lệ gắn với đề tài.', severity: 'warning' })
+      return
+    }
     if (selectedItems.length === 0) {
       setToast({ open: true, message: 'Vui lòng chọn ít nhất 1 linh kiện bổ sung', severity: 'warning' })
       return
@@ -185,21 +192,19 @@ export default function CreateSupplementaryBorrow() {
     setSubmitting(true)
     try {
       const payload = {
-        originalBorrowCode: currentBorrow?.requestCode || 'BR-2026-1020',
-        leaderName: currentUser.name || 'Lê Hoàng Nam',
-        leaderCode: currentUser.studentCode || '20214589',
-        teamName: currentUser.teamName || 'Nhóm 07 – IoT',
-        lecturerName: currentBorrow?.lecturerName || 'Nguyễn Văn Minh',
         reason: reason.trim(),
-        dueDate,
-        components: selectedItems,
+        components: selectedItems.map((item) => ({
+          componentId: item.componentId,
+          quantity: Number(item.quantity),
+          note: item.note || '',
+        })),
       }
 
-      const res = await borrowService.createSupplementaryBorrow(currentBorrow?.projectId || 'proj-001', payload)
+      await borrowService.createSupplementaryBorrow(currentBorrow.projectId, payload)
       setToast({ open: true, message: 'Tạo phiếu mượn bổ sung thành công!', severity: 'success' })
 
       setTimeout(() => {
-        navigate(`/borrow/supplementary/${res.supplementaryId || 'BS-2026-014'}`)
+        navigate('/borrow/my-requests')
       }, 700)
     } catch (err) {
       setToast({ open: true, message: err.message || 'Gửi yêu cầu thất bại', severity: 'error' })
@@ -270,16 +275,17 @@ export default function CreateSupplementaryBorrow() {
                 TRƯỞNG NHÓM
               </Typography>
               <Typography variant="body2" sx={{ fontWeight: 800, color: '#131b2e', mt: 0.2 }}>
-                {currentUser.name || 'Lê Hoàng Nam'} · {currentUser.studentCode || '20214589'}
+                {currentUser.fullName || currentUser.name || 'Sinh viên'}
+                {currentUser.studentCode ? ` · ${currentUser.studentCode}` : ''}
               </Typography>
             </Box>
 
             <Box>
               <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 10, letterSpacing: 0.5, display: 'block' }}>
-                NHÓM THỰC HÀNH
+                NHÓM / LỚP THỰC HÀNH
               </Typography>
               <Typography variant="body2" sx={{ fontWeight: 800, color: '#131b2e', mt: 0.2 }}>
-                {currentUser.teamName || 'Nhóm 07 – IoT'}
+                {currentBorrow?.teamName || currentUser.teamName || currentBorrow?.classCode || '—'}
               </Typography>
             </Box>
           </Box>
