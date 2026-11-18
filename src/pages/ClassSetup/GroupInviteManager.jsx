@@ -7,6 +7,11 @@ import {
   Button,
   Chip,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogContentText,
+  DialogTitle,
   Divider,
   Grid,
   InputAdornment,
@@ -99,6 +104,9 @@ export default function GroupInviteManager() {
   const [loadingCandidates, setLoadingCandidates] = useState(false)
   const [invitingId, setInvitingId] = useState(null)
   const [cancellingId, setCancellingId] = useState(null)
+  const [transferringId, setTransferringId] = useState(null)
+  const [leavingTeam, setLeavingTeam] = useState(false)
+  const [confirmAction, setConfirmAction] = useState(null) // { type: 'transfer' | 'remove' | 'leave', member? }
 
   // Toast alert
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
@@ -446,13 +454,17 @@ export default function GroupInviteManager() {
     if (!currentTeam?.teamId) return
     setCancellingId(studentProfileId)
     try {
-      await teamService.removeMember(currentTeam.teamId, studentProfileId)
+      const updatedTeam = await teamService.removeMember(currentTeam.teamId, studentProfileId)
+      if (updatedTeam?.teamId) {
+        setCurrentTeam(updatedTeam)
+      } else {
+        await fetchMyTeamInClass(selectedClassId)
+      }
       setToast({
         open: true,
         message: `Đã xóa thành viên ${fullName} khỏi nhóm.`,
         severity: 'success',
       })
-      fetchMyTeamInClass(selectedClassId)
       fetchCandidates(selectedClassId)
     } catch (err) {
       setToast({
@@ -465,9 +477,38 @@ export default function GroupInviteManager() {
     }
   }
 
+  // Chuyển quyền trưởng nhóm (PUT /api/teams/{teamId}/leader)
+  const handleTransferLeader = async (studentProfileId, fullName) => {
+    if (!currentTeam?.teamId) return
+    setTransferringId(studentProfileId)
+    try {
+      const updatedTeam = await teamService.transferLeader(currentTeam.teamId, studentProfileId)
+      if (updatedTeam?.teamId) {
+        setCurrentTeam(updatedTeam)
+      } else {
+        await fetchMyTeamInClass(selectedClassId)
+      }
+      setToast({
+        open: true,
+        message: `Đã chuyển quyền trưởng nhóm cho ${fullName}.`,
+        severity: 'success',
+      })
+      setCandidates([])
+    } catch (err) {
+      setToast({
+        open: true,
+        message: err.message || 'Chuyển quyền trưởng nhóm thất bại',
+        severity: 'error',
+      })
+    } finally {
+      setTransferringId(null)
+    }
+  }
+
   // Rời nhóm (POST /api/teams/{teamId}/leave)
   const handleLeaveTeam = async () => {
     if (!currentTeam?.teamId) return
+    setLeavingTeam(true)
     try {
       await teamService.leaveTeam(currentTeam.teamId)
       setToast({
@@ -475,14 +516,30 @@ export default function GroupInviteManager() {
         message: 'Bạn đã rời nhóm thành công.',
         severity: 'info',
       })
-      fetchMyTeamInClass(selectedClassId)
-      fetchCandidates(selectedClassId)
+      setCandidates([])
+      await fetchMyTeamInClass(selectedClassId)
     } catch (err) {
       setToast({
         open: true,
         message: err.message || 'Rời nhóm thất bại',
         severity: 'error',
       })
+    } finally {
+      setLeavingTeam(false)
+    }
+  }
+
+  // Thực thi thao tác sau khi người dùng xác nhận trong hộp thoại
+  const handleConfirmAction = async () => {
+    if (!confirmAction) return
+    const { type, member } = confirmAction
+    setConfirmAction(null)
+    if (type === 'transfer' && member) {
+      await handleTransferLeader(member.studentProfileId, member.fullName)
+    } else if (type === 'remove' && member) {
+      await handleRemoveMember(member.studentProfileId, member.fullName)
+    } else if (type === 'leave') {
+      await handleLeaveTeam()
     }
   }
 
@@ -937,38 +994,61 @@ export default function GroupInviteManager() {
                               </Button>
                             )}
                             {m.status === 'Accepted' && isLeader && !m.isLeader && (
-                              <Button
-                                size="small"
-                                color="error"
-                                variant="outlined"
-                                onClick={() => handleRemoveMember(m.studentProfileId, m.fullName)}
-                                disabled={cancellingId === m.studentProfileId}
-                                sx={{
-                                  textTransform: 'none',
-                                  fontSize: 10,
-                                  fontWeight: 700,
-                                  height: 24,
-                                  p: 0.5,
-                                }}
-                              >
-                                {cancellingId === m.studentProfileId ? 'Đang xóa...' : 'Xóa khỏi nhóm'}
-                              </Button>
+                              <>
+                                <Button
+                                  size="small"
+                                  color="primary"
+                                  variant="outlined"
+                                  startIcon={<StarIcon sx={{ fontSize: '12px !important' }} />}
+                                  onClick={() => setConfirmAction({ type: 'transfer', member: m })}
+                                  disabled={transferringId === m.studentProfileId || cancellingId === m.studentProfileId}
+                                  sx={{
+                                    textTransform: 'none',
+                                    fontSize: 10.5,
+                                    fontWeight: 700,
+                                    height: 24,
+                                    px: 0.75,
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  {transferringId === m.studentProfileId ? 'Đang chuyển...' : 'Chuyển trưởng nhóm'}
+                                </Button>
+                                <Button
+                                  size="small"
+                                  color="error"
+                                  variant="outlined"
+                                  onClick={() => setConfirmAction({ type: 'remove', member: m })}
+                                  disabled={cancellingId === m.studentProfileId || transferringId === m.studentProfileId}
+                                  sx={{
+                                    textTransform: 'none',
+                                    fontSize: 10.5,
+                                    fontWeight: 700,
+                                    height: 24,
+                                    px: 0.75,
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  {cancellingId === m.studentProfileId ? 'Đang xóa...' : 'Xóa khỏi nhóm'}
+                                </Button>
+                              </>
                             )}
                             {m.status === 'Accepted' && !m.isLeader && (m.studentCode?.toUpperCase() === user?.studentCode?.toUpperCase() || m.studentProfileId === myMemberRecord?.studentProfileId) && (
                               <Button
                                 size="small"
                                 color="warning"
                                 variant="outlined"
-                                onClick={handleLeaveTeam}
+                                disabled={leavingTeam}
+                                onClick={() => setConfirmAction({ type: 'leave' })}
                                 sx={{
                                   textTransform: 'none',
-                                  fontSize: 10,
+                                  fontSize: 10.5,
                                   fontWeight: 700,
                                   height: 24,
-                                  p: 0.5,
+                                  px: 0.75,
+                                  whiteSpace: 'nowrap',
                                 }}
                               >
-                                Rời nhóm
+                                {leavingTeam ? 'Đang rời...' : 'Rời nhóm'}
                               </Button>
                             )}
                           </Box>
@@ -1106,6 +1186,57 @@ export default function GroupInviteManager() {
           </Grid>
         </Grid>
       )}
+
+      {/* Hộp thoại xác nhận Chuyển trưởng nhóm / Xóa thành viên / Rời nhóm */}
+      <Dialog
+        open={Boolean(confirmAction)}
+        onClose={() => setConfirmAction(null)}
+        maxWidth="xs"
+        fullWidth
+      >
+        <DialogTitle sx={{ fontWeight: 800 }}>
+          {confirmAction?.type === 'transfer'
+            ? 'Xác nhận chuyển quyền trưởng nhóm'
+            : confirmAction?.type === 'remove'
+              ? 'Xác nhận xóa thành viên'
+              : 'Xác nhận rời nhóm'}
+        </DialogTitle>
+        <DialogContent>
+          <DialogContentText sx={{ fontSize: 13.5, color: '#334155' }}>
+            {confirmAction?.type === 'transfer' ? (
+              <>
+                Bạn có chắc chắn muốn chuyển quyền <strong>Trưởng nhóm</strong> cho sinh viên{' '}
+                <strong>{confirmAction.member?.fullName}</strong>
+                {confirmAction.member?.studentCode ? ` (${confirmAction.member.studentCode})` : ''}? Sau khi chuyển, bạn sẽ trở thành thành viên thường (chỉ thực hiện được khi nhóm chưa đăng ký project).
+              </>
+            ) : confirmAction?.type === 'remove' ? (
+              <>
+                Bạn có chắc chắn muốn xóa <strong>{confirmAction.member?.fullName}</strong>
+                {confirmAction.member?.studentCode ? ` (${confirmAction.member.studentCode})` : ''} khỏi nhóm không? (Chỉ thực hiện được khi nhóm chưa đăng ký project.)
+              </>
+            ) : (
+              <>Bạn có chắc chắn muốn rời khỏi nhóm <strong>{currentTeam?.teamName}</strong> không?</>
+            )}
+          </DialogContentText>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setConfirmAction(null)} sx={{ textTransform: 'none' }}>
+            Hủy
+          </Button>
+          <Button
+            variant="contained"
+            color={confirmAction?.type === 'transfer' ? 'primary' : 'error'}
+            onClick={handleConfirmAction}
+            sx={{ textTransform: 'none', fontWeight: 700, boxShadow: 'none' }}
+          >
+            {confirmAction?.type === 'transfer'
+              ? 'Chuyển trưởng nhóm'
+              : confirmAction?.type === 'remove'
+                ? 'Xóa khỏi nhóm'
+                : 'Rời nhóm'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       {/* Snackbar */}
       <Snackbar
