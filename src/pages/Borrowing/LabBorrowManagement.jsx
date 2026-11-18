@@ -927,7 +927,7 @@ export default function LabBorrowManagement() {
                           disabled={pendingTransfers.length > 0 || Boolean(actionLoading)}
                           onClick={acceptRequest}
                         >
-                          Hoàn tất
+                          Xác nhận sẵn sàng
                         </Button>
                       </span>
                     </Tooltip>
