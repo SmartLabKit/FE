@@ -12,6 +12,7 @@ import Components from './pages/Components/Components.jsx'
 import ComponentCatalog from './pages/Components/ComponentCatalog.jsx'
 import ComponentDetail from './pages/Components/ComponentDetail.jsx'
 import NewComponent from './pages/Components/NewComponent.jsx'
+import ComponentExcelImport from './pages/Components/ComponentExcelImport.jsx'
 import StockInwards from './pages/Components/StockInwards.jsx'
 
 import StorageAllocation from './pages/Components/StorageAllocation.jsx'
@@ -79,6 +80,7 @@ function App() {
           <Route path="/components/catalog" element={<ComponentCatalog />} />
           <Route path="/components/:componentId" element={<ComponentDetail />} />
           <Route path="/class-setup/admin/components/new" element={<NewComponent />} />
+          <Route path="/class-setup/admin/components/import" element={<ComponentExcelImport />} />
           <Route path="/class-setup/admin/components/:componentId/edit" element={<NewComponent />} />
           <Route path="/class-setup/admin/categories" element={<InventorySetup />} />
           <Route path="/class-setup/admin/lab-rooms" element={<InventorySetup />} />

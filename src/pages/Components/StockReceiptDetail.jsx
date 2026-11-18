@@ -37,6 +37,7 @@ import {
   formatVietnamDate,
   formatVietnamDateTime,
   getVietnamDateInputValue,
+  isValidYmdDate,
   toReceiptReceivedAtIso,
   toSafeInvoiceDateIso,
 } from '../../utils/dateFormatting'
@@ -47,9 +48,6 @@ const getSerials = (line) =>
 const money = (value) => Number(value || 0).toLocaleString('vi-VN')
 const formatDateTime = (value) => formatVietnamDateTime(value)
 const formatDate = (value) => formatVietnamDate(value)
-
-// Chuyển đổi giá trị ngày sang YYYY-MM-DD
-const toYMD = (val) => getVietnamDateInputValue(val)
 
 // Chuyển chuỗi YYYY-MM-DD sang dd/mm/yyyy
 const formatDateDisplay = (dateStr) => (!dateStr ? '—' : formatVietnamDate(dateStr))
@@ -133,13 +131,27 @@ export default function StockReceiptDetail() {
       return
     }
     const todayVn = getVietnamDateInputValue()
-    if (editReceivedAt && editReceivedAt > todayVn) {
-      setEditError('Ngày nhận hàng không được ở tương lai.')
+    if (!editReceivedAt || !isValidYmdDate(editReceivedAt)) {
+      setEditError('Ngày nhập kho không hợp lệ.')
       return
     }
-    if (editInvoiceDate && editInvoiceDate > todayVn) {
-      setEditError('Ngày hóa đơn không được ở tương lai.')
+    if (editReceivedAt > todayVn) {
+      setEditError('Ngày nhập kho không được ở tương lai.')
       return
+    }
+    if (editInvoiceDate) {
+      if (!isValidYmdDate(editInvoiceDate)) {
+        setEditError('Ngày hóa đơn không hợp lệ.')
+        return
+      }
+      if (editInvoiceDate > todayVn) {
+        setEditError('Ngày hóa đơn không được ở tương lai.')
+        return
+      }
+      if (editInvoiceDate > editReceivedAt) {
+        setEditError('Ngày hóa đơn (trên chứng từ NCC) không được sau ngày nhập kho thực tế.')
+        return
+      }
     }
     setEditBusy(true)
     setEditError('')
@@ -315,23 +327,29 @@ export default function StockReceiptDetail() {
                   <Chip label={receipt.status || '—'} color={isCancelled ? 'default' : 'success'} />
                 </Box>
                 <Grid container spacing={2}>
-                  <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
+                  <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                     <Typography color="text.secondary" fontSize={13}>Nhà cung cấp</Typography>
                     <Typography fontWeight={600}>{receipt.supplierName || '—'}</Typography>
                   </Grid>
-                  <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
+                  <Grid size={{ xs: 12, sm: 6, md: 2 }}>
                     <Typography color="text.secondary" fontSize={13}>Số hóa đơn</Typography>
                     <Typography fontWeight={600}>{receipt.invoiceNumber || '—'}</Typography>
                   </Grid>
-                  <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
-                    <Typography color="text.secondary" fontSize={13}>Ngày nhận</Typography>
+                  <Grid size={{ xs: 12, sm: 6, md: 2 }}>
+                    <Typography color="text.secondary" fontSize={13}>Ngày nhập kho</Typography>
                     <Typography fontWeight={600}>{formatDateTime(receipt.receivedAt)}</Typography>
                   </Grid>
-                  <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
-                    <Typography color="text.secondary" fontSize={13}>Ngày hóa đơn</Typography>
+                  <Grid size={{ xs: 12, sm: 6, md: 2 }}>
+                    <Typography color="text.secondary" fontSize={13}>Ngày hóa đơn (chứng từ)</Typography>
                     <Typography fontWeight={600}>{currentInvoiceDate ? formatDate(currentInvoiceDate) : '—'}</Typography>
                   </Grid>
-                  <Grid size={{ xs: 12, sm: 6, md: 2.4 }}>
+                  <Grid size={{ xs: 12, sm: 6, md: 1.5 }}>
+                    <Typography color="text.secondary" fontSize={13}>Ngày tạo phiếu</Typography>
+                    <Typography fontWeight={600} fontSize={13.5}>
+                      {receipt.createdAt ? formatDateTime(receipt.createdAt) : formatDate(receipt.receivedAt)}
+                    </Typography>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 6, md: 1.5 }}>
                     <Typography color="text.secondary" fontSize={13}>Tổng tiền</Typography>
                     <Typography fontWeight={700} color="primary">{money(receipt.totalAmount)} ₫</Typography>
                   </Grid>
@@ -388,7 +406,13 @@ export default function StockReceiptDetail() {
                       <TableRow key={line.receiptItemId || line.id || idx} hover>
                         <TableCell sx={{ fontWeight: 600 }}>{line.componentName || line.componentCode || '—'}</TableCell>
                         <TableCell>{Number(line.quantity || 0).toLocaleString('vi-VN')}</TableCell>
-                        <TableCell>{money(line.unitPrice)} ₫</TableCell>
+                        <TableCell>
+                          {Number(line.unitPrice || 0) === 0 ? (
+                            <Chip size="small" label="0 ₫ (Cho tặng)" color="info" variant="outlined" sx={{ fontSize: 11 }} />
+                          ) : (
+                            `${money(line.unitPrice)} ₫`
+                          )}
+                        </TableCell>
                         <TableCell sx={{ fontWeight: 600 }}>{money(lineTotal)} ₫</TableCell>
                         <TableCell>{line.cabinetName || line.cabinetCode || '—'}</TableCell>
                         <TableCell>
@@ -580,7 +604,7 @@ export default function StockReceiptDetail() {
                   }}
                 >
                   <Typography sx={{ fontSize: 14, fontWeight: 500, color: '#1e293b' }}>
-                    Ngày nhận
+                    Ngày nhập kho (thực tế)
                   </Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                     <Typography sx={{ fontSize: 14, color: editReceivedAt ? '#1e293b' : '#94a3b8' }}>
@@ -623,18 +647,31 @@ export default function StockReceiptDetail() {
                   }}
                 >
                   <Typography sx={{ fontSize: 14, fontWeight: 500, color: '#1e293b' }}>
-                    Ngày hóa đơn
+                    Ngày hóa đơn (chứng từ)
                   </Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                     <Typography sx={{ fontSize: 14, color: editInvoiceDate ? '#1e293b' : '#94a3b8' }}>
                       {editInvoiceDate ? formatDateDisplay(editInvoiceDate) : '—'}
                     </Typography>
+                    {editInvoiceDate && (
+                      <IconButton
+                        size="small"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          setEditInvoiceDate('')
+                        }}
+                        sx={{ p: 0.25, zIndex: 2, color: '#94a3b8' }}
+                        title="Xóa ngày hóa đơn"
+                      >
+                        <CloseIcon sx={{ fontSize: 15 }} />
+                      </IconButton>
+                    )}
                     <ChevronRightIcon sx={{ color: '#94a3b8', fontSize: 18 }} />
                   </Box>
                   <input
                     ref={invoiceDateInputRef}
                     type="date"
-                    max={getVietnamDateInputValue()}
+                    max={editReceivedAt || getVietnamDateInputValue()}
                     value={editInvoiceDate}
                     onChange={(e) => setEditInvoiceDate(e.target.value)}
                     onClick={(e) => e.target.showPicker?.()}
