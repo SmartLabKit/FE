@@ -112,30 +112,37 @@ const getPagedRows = (result) => {
 
 const getRoomHint = (value) => {
   if (!value) return null
-  if (typeof value === 'string') return { id: value, code: '' }
+  if (typeof value === 'string') return { id: value, code: value }
   return {
-    id: value.roomId || value.labRoomId || value.RoomId || value.LabRoomId || value.id || '',
-    code: value.roomCode || value.labRoomCode || value.RoomCode || value.LabRoomCode || value.code || '',
+    id: value.roomId || value.labRoomId || value.pickupRoomId || value.RoomId || value.LabRoomId || value.PickupRoomId || value.id || '',
+    code: value.roomCode || value.labRoomCode || value.pickupRoomCode || value.RoomCode || value.LabRoomCode || value.PickupRoomCode || value.code || '',
   }
 }
 
-const getDirectAssignedRooms = (currentUser) => {
-  if (!currentUser) return []
-  const candidates = [
-    getRoomHint(currentUser.roomId),
-    getRoomHint(currentUser.labRoomId),
-    getRoomHint(currentUser.room),
-    getRoomHint(currentUser.labRoom),
+const getDirectAssignedRoom = (currentUser) => {
+  if (!currentUser) return null
+
+  const directValues = [
+    currentUser.assignedRoom,
+    currentUser.labRoomId,
+    currentUser.roomId,
+    currentUser.room,
+    currentUser.labRoom,
   ]
-  ;['labRooms', 'assignedRooms', 'assignedLabRooms'].forEach((key) => {
+
+  for (const value of directValues) {
+    const hint = getRoomHint(value)
+    if (hint && (hint.id || hint.code)) return hint
+  }
+
+  for (const key of ['labRooms', 'assignedRooms', 'assignedLabRooms']) {
     const value = currentUser[key]
-    if (Array.isArray(value)) {
-      value.forEach((room) => candidates.push(getRoomHint(room)))
-    } else if (value) {
-      candidates.push(getRoomHint(value))
+    if (Array.isArray(value) && value.length > 0) {
+      const hint = getRoomHint(value[0])
+      if (hint && (hint.id || hint.code)) return hint
     }
-  })
-  return candidates.filter((room) => room && (room.id || room.code))
+  }
+  return null
 }
 
 export default function InventorySetup() {
@@ -230,57 +237,56 @@ export default function InventorySetup() {
       } else {
         const allRooms = sanitizeRows(await inventoryService.getLabRooms(), 'rooms')
         let visibleRooms = allRooms
-        let allowedRoomIds = []
+        let assignedRoom = null
 
         if (isLabStaff) {
-          const directHints = getDirectAssignedRooms(currentUser)
-          const roomHints = [...directHints]
+          const directHint = getDirectAssignedRoom(currentUser)
+          let roomHint = directHint
 
-          if (roomHints.length === 0) {
-            const [borrowResult, consumableResult] = await Promise.all([
-              borrowService.getLabBorrowRequests({ page: 1, size: 50 }).catch(() => null),
-              inventoryService.getConsumableStocks({ page: 1, size: 100 }).catch(() => null),
-            ])
-            getPagedRows(borrowResult).forEach((request) => {
-              const hint = getRoomHint(request)
-              if (hint) roomHints.push(hint)
-            })
-            getPagedRows(consumableResult).forEach((stock) => {
-              const hint = getRoomHint(stock)
-              if (hint) roomHints.push(hint)
-            })
+          if (!roomHint) {
+            const borrowResult = await borrowService
+              .getLabBorrowRequests({ pickupOnly: true, page: 1, size: 100 })
+              .catch(() => null)
+            const requestRows = getPagedRows(borrowResult)
+            if (requestRows.length > 0) {
+              roomHint = getRoomHint(requestRows[0])
+            }
           }
 
-          const roomIdSet = new Set()
-          const roomCodeSet = new Set()
-          roomHints.forEach((hint) => {
-            if (hint.id) roomIdSet.add(String(hint.id))
-            if (hint.code) roomCodeSet.add(String(hint.code).toLowerCase())
-          })
+          if (roomHint) {
+            assignedRoom = allRooms.find((room) => {
+              const roomId = getId(room, 'rooms')
+              const roomCode = String(
+                room.labRoomCode || room.roomCode || room.code || ''
+              ).trim().toLowerCase()
+              const hintedId = String(roomHint.id || '').trim()
+              const hintedCode = String(roomHint.code || '').trim().toLowerCase()
+              return (
+                hintedId !== '' && String(roomId).trim() === hintedId
+              ) || (
+                hintedCode !== '' && roomCode !== '' && roomCode === hintedCode
+              )
+            }) || null
+          }
 
-          visibleRooms = allRooms.filter((room) => {
-            const roomId = getId(room, 'rooms')
-            const roomCode = room.labRoomCode || room.roomCode || room.code || ''
-            return roomIdSet.has(String(roomId)) ||
-              (roomCode && roomCodeSet.has(String(roomCode).trim().toLowerCase()))
-          })
-          allowedRoomIds = visibleRooms.map((room) => getId(room, 'rooms')).filter(Boolean)
+          visibleRooms = assignedRoom ? [assignedRoom] : []
         }
 
-        const roomIdsToLoad = isLabStaff
-          ? (roomFilter && allowedRoomIds.some((roomId) => String(roomId) === String(roomFilter))
-              ? [allowedRoomIds.find((roomId) => String(roomId) === String(roomFilter))]
-              : allowedRoomIds)
-          : null
-        const cabinetLists = isLabStaff
-          ? await Promise.all(roomIdsToLoad.map((roomId) =>
-              inventoryService.getCabinets({ roomId, labRoomId: roomId })
-            ))
-          : [await inventoryService.getCabinets(
-              roomFilter ? { roomId: roomFilter, labRoomId: roomFilter } : undefined
-            )]
-        const cabinets = cabinetLists.flat()
-        const visibleRoomIds = new Set((roomIdsToLoad || []).map(String))
+        let cabinets = []
+        if (!isLabStaff) {
+          cabinets = await inventoryService.getCabinets(
+            roomFilter ? { roomId: roomFilter, labRoomId: roomFilter } : undefined
+          )
+        } else if (assignedRoom) {
+          const assignedRoomId = getId(assignedRoom, 'rooms')
+          cabinets = await inventoryService.getCabinets({
+            roomId: assignedRoomId,
+            labRoomId: assignedRoomId,
+          })
+        }
+
+        const assignedRoomId = assignedRoom ? getId(assignedRoom, 'rooms') : ''
+        const visibleRoomIds = new Set(assignedRoomId ? [String(assignedRoomId)] : [])
         result = {
           rows: sanitizeRows(cabinets, 'cabinets').filter((cabinet) => {
             if (!isLabStaff) return true
@@ -524,7 +530,7 @@ export default function InventorySetup() {
                 label={`Phụ trách: ${getName(rooms[0], 'rooms')}`}
               />
             )}
-            {kind === 'cabinets' && (!isLabStaff || rooms.length > 1) && (
+            {kind === 'cabinets' && !isLabStaff && (
               <TextField
                 select
                 size="small"
@@ -687,7 +693,7 @@ export default function InventorySetup() {
                       ? !error && (
                         <Box sx={{ maxWidth: 620, mx: 'auto', p: 3, borderRadius: 2, bgcolor: '#f8fafc', border: '1px solid #e2e8f0' }}>
                           <Typography sx={{ fontWeight: 700, color: '#334155' }}>
-                            Bạn chưa được phân công phụ trách phòng lab nào. Vui lòng liên hệ Quản trị viên để được bổ sung.
+                            Tài khoản của bạn chưa được phân công phụ trách phòng lab nào. Vui lòng liên hệ Quản trị viên để được bổ sung.
                           </Typography>
                         </Box>
                       )
