@@ -60,7 +60,7 @@ export default function PortalLayout({
   currentUser: propUser,
   activeMenuKey,
 }) {
-  const { user, logout } = useAuth()
+  const { user, logout, hasPermission } = useAuth()
   const navigate = useNavigate()
   const location = useLocation()
 
@@ -210,6 +210,12 @@ export default function PortalLayout({
       roles: ['InventoryManager', 'LabStaff', 'Student'],
     },
     {
+      label: 'Quản lý phòng lab',
+      icon: <RoomIcon fontSize="small" />,
+      path: '/class-setup/admin/lab-room-management',
+      permissionCodes: ['COMPONENT_MANAGE', 'USER_MANAGE'],
+    },
+    {
       label: 'Lập phiếu nhập',
       icon: <ApprovalsIcon fontSize="small" />,
       path: '/class-setup/admin/stock-inwards',
@@ -265,6 +271,9 @@ export default function PortalLayout({
 
   // Lọc navigation theo đúng vai trò tài khoản đăng nhập (loại bỏ hoàn toàn tính năng không liên quan)
   const visibleNavItems = navItems.filter((item) => {
+    if (item.permissionCodes) {
+      return item.permissionCodes.some((permission) => hasPermission(permission))
+    }
     if (!item.roles || item.roles.length === 0) return true
     return item.roles.some((r) => hasUserRole(r))
   })

@@ -9,6 +9,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import PortalLayout from '../../components/layout/PortalLayout'
 import { inventoryService } from '../../services/inventoryService'
 import { userService } from '../../services/userService'
+import { reportService } from '../../services/reportService'
 import { extractErrorMessage } from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 
@@ -100,6 +101,35 @@ const sanitizeRows = (items, targetKind) => {
   })
 }
 
+const getSummaryRows = (result) => {
+  if (Array.isArray(result)) return result
+  const rows = result?.items || result?.Items || result?.data || result?.Data
+  return Array.isArray(rows) ? rows : []
+}
+
+const getAllStockSummaryRows = async () => {
+  const requestedPageSize = 1000
+  const firstPage = await reportService.getStockSummary({ page: 1, size: requestedPageSize })
+  const firstRows = getSummaryRows(firstPage)
+  const totalCount = Number(firstPage?.totalCount ?? firstPage?.totalItems ?? firstPage?.TotalCount ?? firstRows.length)
+  const pageSize = Number(firstPage?.pageSize ?? firstPage?.size ?? firstPage?.PageSize ?? firstRows.length ?? requestedPageSize)
+  const totalPages = Number(
+    firstPage?.totalPages ??
+    firstPage?.pageCount ??
+    firstPage?.TotalPages ??
+    Math.ceil(totalCount / (pageSize || requestedPageSize))
+  )
+
+  if (totalPages <= 1) return firstRows
+
+  const remainingPages = await Promise.all(
+    Array.from({ length: totalPages - 1 }, (_, index) =>
+      reportService.getStockSummary({ page: index + 2, size: requestedPageSize }).then(getSummaryRows)
+    )
+  )
+  return firstRows.concat(...remainingPages)
+}
+
 export default function InventorySetup() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -109,8 +139,9 @@ export default function InventorySetup() {
   const isLabStaff = hasRole('LabStaff') && !hasRole('Admin') && !hasRole('InventoryManager')
   const isStudent = hasRole('Student') && !hasRole('Admin') && !hasRole('InventoryManager') && !hasRole('LabStaff')
   const canManageCategories = hasRole('Admin') || hasRole('InventoryManager') || hasPermission('COMPONENT_MANAGE')
-  const canManageStaff = hasRole('Admin') || hasRole('InventoryManager') || hasPermission('USER_MANAGE')
-  const canEditInventory = (hasRole('Admin') || hasRole('InventoryManager') || hasRole('LabStaff')) && !isStudent
+  const canManageStaff = hasRole('Admin') || hasPermission('USER_MANAGE')
+  const canManageStorage = hasRole('Admin') || hasRole('InventoryManager') || hasPermission('COMPONENT_MANAGE')
+  const canEditInventory = canManageStorage
 
   // Xác định các Tabs hiển thị phù hợp với quyền người dùng
   const tabs = useMemo(() => {
@@ -119,27 +150,24 @@ export default function InventorySetup() {
         ['/class-setup/admin/lab-rooms', 'Phòng lab'],
       ]
     }
-    if (isLabStaff) {
-      return [
-        ['/class-setup/admin/lab-rooms', 'Phòng lab'],
-        ['/class-setup/admin/cabinets', 'Tủ lưu trữ'],
-      ]
+    if (isLabStaff || !canManageStorage) {
+      return [['/class-setup/admin/cabinets', 'Tủ lưu trữ']]
     }
     return [
       ['/class-setup/admin/categories', 'Danh mục'],
       ['/class-setup/admin/lab-rooms', 'Phòng lab'],
       ['/class-setup/admin/cabinets', 'Tủ lưu trữ'],
     ]
-  }, [isLabStaff, isStudent])
+  }, [canManageStorage, isLabStaff, isStudent])
 
-  // Nếu Student hoặc LabStaff cố tình truy cập tab không có quyền thì tự động điều hướng sang /lab-rooms
+  // Đưa Student về danh sách phòng; người không có quyền quản lý rời khỏi mục danh mục.
   useEffect(() => {
     if (isStudent && !location.pathname.endsWith('/lab-rooms')) {
       navigate('/class-setup/admin/lab-rooms', { replace: true })
-    } else if (isLabStaff && location.pathname.endsWith('/categories')) {
-      navigate('/class-setup/admin/lab-rooms', { replace: true })
+    } else if ((isLabStaff || !canManageStorage) && location.pathname.endsWith('/categories')) {
+      navigate('/class-setup/admin/cabinets', { replace: true })
     }
-  }, [isStudent, isLabStaff, location.pathname, navigate])
+  }, [canManageStorage, isStudent, isLabStaff, location.pathname, navigate])
 
   const kind = location.pathname.endsWith('/categories')
     ? 'categories'
@@ -164,6 +192,7 @@ export default function InventorySetup() {
   const [selectedRoomForStaff, setSelectedRoomForStaff] = useState(null)
   const [staffList, setStaffList] = useState([])
   const [assignedStaff, setAssignedStaff] = useState([])
+  const [staffAssignedElsewhere, setStaffAssignedElsewhere] = useState({})
   const [selectedStaffId, setSelectedStaffId] = useState('')
   const [assigningStaff, setAssigningStaff] = useState(false)
 
@@ -172,83 +201,97 @@ export default function InventorySetup() {
   const [categoryToDelete, setCategoryToDelete] = useState(null)
   const [deleting, setDeleting] = useState(false)
 
-  const load = useCallback(() => {
+  const load = useCallback(async (isSubscribed = () => true, resetView = false) => {
     setLoading(true)
-    const request = kind === 'categories'
-      ? inventoryService.getCategories().then((items) => ({ rows: sanitizeRows(items, 'categories') }))
-      : kind === 'rooms'
-        ? inventoryService.getLabRooms().then((items) => ({ rows: sanitizeRows(items, 'rooms') }))
-        : Promise.all([
-            inventoryService.getCabinets(roomFilter ? { roomId: roomFilter, labRoomId: roomFilter } : undefined),
-            inventoryService.getLabRooms(),
-          ]).then(([items, labRooms]) => ({
-            rows: sanitizeRows(items, 'cabinets'),
-            rooms: sanitizeRows(labRooms, 'rooms'),
-          }))
+    setError('')
+    if (resetView) {
+      setRows([])
+      setNotice('')
+    }
+    try {
+      let result
+      if (kind === 'categories') {
+        if (!canManageCategories) {
+          setRows([])
+          setLoading(false)
+          return
+        }
+        result = { rows: sanitizeRows(await inventoryService.getCategories(), 'categories') }
+      } else if (kind === 'rooms') {
+        result = { rows: sanitizeRows(await inventoryService.getLabRooms(), 'rooms') }
+      } else {
+        const allRooms = sanitizeRows(await inventoryService.getLabRooms(), 'rooms')
+        let visibleRooms = allRooms
+        let allowedRoomIds = []
 
-    return request
-      .then((result) => {
+        if (isLabStaff) {
+          const summaryRows = await getAllStockSummaryRows()
+          const summaryRoomIds = new Set()
+          const summaryRoomCodes = new Set()
+          summaryRows.forEach((item) => {
+            const roomId = item.roomId || item.labRoomId || item.RoomId || item.LabRoomId
+            const roomCode = item.roomCode || item.labRoomCode || item.RoomCode || item.LabRoomCode
+            if (roomId != null) summaryRoomIds.add(String(roomId))
+            if (roomCode) summaryRoomCodes.add(String(roomCode).toLowerCase())
+          })
+          visibleRooms = allRooms.filter((room) => {
+            const roomId = getId(room, 'rooms')
+            const roomCode = room.labRoomCode || room.roomCode || room.code
+            return summaryRoomIds.has(String(roomId)) ||
+              (roomCode && summaryRoomCodes.has(String(roomCode).toLowerCase()))
+          })
+          allowedRoomIds = visibleRooms.map((room) => getId(room, 'rooms'))
+        }
+
+        const roomIdsToLoad = isLabStaff
+          ? (roomFilter && allowedRoomIds.some((roomId) => String(roomId) === String(roomFilter))
+              ? [allowedRoomIds.find((roomId) => String(roomId) === String(roomFilter))]
+              : allowedRoomIds)
+          : null
+        const cabinetLists = isLabStaff
+          ? await Promise.all(roomIdsToLoad.map((roomId) =>
+              inventoryService.getCabinets({ roomId, labRoomId: roomId })
+            ))
+          : [await inventoryService.getCabinets(
+              roomFilter ? { roomId: roomFilter, labRoomId: roomFilter } : undefined
+            )]
+        const cabinets = cabinetLists.flat()
+        const visibleRoomIds = new Set((roomIdsToLoad || []).map(String))
+        result = {
+          rows: sanitizeRows(cabinets, 'cabinets').filter((cabinet) => {
+            if (!isLabStaff) return true
+            const cabinetRoomId = cabinet.roomId || cabinet.labRoomId || cabinet.RoomId || cabinet.LabRoomId
+            return cabinetRoomId != null && visibleRoomIds.has(String(cabinetRoomId))
+          }),
+          rooms: visibleRooms,
+        }
+      }
+
+      if (isSubscribed()) {
         setRows(result.rows || [])
-        if (result.rooms) setRooms(result.rooms)
+        setRooms(result.rooms || [])
         setLoading(false)
-      })
-      .catch((loadError) => {
+      }
+    } catch (loadError) {
+      if (isSubscribed()) {
         setError(extractErrorMessage(loadError, `Không thể tải dữ liệu ${fields[kind].title.toLowerCase()}.`))
+        setRows([])
+        setRooms([])
         setLoading(false)
-      })
-  }, [kind, roomFilter])
+      }
+    }
+  }, [canManageCategories, isLabStaff, kind, roomFilter])
 
   // Reset state và tải dữ liệu mới khi chuyển tab hoặc đổi bộ lọc
   useEffect(() => {
     let isSubscribed = true
 
-    const executeFetch = async () => {
-      setRows([])
-      setError('')
-      setNotice('')
-      setLoading(true)
-
-      // Nếu không có quyền truy cập categories thì không gọi API
-      if (kind === 'categories' && !canManageCategories) {
-        if (isSubscribed) {
-          setLoading(false)
-        }
-        return
-      }
-
-      try {
-        const result = kind === 'categories'
-          ? await inventoryService.getCategories().then((items) => ({ rows: sanitizeRows(items, 'categories') }))
-          : kind === 'rooms'
-            ? await inventoryService.getLabRooms().then((items) => ({ rows: sanitizeRows(items, 'rooms') }))
-            : await Promise.all([
-                inventoryService.getCabinets(roomFilter ? { roomId: roomFilter, labRoomId: roomFilter } : undefined),
-                inventoryService.getLabRooms(),
-              ]).then(([items, labRooms]) => ({
-                rows: sanitizeRows(items, 'cabinets'),
-                rooms: sanitizeRows(labRooms, 'rooms'),
-              }))
-
-        if (isSubscribed) {
-          setRows(result.rows || [])
-          if (result.rooms) setRooms(result.rooms)
-          setLoading(false)
-        }
-      } catch (loadError) {
-        if (isSubscribed) {
-          setError(extractErrorMessage(loadError, `Không thể tải dữ liệu ${fields[kind].title.toLowerCase()}.`))
-          setRows([])
-          setLoading(false)
-        }
-      }
-    }
-
-    executeFetch()
+    Promise.resolve().then(() => load(() => isSubscribed, true))
 
     return () => {
       isSubscribed = false
     }
-  }, [kind, roomFilter, canManageCategories])
+  }, [canManageCategories, kind, load])
 
   const tabIndex = Math.max(tabs.findIndex(([path]) => path === location.pathname), 0)
 
@@ -346,17 +389,36 @@ export default function InventorySetup() {
   const openAssignStaff = async (room) => {
     setSelectedRoomForStaff(room)
     setSelectedStaffId('')
+    setError('')
     setAssignStaffOpen(true)
     const roomId = getId(room, 'rooms')
     try {
-      const [data, currentStaff] = await Promise.all([
-        userService.getUsers({ role: 'LabStaff', size: 50 }).catch(() => ({ items: [] })),
-        inventoryService.getLabStaff(roomId).catch(() => []),
+      const [data, roomStaffLists] = await Promise.all([
+        userService.getUsers({ role: 'LabStaff', isActive: true, size: 100 }),
+        Promise.all(rows.map(async (listedRoom) => ({
+          room: listedRoom,
+          staff: await inventoryService.getLabStaff(getId(listedRoom, 'rooms')),
+        }))),
       ])
-      setStaffList(data?.items || [])
-      setAssignedStaff(Array.isArray(currentStaff) ? currentStaff : [])
-    } catch {
-      // fallback
+      const currentStaff = roomStaffLists.find(
+        ({ room: listedRoom }) => String(getId(listedRoom, 'rooms')) === String(roomId)
+      )?.staff || []
+      const alreadyAssigned = {}
+      roomStaffLists.forEach(({ room: listedRoom, staff }) => {
+        if (String(getId(listedRoom, 'rooms')) === String(roomId)) return
+        staff.forEach((member) => {
+          const staffUserId = member.userId || member.staffUserId || member.user?.userId || member.user?.id || member.id
+          if (staffUserId) alreadyAssigned[String(staffUserId)] = getName(listedRoom, 'rooms')
+        })
+      })
+      setStaffList(data?.items || data?.users || [])
+      setAssignedStaff(currentStaff)
+      setStaffAssignedElsewhere(alreadyAssigned)
+    } catch (loadError) {
+      setError(extractErrorMessage(loadError, 'Không thể tải dữ liệu phân công nhân viên.'))
+      setStaffList([])
+      setAssignedStaff([])
+      setStaffAssignedElsewhere({})
     }
   }
 
@@ -366,7 +428,7 @@ export default function InventorySetup() {
     try {
       await inventoryService.removeLabStaff(roomId, staffUserId)
       setNotice('Đã gỡ nhân viên khỏi phòng lab.')
-      const currentStaff = await inventoryService.getLabStaff(roomId).catch(() => [])
+      const currentStaff = await inventoryService.getLabStaff(roomId)
       setAssignedStaff(Array.isArray(currentStaff) ? currentStaff : [])
       await load()
     } catch (err) {
@@ -381,9 +443,27 @@ export default function InventorySetup() {
     setAssigningStaff(true)
     setError('')
     try {
-      await inventoryService.assignLabStaff(roomId, { userId: selectedStaffId, staffUserId: selectedStaffId })
+      const roomStaffLists = await Promise.all(rows.map(async (room) => ({
+        room,
+        staff: await inventoryService.getLabStaff(getId(room, 'rooms')),
+      })))
+      const conflictingRoom = roomStaffLists.find(({ staff }) =>
+        staff.some((member) => {
+          const assignedUserId = member.userId || member.staffUserId || member.user?.userId || member.user?.id || member.id
+          return assignedUserId != null && String(assignedUserId) === String(selectedStaffId)
+        })
+      )?.room
+      if (conflictingRoom) {
+        const alreadyInThisRoom = String(getId(conflictingRoom, 'rooms')) === String(roomId)
+        setError(alreadyInThisRoom
+          ? 'Nhân viên này đã được phân công cho phòng lab hiện tại.'
+          : `${getName(conflictingRoom, 'rooms')} đã có nhân viên này. Mỗi LabStaff chỉ được phụ trách một phòng lab.`)
+        return
+      }
+
+      await inventoryService.assignLabStaff(roomId, { userId: selectedStaffId })
       setNotice(`Đã phân công nhân viên cho phòng ${getName(selectedRoomForStaff, 'rooms')}!`)
-      const currentStaff = await inventoryService.getLabStaff(roomId).catch(() => [])
+      const currentStaff = await inventoryService.getLabStaff(roomId)
       setAssignedStaff(Array.isArray(currentStaff) ? currentStaff : [])
       setSelectedStaffId('')
       await load()
@@ -411,8 +491,16 @@ export default function InventorySetup() {
 
         <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', bgcolor: '#fff', border: '1px solid #d8dced', borderRadius: '6px 6px 0 0' }}>
           <Typography sx={{ fontWeight: 800, color: '#182238', fontSize: 16 }}>{fields[kind].title}</Typography>
-          <Box sx={{ display: 'flex', gap: 1 }}>
-            {kind === 'cabinets' && (
+          <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+            {kind === 'cabinets' && isLabStaff && rooms.length === 1 && (
+              <Chip
+                size="small"
+                color="primary"
+                variant="outlined"
+                label={`Phụ trách: ${getName(rooms[0], 'rooms')}`}
+              />
+            )}
+            {kind === 'cabinets' && (!isLabStaff || rooms.length > 1) && (
               <TextField
                 select
                 size="small"
@@ -421,10 +509,10 @@ export default function InventorySetup() {
                 onChange={(event) => setRoomFilter(event.target.value)}
                 sx={{ minWidth: 200 }}
               >
-                <MenuItem value="">Tất cả phòng lab</MenuItem>
+                <MenuItem value="">{isLabStaff ? 'Tất cả phòng được phân công' : 'Tất cả phòng lab'}</MenuItem>
                 {rooms.map((room) => (
                   <MenuItem key={getId(room, 'rooms')} value={getId(room, 'rooms')}>
-                    {room.roomName || room.labRoomCode || room.roomCode}
+                    {getName(room, 'rooms') || room.labRoomCode || room.roomCode}
                   </MenuItem>
                 ))}
               </TextField>
@@ -451,7 +539,7 @@ export default function InventorySetup() {
                     {column}
                   </TableCell>
                 ))}
-                {canEditInventory && (
+                {(canEditInventory || (kind === 'cabinets' && hasPermission('COMPONENT_VIEW'))) && (
                   <TableCell align="right" sx={{ fontWeight: 700, color: '#334155' }}>
                     Thao tác
                   </TableCell>
@@ -461,7 +549,7 @@ export default function InventorySetup() {
             <TableBody>
               {loading && (
                 <TableRow>
-                  <TableCell colSpan={fields[kind].columns.length + (canEditInventory ? 1 : 0)} align="center" sx={{ py: 4 }}>
+                  <TableCell colSpan={fields[kind].columns.length + ((canEditInventory || (kind === 'cabinets' && hasPermission('COMPONENT_VIEW'))) ? 1 : 0)} align="center" sx={{ py: 4 }}>
                     <CircularProgress size={24} sx={{ mr: 1, verticalAlign: 'middle' }} />
                     <Typography variant="body2" component="span" sx={{ color: 'text.secondary' }}>
                       Đang tải danh sách {fields[kind].title.toLowerCase()}...
@@ -522,9 +610,9 @@ export default function InventorySetup() {
                         </TableCell>
                       </>
                     )}
-                    {canEditInventory && (
+                    {(canEditInventory || (kind === 'cabinets' && hasPermission('COMPONENT_VIEW'))) && (
                       <TableCell align="right">
-                        {kind === 'cabinets' && (
+                        {kind === 'cabinets' && (canEditInventory || hasPermission('COMPONENT_VIEW')) && (
                           <Button
                             size="small"
                             onClick={() => navigate(`/class-setup/admin/cabinets/${id}`)}
@@ -543,13 +631,15 @@ export default function InventorySetup() {
                             Phân công
                           </Button>
                         )}
-                        <Button
-                          size="small"
-                          onClick={() => openEdit(row)}
-                          sx={{ textTransform: 'none', mr: 0.5, fontWeight: 600 }}
-                        >
-                          Sửa
-                        </Button>
+                        {canEditInventory && (
+                          <Button
+                            size="small"
+                            onClick={() => openEdit(row)}
+                            sx={{ textTransform: 'none', mr: 0.5, fontWeight: 600 }}
+                          >
+                            Sửa
+                          </Button>
+                        )}
                         {kind === 'categories' && canManageCategories && (
                           <Button
                             size="small"
@@ -568,8 +658,16 @@ export default function InventorySetup() {
 
               {!loading && rows.length === 0 && (
                 <TableRow>
-                  <TableCell colSpan={fields[kind].columns.length + (canEditInventory ? 1 : 0)} align="center" sx={{ py: 5, color: 'text.secondary' }}>
-                    Chưa có dữ liệu {fields[kind].singular}.
+                  <TableCell colSpan={fields[kind].columns.length + ((canEditInventory || (kind === 'cabinets' && hasPermission('COMPONENT_VIEW'))) ? 1 : 0)} align="center" sx={{ py: 5, color: 'text.secondary' }}>
+                    {isLabStaff && kind === 'cabinets' && rooms.length === 0
+                      ? !error && (
+                        <Box sx={{ maxWidth: 620, mx: 'auto', p: 3, borderRadius: 2, bgcolor: '#f8fafc', border: '1px solid #e2e8f0' }}>
+                          <Typography sx={{ fontWeight: 700, color: '#334155' }}>
+                            Bạn chưa được phân công phụ trách phòng lab nào. Vui lòng liên hệ Quản trị viên để được bổ sung.
+                          </Typography>
+                        </Box>
+                      )
+                      : `Chưa có dữ liệu ${fields[kind].singular}.`}
                   </TableCell>
                 </TableRow>
               )}
@@ -640,6 +738,7 @@ export default function InventorySetup() {
           <Box component="form" onSubmit={handleAssignStaffSubmit}>
             <DialogTitle sx={{ fontWeight: 800 }}>Phân công cán bộ phụ trách phòng Lab</DialogTitle>
             <DialogContent sx={{ display: 'grid', gap: 2, pt: '12px !important' }}>
+              {error && <Alert severity="error">{error}</Alert>}
               <Typography variant="body2" sx={{ color: '#6b7280' }}>
                 Phòng lab: <strong>{getName(selectedRoomForStaff, 'rooms')}</strong> ({selectedRoomForStaff?.labRoomCode || ''})
               </Typography>
@@ -700,13 +799,16 @@ export default function InventorySetup() {
                 helperText="Chọn nhân viên để phân công phụ trách phòng lab này"
               >
                 {staffList.map((staff) => (
-                  <MenuItem key={staff.userId || staff.id} value={staff.userId || staff.id}>
+                  <MenuItem
+                    key={staff.userId || staff.id}
+                    value={staff.userId || staff.id}
+                    disabled={Boolean(staffAssignedElsewhere[String(staff.userId || staff.id)]) ||
+                      assignedStaff.some((member) => String(member.userId || member.staffUserId || member.user?.userId || member.user?.id || member.id) === String(staff.userId || staff.id))}
+                  >
                     {staff.fullName || staff.username} ({staff.email || staff.username})
+                    {staffAssignedElsewhere[String(staff.userId || staff.id)] ? ` — đã phân công: ${staffAssignedElsewhere[String(staff.userId || staff.id)]}` : ''}
                   </MenuItem>
                 ))}
-                {staffList.length === 0 && (
-                  <MenuItem value="labstaff01">labstaff01 - Nhân viên Lab 01</MenuItem>
-                )}
               </TextField>
             </DialogContent>
             <DialogActions sx={{ px: 3, pb: 2 }}>

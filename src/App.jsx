@@ -28,6 +28,7 @@ import BorrowRequestDetail from './pages/Borrowing/BorrowRequestDetail.jsx'
 import LabBorrowManagement from './pages/Borrowing/LabBorrowManagement.jsx'
 
 import InventorySetup from './pages/Components/InventorySetup.jsx'
+import LabRoomManagement from './pages/Components/LabRoomManagement.jsx'
 import CabinetDetail from './pages/Components/CabinetDetail.jsx'
 import StockReceipts from './pages/Components/StockReceipts.jsx'
 import StockReceiptDetail from './pages/Components/StockReceiptDetail.jsx'
@@ -86,6 +87,7 @@ function App() {
           <Route path="/class-setup/admin/components/:componentId/edit" element={<NewComponent />} />
           <Route path="/class-setup/admin/categories" element={<InventorySetup />} />
           <Route path="/class-setup/admin/lab-rooms" element={<InventorySetup />} />
+          <Route path="/class-setup/admin/lab-room-management" element={<LabRoomManagement />} />
           <Route path="/class-setup/admin/cabinets" element={<InventorySetup />} />
           <Route path="/class-setup/admin/cabinets/:cabinetId" element={<CabinetDetail />} />
           <Route path="/class-setup/admin/stock-inwards" element={<StockInwards />} />
