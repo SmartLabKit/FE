@@ -171,34 +171,16 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
   const [importResult, setImportResult] = useState(null)
 
   // Danh sách giảng viên trong hệ thống (khởi tạo với các giảng viên mẫu và cập nhật từ API)
-  const [instructors, setInstructors] = useState([
-    {
-      code: 'LEC-001',
-      name: 'TS. Nguyễn Văn Thành',
-      email: 'thanh.nv@smartlab.edu.vn',
-      title: 'Tiến sĩ',
-    },
-    {
-      code: 'LEC-002',
-      name: 'ThS. Trần Thị Mai',
-      email: 'mai.tt@smartlab.edu.vn',
-      title: 'Thạc sĩ',
-    },
-    {
-      code: 'LEC-003',
-      name: 'PGS. TS. Lê Hoàng Nam',
-      email: 'nam.lh@smartlab.edu.vn',
-      title: 'Phó Giáo sư',
-    },
-  ])
+  // Chỉ giảng viên thật lấy từ API (không dùng danh sách mẫu, tránh phân công nhầm tài khoản giả)
+  const [instructors, setInstructors] = useState([])
   const [instructorSearch, setInstructorSearch] = useState('')
 
   // State phân công giảng viên
   const [instructorForm, setInstructorForm] = useState({
-    instructorCode: 'LEC-001',
-    fullName: 'TS. Nguyễn Văn Thành',
-    email: 'thanh.nv@smartlab.edu.vn',
-    academicTitle: 'Tiến sĩ',
+    instructorCode: '',
+    fullName: '',
+    email: '',
+    academicTitle: '',
   })
   const [assigning, setAssigning] = useState(false)
   const [assignedResult, setAssignedResult] = useState(null)
@@ -217,6 +199,8 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
 
   // Toast alert
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
+  // Lớp đã có giảng viên khác: BE trả 409, hỏi Admin trước khi thay
+  const [replaceConfirm, setReplaceConfirm] = useState(null)
 
   // Danh sách các học kỳ phân loại từ classes, sắp xếp từ mới nhất đến cũ nhất
   const semestersList = useMemo(() => {
@@ -393,18 +377,7 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
               title: u.instructorProfile?.academicTitle || u.academicTitle || 'Giảng viên',
             }))
 
-            setInstructors((prev) => {
-              const map = new Map()
-              apiInstructors.forEach((inst) => {
-                if (inst.email) map.set(inst.email.toLowerCase(), inst)
-              })
-              prev.forEach((inst) => {
-                if (inst.email && !map.has(inst.email.toLowerCase())) {
-                  map.set(inst.email.toLowerCase(), inst)
-                }
-              })
-              return Array.from(map.values())
-            })
+            setInstructors(apiInstructors)
           }
         }
       })
@@ -510,34 +483,60 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
     }
 
     setAssigning(true)
+    const payload = {
+      classId: selectedClassId,
+      instructorCode: instructorForm.instructorCode,
+      fullName: instructorForm.fullName,
+      email: instructorForm.email,
+      academicTitle: instructorForm.academicTitle || 'Giảng viên',
+    }
     try {
-      const payload = {
-        classId: selectedClassId,
-        instructorCode: instructorForm.instructorCode,
-        fullName: instructorForm.fullName,
-        email: instructorForm.email,
-        academicTitle: instructorForm.academicTitle || 'Giảng viên',
-      }
-      const res = await academicService.assignInstructor(payload)
-      setAssignedResult({
-        ...(res || {}),
-        fullName: res?.fullName || instructorForm.fullName,
-        email: res?.email || instructorForm.email,
-        academicTitle: res?.academicTitle || instructorForm.academicTitle || 'Giảng viên',
-      })
-      setOpenAssignDialog(false)
-      setToast({
-        open: true,
-        message: `Đã phân công giảng viên ${res?.fullName || instructorForm.fullName} cho lớp thành công!`,
-        severity: 'success',
-      })
-      fetchClasses()
+      await submitAssignment(payload)
     } catch (err) {
-      setToast({
-        open: true,
-        message: err.message || 'Phân công giảng viên thất bại',
-        severity: 'error',
-      })
+      if (err.cause?.response?.status === 409) {
+        setReplaceConfirm({ message: err.message, payload })
+      } else {
+        setToast({
+          open: true,
+          message: err.message || 'Phân công giảng viên thất bại',
+          severity: 'error',
+        })
+      }
+    } finally {
+      setAssigning(false)
+    }
+  }
+
+  // Gửi phân công và báo rõ đã đổi gì (giảng viên cũ -> mới, lớp nào)
+  const submitAssignment = async (payload) => {
+    const res = await academicService.assignInstructor(payload)
+    const newName = res?.fullName || payload.fullName
+    const classLabel = res?.classCode ? ` lớp ${res.classCode}` : ' lớp'
+    setAssignedResult({
+      ...(res || {}),
+      fullName: newName,
+      email: res?.email || payload.email,
+      academicTitle: res?.academicTitle || payload.academicTitle || 'Giảng viên',
+    })
+    setOpenAssignDialog(false)
+    setToast({
+      open: true,
+      message: res?.previousInstructorName
+        ? `Đã thay giảng viên ${res.previousInstructorName} bằng ${newName} cho${classLabel}.`
+        : `Đã phân công giảng viên ${newName} cho${classLabel}.`,
+      severity: 'success',
+    })
+    fetchClasses()
+  }
+
+  const handleConfirmReplace = async () => {
+    if (!replaceConfirm) return
+    setAssigning(true)
+    try {
+      await submitAssignment({ ...replaceConfirm.payload, replaceExisting: true })
+      setReplaceConfirm(null)
+    } catch (err) {
+      setToast({ open: true, message: err.message || 'Phân công giảng viên thất bại', severity: 'error' })
     } finally {
       setAssigning(false)
     }
@@ -670,7 +669,20 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
         })
         fetchClasses()
       } catch (assignErr) {
-        console.warn('Tự động phân công giảng viên vào lớp:', assignErr.message)
+        if (assignErr.cause?.response?.status === 409) {
+          setReplaceConfirm({
+            message: assignErr.message,
+            payload: {
+              classId: selectedClassId,
+              instructorCode: newInst.code,
+              fullName: newInst.name,
+              email: newInst.email,
+              academicTitle: newInst.title,
+            },
+          })
+        } else {
+          console.warn('Tự động phân công giảng viên vào lớp:', assignErr.message)
+        }
       }
     }
 
@@ -957,11 +969,49 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
                     icon={<CheckCircleIcon fontSize="inherit" />}
                     sx={{ borderRadius: 1.5, fontSize: 13, fontWeight: 600 }}
                   >
-                    Kết quả import: Đã xử lý <strong>{importResult.totalRows ?? 0}</strong> dòng.
-                    Ghi danh thành công: <strong>{importResult.enrolledStudents ?? 0}</strong> sinh viên.
-                    Tạo tài khoản mới: <strong>{importResult.createdUsers ?? 0}</strong>.
-                    {importResult.skippedRows > 0 && ` Bỏ qua: ${importResult.skippedRows} dòng trùng lặp.`}
+                    Kết quả import: Đã xử lý <strong>{importResult.totalRows ?? 0}</strong> dòng, ghi danh{' '}
+                    <strong>{importResult.enrolledStudents ?? 0}</strong> sinh viên: đã có tài khoản{' '}
+                    <strong>{importResult.existingAccounts ?? 0}</strong>, tài khoản mới (đã gửi email){' '}
+                    <strong>{importResult.createdUsers ?? 0}</strong>.
+                    {importResult.skippedRows > 0 && ` Lỗi / bỏ qua: ${importResult.skippedRows} dòng.`}
                   </Alert>
+
+                  {Array.isArray(importResult.rows) && importResult.rows.length > 0 && (
+                    <TableContainer sx={{ mt: 1.5, border: '1px solid #e5e7eb', borderRadius: 1.5, maxHeight: 360 }}>
+                      <Table size="small" stickyHeader>
+                        <TableHead>
+                          <TableRow>
+                            {['Dòng', 'MSSV', 'Họ tên', 'Email', 'Trạng thái', 'Ghi chú'].map((h) => (
+                              <TableCell key={h} sx={{ fontWeight: 700, fontSize: 12, bgcolor: '#f8fafc' }}>
+                                {h}
+                              </TableCell>
+                            ))}
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {importResult.rows.map((row) => {
+                            const status = {
+                              ExistingAccount: { label: 'Đã có tài khoản', color: 'info' },
+                              NewAccount: { label: 'Mới · đã gửi email', color: 'success' },
+                              Failed: { label: 'Lỗi', color: 'error' },
+                            }[row.outcome] || { label: row.outcome || '—', color: 'default' }
+                            return (
+                              <TableRow key={row.rowNumber}>
+                                <TableCell sx={{ fontSize: 12 }}>{row.rowNumber}</TableCell>
+                                <TableCell sx={{ fontSize: 12, fontWeight: 600 }}>{row.studentCode || '—'}</TableCell>
+                                <TableCell sx={{ fontSize: 12 }}>{row.fullName || '—'}</TableCell>
+                                <TableCell sx={{ fontSize: 12 }}>{row.email || '—'}</TableCell>
+                                <TableCell>
+                                  <Chip size="small" color={status.color} label={status.label} sx={{ fontSize: 11, fontWeight: 600 }} />
+                                </TableCell>
+                                <TableCell sx={{ fontSize: 12, color: '#64748b' }}>{row.message || ''}</TableCell>
+                              </TableRow>
+                            )
+                          })}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                  )}
 
                   {hasErrors && (
                     <Box sx={{ mt: 1.5, p: 1.5, bgcolor: '#fef2f2', borderRadius: 1.5, border: '1px solid #fee2e2' }}>
@@ -1438,7 +1488,7 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
                   '&:hover': { bgcolor: '#0049a3' },
                 }}
               >
-                {assigning ? 'Đang phân công...' : `Xác nhận phân công cho ${instructorForm.fullName}`}
+                {assigning ? 'Đang phân công...' : instructorForm.fullName ? `Xác nhận phân công cho ${instructorForm.fullName}` : 'Chọn giảng viên để phân công'}
               </Button>
 
               <Box sx={{ display: 'flex', gap: 1.5, mt: 1.5 }}>
@@ -1469,6 +1519,31 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
       </Grid>
 
       {/* Modal Thêm Giảng Viên Mới */}
+      <Dialog open={Boolean(replaceConfirm)} onClose={() => setReplaceConfirm(null)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800, fontSize: 16 }}>Thay giảng viên phụ trách?</DialogTitle>
+        <DialogContent dividers>
+          <Typography sx={{ fontSize: 14, mb: 1.5 }}>{replaceConfirm?.message?.split(' Xác nhận')[0]}</Typography>
+          <Typography sx={{ fontSize: 14 }}>
+            Thay bằng <strong>{replaceConfirm?.payload?.fullName}</strong> ({replaceConfirm?.payload?.instructorCode})?
+            Giảng viên cũ sẽ không còn phụ trách lớp này.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ p: 2 }}>
+          <Button onClick={() => setReplaceConfirm(null)} sx={{ textTransform: 'none' }}>
+            Hủy, giữ giảng viên cũ
+          </Button>
+          <Button
+            variant="contained"
+            color="warning"
+            disabled={assigning}
+            onClick={handleConfirmReplace}
+            sx={{ textTransform: 'none', fontWeight: 700 }}
+          >
+            Thay giảng viên
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Dialog
         open={openAssignDialog}
         onClose={() => setOpenAssignDialog(false)}
