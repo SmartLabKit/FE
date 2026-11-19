@@ -88,6 +88,8 @@ export default function StockInwards() {
   const [components, setComponents] = useState([])
   const [categories, setCategories] = useState([])
   const [cabinets, setCabinets] = useState([])
+  const [labRooms, setLabRooms] = useState([])
+  const [roomId, setRoomId] = useState('')
   const [apiSuppliers, setApiSuppliers] = useState([])
   const [categoryFilter, setCategoryFilter] = useState('')
   const [supplier, setSupplier] = useState('')
@@ -109,9 +111,59 @@ export default function StockInwards() {
   )
 
   const activeCabinets = useMemo(
-    () => cabinets.filter((cabinet) => cabinet.isActive !== false),
+    () => cabinets.filter((cabinet) => (cabinet.status ? cabinet.status === 'Active' : cabinet.isActive !== false)),
     [cabinets]
   )
+
+  // Lab nhận hàng: chỉ các lab đang hoạt động và có ít nhất một tủ đang dùng
+  const receivingLabs = useMemo(
+    () =>
+      labRooms
+        .filter((room) => (room.status ? room.status === 'Active' : true))
+        .filter((room) => activeCabinets.some((cabinet) => cabinet.roomId === room.roomId))
+        .sort((a, b) => String(a.roomCode).localeCompare(String(b.roomCode), 'vi')),
+    [labRooms, activeCabinets]
+  )
+
+  // Tủ của lab nhận hàng: ô "Tủ cất" ở mỗi dòng chỉ chọn trong danh sách này
+  const roomCabinets = useMemo(
+    () => activeCabinets.filter((cabinet) => cabinet.roomId === roomId),
+    [activeCabinets, roomId]
+  )
+
+  // Tủ cho một linh kiện trong lab: tủ dành cho đúng loại linh kiện (tiêu hao / dùng lại / giá trị cao),
+  // không có thì tủ không gắn loại, lab chỉ có 1 tủ thì lấy tủ đó
+  const cabinetFor = (labCabinets, comp) => {
+    if (comp) {
+      const typed = labCabinets.find((cabinet) => cabinet.trackingType === comp.trackingType)
+      if (typed) return typed.cabinetId
+      const untyped = labCabinets.filter((cabinet) => !cabinet.trackingType)
+      if (untyped.length === 1) return untyped[0].cabinetId
+    }
+    if (labCabinets.length === 1) return labCabinets[0].cabinetId
+    return ''
+  }
+
+  // Tủ chọn được cho một dòng: chỉ tủ cùng loại với linh kiện (hoặc tủ không gắn loại)
+  const cabinetOptionsFor = (comp) => {
+    if (!comp) return roomCabinets
+    return roomCabinets.filter((cabinet) => !cabinet.trackingType || cabinet.trackingType === comp.trackingType)
+  }
+
+  // Tủ tự điền cho dòng mới: lab chỉ có 1 tủ thì lấy tủ đó, không thì lấy tủ của dòng ngay trên
+  const defaultCabinetId = (currentLines) => {
+    if (roomCabinets.length === 1) return roomCabinets[0].cabinetId
+    const last = [...currentLines].reverse().find((line) => line.cabinetId)
+    return last ? last.cabinetId : ''
+  }
+
+  const handleRoomChange = (nextRoomId) => {
+    setRoomId(nextRoomId)
+    const nextCabinets = activeCabinets.filter((cabinet) => cabinet.roomId === nextRoomId)
+    setLines((current) =>
+      current.map((line) => ({ ...line, cabinetId: cabinetFor(nextCabinets, componentMap.get(line.componentId)) }))
+    )
+  }
 
   // Danh mục linh kiện dùng cho bộ lọc thu hẹp danh sách chọn linh kiện
   const categoryOptions = useMemo(() => {
@@ -143,15 +195,17 @@ export default function StockInwards() {
     let active = true
     const load = async () => {
       try {
-        const [componentList, cabinetList, categoryList, receiptList] = await Promise.all([
+        const [componentList, cabinetList, categoryList, receiptList, roomList] = await Promise.all([
           inventoryService.getComponents(),
-          inventoryService.getCabinets(),
+          inventoryService.getCabinets({ size: 100 }),
           inventoryService.getCategories().catch(() => []),
           inventoryService.getStockReceipts().catch(() => []),
+          inventoryService.getLabRooms().catch(() => []),
         ])
         if (!active) return
         setComponents(componentList)
         setCabinets(cabinetList)
+        setLabRooms(Array.isArray(roomList) ? roomList : [])
         setCategories(Array.isArray(categoryList) ? categoryList : [])
         // Trích xuất danh sách nhà cung cấp đã có từ API phiếu nhập (không dùng mock data)
         const supplierSet = new Set()
@@ -233,6 +287,10 @@ export default function StockInwards() {
     }
     const refPrice = getComponentReferencePrice(comp)
     const patch = { componentId: comp.componentId }
+    if (roomId) {
+      const autoCabinet = cabinetFor(roomCabinets, comp)
+      if (autoCabinet) patch.cabinetId = autoCabinet
+    }
     if (!line.isGift && (!line.unitPrice || Number(line.unitPrice) <= 0) && refPrice > 0) {
       patch.unitPrice = String(refPrice)
     }
@@ -258,6 +316,10 @@ export default function StockInwards() {
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file) return
+    if (!roomId) {
+      setError('Vui lòng chọn lab nhận hàng trước khi đọc file Excel.')
+      return
+    }
 
     setError('')
     setExcelNotice('')
@@ -286,7 +348,7 @@ export default function StockInwards() {
 
         // Tìm tủ lưu trữ theo Mã tủ hoặc Tên tủ
         const normCab = normalizeSearchText(row.cabinetCode)
-        const matchedCab = activeCabinets.find((cab) => {
+        const matchedCab = roomCabinets.find((cab) => {
           const cabCode = normalizeSearchText(cab.cabinetCode)
           const cabName = normalizeSearchText(cab.cabinetName || cab.name)
           return normCab && (cabCode === normCab || cabName === normCab)
@@ -296,7 +358,7 @@ export default function StockInwards() {
           unmatchedWarnings.push(`Dòng #${row.rowNumber}: không tìm thấy linh kiện "${row.componentCode || row.componentName}"`)
         }
         if (!matchedCab && row.cabinetCode) {
-          unmatchedWarnings.push(`Dòng #${row.rowNumber}: không tìm thấy tủ "${row.cabinetCode}"`)
+          unmatchedWarnings.push(`Dòng #${row.rowNumber}: tủ "${row.cabinetCode}" không thuộc lab nhận hàng, đã đổi sang tủ mặc định`)
         }
 
         const refPrice = matchedComp ? getComponentReferencePrice(matchedComp) : 0
@@ -317,7 +379,10 @@ export default function StockInwards() {
           quantity: safeQty,
           unitPrice: safePrice,
           isGift: Boolean(row.isGift),
-          cabinetId: matchedCab?.cabinetId || activeCabinets[0]?.cabinetId || '',
+          cabinetId:
+            matchedCab && (!matchedCab.trackingType || matchedCab.trackingType === matchedComp?.trackingType)
+              ? matchedCab.cabinetId
+              : cabinetFor(roomCabinets, matchedComp) || roomCabinets[0]?.cabinetId || '',
           serialsText: row.serialsText || '',
           version: row.version || '1.0',
           warrantyExpiresAt: row.warrantyExpiresAt || getDefaultWarrantyDateVn(1),
@@ -442,6 +507,7 @@ export default function StockInwards() {
     }
 
     // TRƯỜNG HỢP TẠO MỚI PHIẾU NHẬP
+    if (!roomId) return setError('Vui lòng chọn lab nhận hàng.')
     if (lines.length === 0) return setError('Cần ít nhất một dòng hàng.')
     for (const [index, line] of lines.entries()) {
       const comp = selectedComponent(line)
@@ -512,6 +578,7 @@ export default function StockInwards() {
           cabinetId: line.cabinetId,
           quantity: Number(line.quantity),
           unitPrice: finalUnitPrice,
+          isGift: Boolean(line.isGift),
           ...(isHighValue
             ? {
                 warrantyExpiresAt: toSafeWarrantyDateIso(line.warrantyExpiresAt),
@@ -657,6 +724,29 @@ export default function StockInwards() {
 
             {/* Các trường thông tin phiếu: Nhà cung cấp (gợi ý NCC thực tế), Số hóa đơn, Ngày nhập kho, Ngày hóa đơn, Ghi chú */}
             <Grid container spacing={2} sx={{ mb: 2 }}>
+              {!editId && (
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <TextField
+                    fullWidth
+                    required
+                    select
+                    label="Lab nhận hàng"
+                    value={roomId}
+                    onChange={(event) => handleRoomChange(event.target.value)}
+                    helperText={
+                      roomId
+                        ? `Hàng của phiếu này cất vào ${roomCabinets.length} tủ của lab này. Nhập cho lab khác thì lập phiếu khác.`
+                        : 'Hàng về lab nào thì chọn lab đó, ô Tủ cất bên dưới chỉ hiện tủ của lab này.'
+                    }
+                  >
+                    {receivingLabs.map((room) => (
+                      <MenuItem key={room.roomId} value={room.roomId}>
+                        {room.roomCode} — {room.roomName}
+                      </MenuItem>
+                    ))}
+                  </TextField>
+                </Grid>
+              )}
               <Grid size={{ xs: 12, md: 6 }}>
                 <Autocomplete
                   freeSolo
@@ -820,7 +910,7 @@ export default function StockInwards() {
                       variant="outlined"
                       startIcon={<DownloadIcon />}
                       disabled={initialLoading}
-                      onClick={() => downloadStockReceiptTemplate(components, cabinets)}
+                      onClick={() => downloadStockReceiptTemplate(components, roomId ? roomCabinets : activeCabinets)}
                       sx={{
                         textTransform: 'none',
                         fontWeight: 700,
@@ -876,7 +966,7 @@ export default function StockInwards() {
                     variant="outlined"
                     size="small"
                     startIcon={<AddIcon />}
-                    onClick={() => setLines((current) => [...current, newLine()])}
+                    onClick={() => setLines((current) => [...current, { ...newLine(), cabinetId: defaultCabinetId(current) }])}
                     sx={{ textTransform: 'none', fontWeight: 700 }}
                   >
                     Thêm dòng
@@ -1008,7 +1098,7 @@ export default function StockInwards() {
                                     updateLine(line.key, { unitPrice: raw })
                                   }
                                 }}
-                                slotProps={{ htmlInput: { min: line.isGift ? 0 : 1, step: 1000 } }}
+                                slotProps={{ htmlInput: { min: 0, step: 1 } }}
                               />
                               <FormControlLabel
                                 sx={{ mt: 0.25, ml: -0.5 }}
@@ -1037,14 +1127,21 @@ export default function StockInwards() {
                                 required
                                 select
                                 size="small"
-                                label="Tủ lưu trữ"
+                                label="Tủ cất"
                                 value={line.cabinetId}
+                                disabled={!roomId}
                                 onChange={(event) => updateLine(line.key, { cabinetId: event.target.value })}
+                                helperText={
+                                  !roomId
+                                    ? 'Chọn lab nhận hàng trước'
+                                    : line.cabinetId && line.cabinetId === cabinetFor(roomCabinets, selectedComponent(line))
+                                      ? 'Tự chọn theo loại linh kiện'
+                                      : ''
+                                }
                               >
-                                {activeCabinets.map((cabinet) => (
+                                {cabinetOptionsFor(selectedComponent(line)).map((cabinet) => (
                                   <MenuItem key={cabinet.cabinetId} value={cabinet.cabinetId}>
-                                    {cabinet.cabinetCode} — {cabinet.cabinetName || cabinet.name}{' '}
-                                    {cabinet.labRoomName ? `(${cabinet.labRoomName})` : ''}
+                                    {cabinet.cabinetCode} — {cabinet.cabinetName || cabinet.name}
                                   </MenuItem>
                                 ))}
                               </TextField>
