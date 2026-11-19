@@ -9,7 +9,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import PortalLayout from '../../components/layout/PortalLayout'
 import { inventoryService } from '../../services/inventoryService'
 import { userService } from '../../services/userService'
-import { reportService } from '../../services/reportService'
+import { borrowService } from '../../services/borrowService'
 import { extractErrorMessage } from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 
@@ -101,39 +101,47 @@ const sanitizeRows = (items, targetKind) => {
   })
 }
 
-const getSummaryRows = (result) => {
+const getPagedRows = (result) => {
   if (Array.isArray(result)) return result
   const rows = result?.items || result?.Items || result?.data || result?.Data
-  return Array.isArray(rows) ? rows : []
+  if (Array.isArray(rows)) return rows
+  if (Array.isArray(result?.data?.items)) return result.data.items
+  if (Array.isArray(result?.data?.Items)) return result.data.Items
+  return []
 }
 
-const getAllStockSummaryRows = async () => {
-  const requestedPageSize = 1000
-  const firstPage = await reportService.getStockSummary({ page: 1, size: requestedPageSize })
-  const firstRows = getSummaryRows(firstPage)
-  const totalCount = Number(firstPage?.totalCount ?? firstPage?.totalItems ?? firstPage?.TotalCount ?? firstRows.length)
-  const pageSize = Number(firstPage?.pageSize ?? firstPage?.size ?? firstPage?.PageSize ?? firstRows.length ?? requestedPageSize)
-  const totalPages = Number(
-    firstPage?.totalPages ??
-    firstPage?.pageCount ??
-    firstPage?.TotalPages ??
-    Math.ceil(totalCount / (pageSize || requestedPageSize))
-  )
+const getRoomHint = (value) => {
+  if (!value) return null
+  if (typeof value === 'string') return { id: value, code: '' }
+  return {
+    id: value.roomId || value.labRoomId || value.RoomId || value.LabRoomId || value.id || '',
+    code: value.roomCode || value.labRoomCode || value.RoomCode || value.LabRoomCode || value.code || '',
+  }
+}
 
-  if (totalPages <= 1) return firstRows
-
-  const remainingPages = await Promise.all(
-    Array.from({ length: totalPages - 1 }, (_, index) =>
-      reportService.getStockSummary({ page: index + 2, size: requestedPageSize }).then(getSummaryRows)
-    )
-  )
-  return firstRows.concat(...remainingPages)
+const getDirectAssignedRooms = (currentUser) => {
+  if (!currentUser) return []
+  const candidates = [
+    getRoomHint(currentUser.roomId),
+    getRoomHint(currentUser.labRoomId),
+    getRoomHint(currentUser.room),
+    getRoomHint(currentUser.labRoom),
+  ]
+  ;['labRooms', 'assignedRooms', 'assignedLabRooms'].forEach((key) => {
+    const value = currentUser[key]
+    if (Array.isArray(value)) {
+      value.forEach((room) => candidates.push(getRoomHint(room)))
+    } else if (value) {
+      candidates.push(getRoomHint(value))
+    }
+  })
+  return candidates.filter((room) => room && (room.id || room.code))
 }
 
 export default function InventorySetup() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { hasRole, hasPermission } = useAuth()
+  const { user: currentUser, hasRole, hasPermission } = useAuth()
 
   // Phân quyền theo vai trò
   const isLabStaff = hasRole('LabStaff') && !hasRole('Admin') && !hasRole('InventoryManager')
@@ -225,22 +233,38 @@ export default function InventorySetup() {
         let allowedRoomIds = []
 
         if (isLabStaff) {
-          const summaryRows = await getAllStockSummaryRows()
-          const summaryRoomIds = new Set()
-          const summaryRoomCodes = new Set()
-          summaryRows.forEach((item) => {
-            const roomId = item.roomId || item.labRoomId || item.RoomId || item.LabRoomId
-            const roomCode = item.roomCode || item.labRoomCode || item.RoomCode || item.LabRoomCode
-            if (roomId != null) summaryRoomIds.add(String(roomId))
-            if (roomCode) summaryRoomCodes.add(String(roomCode).toLowerCase())
+          const directHints = getDirectAssignedRooms(currentUser)
+          const roomHints = [...directHints]
+
+          if (roomHints.length === 0) {
+            const [borrowResult, consumableResult] = await Promise.all([
+              borrowService.getLabBorrowRequests({ page: 1, size: 50 }).catch(() => null),
+              inventoryService.getConsumableStocks({ page: 1, size: 100 }).catch(() => null),
+            ])
+            getPagedRows(borrowResult).forEach((request) => {
+              const hint = getRoomHint(request)
+              if (hint) roomHints.push(hint)
+            })
+            getPagedRows(consumableResult).forEach((stock) => {
+              const hint = getRoomHint(stock)
+              if (hint) roomHints.push(hint)
+            })
+          }
+
+          const roomIdSet = new Set()
+          const roomCodeSet = new Set()
+          roomHints.forEach((hint) => {
+            if (hint.id) roomIdSet.add(String(hint.id))
+            if (hint.code) roomCodeSet.add(String(hint.code).toLowerCase())
           })
+
           visibleRooms = allRooms.filter((room) => {
             const roomId = getId(room, 'rooms')
-            const roomCode = room.labRoomCode || room.roomCode || room.code
-            return summaryRoomIds.has(String(roomId)) ||
-              (roomCode && summaryRoomCodes.has(String(roomCode).toLowerCase()))
+            const roomCode = room.labRoomCode || room.roomCode || room.code || ''
+            return roomIdSet.has(String(roomId)) ||
+              (roomCode && roomCodeSet.has(String(roomCode).trim().toLowerCase()))
           })
-          allowedRoomIds = visibleRooms.map((room) => getId(room, 'rooms'))
+          allowedRoomIds = visibleRooms.map((room) => getId(room, 'rooms')).filter(Boolean)
         }
 
         const roomIdsToLoad = isLabStaff
@@ -280,7 +304,7 @@ export default function InventorySetup() {
         setLoading(false)
       }
     }
-  }, [canManageCategories, isLabStaff, kind, roomFilter])
+  }, [canManageCategories, currentUser, isLabStaff, kind, roomFilter])
 
   // Reset state và tải dữ liệu mới khi chuyển tab hoặc đổi bộ lọc
   useEffect(() => {

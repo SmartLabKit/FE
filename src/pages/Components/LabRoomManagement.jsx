@@ -15,6 +15,7 @@ const getRoomName = (room) => room?.roomName || room?.labRoomName || room?.name 
 const getRoomCode = (room) => room?.roomCode || room?.labRoomCode || room?.code || ''
 const getStaffId = (staff) => staff?.userId || staff?.staffUserId || staff?.user?.userId || staff?.user?.id || staff?.id || ''
 const getStaffName = (staff) => staff?.fullName || staff?.user?.fullName || staff?.name || staff?.username || 'Nhân viên Lab'
+const getStaffUsername = (staff) => staff?.username || staff?.user?.username || staff?.email || staff?.user?.email || ''
 const getList = (value, keys = []) => {
   if (Array.isArray(value)) return value
   for (const key of keys) {
@@ -82,9 +83,11 @@ export default function LabRoomManagement() {
       const roomItems = getList(data, ['items', 'labRooms'])
       const roomsWithStaffCounts = canManageStaff
         ? await Promise.all(roomItems.map(async (room) => {
-            if (room.staffCount != null || room.labStaffCount != null) return room
             const staff = await inventoryService.getLabStaff(getRoomId(room))
-            return { ...room, staffCount: staff.length }
+            return {
+              ...room,
+              assignedStaff: Array.isArray(staff) ? staff : [],
+            }
           }))
         : roomItems
       if (isSubscribed()) setRooms(roomsWithStaffCounts)
@@ -320,12 +323,22 @@ export default function LabRoomManagement() {
                 )}
                 {!loading && rooms.map((room) => {
                   const active = isRoomActive(room)
+                  const assignedStaffList = Array.isArray(room.assignedStaff)
+                    ? room.assignedStaff
+                    : (Array.isArray(room.staff) ? room.staff : [])
+                  const staffLabels = assignedStaffList
+                    .map((staff) => getStaffUsername(staff) || getStaffName(staff))
+                    .filter(Boolean)
                   return (
                     <TableRow key={getRoomId(room)} hover>
                       <TableCell sx={{ fontWeight: 600, color: '#0058be' }}>{getRoomCode(room) || '—'}</TableCell>
                       <TableCell sx={{ fontWeight: 600 }}>{getRoomName(room) || '—'}</TableCell>
                       <TableCell>{room.cabinetCount ?? room.activeCabinetCount ?? room.cabinetsCount ?? 0}</TableCell>
-                      <TableCell>{room.staffCount ?? room.labStaffCount ?? room.staff?.length ?? 0}</TableCell>
+                      <TableCell>
+                        {staffLabels.length > 0
+                          ? staffLabels.join(', ')
+                          : '—'}
+                      </TableCell>
                       <TableCell>
                         <Chip
                           size="small"
