@@ -427,7 +427,7 @@ export default function InventorySetup() {
     const roomId = getId(selectedRoomForStaff, 'rooms')
     try {
       await inventoryService.removeLabStaff(roomId, staffUserId)
-      setNotice('Đã gỡ nhân viên khỏi phòng lab.')
+      setNotice('Đã gỡ nhân viên khỏi phòng.')
       const currentStaff = await inventoryService.getLabStaff(roomId)
       setAssignedStaff(Array.isArray(currentStaff) ? currentStaff : [])
       await load()
@@ -456,8 +456,8 @@ export default function InventorySetup() {
       if (conflictingRoom) {
         const alreadyInThisRoom = String(getId(conflictingRoom, 'rooms')) === String(roomId)
         setError(alreadyInThisRoom
-          ? 'Nhân viên này đã được phân công cho phòng lab hiện tại.'
-          : `${getName(conflictingRoom, 'rooms')} đã có nhân viên này. Mỗi LabStaff chỉ được phụ trách một phòng lab.`)
+          ? 'Nhân viên này đã được phân công cho phòng hiện tại.'
+          : `${getName(conflictingRoom, 'rooms')} đã có nhân viên này. Mỗi nhân viên chỉ được phụ trách một phòng.`)
         return
       }
 

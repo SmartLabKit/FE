@@ -188,10 +188,10 @@ export default function LabRoomManagement() {
         await inventoryService.createLabRoom({ roomName: trimmedName })
       }
       setRoomDialogOpen(false)
-      setNotice(editingRoom ? 'Đã cập nhật phòng lab.' : 'Đã tạo phòng lab.')
+      setNotice(editingRoom ? 'Đã cập nhật thông tin.' : 'Tạo phòng thành công.')
       await loadRooms()
     } catch (saveError) {
-      setError(extractErrorMessage(saveError, 'Không thể lưu thông tin phòng lab.'))
+      setError(extractErrorMessage(saveError, 'Không thể lưu thông tin phòng.'))
     } finally {
       setSavingRoom(false)
     }
@@ -287,7 +287,6 @@ export default function LabRoomManagement() {
           <Box sx={{ p: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2 }}>
             <Box>
               <Typography sx={{ fontWeight: 800, color: '#182238', fontSize: 16 }}>Danh sách phòng lab</Typography>
-              <Typography variant="body2" color="text.secondary">Tổng số: {rooms.length} phòng</Typography>
             </Box>
             {canEditRooms && (
               <Button
@@ -296,7 +295,7 @@ export default function LabRoomManagement() {
                 onClick={openCreateRoom}
                 sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#0058be', whiteSpace: 'nowrap' }}
               >
-                Tạo phòng lab
+                Tạo phòng
               </Button>
             )}
           </Box>
@@ -354,7 +353,7 @@ export default function LabRoomManagement() {
                             onClick={() => openAssignmentDialog(room)}
                             sx={{ textTransform: 'none' }}
                           >
-                            Phân công nhân viên
+                            Phân công
                           </Button>
                         )}
                       </TableCell>
@@ -375,7 +374,7 @@ export default function LabRoomManagement() {
 
         <Dialog open={roomDialogOpen} onClose={() => !savingRoom && setRoomDialogOpen(false)} fullWidth maxWidth="sm">
           <Box component="form" onSubmit={handleSaveRoom}>
-            <DialogTitle sx={{ fontWeight: 800 }}>{editingRoom ? 'Sửa phòng lab' : 'Tạo phòng lab'}</DialogTitle>
+            <DialogTitle sx={{ fontWeight: 800 }}>{editingRoom ? 'Điều chỉnh' : 'Tạo phòng'}</DialogTitle>
             <DialogContent sx={{ display: 'grid', gap: 2, pt: '12px !important' }}>
               {error && <Alert severity="error">{error}</Alert>}
               <TextField
@@ -403,7 +402,7 @@ export default function LabRoomManagement() {
             <DialogActions sx={{ px: 3, pb: 2 }}>
               <Button onClick={() => setRoomDialogOpen(false)} disabled={savingRoom} sx={{ textTransform: 'none' }}>Hủy</Button>
               <Button type="submit" variant="contained" disabled={savingRoom} sx={{ textTransform: 'none', fontWeight: 700 }}>
-                {savingRoom ? 'Đang lưu...' : editingRoom ? 'Cập nhật' : 'Tạo phòng lab'}
+                {savingRoom ? 'Đang lưu...' : editingRoom ? 'Cập nhật' : 'Tạo'}
               </Button>
             </DialogActions>
           </Box>
@@ -416,14 +415,14 @@ export default function LabRoomManagement() {
           maxWidth="md"
         >
           <DialogTitle sx={{ fontWeight: 800 }}>
-            Phân công nhân viên
+            Phân công
             {assignmentRoom && ` — ${getRoomName(assignmentRoom)}`}
           </DialogTitle>
           <DialogContent sx={{ display: 'grid', gap: 2, pt: '12px !important' }}>
             {assignmentError && <Alert severity="error" onClose={() => setAssignmentError('')}>{assignmentError}</Alert>}
             <Box sx={{ p: 1.5, border: '1px solid #e2e8f0', borderRadius: 1.5, bgcolor: '#f8fafc' }}>
               <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 1 }}>
-                Nhân viên đang phụ trách ({assignedStaff.length})
+                Nhân viên phụ trách:
               </Typography>
               {assignmentLoading ? (
                 <CircularProgress size={22} />
@@ -460,10 +459,10 @@ export default function LabRoomManagement() {
                 select
                 fullWidth
                 size="small"
-                label="Nhân viên LabStaff đang hoạt động"
+                label="Chọn nhân viên"
                 value={selectedStaffId}
                 onChange={(event) => setSelectedStaffId(event.target.value)}
-                helperText="Mỗi LabStaff chỉ được phân công phụ trách một phòng lab."
+                helperText="Mỗi nhân viên chỉ được phân công 1 phòng."
                 disabled={assignmentLoading || staffOptions.length === 0}
               >
                 {staffOptions.map((staff) => {
@@ -491,7 +490,7 @@ export default function LabRoomManagement() {
                 disabled={!selectedStaffId || assignmentLoading || savingAssignment}
                 sx={{ whiteSpace: 'nowrap', textTransform: 'none', minHeight: 40 }}
               >
-                {savingAssignment ? 'Đang thêm...' : 'Thêm vào phòng'}
+                {savingAssignment ? 'Đang phân công...' : 'Phân công'}
               </Button>
             </Box>
           </DialogContent>
