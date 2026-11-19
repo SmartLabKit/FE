@@ -204,7 +204,7 @@ export default function PortalLayout({
       roles: ['Admin', 'InventoryManager', 'LabStaff', 'Lecturer', 'Student'],
     },
     {
-      label: 'Phòng lab',
+      label: 'Tủ lưu trữ',
       icon: <RoomIcon fontSize="small" />,
       path: isStudent ? '/class-setup/admin/lab-rooms' : '/class-setup/admin/categories',
       roles: ['InventoryManager', 'LabStaff', 'Student'],

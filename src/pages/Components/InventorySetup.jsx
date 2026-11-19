@@ -500,8 +500,8 @@ export default function InventorySetup() {
 
   return (
     <PortalLayout
-      headerTitle={isStudent ? 'Danh sách Phòng Lab' : 'Thiết lập kho'}
-      headerSubtitle={isStudent ? 'Tra cứu thông tin các phòng lab thực hành trong hệ thống' : 'Quản lý danh mục linh kiện, phòng lab và tủ lưu trữ'}
+      headerTitle={isStudent ? 'Danh sách Phòng Lab' : 'Tủ lưu trữ'}
+      headerSubtitle={isStudent ? 'Tra cứu thông tin các phòng lab thực hành trong hệ thống' : 'Quản lý tủ lưu trữ được phân công'}
     >
       <Box sx={{ maxWidth: 1440, mx: 'auto' }}>
         {tabs.length > 1 && (
