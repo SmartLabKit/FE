@@ -24,6 +24,7 @@ import {
   VisibilityOff,
   Save as SaveIcon,
   School as SchoolIcon,
+  PhotoCamera as PhotoCameraIcon,
 } from '@mui/icons-material'
 import PortalLayout from '../../components/layout/PortalLayout'
 import { useAuth } from '../../context/AuthContext'
@@ -35,6 +36,7 @@ export default function Profile() {
   const [activeTab, setActiveTab] = useState(0)
   const [profileSaving, setProfileSaving] = useState(false)
   const [passwordSaving, setPasswordSaving] = useState(false)
+  const [avatarUploading, setAvatarUploading] = useState(false)
 
   // Form thông tin cá nhân
   const [profileForm, setProfileForm] = useState({
@@ -57,6 +59,32 @@ export default function Profile() {
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
   const showToast = (message, severity = 'success') => {
     setToast({ open: true, message, severity })
+  }
+
+  const handleAvatarFile = async (event) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    if (!['image/jpeg', 'image/png', 'image/webp'].includes(file.type)) {
+      showToast('Chỉ nhận ảnh JPG, PNG hoặc WEBP', 'warning')
+      return
+    }
+    if (file.size > 5 * 1024 * 1024) {
+      showToast('Ảnh tối đa 5 MB', 'warning')
+      return
+    }
+
+    setAvatarUploading(true)
+    try {
+      const updated = await authService.uploadAvatar(file)
+      updateUser(updated)
+      setProfileForm((prev) => ({ ...prev, avatarUrl: updated?.avatarUrl || '' }))
+      showToast('Cập nhật ảnh đại diện thành công!', 'success')
+    } catch (err) {
+      showToast(err.message, 'error')
+    } finally {
+      setAvatarUploading(false)
+    }
   }
 
   // Tải thông tin người dùng từ GET /api/auth/me
@@ -101,7 +129,7 @@ export default function Profile() {
       const updated = await authService.updateProfile({
         fullName: profileForm.fullName.trim(),
         phoneNumber: profileForm.phoneNumber.trim(),
-        avatarUrl: profileForm.avatarUrl.trim(),
+        avatarUrl: profileForm.avatarUrl || user?.avatarUrl || '',
       })
 
       updateUser(updated)
@@ -182,19 +210,57 @@ export default function Profile() {
           }}
         >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
-            <Avatar
-              src={profileForm.avatarUrl || currentUser.avatarUrl}
-              sx={{
-                width: 64,
-                height: 64,
-                bgcolor: currentUser.avatarBg || '#0058be',
-                fontSize: 22,
-                fontWeight: 800,
-                boxShadow: '0 4px 12px rgba(0, 88, 190, 0.2)',
-              }}
-            >
-              {(profileForm.fullName || currentUser.name || 'U').charAt(0).toUpperCase()}
-            </Avatar>
+            <Box sx={{ position: 'relative', flexShrink: 0 }}>
+              <Avatar
+                src={profileForm.avatarUrl || currentUser.avatarUrl}
+                sx={{
+                  width: 64,
+                  height: 64,
+                  bgcolor: currentUser.avatarBg || '#0058be',
+                  fontSize: 22,
+                  fontWeight: 800,
+                  boxShadow: '0 4px 12px rgba(0, 88, 190, 0.2)',
+                }}
+              >
+                {(profileForm.fullName || currentUser.name || 'U').charAt(0).toUpperCase()}
+              </Avatar>
+              {avatarUploading && (
+                <Box
+                  sx={{
+                    position: 'absolute',
+                    inset: 0,
+                    borderRadius: '50%',
+                    bgcolor: 'rgba(255, 255, 255, 0.7)',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <CircularProgress size={24} />
+                </Box>
+              )}
+              <IconButton
+                component="label"
+                size="small"
+                disabled={avatarUploading}
+                aria-label="Đổi ảnh đại diện"
+                title="Đổi ảnh đại diện (JPG, PNG, WEBP, tối đa 5 MB)"
+                sx={{
+                  position: 'absolute',
+                  right: -4,
+                  bottom: -4,
+                  width: 28,
+                  height: 28,
+                  bgcolor: '#fff',
+                  border: '1px solid #d8dced',
+                  boxShadow: '0 2px 6px rgba(15, 23, 42, 0.15)',
+                  '&:hover': { bgcolor: '#f1f5ff' },
+                }}
+              >
+                <PhotoCameraIcon sx={{ fontSize: 16, color: '#0058be' }} />
+                <input hidden type="file" accept="image/jpeg,image/png,image/webp" onChange={handleAvatarFile} />
+              </IconButton>
+            </Box>
             <Box>
               <Typography variant="h6" sx={{ fontWeight: 800, color: '#131b2e', lineHeight: 1.2 }}>
                 {profileForm.fullName || currentUser.name}
@@ -323,17 +389,6 @@ export default function Profile() {
                   sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5 } }}
                 />
               </Box>
-
-              <TextField
-                label="Đường dẫn ảnh đại diện (Avatar URL)"
-                fullWidth
-                size="small"
-                placeholder="https://example.com/avatar.jpg"
-                value={profileForm.avatarUrl}
-                onChange={(e) => setProfileForm({ ...profileForm, avatarUrl: e.target.value })}
-                helperText="Dán liên kết ảnh trực tuyến để thay đổi avatar đại diện"
-                sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5 } }}
-              />
 
               {/* Danh sách quyền hạn hiện tại */}
               <Box sx={{ p: 2, bgcolor: '#fafbff', borderRadius: 2, border: '1px solid #e4e6ef' }}>

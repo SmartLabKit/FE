@@ -1,8 +1,9 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Box, Chip, Grid, MenuItem, TextField } from '@mui/material'
 import { useReport } from '../../hooks/useReport'
 import { reportService } from '../../services/reportService'
-import { CHART_COLORS, formatMoney, formatMoneyAxis, formatNumber } from './reportFormat'
+import { CHART_COLORS, formatMoney, formatMoneyAxis, formatNumber, stockCardPath } from './reportFormat'
 import { ReportSection, ReportTable, StatTile } from './reportUi'
 import { BarChart } from './reportCharts'
 
@@ -27,6 +28,8 @@ function buildMonthlySeries(groups, fromDate, toDate) {
   return months
 }
 
+const TOP_LOSSES = 5
+
 const GROUP_BY_OPTIONS = [
   { value: 'month', label: 'Theo tháng' },
   { value: 'supplier', label: 'Theo nhà cung cấp' },
@@ -36,6 +39,7 @@ const GROUP_BY_OPTIONS = [
 /** Tab "Nhập kho & hao hụt" (chỉ Admin / InventoryManager vì có số tiền). */
 export default function ReceiptLossReportsTab({ filters }) {
   const { fromDate, toDate } = filters
+  const navigate = useNavigate()
 
   const [groupBy, setGroupBy] = useState('month')
   const receipts = useReport(
@@ -45,6 +49,9 @@ export default function ReceiptLossReportsTab({ filters }) {
   const losses = useReport(() => reportService.getLosses({ fromDate, toDate }), [fromDate, toDate])
 
   const groupLabel = GROUP_BY_OPTIONS.find((option) => option.value === groupBy)?.label
+  const topLosses = [...(losses.data?.items || [])]
+    .sort((a, b) => Number(b.value || 0) - Number(a.value || 0))
+    .slice(0, TOP_LOSSES)
   const months = groupBy === 'month' && receipts.data ? buildMonthlySeries(receipts.data.groups, fromDate, toDate) : []
 
   return (
@@ -89,18 +96,19 @@ export default function ReceiptLossReportsTab({ filters }) {
         )}
       </ReportSection>
 
-      <ReportSection title="Hao hụt trong kỳ" subtitle="Thiết bị mất / thanh lý và vật tư bị điều chỉnh giảm" loading={losses.loading} error={losses.error}>
+      <ReportSection title="Hao hụt trong kỳ" subtitle={`Thiết bị mất / thanh lý và vật tư bị điều chỉnh giảm · top ${TOP_LOSSES} linh kiện theo giá trị`} loading={losses.loading} error={losses.error}>
         {losses.data && (
           <>
             <Grid container spacing={2} sx={{ p: 2 }}>
-              <Grid size={{ xs: 6, md: 3 }}><StatTile label="Thiết bị mất" value={formatNumber(losses.data.lostUnits)} color="#c62828" /></Grid>
+              <Grid size={{ xs: 6, md: 3 }}><StatTile label="Thiết bị mất" value={formatNumber(losses.data.lostUnits)} valueColor="#c62828" /></Grid>
               <Grid size={{ xs: 6, md: 3 }}><StatTile label="Thiết bị thanh lý" value={formatNumber(losses.data.retiredUnits)} /></Grid>
               <Grid size={{ xs: 6, md: 3 }}><StatTile label="Vật tư điều chỉnh giảm" value={formatNumber(losses.data.adjustedOutQuantity)} /></Grid>
-              <Grid size={{ xs: 6, md: 3 }}><StatTile label="Tổng giá trị hao hụt" value={formatMoney(losses.data.totalValue)} color="#c62828" /></Grid>
+              <Grid size={{ xs: 6, md: 3 }}><StatTile label="Tổng giá trị hao hụt" value={formatMoney(losses.data.totalValue)} valueColor="#c62828" /></Grid>
             </Grid>
             <ReportTable
-              rows={losses.data.items || []}
+              rows={topLosses}
               rowKey={(row) => row.componentId}
+              onRowClick={(row) => navigate(stockCardPath(row.componentId))}
               emptyText="Không có hao hụt trong kỳ."
               columns={[
                 { key: 'componentName', label: 'Linh kiện', render: (row) => <><b>{row.componentName}</b><br /><Box component="span" sx={{ color: '#0058be', fontSize: 12 }}>{row.componentCode}</Box></> },

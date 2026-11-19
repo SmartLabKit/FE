@@ -1,35 +1,76 @@
-import { Grid } from '@mui/material'
+import { Box, Grid } from '@mui/material'
+import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
 import { useReport } from '../../hooks/useReport'
 import { reportService } from '../../services/reportService'
-import { formatHours, formatNumber, toLabel } from './reportFormat'
-import { GroupBars, ReportSection, StatTile } from './reportUi'
+import { CHART_DANGER, formatDuration, formatNumber, toLabel } from './reportFormat'
+import { ReportBar, ReportSection, StatTile } from './reportUi'
 import { ShareDonut } from './reportCharts'
+
+const TOP_COMPONENTS = 10
 
 const toParts = (groups) => (groups || []).map((group) => ({ name: toLabel(group.key), value: group.count }))
 const formatIssues = (value) => `${formatNumber(value)} sự cố`
 
-/** Tab "Sự cố": thống kê báo cáo sự cố tạo trong kỳ. */
+/** Tab "Sự cố": thống kê báo cáo sự cố tạo trong kỳ (BE tự lọc theo quyền). */
 export default function IssueReportsTab({ filters }) {
   const { fromDate, toDate } = filters
+  const navigate = useNavigate()
+  const { hasRole } = useAuth()
+  const isLabStaff = hasRole?.('LabStaff')
   const issues = useReport(() => reportService.getIssueSummary({ fromDate, toDate }), [fromDate, toDate])
+
+  const data = issues.data
+  const openCount = (data?.byStatus || []).find((group) => group.key === 'Open')?.count || 0
 
   return (
     <ReportSection title="Thống kê sự cố" subtitle="Sự cố tạo trong kỳ" loading={issues.loading} error={issues.error}>
-      {issues.data && (
+      {data && (
         <>
           <Grid container spacing={2} sx={{ p: 2, pb: 0 }}>
-            <Grid size={{ xs: 12, sm: 6 }}><StatTile label="Tổng số sự cố" value={formatNumber(issues.data.totalIssues)} /></Grid>
-            <Grid size={{ xs: 12, sm: 6 }}><StatTile label="Thời gian xử lý trung bình" value={formatHours(issues.data.averageResolveHours)} /></Grid>
+            <Grid size={{ xs: 12, sm: 4 }}>
+              <StatTile label="Sự cố" value={formatNumber(data.totalIssues)} valueColor="#ef6c00" />
+            </Grid>
+            <Grid size={{ xs: 12, sm: 4 }}>
+              <Box
+                onClick={isLabStaff ? () => navigate('/issue-reports?status=Open') : undefined}
+                sx={{ height: '100%', cursor: isLabStaff ? 'pointer' : 'default' }}
+              >
+                <StatTile
+                  label="Chưa xử lý"
+                  value={formatNumber(openCount)}
+                  valueColor={openCount > 0 ? CHART_DANGER : '#2e7d32'}
+                  hint={isLabStaff ? 'Bấm để xem các sự cố đang mở' : undefined}
+                />
+              </Box>
+            </Grid>
+            <Grid size={{ xs: 12, sm: 4 }}>
+              <StatTile
+                label="Thời gian xử lý trung bình"
+                value={formatDuration(data.averageResolveHours)}
+                hint="Từ lúc báo đến lúc được xử lý, chỉ tính các sự cố đã xử lý trong kỳ."
+              />
+            </Grid>
           </Grid>
           <Grid container>
             <Grid size={{ xs: 12, md: 4 }}>
-              <ShareDonut title="Theo trạng thái" parts={toParts(issues.data.byStatus)} format={formatIssues} emptyText="Không có sự cố trong kỳ." />
+              <ShareDonut title="Theo trạng thái" parts={toParts(data.byStatus)} format={formatIssues} emptyText="Không có sự cố trong kỳ." />
             </Grid>
             <Grid size={{ xs: 12, md: 4 }}>
-              <ShareDonut title="Theo loại sự cố" parts={toParts(issues.data.byType)} format={formatIssues} emptyText="Không có sự cố trong kỳ." />
+              <ShareDonut title="Theo loại" parts={toParts(data.byType)} format={formatIssues} emptyText="Không có sự cố trong kỳ." />
             </Grid>
             <Grid size={{ xs: 12, md: 4 }}>
-              <GroupBars title="Linh kiện nhiều sự cố nhất" groups={issues.data.topComponents} labelOf={(key) => key} />
+              <ReportBar
+                title="Linh kiện nhiều sự cố nhất"
+                ranked
+                format={formatIssues}
+                emptyText="Không có sự cố trong kỳ."
+                items={(data.topComponents || []).slice(0, TOP_COMPONENTS).map((group) => ({
+                  key: group.key,
+                  label: group.key,
+                  value: group.count,
+                }))}
+              />
             </Grid>
           </Grid>
         </>

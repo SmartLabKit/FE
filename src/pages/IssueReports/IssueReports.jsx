@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import { ReportProblem as ReportIcon, Search as SearchIcon } from '@mui/icons-material'
 import {
   Alert,
@@ -39,7 +40,8 @@ export default function IssueReports() {
   const canCreate = ['Student', 'LabStaff', 'InventoryManager', 'Admin'].some((role) => hasRole?.(role))
   const showFilters = ['LabStaff', 'InventoryManager', 'Admin', 'Lecturer'].some((role) => hasRole?.(role))
 
-  const [status, setStatus] = useState('')
+  const [searchParams] = useSearchParams()
+  const [status, setStatus] = useState(() => searchParams.get('status') || '')
   const [issueType, setIssueType] = useState('')
   const [itemCodeInput, setItemCodeInput] = useState('')
   const [itemCode, setItemCode] = useState('')

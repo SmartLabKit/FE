@@ -1,10 +1,10 @@
 import { useEffect, useState } from 'react'
-import { Box, MenuItem, Paper, Tab, Tabs, TextField } from '@mui/material'
+import { Box, MenuItem, Paper, Tab, Tabs, TextField, ToggleButton, ToggleButtonGroup, Typography } from '@mui/material'
 import { useSearchParams } from 'react-router-dom'
 import PortalLayout from '../../components/layout/PortalLayout'
 import { useAuth } from '../../context/AuthContext'
 import { inventoryService } from '../../services/inventoryService'
-import { defaultPeriod } from './reportFormat'
+import { PERIOD_PRESETS, defaultPeriod, formatDayString } from './reportFormat'
 import InventoryReportsTab from './InventoryReportsTab'
 import ReceiptLossReportsTab from './ReceiptLossReportsTab'
 import StockMovementTab from './StockMovementTab'
@@ -63,13 +63,26 @@ export default function Reports() {
               <Tab key={item.value} value={item.value} label={item.label} sx={{ textTransform: 'none', fontWeight: 600 }} />
             ))}
           </Tabs>
-          <Box sx={{ p: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', borderTop: '1px solid #eef0f6' }}>
+          <Box sx={{ p: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center', borderTop: '1px solid #eef0f6' }}>
+            <ToggleButtonGroup
+              size="small"
+              exclusive
+              value={period.days ?? null}
+              onChange={(_, days) => { if (days) setPeriod(defaultPeriod(days)) }}
+              aria-label="Kỳ báo cáo"
+            >
+              {PERIOD_PRESETS.map((preset) => (
+                <ToggleButton key={preset.days} value={preset.days} sx={{ textTransform: 'none', px: 1.5 }}>
+                  {preset.label}
+                </ToggleButton>
+              ))}
+            </ToggleButtonGroup>
             <TextField
               type="date"
               size="small"
               label="Từ ngày"
               value={period.fromDate}
-              onChange={(event) => setPeriod((prev) => ({ ...prev, fromDate: event.target.value }))}
+              onChange={(event) => setPeriod((prev) => ({ ...prev, fromDate: event.target.value, days: null }))}
               slotProps={{ inputLabel: { shrink: true } }}
             />
             <TextField
@@ -77,7 +90,7 @@ export default function Reports() {
               size="small"
               label="Đến ngày"
               value={period.toDate}
-              onChange={(event) => setPeriod((prev) => ({ ...prev, toDate: event.target.value }))}
+              onChange={(event) => setPeriod((prev) => ({ ...prev, toDate: event.target.value, days: null }))}
               slotProps={{ inputLabel: { shrink: true } }}
             />
             {seesInventory && (
@@ -97,6 +110,9 @@ export default function Reports() {
                 ))}
               </TextField>
             )}
+            <Typography sx={{ color: '#697386', fontSize: 12, width: '100%' }}>
+              {formatDayString(period.fromDate)} – {formatDayString(period.toDate)}
+            </Typography>
           </Box>
         </Paper>
 

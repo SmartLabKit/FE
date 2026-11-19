@@ -3,15 +3,26 @@ import { formatVietnamDate, getVietnamDateInputValue } from '../../utils/dateFor
 export const formatDate = formatVietnamDate
 export const formatNumber = (value) => Number(value || 0).toLocaleString('vi-VN')
 export const formatMoney = (value) => `${Number(value || 0).toLocaleString('vi-VN')} ₫`
-export const formatHours = (value) =>
-  value == null ? '—' : `${Number(value).toLocaleString('vi-VN', { maximumFractionDigits: 1 })} giờ`
+export function formatDuration(hours) {
+  if (hours == null) return '—'
+  const totalMinutes = Math.max(0, Math.round(Number(hours) * 60))
+  if (totalMinutes < 60) return `${totalMinutes} phút`
+  const totalHours = Math.floor(totalMinutes / 60)
+  if (totalHours < 24) {
+    const minutes = totalMinutes % 60
+    return minutes ? `${totalHours} giờ ${minutes} phút` : `${totalHours} giờ`
+  }
+  const days = Math.floor(totalHours / 24)
+  const restHours = totalHours % 24
+  return restHours ? `${days} ngày ${restHours} giờ` : `${days} ngày`
+}
 export const formatPercent = (value) =>
   value == null ? '—' : `${Number(value).toLocaleString('vi-VN', { maximumFractionDigits: 1 })}%`
 
 const LABELS = {
-  Pending: 'Chờ duyệt',
-  Approved: 'Đã duyệt',
-  Ready: 'Sẵn sàng giao',
+  Pending: 'Đang chờ duyệt',
+  Approved: 'Đã duyệt, đang chuẩn bị',
+  Ready: 'Sẵn sàng nhận đồ',
   Rejected: 'Từ chối',
   Borrowing: 'Đang mượn',
   Returned: 'Đã trả',
@@ -58,13 +69,33 @@ export function formatMoneyAxis(value) {
   return `${trim(value / 1e3)}k`
 }
 
+export const stockCardPath = (componentId) => `/reports?tab=movements&componentId=${componentId}`
+
 export const getRows = (result) => (Array.isArray(result) ? result : result?.items || [])
 
-export function defaultPeriod() {
+export const PERIOD_PRESETS = [
+  { days: 7, label: '7 ngày' },
+  { days: 30, label: '30 ngày' },
+  { days: 90, label: '90 ngày' },
+  { days: 365, label: '1 năm' },
+]
+
+/**
+ * Kỳ báo cáo gồm `days` ngày, kết thúc hôm nay theo giờ Việt Nam. BE nhận ngày lịch Việt Nam dạng yyyy-MM-dd
+ * và tính cả 2 đầu, nên fromDate = hôm nay trừ (days - 1). Tối đa 366 ngày.
+ */
+export function defaultPeriod(days = 30) {
   const to = new Date()
-  const from = new Date(to.getTime() - 29 * 24 * 60 * 60 * 1000)
+  const from = new Date(to.getTime() - (days - 1) * 24 * 60 * 60 * 1000)
   return {
     fromDate: getVietnamDateInputValue(from),
     toDate: getVietnamDateInputValue(to),
+    days,
   }
+}
+
+export const formatDayString = (value) => {
+  if (!value) return '—'
+  const [year, month, day] = value.split('-')
+  return `${day}/${month}/${year}`
 }

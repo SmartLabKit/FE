@@ -43,14 +43,14 @@ export function ReportSection({ title, subtitle, action, loading, error, childre
 }
 
 /** Ô số liệu (dùng cho Tổng quan và phần tóm tắt từng báo cáo). */
-export function StatTile({ label, value, icon, color = '#0865ce', hint }) {
+export function StatTile({ label, value, icon, color = '#0865ce', valueColor = '#131b2e', hint }) {
   return (
     <Card variant="outlined" sx={{ borderColor: '#d8dced', boxShadow: 'none', height: '100%' }}>
       <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
         {icon && <Box sx={{ color, display: 'flex' }}>{icon}</Box>}
         <Box sx={{ minWidth: 0 }}>
-          <Typography color="text.secondary" fontSize={12}>{label}</Typography>
-          <Typography fontWeight={800} fontSize={21} sx={{ color: '#131b2e' }}>{value}</Typography>
+          <Typography sx={{ color: 'text.secondary', fontSize: 12 }}>{label}</Typography>
+          <Typography sx={{ fontWeight: 800, fontSize: 21, color: valueColor }}>{value}</Typography>
           {hint && <Typography sx={{ color: '#697386', fontSize: 11 }}>{hint}</Typography>}
         </Box>
       </CardContent>
@@ -62,8 +62,9 @@ export function StatTile({ label, value, icon, color = '#0865ce', hint }) {
  * Bảng báo cáo đơn giản.
  * columns: [{ key, label, align?, render?(row) }]
  * pagination (tùy chọn): { page (bắt đầu từ 1), size, totalCount, onPageChange(page) }
+ * onRowClick (tùy chọn): bấm vào dòng để mở trang chi tiết
  */
-export function ReportTable({ columns, rows, rowKey, emptyText = 'Không có dữ liệu.', pagination }) {
+export function ReportTable({ columns, rows, rowKey, emptyText = 'Không có dữ liệu.', pagination, onRowClick }) {
   return (
     <>
       <TableContainer>
@@ -77,7 +78,12 @@ export function ReportTable({ columns, rows, rowKey, emptyText = 'Không có d�
           </TableHead>
           <TableBody>
             {rows.map((row, index) => (
-              <TableRow key={rowKey ? rowKey(row) : index} hover>
+              <TableRow
+                key={rowKey ? rowKey(row) : index}
+                hover
+                onClick={onRowClick ? () => onRowClick(row) : undefined}
+                sx={onRowClick ? { cursor: 'pointer' } : undefined}
+              >
                 {columns.map((column) => (
                   <TableCell key={column.key} align={column.align}>
                     {column.render ? column.render(row) : row[column.key] ?? '—'}
@@ -132,6 +138,54 @@ export function GroupBars({ title, groups = [], valueKey = 'count', format = for
                 borderRadius: 3,
               }}
             />
+          </Box>
+        </Box>
+      ))}
+    </Box>
+  )
+}
+
+/**
+ * Danh sách thanh ngang (giống ReportBar bên mobile): hạng (tùy chọn), nhãn, thanh dài theo value / max,
+ * giá trị bên phải và chú thích nhỏ (tùy chọn).
+ * items: [{ key, label, value, display?, caption? }]
+ */
+export function ReportBar({ title, items = [], ranked = false, format = formatNumber, emptyText = 'Không có dữ liệu.' }) {
+  const max = Math.max(1, ...items.map((item) => Number(item.value || 0)))
+  return (
+    <Box sx={{ p: 2 }}>
+      {title && <Typography sx={{ fontWeight: 700, fontSize: 13, color: '#334155', mb: 1 }}>{title}</Typography>}
+      {items.length === 0 && <Typography sx={{ color: 'text.secondary', fontSize: 13 }}>{emptyText}</Typography>}
+      {items.map((item, index) => (
+        <Box key={item.key} sx={{ display: 'flex', gap: 1.25, alignItems: 'flex-start', mb: 1.25 }}>
+          {ranked && (
+            <Box
+              sx={{
+                width: 22,
+                height: 22,
+                flexShrink: 0,
+                borderRadius: '50%',
+                bgcolor: index === 0 ? '#0058be' : '#eef0f6',
+                color: index === 0 ? '#fff' : '#424754',
+                fontSize: 12,
+                fontWeight: 700,
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {index + 1}
+            </Box>
+          )}
+          <Box sx={{ flexGrow: 1, minWidth: 0 }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, mb: 0.3 }}>
+              <Typography sx={{ fontSize: 13, color: '#424754' }} noWrap>{item.label}</Typography>
+              <Typography sx={{ fontSize: 13, fontWeight: 700, flexShrink: 0 }}>{item.display ?? format(item.value)}</Typography>
+            </Box>
+            <Box sx={{ height: 6, bgcolor: '#eef0f6', borderRadius: 3 }}>
+              <Box sx={{ height: '100%', width: `${(Number(item.value || 0) / max) * 100}%`, bgcolor: '#0058be', borderRadius: 3 }} />
+            </Box>
+            {item.caption && <Typography sx={{ color: '#697386', fontSize: 11, mt: 0.3 }}>{item.caption}</Typography>}
           </Box>
         </Box>
       ))}

@@ -1,13 +1,16 @@
 import { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Box, Chip, Grid } from '@mui/material'
 import { useReport } from '../../hooks/useReport'
 import { reportService } from '../../services/reportService'
-import { CHART_COLORS, CHART_DANGER, formatDate, formatHours, formatNumber, formatPercent, getRows, toLabel } from './reportFormat'
-import { GroupBars, ReportSection, ReportTable, StatTile } from './reportUi'
+import { CHART_COLORS, CHART_DANGER, formatDate, formatDuration, formatNumber, formatPercent, getRows, toLabel } from './reportFormat'
+import { GroupBars, ReportBar, ReportSection, ReportTable, StatTile } from './reportUi'
 import { BarChart, ShareDonut } from './reportCharts'
 
 const CHART_MAX_CLASSES = 6
+const TOP_COMPONENTS = 5
 const brokenOf = (row) => Number(row.damagedUnits || 0) + Number(row.lostUnits || 0)
+const sumOf = (rows, pick) => rows.reduce((total, row) => total + Number(pick(row) || 0), 0)
 
 const PAGE_SIZE = 10
 
@@ -22,11 +25,13 @@ const componentCell = (row) => (
 /** Tab "Mượn trả": thống kê đơn, theo lớp, linh kiện mượn nhiều, quá hạn, hư hỏng / mất. */
 export default function BorrowReportsTab({ filters }) {
   const { fromDate, toDate, roomId } = filters
+  const navigate = useNavigate()
+  const openBorrowRequest = (row) => navigate(`/borrow/requests/${row.borrowRequestId}`)
   const period = { fromDate, toDate, roomId }
 
   const summary = useReport(() => reportService.getBorrowSummary(period), [fromDate, toDate, roomId])
   const byClass = useReport(() => reportService.getClassUsage(period), [fromDate, toDate, roomId])
-  const topComponents = useReport(() => reportService.getTopComponents({ ...period, top: 10 }), [fromDate, toDate, roomId])
+  const topComponents = useReport(() => reportService.getTopComponents({ ...period, top: TOP_COMPONENTS }), [fromDate, toDate, roomId])
 
   const [overduePage, setOverduePage] = useState(1)
   const overdue = useReport(
@@ -42,6 +47,8 @@ export default function BorrowReportsTab({ filters }) {
 
   const classRows = [...getRows(byClass.data)].sort((a, b) => b.issuedQuantity - a.issuedQuantity)
   const chartClasses = classRows.slice(0, CHART_MAX_CLASSES)
+  const classTotal = (pick) => (byClass.data ? formatNumber(sumOf(classRows, pick)) : '—')
+  const brokenTotal = sumOf(classRows, brokenOf)
 
   const filterKey = `${fromDate}|${toDate}|${roomId}`
   const [prevFilterKey, setPrevFilterKey] = useState(filterKey)
@@ -57,9 +64,18 @@ export default function BorrowReportsTab({ filters }) {
         {summary.data && (
           <>
             <Grid container spacing={2} sx={{ p: 2, pb: 0 }}>
-              <Grid size={{ xs: 12, sm: 4 }}><StatTile label="Tổng số đơn" value={formatNumber(summary.data.totalRequests)} /></Grid>
-              <Grid size={{ xs: 12, sm: 4 }}><StatTile label="Tỉ lệ từ chối" value={formatPercent(summary.data.rejectionRate)} /></Grid>
-              <Grid size={{ xs: 12, sm: 4 }}><StatTile label="Thời gian duyệt trung bình" value={formatHours(summary.data.averageApprovalHours)} /></Grid>
+              <Grid size={{ xs: 6, md: 3 }}><StatTile label="Đơn mượn" value={formatNumber(summary.data.totalRequests)} /></Grid>
+              <Grid size={{ xs: 6, md: 3 }}><StatTile label="Món đã cho mượn" value={classTotal((row) => row.issuedQuantity)} /></Grid>
+              <Grid size={{ xs: 6, md: 3 }}><StatTile label="Sinh viên đang giữ" value={classTotal((row) => row.holdingQuantity)} /></Grid>
+              <Grid size={{ xs: 6, md: 3 }}>
+                <StatTile
+                  label="Hư hỏng hoặc mất"
+                  value={classTotal(brokenOf)}
+                  valueColor={!byClass.data ? undefined : brokenTotal > 0 ? CHART_DANGER : '#2e7d32'}
+                />
+              </Grid>
+              <Grid size={{ xs: 6, md: 3 }}><StatTile label="Tỉ lệ từ chối" value={formatPercent(summary.data.rejectionRate)} /></Grid>
+              <Grid size={{ xs: 6, md: 3 }}><StatTile label="Thời gian duyệt trung bình" value={formatDuration(summary.data.averageApprovalHours)} /></Grid>
             </Grid>
             <Grid container>
               <Grid size={{ xs: 12, md: 4 }}>
@@ -90,8 +106,8 @@ export default function BorrowReportsTab({ filters }) {
                 tooltip={(index, seriesIndex) => {
                   const row = chartClasses[index]
                   return seriesIndex === 0
-                    ? `${row.classCode}: ${formatNumber(row.issuedQuantity)} món đã mượn`
-                    : `${row.classCode}: ${row.damagedUnits} hỏng · ${row.lostUnits} mất`
+                    ? `${row.classCode} · ${formatNumber(row.issuedQuantity)} món đã mượn`
+                    : `${row.classCode} · ${formatNumber(row.damagedUnits)} hỏng · ${formatNumber(row.lostUnits)} mất`
                 }}
                 legend
               />
@@ -99,6 +115,7 @@ export default function BorrowReportsTab({ filters }) {
             <ReportTable
               rows={classRows}
               rowKey={(row) => row.classId}
+              emptyText="Không lớp nào mượn đồ trong kỳ."
               columns={[
                 { key: 'classCode', label: 'Lớp', render: (row) => <b>{row.classCode}</b> },
                 { key: 'requestCount', label: 'Số đơn', align: 'right', render: (row) => formatNumber(row.requestCount) },
@@ -112,15 +129,17 @@ export default function BorrowReportsTab({ filters }) {
           </ReportSection>
         </Grid>
         <Grid size={{ xs: 12, lg: 5 }}>
-          <ReportSection title="Linh kiện được mượn nhiều nhất" subtitle="Top 10 trong kỳ" loading={topComponents.loading} error={topComponents.error}>
-            <ReportTable
-              rows={getRows(topComponents.data)}
-              rowKey={(row) => row.componentId}
-              columns={[
-                { key: 'componentName', label: 'Linh kiện', render: componentCell },
-                { key: 'timesBorrowed', label: 'Lượt mượn', align: 'right', render: (row) => formatNumber(row.timesBorrowed) },
-                { key: 'totalQuantity', label: 'Tổng SL', align: 'right', render: (row) => `${formatNumber(row.totalQuantity)} ${row.unit || ''}` },
-              ]}
+          <ReportSection title="Linh kiện mượn nhiều nhất" subtitle={`Top ${TOP_COMPONENTS} trong kỳ`} loading={topComponents.loading} error={topComponents.error}>
+            <ReportBar
+              ranked
+              emptyText="Không có gì được mượn trong kỳ."
+              items={getRows(topComponents.data).slice(0, TOP_COMPONENTS).map((row) => ({
+                key: row.componentId,
+                label: row.componentName,
+                value: row.totalQuantity,
+                display: `${formatNumber(row.totalQuantity)} ${row.unit || ''}`.trim(),
+                caption: `trong ${formatNumber(row.timesBorrowed)} đơn`,
+              }))}
             />
           </ReportSection>
         </Grid>
@@ -130,6 +149,7 @@ export default function BorrowReportsTab({ filters }) {
         <ReportTable
           rows={getRows(overdue.data)}
           rowKey={(row) => row.borrowRequestId}
+          onRowClick={openBorrowRequest}
           emptyText="Không có đơn mượn quá hạn."
           columns={[
             { key: 'requestCode', label: 'Mã đơn', render: (row) => <Box component="span" sx={{ color: '#0058be', fontWeight: 600 }}>{row.requestCode}</Box> },
@@ -153,8 +173,9 @@ export default function BorrowReportsTab({ filters }) {
       <ReportSection title="Linh kiện hư hỏng / mất khi trả" subtitle="Chỉ thống kê, không xử lý bồi thường" loading={damages.loading} error={damages.error}>
         <ReportTable
           rows={getRows(damages.data)}
+          onRowClick={openBorrowRequest}
           rowKey={(row) => `${row.borrowRequestId}-${row.componentCode}-${row.itemCode || ''}-${row.returnedAt}`}
-          emptyText="Không có linh kiện hư hỏng hoặc mất trong kỳ."
+          emptyText="Không có đồ hư hỏng hoặc mất trong kỳ."
           columns={[
             { key: 'requestCode', label: 'Mã đơn', render: (row) => <Box component="span" sx={{ color: '#0058be', fontWeight: 600 }}>{row.requestCode}</Box> },
             { key: 'requesterName', label: 'Người mượn', render: (row) => <>{row.requesterName}<br /><Box component="span" sx={{ color: '#697386', fontSize: 12 }}>{row.requesterUsername}</Box></> },

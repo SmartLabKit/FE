@@ -78,6 +78,24 @@ export const authService = {
   },
 
   /**
+   * Tải ảnh đại diện mới từ máy lên cho người dùng hiện tại
+   * POST /api/auth/me/avatar (multipart/form-data, field "file": JPG / PNG / WEBP, tối đa 5 MB)
+   * Trả về (200): CurrentUserDto (avatarUrl là link ảnh BE đã lưu)
+   */
+  async uploadAvatar(file) {
+    try {
+      const formData = new FormData()
+      formData.append('file', file)
+      const response = await api.post('/api/auth/me/avatar', formData, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      })
+      return response.data?.data || response.data
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Tải ảnh đại diện thất bại'), { cause: error })
+    }
+  },
+
+  /**
    * Đổi mật khẩu của người dùng hiện tại
    * PUT /api/auth/me/password
    * Body: ChangePasswordRequest { currentPassword, newPassword }
