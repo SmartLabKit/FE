@@ -570,7 +570,7 @@ export default function GroupInviteManager() {
       <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
         <Box>
           <Typography variant="caption" sx={{ color: '#0058be', fontWeight: 700, fontSize: 11 }}>
-            Student Workspace &gt; Quản lý Nhóm &amp; Lời mời
+            Không gian sinh viên &gt; Quản lý Nhóm &amp; Lời mời
           </Typography>
           <Typography variant="h5" sx={{ fontWeight: 800, color: '#131b2e', mt: 0.5, mb: 0.5 }}>
             Tạo nhóm, Quản lý thành viên &amp; Lời mời tham gia
@@ -597,9 +597,6 @@ export default function GroupInviteManager() {
             </Badge>
             <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#92400e', fontSize: 15 }}>
               Lời mời tham gia nhóm đang chờ bạn phản hồi
-            </Typography>
-            <Typography variant="caption" sx={{ color: '#b45309' }}>
-              (API: <code>GET /api/team-invitations/me</code> &amp; <code>PUT /api/team-invitations/{'{teamId}'}/response</code>)
             </Typography>
           </Box>
 
@@ -805,7 +802,7 @@ export default function GroupInviteManager() {
           >
             <Box>
               <Typography variant="caption" sx={{ fontWeight: 700, color: '#6b7280', display: 'block', mb: 0.5 }}>
-                TÊN NHÓM MỚI (CREATE TEAM) *
+                TÊN NHÓM MỚI *
               </Typography>
               <TextField
                 fullWidth
@@ -832,7 +829,7 @@ export default function GroupInviteManager() {
                 '&:hover': { bgcolor: '#0049a3' },
               }}
             >
-              {creatingTeam ? 'Đang tạo nhóm...' : 'Tạo nhóm ngay (POST /api/classes/{id}/teams)'}
+              {creatingTeam ? 'Đang tạo nhóm...' : 'Tạo nhóm ngay'}
             </Button>
           </Box>
         </Paper>

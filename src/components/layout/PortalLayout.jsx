@@ -152,12 +152,6 @@ export default function PortalLayout({
       roles: ['Lecturer'],
     },
     {
-      label: 'Định mức môn học',
-      icon: <SchoolIcon fontSize="small" />,
-      path: '/class-setup/lecturer/quotas',
-      roles: ['Lecturer'],
-    },
-    {
       label: 'Duyệt yêu cầu mượn',
       icon: <ApprovalsIcon fontSize="small" />,
       path: '/borrow/my-requests',
@@ -204,7 +198,7 @@ export default function PortalLayout({
       roles: ['Admin', 'InventoryManager', 'LabStaff', 'Lecturer', 'Student'],
     },
     {
-      label: 'Tủ lưu trữ',
+      label: isStudent ? 'Phòng lab' : 'Tủ lưu trữ',
       icon: <RoomIcon fontSize="small" />,
       path: isStudent ? '/class-setup/admin/lab-rooms' : '/class-setup/admin/categories',
       roles: ['InventoryManager', 'LabStaff', 'Student'],
@@ -394,7 +388,6 @@ export default function PortalLayout({
           const isStudentGroupsRoute = location.pathname === '/class-setup/student/groups'
           const isStudentProjectRoute = location.pathname.startsWith('/class-setup/student/project')
           const isLecturerClassesRoute = location.pathname.startsWith('/class-setup/lecturer/classes')
-          const isLecturerQuotasRoute = location.pathname.startsWith('/class-setup/lecturer/quotas')
           const isBorrowRoute = location.pathname.startsWith('/borrow') || activeMenuKey === 'borrow' || activeMenuKey === 'handover'
 
           const isActive =
@@ -424,8 +417,6 @@ export default function PortalLayout({
               ? isStudentGroupsRoute
               : item.path === '/class-setup/student/project'
               ? isStudentProjectRoute
-              : item.path === '/class-setup/lecturer/quotas'
-              ? isLecturerQuotasRoute
               : item.path === '/class-setup/lecturer/classes'
               ? isLecturerClassesRoute
               : item.path === '/borrow/my-requests'

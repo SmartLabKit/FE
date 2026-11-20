@@ -5,7 +5,6 @@ import PortalLayout from '../../components/layout/PortalLayout'
 import SemesterClassManager from './SemesterClassManager'
 import CourseManager from './CourseManager'
 import ImportRosterFaculty from './ImportRosterFaculty'
-import CourseQuotaSetting from './CourseQuotaSetting'
 import GroupInviteManager from './GroupInviteManager'
 import LecturerClassManagement from './LecturerClassManagement'
 import { useAuth, DEMO_ACCOUNTS } from '../../context/AuthContext'
@@ -14,7 +13,7 @@ import { useAuth, DEMO_ACCOUNTS } from '../../context/AuthContext'
  * ClassSetup Component: Giao diện quản lý Học kỳ, Môn học, Lớp & Nhóm (MF2)
  * Phân quyền rõ ràng cho từng vai trò (Actor):
  * - ADMIN: Quản lý Kỳ học & Lớp, Danh mục Môn học, Nhập Roster & Phân công
- * - LECTURER: Cài đặt định mức linh kiện
+ * - LECTURER: Lớp giảng dạy & nhóm
  * - STUDENT: Tạo nhóm & Mời thành viên, Phản hồi lời mời
  */
 // Component quản lý Học kỳ, Môn học, Lớp & Nhóm (MF2)
@@ -33,6 +32,17 @@ export default function ClassSetup() {
   }
 
   const adminTab = getAdminTab(location.pathname)
+
+  const getHeader = (path) => {
+    if (path.includes('/admin/roster')) return ['Nhập Roster & Phân công', 'Nhập danh sách sinh viên và phân công giảng viên cho lớp']
+    if (path.includes('/admin/courses')) return ['Danh mục Môn học', 'Quản lý môn học, số tín chỉ và trạng thái mở môn']
+    if (path.includes('/admin/semesters')) return ['Kỳ học & Lớp môn', 'Quản lý học kỳ và lớp học phần']
+    if (path.includes('/lecturer')) return ['Lớp giảng dạy & nhóm', 'Lớp bạn phụ trách, nhóm và sinh viên']
+    if (path.includes('/student')) return ['Nhóm & Lời mời', 'Tạo nhóm, mời thành viên và phản hồi lời mời']
+    return ['Lớp & nhóm', '']
+  }
+
+  const [headerTitle, headerSubtitle] = getHeader(location.pathname)
 
   // Tự động điều hướng /class-setup về trang chính xác của từng role
   useEffect(() => {
@@ -59,7 +69,7 @@ export default function ClassSetup() {
   const isAdminRoute = !isLecturerRoute && !isStudentRoute && (currentUser.roleLabel === 'ADMIN' || !currentUser.roleLabel)
 
   return (
-    <PortalLayout>
+    <PortalLayout headerTitle={headerTitle} headerSubtitle={headerSubtitle}>
       <Container
         maxWidth="xl"
         disableGutters
@@ -81,9 +91,7 @@ export default function ClassSetup() {
         {/* Vai trò GIẢNG VIÊN (Lecturer) */}
         {isLecturerRoute && (
           <Box>
-            {location.pathname.includes('/lecturer/quotas')
-              ? <CourseQuotaSetting />
-              : <LecturerClassManagement />}
+            <LecturerClassManagement />
           </Box>
         )}
 

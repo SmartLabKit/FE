@@ -1447,7 +1447,7 @@ export default function ProjectManagement() {
 
                       <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 'auto' }}>
                         <Typography variant="caption" sx={{ color: '#94a3b8', fontSize: 11.5 }}>
-                          Mã nhóm: {teamChoice.teamId?.slice(0, 8)}...
+                          {teamChoice.teamName}
                         </Typography>
                         <Button
                           variant="contained"

@@ -373,7 +373,7 @@ export default function CreateSupplementaryBorrow() {
         {/* Page Title */}
         <Box sx={{ mb: 2.5 }}>
           <Typography variant="h4" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 24, mb: 0.5 }}>
-            Tạo phiếu mượn thêm linh kiện (MF5.1)
+            Tạo phiếu mượn thêm linh kiện
           </Typography>
           <Typography variant="body2" sx={{ color: '#556070', fontSize: 13 }}>
             Chọn đề tài đã được duyệt, nhập lý do và chọn các linh kiện cần mượn thêm để gửi giảng viên phê duyệt.

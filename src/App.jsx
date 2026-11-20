@@ -21,9 +21,6 @@ import CreateSupplementaryBorrow from './pages/Borrowing/CreateSupplementaryBorr
 import SupplementaryBorrowDetail from './pages/Borrowing/SupplementaryBorrowDetail.jsx'
 import ReviewSupplementaryBorrow from './pages/Borrowing/ReviewSupplementaryBorrow.jsx'
 import SupplementaryBorrowList from './pages/Borrowing/SupplementaryBorrowList.jsx'
-import CreateReturnRequest from './pages/Borrowing/CreateReturnRequest.jsx'
-import ReturnRequestDetail from './pages/Borrowing/ReturnRequestDetail.jsx'
-import ConfirmReturnRequest from './pages/Borrowing/ConfirmReturnRequest.jsx'
 import BorrowRequestDetail from './pages/Borrowing/BorrowRequestDetail.jsx'
 import LabBorrowManagement from './pages/Borrowing/LabBorrowManagement.jsx'
 
@@ -42,6 +39,7 @@ import Notifications from './pages/Notifications/Notifications.jsx'
 import IssueReports from './pages/IssueReports/IssueReports.jsx'
 
 import { AuthProvider } from './context/AuthContext'
+import RequireRole from './components/common/RequireRole'
 
 function App() {
   return (
@@ -58,64 +56,58 @@ function App() {
           <Route path="/reset-password" element={<ResetPassword />} />
 
           {/* Hồ sơ cá nhân & Bảo mật (Đăng nhập) */}
-          <Route path="/profile" element={<Profile />} />
-          <Route path="/notifications" element={<Notifications />} />
+          <Route path="/profile" element={<RequireRole><Profile /></RequireRole>} />
+          <Route path="/notifications" element={<RequireRole><Notifications /></RequireRole>} />
 
           {/* Quản trị Tài khoản & Phân quyền & Cài đặt (Admin) */}
-          <Route path="/admin/users" element={<Users />} />
-          <Route path="/admin/roles" element={<Roles />} />
-          <Route path="/admin/system-settings" element={<SystemSettings />} />
-          <Route path="/admin/audit-logs" element={<AuditLogs />} />
+          <Route path="/admin/users" element={<RequireRole roles={['Admin']}><Users /></RequireRole>} />
+          <Route path="/admin/roles" element={<RequireRole roles={['Admin']}><Roles /></RequireRole>} />
+          <Route path="/admin/system-settings" element={<RequireRole roles={['Admin']}><SystemSettings /></RequireRole>} />
+          <Route path="/admin/audit-logs" element={<RequireRole roles={['Admin']}><AuditLogs /></RequireRole>} />
 
           {/* Tổng quan & Báo cáo thống kê (Admin / InventoryManager / LabStaff / Lecturer) */}
-          <Route path="/dashboard" element={<Dashboard />} />
-          <Route path="/reports" element={<Reports />} />
-          <Route path="/issue-reports" element={<IssueReports />} />
+          <Route path="/dashboard" element={<RequireRole roles={['Admin', 'InventoryManager', 'LabStaff', 'Lecturer']}><Dashboard /></RequireRole>} />
+          <Route path="/reports" element={<RequireRole roles={['Admin', 'InventoryManager', 'LabStaff', 'Lecturer']}><Reports /></RequireRole>} />
+          <Route path="/issue-reports" element={<RequireRole><IssueReports /></RequireRole>} />
 
           {/* Class Setup Flow Routes */}
-          <Route path="/class-setup" element={<ClassSetup />} />
-          <Route path="/class-setup/admin/semesters" element={<ClassSetup />} />
-          <Route path="/class-setup/admin/courses" element={<ClassSetup />} />
-          <Route path="/class-setup/admin/roster" element={<ClassSetup />} />
-          <Route path="/class-setup/admin/components" element={<Components />} />
-          <Route path="/class-setup/admin/components/catalog" element={<ComponentCatalog />} />
-          <Route path="/class-setup/admin/components/:componentId" element={<ComponentDetail />} />
-          <Route path="/components/catalog" element={<ComponentCatalog />} />
-          <Route path="/components/:componentId" element={<ComponentDetail />} />
-          <Route path="/class-setup/admin/components/new" element={<NewComponent />} />
-          <Route path="/class-setup/admin/components/import" element={<ComponentExcelImport />} />
-          <Route path="/class-setup/admin/components/:componentId/edit" element={<NewComponent />} />
-          <Route path="/class-setup/admin/categories" element={<InventorySetup />} />
-          <Route path="/class-setup/admin/lab-rooms" element={<InventorySetup />} />
-          <Route path="/class-setup/admin/lab-room-management" element={<LabRoomManagement />} />
-          <Route path="/class-setup/admin/cabinets" element={<InventorySetup />} />
-          <Route path="/class-setup/admin/cabinets/:cabinetId" element={<CabinetDetail />} />
-          <Route path="/class-setup/admin/stock-inwards" element={<StockInwards />} />
-          <Route path="/class-setup/admin/stock-receipts" element={<StockReceipts />} />
-          <Route path="/class-setup/admin/stock-receipts/:receiptId" element={<StockReceiptDetail />} />
-          <Route path="/class-setup/admin/storage-allocation/:inwardId" element={<StorageAllocation />} />
-          <Route path="/class-setup/admin/inventory-audits" element={<InventoryAudits />} />
-          <Route path="/class-setup/admin/inventory-audits/:auditId" element={<InventoryAuditDetail />} />
-          <Route path="/class-setup/lecturer/classes" element={<ClassSetup />} />
-          <Route path="/class-setup/lecturer/quotas" element={<ClassSetup />} />
-          <Route path="/class-setup/lecturer/final-submissions" element={<FinalSubmissionReview />} />
-          <Route path="/class-setup/student/groups" element={<ClassSetup />} />
-          <Route path="/class-setup/student/project" element={<ProjectManagement />} />
-          <Route path="/class-setup/student/project/:teamId" element={<ProjectManagement />} />
+          <Route path="/class-setup" element={<RequireRole><ClassSetup /></RequireRole>} />
+          <Route path="/class-setup/admin/semesters" element={<RequireRole roles={['Admin']}><ClassSetup /></RequireRole>} />
+          <Route path="/class-setup/admin/courses" element={<RequireRole roles={['Admin']}><ClassSetup /></RequireRole>} />
+          <Route path="/class-setup/admin/roster" element={<RequireRole roles={['Admin']}><ClassSetup /></RequireRole>} />
+          <Route path="/class-setup/admin/components" element={<RequireRole roles={['Admin', 'InventoryManager', 'LabStaff']}><Components /></RequireRole>} />
+          <Route path="/class-setup/admin/components/catalog" element={<RequireRole roles={['Admin', 'InventoryManager', 'LabStaff']}><ComponentCatalog /></RequireRole>} />
+          <Route path="/class-setup/admin/components/:componentId" element={<RequireRole roles={['Admin', 'InventoryManager', 'LabStaff']}><ComponentDetail /></RequireRole>} />
+          <Route path="/components/catalog" element={<RequireRole><ComponentCatalog /></RequireRole>} />
+          <Route path="/components/:componentId" element={<RequireRole><ComponentDetail /></RequireRole>} />
+          <Route path="/class-setup/admin/components/new" element={<RequireRole roles={['Admin', 'InventoryManager']}><NewComponent /></RequireRole>} />
+          <Route path="/class-setup/admin/components/import" element={<RequireRole roles={['Admin', 'InventoryManager']}><ComponentExcelImport /></RequireRole>} />
+          <Route path="/class-setup/admin/components/:componentId/edit" element={<RequireRole roles={['Admin', 'InventoryManager']}><NewComponent /></RequireRole>} />
+          <Route path="/class-setup/admin/categories" element={<RequireRole roles={['Admin', 'InventoryManager', 'LabStaff']}><InventorySetup /></RequireRole>} />
+          <Route path="/class-setup/admin/lab-rooms" element={<RequireRole roles={['Admin', 'InventoryManager', 'LabStaff', 'Student']}><InventorySetup /></RequireRole>} />
+          <Route path="/class-setup/admin/lab-room-management" element={<RequireRole roles={['Admin', 'InventoryManager']}><LabRoomManagement /></RequireRole>} />
+          <Route path="/class-setup/admin/cabinets" element={<RequireRole roles={['Admin', 'InventoryManager', 'LabStaff']}><InventorySetup /></RequireRole>} />
+          <Route path="/class-setup/admin/cabinets/:cabinetId" element={<RequireRole roles={['Admin', 'InventoryManager', 'LabStaff']}><CabinetDetail /></RequireRole>} />
+          <Route path="/class-setup/admin/stock-inwards" element={<RequireRole roles={['Admin', 'InventoryManager']}><StockInwards /></RequireRole>} />
+          <Route path="/class-setup/admin/stock-receipts" element={<RequireRole roles={['Admin', 'InventoryManager']}><StockReceipts /></RequireRole>} />
+          <Route path="/class-setup/admin/stock-receipts/:receiptId" element={<RequireRole roles={['Admin', 'InventoryManager']}><StockReceiptDetail /></RequireRole>} />
+          <Route path="/class-setup/admin/storage-allocation/:inwardId" element={<RequireRole roles={['Admin', 'InventoryManager']}><StorageAllocation /></RequireRole>} />
+          <Route path="/class-setup/admin/inventory-audits" element={<RequireRole roles={['Admin', 'InventoryManager', 'LabStaff']}><InventoryAudits /></RequireRole>} />
+          <Route path="/class-setup/admin/inventory-audits/:auditId" element={<RequireRole roles={['Admin', 'InventoryManager', 'LabStaff']}><InventoryAuditDetail /></RequireRole>} />
+          <Route path="/class-setup/lecturer/classes" element={<RequireRole roles={['Lecturer']}><ClassSetup /></RequireRole>} />
+          <Route path="/class-setup/lecturer/final-submissions" element={<RequireRole roles={['Lecturer', 'Admin']}><FinalSubmissionReview /></RequireRole>} />
+          <Route path="/class-setup/student/groups" element={<RequireRole roles={['Student']}><ClassSetup /></RequireRole>} />
+          <Route path="/class-setup/student/project" element={<RequireRole roles={['Student']}><ProjectManagement /></RequireRole>} />
+          <Route path="/class-setup/student/project/:teamId" element={<RequireRole roles={['Student']}><ProjectManagement /></RequireRole>} />
 
-          {/* MF5.1: Mượn Bổ Sung (Supplementary Borrowing) */}
-          <Route path="/borrow/lab-orders" element={<LabBorrowManagement />} />
-          <Route path="/borrow/my-requests" element={<SupplementaryBorrowList />} />
-          <Route path="/borrow/requests/:id" element={<BorrowRequestDetail />} />
-          <Route path="/borrow/supplementary" element={<SupplementaryBorrowList />} />
-          <Route path="/borrow/supplementary/create" element={<CreateSupplementaryBorrow />} />
-          <Route path="/borrow/supplementary/:id" element={<SupplementaryBorrowDetail />} />
-          <Route path="/borrow/supplementary/review/:id" element={<ReviewSupplementaryBorrow />} />
-
-          {/* MF5.2: Trả Linh Kiện (Component Return Process) */}
-          <Route path="/borrow/return/create" element={<CreateReturnRequest />} />
-          <Route path="/borrow/return/:id" element={<ReturnRequestDetail />} />
-          <Route path="/borrow/return/confirm/:id" element={<ConfirmReturnRequest />} />
+          {/* Mượn bổ sung & gia hạn */}
+          <Route path="/borrow/lab-orders" element={<RequireRole roles={['LabStaff']}><LabBorrowManagement /></RequireRole>} />
+          <Route path="/borrow/my-requests" element={<RequireRole roles={['Student', 'Lecturer']}><SupplementaryBorrowList /></RequireRole>} />
+          <Route path="/borrow/requests/:id" element={<RequireRole><BorrowRequestDetail /></RequireRole>} />
+          <Route path="/borrow/supplementary" element={<RequireRole roles={['Student', 'Lecturer']}><SupplementaryBorrowList /></RequireRole>} />
+          <Route path="/borrow/supplementary/create" element={<RequireRole roles={['Student']}><CreateSupplementaryBorrow /></RequireRole>} />
+          <Route path="/borrow/supplementary/:id" element={<RequireRole roles={['Student', 'Lecturer']}><SupplementaryBorrowDetail /></RequireRole>} />
+          <Route path="/borrow/supplementary/review/:id" element={<RequireRole roles={['Lecturer']}><ReviewSupplementaryBorrow /></RequireRole>} />
 
           {/* Đường dẫn không tồn tại */}
           <Route path="*" element={<Navigate to="/" replace />} />

@@ -382,7 +382,7 @@ export default function SupplementaryBorrowList() {
   return (
     <PortalLayout
       headerTitle="Quản lý mượn linh kiện"
-      headerSubtitle="Phòng thực hành IoT · Học kỳ 1, 2026–2027"
+      headerSubtitle="Mượn, gia hạn và trả linh kiện"
     >
       <Container maxWidth="xl" disableGutters sx={{ maxWidth: 1240, mx: 'auto', py: 3 }}>
         {/* Header Bar */}
@@ -414,7 +414,7 @@ export default function SupplementaryBorrowList() {
                   '&:hover': { bgcolor: '#0049a3' },
                 }}
               >
-                Tạo phiếu mượn bổ sung (MF5.1)
+                Tạo phiếu mượn bổ sung
               </Button>
             </Box>
           )}
@@ -924,7 +924,7 @@ export default function SupplementaryBorrowList() {
           <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
             <Box>
               <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 16 }}>
-                Yêu cầu gia hạn đơn mượn (Borrow Extensions)
+                Yêu cầu gia hạn đơn mượn
               </Typography>
               <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                 Sinh viên xin gia hạn thời gian mượn trước khi quá hạn, giảng viên duyệt hoặc từ chối
@@ -1048,7 +1048,7 @@ export default function SupplementaryBorrowList() {
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
               <Box>
                 <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 16 }}>
-                  Phiếu mượn bổ sung (MF5.1 - Supplementary Borrowing)
+                  Phiếu mượn bổ sung
                 </Typography>
                 <Typography variant="caption" sx={{ color: 'text.secondary' }}>
                   Danh sách các phiếu mượn thêm linh kiện phát sinh cho đề tài đã duyệt

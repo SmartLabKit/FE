@@ -503,11 +503,7 @@ export default function SystemSettings() {
           <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>Chỉnh sửa cài đặt: {selectedSetting?.name}</DialogTitle>
           <DialogContent dividers>
             <DialogContentText sx={{ mb: 2.5, fontSize: 13 }}>
-              Cập nhật tham số hệ thống qua API{' '}
-              <Typography component="span" sx={{ fontFamily: 'monospace', fontWeight: 700, color: '#0058be' }}>
-                PUT /api/system-settings/{selectedSetting?.key}
-              </Typography>
-              . Giá trị mới sẽ có hiệu lực ngay lập tức.
+              Giá trị mới sẽ có hiệu lực ngay lập tức.
             </DialogContentText>
 
             <TextField
