@@ -1,7 +1,48 @@
+import { useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
+import api from '../services/api'
+
+const formatCount = (value) => (typeof value === 'number' ? value.toLocaleString('vi-VN') : '—')
+
+const formatRate = (value) =>
+  typeof value === 'number' ? `${value.toLocaleString('vi-VN', { maximumFractionDigits: 1 })}%` : '—'
+
+/**
+ * Lấy số liệu tổng cho trang chủ từ GET /api/public/stats (không cần đăng nhập).
+ * Gọi bằng fetch thay vì axios instance để lỗi 401 của phiên cũ không đẩy khách về trang đăng nhập.
+ */
+async function loadPublicStats() {
+  const response = await fetch(`${api.defaults.baseURL || ''}/api/public/stats`)
+  if (!response.ok) throw new Error(`HTTP ${response.status}`)
+  const body = await response.json()
+  return body?.data || null
+}
 
 export default function HomePage() {
   const navigate = useNavigate()
+  const [stats, setStats] = useState(null)
+  const [statsFailed, setStatsFailed] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    loadPublicStats()
+      .then((data) => { if (active) setStats(data) })
+      .catch(() => { if (active) setStatsFailed(true) })
+    return () => { active = false }
+  }, [])
+
+  const statCards = [
+    { v: formatCount(stats?.availableUnits), l: 'Linh kiện sẵn sàng' },
+    { v: formatCount(stats?.activeBorrows), l: 'Đơn đang mượn' },
+    { v: formatRate(stats?.onTimeReturnRate), l: 'Trả đúng hạn' },
+  ]
+
+  let statsCaption = 'Đang tải số liệu...'
+  if (stats?.generatedAt) {
+    statsCaption = `Cập nhật lúc ${new Date(stats.generatedAt).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' })}`
+  } else if (statsFailed) {
+    statsCaption = 'Chưa tải được số liệu'
+  }
 
   return (
     <div className="bg-white text-[#131b2e] min-h-screen" style={{ fontFamily: 'Geist, sans-serif' }}>
@@ -18,7 +59,7 @@ export default function HomePage() {
           <a href="#" className="hover:text-[#0058be] transition-colors">Giải pháp</a>
           <a href="#" className="hover:text-[#0058be] transition-colors">Tính năng</a>
           <a href="#" className="hover:text-[#0058be] transition-colors">Quy trình</a>
-          <a href="#" className="hover:text-[#0058be] transition-colors">Về LabStock</a>
+          <a href="#" className="hover:text-[#0058be] transition-colors">Về SmartLabKit</a>
         </div>
         <div className="flex gap-3 items-center">
           <button type="button" onClick={() => navigate('/login')} className="border border-[#c2c6d6] text-[#424754] text-sm font-medium px-[18px] h-11 rounded hover:bg-gray-50 transition-colors">Đăng nhập</button>
@@ -58,15 +99,17 @@ export default function HomePage() {
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-bold text-[#131b2e] text-sm">Tồn kho đang hoạt động</p>
-                <p className="text-[#6b7280] text-[11px] mt-0.5">Cập nhật 2 phút trước</p>
+                <p className="text-[#6b7280] text-[11px] mt-0.5">{statsCaption}</p>
               </div>
-              <div className="bg-[#ecfdf5] flex gap-1.5 items-center px-2 py-1 rounded-sm">
-                <div className="w-1.5 h-1.5 rounded-full bg-[#059669]"></div>
-                <span className="font-semibold text-[#059669] text-[11px]">Trực tuyến</span>
-              </div>
+              {stats && (
+                <div className="bg-[#ecfdf5] flex gap-1.5 items-center px-2 py-1 rounded-sm">
+                  <div className="w-1.5 h-1.5 rounded-full bg-[#059669]"></div>
+                  <span className="font-semibold text-[#059669] text-[11px]">Trực tuyến</span>
+                </div>
+              )}
             </div>
             <div className="flex gap-3">
-              {[{ v: '3.856', l: 'Linh kiện sẵn sàng' }, { v: '27', l: 'Đơn đang mượn' }, { v: '98,4%', l: 'Bàn giao đúng hạn' }].map((m) => (
+              {statCards.map((m) => (
                 <div key={m.l} className="bg-[#faf8ff] flex-1 flex flex-col gap-1 p-2.5 rounded-sm">
                   <p className="font-bold text-[#131b2e] text-base">{m.v}</p>
                   <p className="text-[#424754] text-[11px] leading-snug">{m.l}</p>
