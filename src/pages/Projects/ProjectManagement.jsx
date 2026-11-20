@@ -1828,7 +1828,7 @@ export default function ProjectManagement() {
                         onClick={saveProject}
                         sx={{ bgcolor: '#0058be', textTransform: 'none', fontWeight: 700 }}
                       >
-                        {saving ? 'Đang lưu...' : project ? 'Lưu project' : 'Lưu nháp'}
+                        {saving ? 'Đang lưu...' : project ? 'Lưu project' : 'Lưu'}
                       </Button>
                       {project && ['Draft', 'Rejected'].includes(project.status) && (
                         <Button
