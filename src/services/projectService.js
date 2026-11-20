@@ -153,9 +153,9 @@ export const projectService = {
     }
   },
 
-  async suggestComponents(description) {
+  async suggestComponents(description, classId = null) {
     try {
-      return unwrap(await api.post('/api/projects/suggest-components', { description }))
+      return unwrap(await api.post('/api/projects/suggest-components', { description, classId: classId || null }))
     } catch (error) {
       if (error.response?.status === 429) {
         const message = extractErrorMessage(
