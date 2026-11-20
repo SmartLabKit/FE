@@ -126,7 +126,7 @@ export default function Users() {
       .then((data) => {
         if (data) {
           setUsers(data.items || [])
-          setTotalItems(data.totalItems || 0)
+          setTotalItems(data.totalCount ?? data.totalItems ?? 0)
         }
       })
       .catch((err) => {
@@ -150,7 +150,7 @@ export default function Users() {
       .then((data) => {
         if (!ignore && data) {
           setUsers(data.items || [])
-          setTotalItems(data.totalItems || 0)
+          setTotalItems(data.totalCount ?? data.totalItems ?? 0)
         }
       })
       .catch((err) => {

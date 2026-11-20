@@ -47,7 +47,7 @@ import { useAuth, DEMO_ACCOUNTS } from '../../context/AuthContext'
 import NotificationMenu from './NotificationMenu'
 
 /**
- * PortalLayout: Khung giao diện dùng chung cho hệ thống SmartLabKit (LabStock Portal Core V3.1)
+ * PortalLayout: Khung giao diện dùng chung cho hệ thống SmartLabKit
  * Hiển thị chuẩn vai trò của tài khoản đang đăng nhập và thanh điều hướng phân quyền.
  */
 export default function PortalLayout({
@@ -314,7 +314,7 @@ export default function PortalLayout({
           }}
         >
           <Typography variant="subtitle2" sx={{ fontWeight: 800, lineHeight: 1 }}>
-            LS
+            SK
           </Typography>
         </Box>
         <Box sx={{ flexGrow: 1 }}>
@@ -322,13 +322,13 @@ export default function PortalLayout({
             variant="subtitle1"
             sx={{ fontWeight: 800, color: '#0058be', lineHeight: 1.1, fontSize: 16 }}
           >
-            LabStock
+            SmartLabKit
           </Typography>
           <Typography
             variant="caption"
             sx={{ color: '#808999', fontSize: 10, fontWeight: 700, letterSpacing: 0.5 }}
           >
-            PORTAL CORE V3.1
+            QUẢN LÝ PHÒNG LAB
           </Typography>
         </Box>
 

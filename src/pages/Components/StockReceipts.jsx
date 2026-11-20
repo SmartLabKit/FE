@@ -28,6 +28,7 @@ import PortalLayout from '../../components/layout/PortalLayout'
 import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
 import { formatVietnamDate, getVietnamDateInputValue } from '../../utils/dateFormatting'
+import { receiptStatusOf } from './inventoryLabels'
 
 // Format hiển thị ngày theo chuẩn vi-VN: dd/mm/yyyy
 const formatDate = (value) => formatVietnamDate(value)
@@ -306,7 +307,7 @@ export default function StockReceipts() {
                   <MenuItem value="">Tất cả trạng thái</MenuItem>
                   {statuses.map((st) => (
                     <MenuItem key={st} value={st}>
-                      {st}
+                      {receiptStatusOf(st).label}
                     </MenuItem>
                   ))}
                 </TextField>
@@ -372,8 +373,8 @@ export default function StockReceipts() {
                     <TableCell>
                       <Chip
                         size="small"
-                        label={receipt.status || '—'}
-                        color={receipt.status === 'Completed' ? 'success' : 'default'}
+                        label={receiptStatusOf(receipt.status).label}
+                        color={receiptStatusOf(receipt.status).color}
                       />
                     </TableCell>
                     <TableCell>{receipt.lineCount ?? receipt.items?.length ?? '—'}</TableCell>

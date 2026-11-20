@@ -15,8 +15,16 @@ export const itemStatusOf = (status) => ITEM_STATUSES[status] || { label: status
 
 export const AUDIT_STATUSES = {
   InProgress: { label: 'Đang kiểm', color: 'warning' },
+  Submitted: { label: 'Chờ duyệt', color: 'info' },
   Completed: { label: 'Hoàn tất', color: 'success' },
 }
+
+export const RECEIPT_STATUSES = {
+  Completed: { label: 'Đã nhập kho', color: 'success' },
+  Cancelled: { label: 'Đã hủy', color: 'default' },
+}
+
+export const receiptStatusOf = (status) => RECEIPT_STATUSES[status] || { label: status || '—', color: 'default' }
 
 export const auditStatusOf = (status) => AUDIT_STATUSES[status] || { label: status || '—', color: 'default' }
 

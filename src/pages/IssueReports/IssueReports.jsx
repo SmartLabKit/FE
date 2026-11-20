@@ -33,11 +33,12 @@ const headCellSx = { fontWeight: 700, color: '#334155' }
 /**
  * Danh sách báo cáo sự cố thiết bị theo phạm vi role (BE tự giới hạn):
  * Student thấy báo cáo của mình, LabStaff thấy lab mình phụ trách, Lecturer thấy lớp mình dạy,
- * InventoryManager / Admin thấy tất cả. Lecturer chỉ xem, không được báo sự cố.
+ * InventoryManager / Admin thấy tất cả. Student và Lecturer chỉ xem: sinh viên mang thiết bị tới lab,
+ * nhân viên lab kiểm tra rồi ghi nhận sự cố.
  */
 export default function IssueReports() {
   const { hasRole } = useAuth()
-  const canCreate = ['Student', 'LabStaff', 'InventoryManager', 'Admin'].some((role) => hasRole?.(role))
+  const canCreate = ['LabStaff', 'InventoryManager', 'Admin'].some((role) => hasRole?.(role))
   const showFilters = ['LabStaff', 'InventoryManager', 'Admin', 'Lecturer'].some((role) => hasRole?.(role))
 
   const [searchParams] = useSearchParams()

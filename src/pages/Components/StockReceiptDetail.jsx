@@ -41,6 +41,7 @@ import {
   toReceiptReceivedAtIso,
   toSafeInvoiceDateIso,
 } from '../../utils/dateFormatting'
+import { receiptStatusOf } from './inventoryLabels'
 
 const getLines = (receipt) => receipt?.items || receipt?.lines || receipt?.receiptLines || []
 const getSerials = (line) =>
@@ -324,7 +325,7 @@ export default function StockReceiptDetail() {
               <CardContent>
                 <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                   <Typography variant="h6" fontWeight={800}>{receipt.receiptCode || receipt.receiptId}</Typography>
-                  <Chip label={receipt.status || '—'} color={isCancelled ? 'default' : 'success'} />
+                  <Chip label={receiptStatusOf(receipt.status).label} color={isCancelled ? 'default' : 'success'} />
                 </Box>
                 <Grid container spacing={2}>
                   <Grid size={{ xs: 12, sm: 6, md: 3 }}>

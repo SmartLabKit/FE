@@ -44,8 +44,8 @@ function formatDateTime(value) {
 }
 
 /**
- * Giảng viên xem các bài nộp cuối kỳ đang chờ xác nhận của lớp mình (Admin thấy tất cả),
- * xác nhận (nhận xét không bắt buộc) hoặc trả bài (bắt buộc nhận xét).
+ * Giảng viên xem các bài nộp cuối kỳ đang chờ xác nhận của lớp mình, xác nhận (nhận xét không bắt buộc)
+ * hoặc trả bài (bắt buộc nhận xét). Admin thấy tất cả nhưng chỉ xem: chỉ giảng viên của lớp được chấm bài.
  */
 export default function FinalSubmissionReview() {
   const { hasRole } = useAuth()
@@ -133,6 +133,11 @@ export default function FinalSubmissionReview() {
   return (
     <PortalLayout headerTitle="Duyệt bài cuối kỳ" headerSubtitle="Bài nộp cuối kỳ đang chờ xác nhận, nộp sớm nhất lên trước">
       <Box sx={{ maxWidth: 1200, mx: 'auto' }}>
+        {!isLecturer && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Chỉ giảng viên của lớp được xác nhận hoặc trả bài. Bạn đang xem ở chế độ theo dõi.
+          </Alert>
+        )}
         <Paper variant="outlined" sx={{ p: 2, mb: 2, borderColor: '#d8dced', display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
           <Box
             component="form"
@@ -201,28 +206,30 @@ export default function FinalSubmissionReview() {
                       Nộp lúc {formatDateTime(submission.finalSubmittedAt)}
                     </Typography>
                   </Box>
-                  <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
-                    <Button
-                      size="small"
-                      variant="outlined"
-                      color="error"
-                      startIcon={<ReturnIcon />}
-                      onClick={() => openDialog('reject', submission)}
-                      sx={{ textTransform: 'none', fontWeight: 700 }}
-                    >
-                      Trả bài
-                    </Button>
-                    <Button
-                      size="small"
-                      variant="contained"
-                      color="success"
-                      startIcon={<ApproveIcon />}
-                      onClick={() => openDialog('approve', submission)}
-                      sx={{ textTransform: 'none', fontWeight: 700 }}
-                    >
-                      Xác nhận
-                    </Button>
-                  </Stack>
+                  {isLecturer && (
+                    <Stack direction="row" spacing={1} sx={{ alignItems: 'flex-start' }}>
+                      <Button
+                        size="small"
+                        variant="outlined"
+                        color="error"
+                        startIcon={<ReturnIcon />}
+                        onClick={() => openDialog('reject', submission)}
+                        sx={{ textTransform: 'none', fontWeight: 700 }}
+                      >
+                        Trả bài
+                      </Button>
+                      <Button
+                        size="small"
+                        variant="contained"
+                        color="success"
+                        startIcon={<ApproveIcon />}
+                        onClick={() => openDialog('approve', submission)}
+                        sx={{ textTransform: 'none', fontWeight: 700 }}
+                      >
+                        Xác nhận
+                      </Button>
+                    </Stack>
+                  )}
                 </Box>
                 <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mt: 1.5 }}>
                   {SUBMISSION_LINKS.map(({ key, label }) => (

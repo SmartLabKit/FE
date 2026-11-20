@@ -342,7 +342,7 @@ export default function LabRoomManagement() {
                       <TableCell>
                         <Chip
                           size="small"
-                          label={active ? 'Active' : 'Inactive'}
+                          label={active ? 'Đang hoạt động' : 'Ngừng hoạt động'}
                           color={active ? 'success' : 'default'}
                           variant="outlined"
                           sx={{ fontWeight: 600 }}
@@ -405,10 +405,10 @@ export default function LabRoomManagement() {
                   label="Trạng thái"
                   value={roomActive ? 'Active' : 'Inactive'}
                   onChange={(event) => setRoomActive(event.target.value === 'Active')}
-                  helperText="Không thể chuyển sang Inactive nếu phòng còn tủ đang hoạt động."
+                  helperText="Không thể ngừng hoạt động nếu phòng còn tủ đang hoạt động."
                 >
-                  <MenuItem value="Active">Active</MenuItem>
-                  <MenuItem value="Inactive">Inactive</MenuItem>
+                  <MenuItem value="Active">Đang hoạt động</MenuItem>
+                  <MenuItem value="Inactive">Ngừng hoạt động</MenuItem>
                 </TextField>
               )}
             </DialogContent>

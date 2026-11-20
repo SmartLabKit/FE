@@ -69,6 +69,7 @@ const newLine = () => ({
   serialsText: '',
   version: '1.0',
   warrantyExpiresAt: getDefaultWarrantyDateVn(1),
+  importError: '',
 })
 
 const lineArray = (receipt) => receipt?.items || receipt?.lines || receipt?.receiptLines || []
@@ -100,7 +101,8 @@ export default function StockInwards() {
   const [lines, setLines] = useState([newLine()])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
-  const [excelNotice, setExcelNotice] = useState('')
+  const [excelNotice, setExcelNotice] = useState(null)
+  const [submitAttempted, setSubmitAttempted] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
 
   const todayVn = getVietnamDateInputValue()
@@ -275,7 +277,13 @@ export default function StockInwards() {
   }, [editId])
 
   const updateLine = (key, patch) =>
-    setLines((current) => current.map((line) => (line.key === key ? { ...line, ...patch } : line)))
+    setLines((current) =>
+      current.map((line) => {
+        if (line.key !== key) return line
+        if ('componentId' in patch) return { ...line, ...patch, importError: '' }
+        return { ...line, ...patch }
+      })
+    )
 
   const selectedComponent = (line) => componentMap.get(line.componentId)
 
@@ -322,7 +330,7 @@ export default function StockInwards() {
     }
 
     setError('')
-    setExcelNotice('')
+    setExcelNotice(null)
 
     try {
       const parsedRows = await parseStockReceiptExcel(file)
@@ -354,6 +362,9 @@ export default function StockInwards() {
           return normCab && (cabCode === normCab || cabName === normCab)
         })
 
+        const importError = matchedComp
+          ? ''
+          : `Dòng #${row.rowNumber} trong file: không tìm thấy "${row.componentCode || row.componentName}", chọn lại linh kiện`
         if (!matchedComp) {
           unmatchedWarnings.push(`Dòng #${row.rowNumber}: không tìm thấy linh kiện "${row.componentCode || row.componentName}"`)
         }
@@ -386,16 +397,19 @@ export default function StockInwards() {
           serialsText: row.serialsText || '',
           version: row.version || '1.0',
           warrantyExpiresAt: row.warrantyExpiresAt || getDefaultWarrantyDateVn(1),
+          importError,
         }
       })
 
       setLines(importedLines)
-      setExcelNotice(
-        `Đã đọc ${importedLines.length} dòng hàng từ file "${file.name}".` +
+      setExcelNotice({
+        severity: unmatchedWarnings.length > 0 ? 'warning' : 'success',
+        message:
+          `Đã đọc ${importedLines.length} dòng hàng từ file "${file.name}".` +
           (unmatchedWarnings.length > 0
-            ? ` Lưu ý cần chọn lại thủ công: ${unmatchedWarnings.slice(0, 3).join('; ')}${unmatchedWarnings.length > 3 ? ` (+${unmatchedWarnings.length - 3} cảnh báo khác)` : ''}.`
-            : ' Vui lòng kiểm tra thông tin phiếu và bấm "Lưu phiếu và nhập kho".')
-      )
+            ? ` Cần chọn lại thủ công (dòng tô đỏ bên dưới, chưa tính vào tổng): ${unmatchedWarnings.slice(0, 3).join('; ')}${unmatchedWarnings.length > 3 ? ` (+${unmatchedWarnings.length - 3} cảnh báo khác)` : ''}.`
+            : ' Vui lòng kiểm tra thông tin phiếu và bấm "Lưu phiếu và nhập kho".'),
+      })
     } catch (parseErr) {
       setError(`Không thể đọc file Excel: ${parseErr.message || 'Định dạng không hợp lệ.'}`)
     }
@@ -407,6 +421,7 @@ export default function StockInwards() {
     let totalAmount = 0
     let giftLines = 0
     lines.forEach((line) => {
+      if (!line.componentId) return
       const q = Number(line.quantity)
       const p = Number(line.unitPrice)
       if (Number.isInteger(q) && q > 0) {
@@ -439,6 +454,7 @@ export default function StockInwards() {
   const handleSubmit = async (event) => {
     event.preventDefault()
     setError('')
+    setSubmitAttempted(true)
     const currentTodayVn = getVietnamDateInputValue()
 
     if (!supplier.trim()) return setError('Vui lòng nhập hoặc chọn nhà cung cấp (VD: HShop.vn).')
@@ -717,8 +733,8 @@ export default function StockInwards() {
             )}
 
             {excelNotice && (
-              <Alert severity="success" sx={{ mb: 2 }} onClose={() => setExcelNotice('')}>
-                {excelNotice}
+              <Alert severity={excelNotice.severity} sx={{ mb: 2 }} onClose={() => setExcelNotice(null)}>
+                {excelNotice.message}
               </Alert>
             )}
 
@@ -1000,7 +1016,8 @@ export default function StockInwards() {
                         const qtyInvalid = line.quantity === '' || !Number.isInteger(qtyNum) || qtyNum <= 0
                         const priceNum = line.isGift ? 0 : Number(line.unitPrice)
                         const priceInvalid = !line.isGift && (line.unitPrice === '' || Number.isNaN(priceNum) || priceNum <= 0)
-                        const lineTotal = !qtyInvalid && !Number.isNaN(priceNum) && priceNum >= 0 ? qtyNum * priceNum : 0
+                        const showPriceError = priceInvalid && (submitAttempted || line.unitPrice !== '')
+                        const lineTotal = line.componentId && !qtyInvalid && !Number.isNaN(priceNum) && priceNum >= 0 ? qtyNum * priceNum : 0
                         const warrantyInvalid =
                           isHighValue &&
                           (!line.warrantyExpiresAt || !isValidYmdDate(line.warrantyExpiresAt) || line.warrantyExpiresAt < receivedAt)
@@ -1051,8 +1068,11 @@ export default function StockInwards() {
                                     required
                                     label="Tìm & chọn linh kiện"
                                     placeholder="Gõ tên hoặc mã viết tắt..."
+                                    error={Boolean(line.importError)}
                                     helperText={
-                                      filteredComponentsByCategory.length > MAX_DROPDOWN_OPTIONS
+                                      line.importError
+                                        ? line.importError
+                                        : filteredComponentsByCategory.length > MAX_DROPDOWN_OPTIONS
                                         ? `Đang hiển thị tối đa ${MAX_DROPDOWN_OPTIONS}/${filteredComponentsByCategory.length} linh kiện — gõ từ khóa hoặc lọc danh mục.`
                                         : undefined
                                     }
@@ -1089,8 +1109,8 @@ export default function StockInwards() {
                                 label={line.isGift ? 'Đơn giá (Cho tặng)' : 'Đơn giá (VNĐ) *'}
                                 placeholder="VD: 115000"
                                 value={line.isGift ? '0' : line.unitPrice}
-                                error={priceInvalid}
-                                helperText={priceInvalid ? 'Bắt buộc > 0 (hoặc tích Cho tặng)' : ''}
+                                error={showPriceError}
+                                helperText={showPriceError ? 'Bắt buộc > 0 (hoặc tích Cho tặng)' : ''}
                                 onKeyDown={blockNonIntegerKey}
                                 onChange={(event) => {
                                   const raw = event.target.value
@@ -1146,7 +1166,7 @@ export default function StockInwards() {
                                 ))}
                               </TextField>
                             </TableCell>
-                            <TableCell sx={{ minWidth: 270 }}>
+                            <TableCell sx={{ minWidth: 300 }}>
                               {isHighValue ? (
                                 <Box sx={{ display: 'grid', gap: 1 }}>
                                   <TextField
@@ -1167,7 +1187,7 @@ export default function StockInwards() {
                                     value={line.serialsText}
                                     onChange={(event) => updateLine(line.key, { serialsText: event.target.value })}
                                   />
-                                  <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1 }}>
+                                  <Box sx={{ display: 'grid', gridTemplateColumns: '72px 1fr', gap: 1 }}>
                                     <TextField
                                       required
                                       size="small"

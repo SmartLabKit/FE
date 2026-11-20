@@ -729,7 +729,7 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
       <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
         <Box>
           <Typography variant="caption" sx={{ color: '#0058be', fontWeight: 700, fontSize: 11 }}>
-            Class Management &gt; Lớp môn học &gt; Nhập danh sách sinh viên &amp; Phân công giảng viên
+            Quản lý lớp &gt; Lớp môn học &gt; Nhập danh sách sinh viên &amp; Phân công giảng viên
           </Typography>
           <Typography variant="h5" sx={{ fontWeight: 800, color: '#131b2e', mt: 0.5, mb: 0.5 }}>
             Nhập danh sách (Roster) &amp; Phân công Giảng viên
@@ -876,7 +876,7 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
               1. Import danh sách sinh viên (Roster)
             </Typography>
             <Typography variant="body2" sx={{ color: '#6b7280', fontSize: 12, mb: 2 }}>
-              API: <code>POST /api/classes/{'{id}'}/roster</code> - File Excel chứa cột Mã SV, Họ tên, Email.
+              File Excel chứa các cột Mã SV, Họ tên, Email.
             </Typography>
 
             {/* Drag and Drop Zone */}
@@ -1247,7 +1247,7 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
                 />
               </Box>
               <Typography variant="body2" sx={{ color: '#6b7280', fontSize: 12, mb: 2 }}>
-                API: <code>POST /api/classes/assign-instructor</code> - Chọn hoặc thêm giảng viên mới để phân công
+                Chọn hoặc thêm giảng viên mới để phân công cho lớp
               </Typography>
 
               {/* Giảng viên hiện tại của lớp */}
