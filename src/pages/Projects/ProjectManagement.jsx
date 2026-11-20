@@ -7,6 +7,7 @@ import {
   Check as CheckIcon,
   Close as CloseIcon,
   Groups as GroupsIcon,
+  Remove as RemoveIcon,
   Save as SaveIcon,
   School as SchoolIcon,
   Search as SearchIcon,
@@ -18,6 +19,7 @@ import {
   Alert,
   Box,
   Button,
+  ButtonBase,
   Chip,
   CircularProgress,
   Container,
@@ -65,6 +67,7 @@ function getSemesterWeight(semCode = '') {
 
 const emptyForm = () => ({ title: '', description: '', components: [], selfSuppliedItems: [] })
 const suggestionCacheKey = (projectId) => `smartlabkit:project-suggestions:${projectId}`
+const MAX_PROJECT_COMPONENT_QUANTITY = 1000
 
 function normalizeProjectForm(project) {
   return {
@@ -118,12 +121,17 @@ function mergeCachedSuggestionsIntoForm(form, selectedSuggestions = []) {
   return mergedForm
 }
 
+function isValidComponentQuantity(quantity) {
+  const value = Number(quantity)
+  return Number.isInteger(value) && value >= 1 && value <= MAX_PROJECT_COMPONENT_QUANTITY
+}
+
 function getFormError(form) {
   if (!form.title.trim() || !form.description.trim()) {
     return 'Vui lòng nhập tên và mô tả project.'
   }
-  if (form.components.some((item) => !item.componentId || Number(item.quantity) < 1)) {
-    return 'Vui lòng chọn loại linh kiện và số lượng hợp lệ cho tất cả các dòng.'
+  if (form.components.some((item) => !item.componentId || !isValidComponentQuantity(item.quantity))) {
+    return `Vui lòng chọn linh kiện và nhập số lượng nguyên từ 1 đến ${MAX_PROJECT_COMPONENT_QUANTITY}.`
   }
   if (form.selfSuppliedItems.some((item) => !item.itemName.trim() || Number(item.quantity) < 1)) {
     return 'Vui lòng nhập tên món tự mua và số lượng hợp lệ cho tất cả các dòng.'
@@ -223,6 +231,56 @@ function QuantityLabel({ name, quantity }) {
       >
         ×{quantity}
       </Box>
+    </Box>
+  )
+}
+
+const quantityButtonSx = {
+  width: 28,
+  height: 28,
+  color: '#1d4ed8',
+  '&[aria-disabled="true"]': { color: 'action.disabled', cursor: 'default', bgcolor: 'transparent' },
+}
+
+function ComponentQuantityStepper({ name, quantity, onChange, disabled, children }) {
+  const value = Math.trunc(Number(quantity)) || 0
+  const atMinimum = value <= 1
+  const atMaximum = value >= MAX_PROJECT_COMPONENT_QUANTITY
+
+  // Dùng aria-disabled ở hai giới hạn để dòng đang nhập không mất tiêu điểm khi bấm tới giới hạn.
+  return (
+    <Box role="group" aria-label={`Số lượng ${name}`} sx={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
+      <IconButton
+        type="button"
+        size="small"
+        aria-label={`Giảm số lượng ${name}`}
+        aria-disabled={atMinimum || undefined}
+        disabled={disabled}
+        onClick={() => {
+          if (!atMinimum) onChange(Math.min(MAX_PROJECT_COMPONENT_QUANTITY, value - 1))
+        }}
+        sx={quantityButtonSx}
+      >
+        <RemoveIcon fontSize="small" />
+      </IconButton>
+      {children ?? (
+        <Typography component="span" aria-live="polite" sx={{ minWidth: 28, textAlign: 'center', fontSize: 13, fontWeight: 600 }}>
+          {quantity}
+        </Typography>
+      )}
+      <IconButton
+        type="button"
+        size="small"
+        aria-label={`Tăng số lượng ${name}`}
+        aria-disabled={atMaximum || undefined}
+        disabled={disabled}
+        onClick={() => {
+          if (!atMaximum) onChange(Math.max(1, value + 1))
+        }}
+        sx={quantityButtonSx}
+      >
+        <AddIcon fontSize="small" />
+      </IconButton>
     </Box>
   )
 }
@@ -444,6 +502,7 @@ export default function ProjectManagement() {
   }, [team, user])
 
   const canEdit = isLeader && (!project || ['Draft', 'Rejected'].includes(project.status))
+  const projectActionsPending = saving || submitting
   const requiresBorrow = form.components.length > 0
   const hasUnsavedChanges = !project ||
     Boolean(inlineDraft) ||
@@ -877,7 +936,8 @@ export default function ProjectManagement() {
 
   const commitInlineDraft = (draft = inlineDraftRef.current) => {
     if (!draft) return
-    const name = draft.type === 'component'
+    const isComponent = draft.type === 'component'
+    const name = isComponent
       ? componentTypes.find((component) => component.componentId === draft.componentId)?.componentName
       : draft.itemName.trim()
     if (!name) {
@@ -885,12 +945,15 @@ export default function ProjectManagement() {
       return
     }
     const quantity = Number(draft.quantity)
-    if (!Number.isInteger(quantity) || quantity < 1) {
-      showToast('Vui lòng nhập số lượng nguyên lớn hơn 0.', 'warning')
+    const validQuantity = isComponent ? isValidComponentQuantity(quantity) : Number.isInteger(quantity) && quantity >= 1
+    if (!validQuantity) {
+      showToast(isComponent
+        ? `Vui lòng nhập số lượng nguyên từ 1 đến ${MAX_PROJECT_COMPONENT_QUANTITY}.`
+        : 'Vui lòng nhập số lượng nguyên lớn hơn 0.', 'warning')
       window.requestAnimationFrame(() => inlineQuantityInputRef.current?.focus())
       return
     }
-    if (draft.type === 'component') {
+    if (isComponent) {
       if (draft.mode === 'edit') {
         const oldItem = form.components.find((item) => item.clientKey === draft.clientKey)
         updateForm('components', form.components.map((item) => (
@@ -971,7 +1034,8 @@ export default function ProjectManagement() {
       cancelInlineDraft()
       return
     }
-    if (event.key !== 'Enter') return
+    // Chỉ chốt dòng từ ô nhập để Enter trên nút số lượng vẫn kích hoạt nút.
+    if (event.key !== 'Enter' || event.target.tagName !== 'INPUT') return
     if (event.defaultPrevented) return
     const current = inlineDraftRef.current
     if (!current) return
@@ -1087,6 +1151,38 @@ export default function ProjectManagement() {
 
   const inlineInputText = inlineDraft?.type === 'component' ? inlineDraft.searchText : inlineDraft?.itemName
   const inlineInputWidth = Math.min(220, Math.max(120, (inlineInputText?.length || 0) * 8 + 8))
+  const inlineQuantityInput = inlineDraft && (
+    <TextField
+      inputRef={inlineQuantityInputRef}
+      type="number"
+      size="small"
+      variant="standard"
+      value={inlineDraft.quantity}
+      onChange={(event) => updateInlineDraft({ quantity: event.target.value })}
+      slotProps={{
+        input: { disableUnderline: true },
+        htmlInput: {
+          min: 1,
+          max: inlineDraft.type === 'component' ? MAX_PROJECT_COMPONENT_QUANTITY : undefined,
+          step: 1,
+          'aria-label': 'Số lượng',
+        },
+      }}
+      sx={{
+        width: 38,
+        '& .MuiInput-root:before, & .MuiInput-root:after': { display: 'none' },
+        '& .MuiInputBase-root': { p: 0, fontSize: '0.875rem', fontWeight: 500, color: '#1e293b' },
+        '& .MuiInputBase-input': {
+          p: '0 !important',
+          textAlign: 'center',
+          lineHeight: 1.43,
+          appearance: 'textfield',
+          MozAppearance: 'textfield',
+          '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': { display: 'none', margin: 0 },
+        },
+      }}
+    />
+  )
   const inlineDraftView = inlineDraft ? (
     <Box
       ref={inlineDraftRootRef}
@@ -1096,6 +1192,7 @@ export default function ProjectManagement() {
         display: 'inline-flex',
         alignItems: 'center',
         gap: 0.5,
+        maxWidth: '100%',
         minHeight: 36,
         height: 36,
         boxSizing: 'border-box',
@@ -1151,6 +1248,7 @@ export default function ProjectManagement() {
           }}
           sx={{
             width: inlineInputWidth,
+            minWidth: 0,
             '& .MuiInput-root:before, & .MuiInput-root:after': { display: 'none' },
             '& .MuiInputBase-root': { p: 0, fontSize: '0.875rem', fontWeight: 500, color: '#1e293b' },
             '& .MuiInputBase-input': { p: '0 !important', lineHeight: 1.43 },
@@ -1163,8 +1261,11 @@ export default function ProjectManagement() {
               variant="standard"
               size="small"
               placeholder="Tìm linh kiện..."
-              InputProps={{ ...params.InputProps, disableUnderline: true }}
-              inputProps={{ ...params.inputProps, 'aria-label': 'Tìm linh kiện từ kho' }}
+              slotProps={{
+                ...params.slotProps,
+                input: { ...params.slotProps.input, disableUnderline: true },
+                htmlInput: { ...params.slotProps.htmlInput, 'aria-label': 'Tìm linh kiện từ kho' },
+              }}
             />
           )}
         />
@@ -1187,32 +1288,23 @@ export default function ProjectManagement() {
           }}
         />
       )}
-      <Typography component="span" sx={{ color: '#94a3b8', fontSize: 12, lineHeight: 1.4 }}>
-        ×
-      </Typography>
-      <TextField
-        inputRef={inlineQuantityInputRef}
-        type="number"
-        size="small"
-        variant="standard"
-        value={inlineDraft.quantity}
-        onChange={(event) => updateInlineDraft({ quantity: event.target.value })}
-        InputProps={{ disableUnderline: true }}
-        inputProps={{ min: 1, step: 1, 'aria-label': 'Số lượng' }}
-        sx={{
-          width: 34,
-          '& .MuiInput-root:before, & .MuiInput-root:after': { display: 'none' },
-          '& .MuiInputBase-root': { p: 0, fontSize: '0.875rem', fontWeight: 500, color: '#1e293b' },
-          '& .MuiInputBase-input': {
-            p: '0 !important',
-            textAlign: 'center',
-            lineHeight: 1.43,
-            appearance: 'textfield',
-            MozAppearance: 'textfield',
-            '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': { display: 'none', margin: 0 },
-          },
-        }}
-      />
+      {inlineDraft.type === 'component' ? (
+        <ComponentQuantityStepper
+          name={inlineDraft.componentId ? inlineDraft.searchText : 'linh kiện'}
+          quantity={inlineDraft.quantity}
+          onChange={(quantity) => updateInlineDraft({ quantity })}
+          disabled={projectActionsPending}
+        >
+          {inlineQuantityInput}
+        </ComponentQuantityStepper>
+      ) : (
+        <>
+          <Typography component="span" sx={{ color: '#94a3b8', fontSize: 12, lineHeight: 1.4 }}>
+            ×
+          </Typography>
+          {inlineQuantityInput}
+        </>
+      )}
       <Tooltip title="Thêm vào danh sách (Enter)">
         <IconButton
           size="small"
@@ -1592,26 +1684,65 @@ export default function ProjectManagement() {
                         <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Linh kiện mượn kho</Typography>
                       </Box>
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
-                        {form.components.map((item) => (
-                          inlineDraft?.mode === 'edit' &&
-                          inlineDraft.type === 'component' &&
-                          inlineDraft.clientKey === item.clientKey
-                            ? <Fragment key={item.clientKey}>{inlineDraftView}</Fragment>
-                            : (
-                              <Tooltip
-                                key={item.clientKey}
-                                title={item.note || ''}
-                              >
+                        {form.components.map((item) => {
+                          if (inlineDraft?.mode === 'edit' && inlineDraft.type === 'component' && inlineDraft.clientKey === item.clientKey) {
+                            return <Fragment key={item.clientKey}>{inlineDraftView}</Fragment>
+                          }
+
+                          const name = getComponentName(item.componentId) || 'Linh kiện'
+                          if (!canEdit) {
+                            return (
+                              <Tooltip key={item.clientKey} title={item.note || ''}>
                                 <Chip
-                                  label={<QuantityLabel name={getComponentName(item.componentId) || 'Linh kiện'} quantity={item.quantity} />}
-                                  deleteIcon={<CloseIcon sx={{ fontSize: '17px !important' }} />}
-                                  onDoubleClick={canEdit ? () => startInlineEdit('component', item) : undefined}
-                                  onDelete={canEdit ? () => removeComponent(item.clientKey) : undefined}
-                                  sx={{ ...selectedChipStyles, width: 'fit-content', cursor: canEdit ? 'pointer' : 'default' }}
+                                  label={<QuantityLabel name={name} quantity={item.quantity} />}
+                                  sx={{ ...selectedChipStyles, width: 'fit-content', cursor: 'default' }}
                                 />
                               </Tooltip>
                             )
-                        ))}
+                          }
+
+                          return (
+                            <Box
+                              key={item.clientKey}
+                              sx={{
+                                display: 'inline-flex', alignItems: 'center', gap: 0.5, maxWidth: '100%',
+                                minHeight: 36, pl: 1.1, pr: 0.5, borderRadius: 2, bgcolor: '#f1f5f9',
+                              }}
+                            >
+                              <Tooltip title={item.note || name}>
+                                <Box sx={{ display: 'flex', minWidth: 0 }}>
+                                  <ButtonBase
+                                    type="button"
+                                    aria-label={`Chỉnh sửa ${name}`}
+                                    onClick={() => startInlineEdit('component', item)}
+                                    disabled={projectActionsPending}
+                                    sx={{ minWidth: 0, borderRadius: 1, '&.Mui-focusVisible': { outline: '2px solid #2563eb' } }}
+                                  >
+                                    <Typography component="span" variant="body2" noWrap sx={{ fontWeight: 600 }}>
+                                      {name}
+                                    </Typography>
+                                  </ButtonBase>
+                                </Box>
+                              </Tooltip>
+                              <ComponentQuantityStepper
+                                name={name}
+                                quantity={item.quantity}
+                                onChange={(quantity) => updateComponent(item.clientKey, 'quantity', quantity)}
+                                disabled={projectActionsPending}
+                              />
+                              <IconButton
+                                type="button"
+                                size="small"
+                                aria-label={`Xóa ${name}`}
+                                onClick={() => removeComponent(item.clientKey)}
+                                disabled={projectActionsPending}
+                                sx={{ flexShrink: 0, color: '#64748b', '&:hover': { color: '#ef4444' } }}
+                              >
+                                <CloseIcon sx={{ fontSize: 17 }} />
+                              </IconButton>
+                            </Box>
+                          )
+                        })}
                         {form.components.length === 0 && (
                           <Alert severity="info" sx={{ display: 'inline-flex', width: 'fit-content', py: 0.25 }}>
                             Chưa thêm linh kiện mượn kho.
