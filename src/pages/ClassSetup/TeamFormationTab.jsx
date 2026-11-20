@@ -10,9 +10,14 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControl,
+  FormControlLabel,
   IconButton,
   InputAdornment,
+  InputLabel,
+  MenuItem,
   Paper,
+  Select,
   Stack,
   Table,
   TableBody,
@@ -31,6 +36,9 @@ import {
 import {
   getTeamFormationOverview,
   updateTeamSettings,
+  getAutoAssignPreview,
+  assignTeams,
+  moveMember,
 } from '../../services/teamFormationApi'
 import { extractErrorMessage } from '../../services/api'
 
@@ -853,42 +861,695 @@ export default function TeamFormationTab({
         </Typography>
       </Paper>
 
-      {/* Dialog Placeholders cho Task 3 nếu chưa truyền prop modal từ bên ngoài */}
-      <Dialog open={autoAssignOpen} onClose={() => setAutoAssignOpen(false)}>
-        <DialogTitle>Tự xếp sinh viên còn lẻ</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2">
-            Modal Tự xếp sinh viên sẽ được kích hoạt tại Task 3.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setAutoAssignOpen(false)}>Đóng</Button>
-        </DialogActions>
-      </Dialog>
+      {/* ======================================================================
+          MODAL 1: TỰ XẾP (AUTO-ASSIGN PREVIEW)
+          ====================================================================== */}
+      <AutoAssignModal
+        open={autoAssignOpen}
+        onClose={() => setAutoAssignOpen(false)}
+        classId={classId}
+        maxTeamSize={overview?.maxTeamSize}
+        onSuccess={() => {
+          setAutoAssignOpen(false)
+          window.location.reload()
+        }}
+      />
 
-      <Dialog open={moveMemberOpen} onClose={() => setMoveMemberOpen(false)}>
-        <DialogTitle>Chuyển thành viên {selectedTeamForMove ? `· ${selectedTeamForMove.teamName}` : ''}</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2">
-            Modal Chuyển thành viên giữa các nhóm sẽ được kích hoạt tại Task 3.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setMoveMemberOpen(false)}>Đóng</Button>
-        </DialogActions>
-      </Dialog>
+      {/* ======================================================================
+          MODAL 2: CHUYỂN THÀNH VIÊN
+          ====================================================================== */}
+      <MoveMemberModal
+        open={moveMemberOpen}
+        onClose={() => setMoveMemberOpen(false)}
+        classId={classId}
+        sourceTeam={selectedTeamForMove}
+        allTeams={teams}
+        maxTeamSize={overview?.maxTeamSize}
+        onSuccess={() => {
+          setMoveMemberOpen(false)
+          window.location.reload()
+        }}
+      />
 
-      <Dialog open={manualAssignOpen} onClose={() => setManualAssignOpen(false)}>
-        <DialogTitle>Xếp thủ công vào nhóm</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2">
-            Modal Xếp thủ công {selectedStudentIds.length} sinh viên đã chọn sẽ được kích hoạt tại Task 3.
-          </Typography>
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setManualAssignOpen(false)}>Đóng</Button>
-        </DialogActions>
-      </Dialog>
+      {/* ======================================================================
+          MODAL 3: XẾP THỦ CÔNG
+          ====================================================================== */}
+      <ManualAssignModal
+        open={manualAssignOpen}
+        onClose={() => setManualAssignOpen(false)}
+        classId={classId}
+        selectedStudentIds={selectedStudentIds}
+        selectedStudents={unassignedStudents.filter((s) =>
+          selectedStudentIds.includes(s.studentProfileId)
+        )}
+        allTeams={teams}
+        onSuccess={() => {
+          setManualAssignOpen(false)
+          window.location.reload()
+        }}
+      />
     </Stack>
+  )
+}
+
+// =============================================================================
+// MODAL 1: TỰ XẾP (AutoAssignModal)
+// =============================================================================
+function AutoAssignModal({ open, onClose, classId, maxTeamSize, onSuccess }) {
+  const [loading, setLoading] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+  const [preview, setPreview] = useState(null)
+
+  // Local state: mapping studentProfileId -> teamId (cho dropdown đổi nhóm)
+  const [studentTeamMap, setStudentTeamMap] = useState({})
+  // Local state: sửa tên & leader cho newTeams
+  const [newTeamEdits, setNewTeamEdits] = useState([])
+  // Checkbox xác nhận vượt max
+  const [allowExceedMax, setAllowExceedMax] = useState(false)
+
+  useEffect(() => {
+    if (!open) return
+    setError('')
+    setPreview(null)
+    setStudentTeamMap({})
+    setNewTeamEdits([])
+    setAllowExceedMax(false)
+    setLoading(true)
+
+    getAutoAssignPreview(classId)
+      .then((data) => {
+        setPreview(data)
+        // Khởi tạo studentTeamMap từ existingTeams[].addedStudents
+        const initMap = {}
+        ;(data.existingTeams || []).forEach((team) => {
+          ;(team.addedStudents || []).forEach((sv) => {
+            initMap[sv.studentProfileId] = team.teamId
+          })
+        })
+        setStudentTeamMap(initMap)
+        // Khởi tạo newTeamEdits
+        setNewTeamEdits(
+          (data.newTeams || []).map((nt) => ({
+            ...nt,
+            teamName: nt.teamName || '',
+            leaderStudentProfileId: nt.leaderStudentProfileId || '',
+          }))
+        )
+      })
+      .catch((err) => setError(extractErrorMessage(err, 'Không thể tải bản xem trước')))
+      .finally(() => setLoading(false))
+  }, [open, classId])
+
+  // Tính sĩ số mới cho từng nhóm dựa trên studentTeamMap
+  const computeNewCount = (teamId) => {
+    const base = preview?.existingTeams?.find((t) => t.teamId === teamId)?.currentCount || 0
+    const added = Object.values(studentTeamMap).filter((tid) => tid === teamId).length
+    return base + added
+  }
+
+  const isExceedingMax = (teamId) => {
+    if (!maxTeamSize) return false
+    return computeNewCount(teamId) > maxTeamSize
+  }
+
+  const anyExceeds = preview?.existingTeams?.some((t) => isExceedingMax(t.teamId)) || false
+  const needsConfirm = preview?.requiresExceedMax || anyExceeds
+
+  const handleSubmit = async () => {
+    if (needsConfirm && !allowExceedMax) return
+
+    // Xây dựng payload existingTeams
+    const existingTeamsPayload = (preview?.existingTeams || []).map((team) => {
+      const addedIds = Object.entries(studentTeamMap)
+        .filter(([, tid]) => tid === team.teamId)
+        .map(([spid]) => spid)
+      return { teamId: team.teamId, addedStudentProfileIds: addedIds }
+    })
+
+    // Payload newTeams
+    const newTeamsPayload = newTeamEdits.map((nt) => ({
+      teamName: nt.teamName,
+      leaderStudentProfileId: nt.leaderStudentProfileId || null,
+      studentProfileIds: (nt.students || []).map((s) => s.studentProfileId),
+    }))
+
+    setSubmitting(true)
+    setError('')
+    try {
+      await assignTeams(classId, {
+        existingTeams: existingTeamsPayload,
+        newTeams: newTeamsPayload,
+        allowExceedMax,
+      })
+      onSuccess()
+    } catch (err) {
+      setError(extractErrorMessage(err, 'Áp dụng xếp nhóm thất bại'))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
+      <DialogTitle sx={{ fontWeight: 800 }}>Tự xếp sinh viên còn lẻ</DialogTitle>
+      <DialogContent dividers>
+        {loading ? (
+          <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
+            <CircularProgress />
+          </Box>
+        ) : error ? (
+          <Alert severity="error">{error}</Alert>
+        ) : preview ? (
+          <Stack spacing={2.5}>
+            {/* Cảnh báo */}
+            {preview.warnings?.length > 0 && (
+              <Alert severity="warning" sx={{ bgcolor: '#fff7ed', borderColor: '#fed7aa' }}>
+                <Stack spacing={0.5}>
+                  {preview.warnings.map((w, i) => (
+                    <Typography key={i} variant="body2">{w}</Typography>
+                  ))}
+                </Stack>
+              </Alert>
+            )}
+
+            {/* Danh sách SV được thêm vào nhóm có sẵn */}
+            {(preview.existingTeams || []).some((t) => (t.addedStudents || []).length > 0) && (
+              <Box>
+                <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1 }}>
+                  Xếp vào nhóm có sẵn
+                </Typography>
+                <Stack spacing={1}>
+                  {(preview.existingTeams || []).map((team) =>
+                    (team.addedStudents || []).map((sv) => {
+                      const curTeamId = studentTeamMap[sv.studentProfileId] || team.teamId
+                      const targetTeam = preview.existingTeams.find((t) => t.teamId === curTeamId)
+                      const newCount = computeNewCount(curTeamId)
+                      const exceeds = isExceedingMax(curTeamId)
+                      return (
+                        <Box
+                          key={sv.studentProfileId}
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: 1.5,
+                            p: 1.25,
+                            border: '1px solid #e2e8f0',
+                            borderRadius: 1.5,
+                            bgcolor: '#fafafa',
+                          }}
+                        >
+                          {/* Tên / Mã SV */}
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography variant="body2" sx={{ fontWeight: 700 }} noWrap>
+                              {sv.fullName}
+                            </Typography>
+                            <Typography variant="caption" sx={{ color: 'text.secondary', fontFamily: 'monospace' }}>
+                              {sv.studentCode}
+                            </Typography>
+                          </Box>
+
+                          {/* Dropdown đổi nhóm (chỉ khi nhóm đích chưa có đề tài) */}
+                          <FormControl size="small" sx={{ minWidth: 160 }}>
+                            <InputLabel>Xếp vào nhóm</InputLabel>
+                            <Select
+                              label="Xếp vào nhóm"
+                              value={curTeamId}
+                              onChange={(e) =>
+                                setStudentTeamMap((prev) => ({
+                                  ...prev,
+                                  [sv.studentProfileId]: e.target.value,
+                                }))
+                              }
+                            >
+                              {(preview.existingTeams || [])
+                                .filter((t) => t.hasProject === false)
+                                .map((t) => (
+                                  <MenuItem key={t.teamId} value={t.teamId}>
+                                    {t.teamName}
+                                  </MenuItem>
+                                ))}
+                            </Select>
+                          </FormControl>
+
+                          {/* Badge sĩ số mới */}
+                          <Chip
+                            label={`${newCount}/${maxTeamSize ?? '?'}`}
+                            size="small"
+                            sx={{
+                              fontWeight: 700,
+                              fontSize: 11,
+                              bgcolor: exceeds ? '#fff7ed' : '#f1f5f9',
+                              color: exceeds ? '#ea580c' : '#475569',
+                              border: `1px solid ${exceeds ? '#fed7aa' : '#e2e8f0'}`,
+                            }}
+                          />
+                        </Box>
+                      )
+                    })
+                  )}
+                </Stack>
+              </Box>
+            )}
+
+            {/* Nhóm mới */}
+            <Box>
+              <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1 }}>
+                Nhóm mới sẽ được tạo
+              </Typography>
+              {newTeamEdits.length === 0 ? (
+                <Typography variant="body2" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
+                  Không tạo thêm nhóm mới.
+                </Typography>
+              ) : (
+                <Stack spacing={2}>
+                  {newTeamEdits.map((nt, idx) => (
+                    <Paper key={idx} variant="outlined" sx={{ p: 2, borderRadius: 1.5 }}>
+                      <Stack spacing={1.5}>
+                        <TextField
+                          size="small"
+                          label="Tên nhóm mới"
+                          value={nt.teamName}
+                          onChange={(e) =>
+                            setNewTeamEdits((prev) =>
+                              prev.map((item, i) =>
+                                i === idx ? { ...item, teamName: e.target.value } : item
+                              )
+                            )
+                          }
+                          fullWidth
+                        />
+                        <FormControl size="small" fullWidth>
+                          <InputLabel>Trưởng nhóm</InputLabel>
+                          <Select
+                            label="Trưởng nhóm"
+                            value={nt.leaderStudentProfileId || ''}
+                            onChange={(e) =>
+                              setNewTeamEdits((prev) =>
+                                prev.map((item, i) =>
+                                  i === idx
+                                    ? { ...item, leaderStudentProfileId: e.target.value }
+                                    : item
+                                )
+                              )
+                            }
+                          >
+                            <MenuItem value=""><em>Không chỉ định</em></MenuItem>
+                            {(nt.students || []).map((sv) => (
+                              <MenuItem key={sv.studentProfileId} value={sv.studentProfileId}>
+                                {sv.fullName} ({sv.studentCode})
+                              </MenuItem>
+                            ))}
+                          </Select>
+                        </FormControl>
+                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
+                          Thành viên: {(nt.students || []).map((s) => s.fullName).join(', ')}
+                        </Typography>
+                      </Stack>
+                    </Paper>
+                  ))}
+                </Stack>
+              )}
+            </Box>
+
+            {/* Checkbox xác nhận vượt max */}
+            {needsConfirm && (
+              <FormControlLabel
+                control={
+                  <Checkbox
+                    checked={allowExceedMax}
+                    onChange={(e) => setAllowExceedMax(e.target.checked)}
+                    color="warning"
+                  />
+                }
+                label={
+                  <Typography variant="body2" sx={{ color: '#c2410c', fontWeight: 600 }}>
+                    Tôi xác nhận cho phép nhóm vượt sĩ số tối đa ({maxTeamSize} người)
+                  </Typography>
+                }
+              />
+            )}
+
+            {error && <Alert severity="error">{error}</Alert>}
+          </Stack>
+        ) : null}
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={onClose} disabled={submitting}>
+          Hủy
+        </Button>
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={handleSubmit}
+          disabled={loading || submitting || !preview || (needsConfirm && !allowExceedMax)}
+          startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : <AutoAwesomeIcon />}
+          sx={{ fontWeight: 700, textTransform: 'none' }}
+        >
+          Áp dụng xếp nhóm
+        </Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
+
+// =============================================================================
+// MODAL 2: CHUYỂN THÀNH VIÊN (MoveMemberModal)
+// =============================================================================
+function MoveMemberModal({ open, onClose, classId, sourceTeam, allTeams, maxTeamSize, onSuccess }) {
+  const [selectedMemberId, setSelectedMemberId] = useState('')
+  const [targetTeamId, setTargetTeamId] = useState('')
+  const [allowExceedMax, setAllowExceedMax] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+
+  // Reset khi mở/đổi nhóm nguồn
+  useEffect(() => {
+    if (!open) return
+    setSelectedMemberId('')
+    setTargetTeamId('')
+    setAllowExceedMax(false)
+    setError('')
+  }, [open, sourceTeam])
+
+  const acceptedMembers = sourceTeam?.members?.filter((m) => m.status === 'Accepted') || []
+
+  const eligibleTargets = (allTeams || []).filter(
+    (t) => t.hasProject === false && t.teamId !== sourceTeam?.teamId
+  )
+
+  const targetTeam = eligibleTargets.find((t) => t.teamId === targetTeamId)
+  const newTargetCount = targetTeam ? (targetTeam.acceptedCount || 0) + 1 : null
+  const targetExceeds = maxTeamSize && newTargetCount > maxTeamSize
+
+  const handleSubmit = async () => {
+    if (!selectedMemberId || !targetTeamId) return
+    setSubmitting(true)
+    setError('')
+    try {
+      await moveMember(classId, {
+        studentProfileId: selectedMemberId,
+        targetTeamId,
+        allowExceedMax,
+      })
+      onSuccess()
+    } catch (err) {
+      const msg =
+        err?.cause?.response?.data?.message ||
+        err?.response?.data?.message ||
+        extractErrorMessage(err, 'Chuyển thành viên thất bại')
+      setError(msg)
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+      <DialogTitle sx={{ fontWeight: 800 }}>
+        Chuyển thành viên{sourceTeam ? ` · ${sourceTeam.teamName}` : ''}
+      </DialogTitle>
+      <DialogContent dividers>
+        <Stack spacing={2.5}>
+          {/* Chọn thành viên */}
+          <FormControl size="small" fullWidth>
+            <InputLabel>Thành viên cần chuyển</InputLabel>
+            <Select
+              label="Thành viên cần chuyển"
+              value={selectedMemberId}
+              onChange={(e) => setSelectedMemberId(e.target.value)}
+            >
+              {acceptedMembers.length === 0 ? (
+                <MenuItem disabled value="">
+                  Không có thành viên Accepted
+                </MenuItem>
+              ) : (
+                acceptedMembers.map((m) => (
+                  <MenuItem key={m.studentProfileId} value={m.studentProfileId}>
+                    {m.fullName} ({m.studentCode})
+                  </MenuItem>
+                ))
+              )}
+            </Select>
+          </FormControl>
+
+          {/* Chọn nhóm đích */}
+          <FormControl size="small" fullWidth>
+            <InputLabel>Nhóm đích</InputLabel>
+            <Select
+              label="Nhóm đích"
+              value={targetTeamId}
+              onChange={(e) => {
+                setTargetTeamId(e.target.value)
+                setAllowExceedMax(false)
+              }}
+            >
+              {eligibleTargets.length === 0 ? (
+                <MenuItem disabled value="">
+                  Không có nhóm đích hợp lệ
+                </MenuItem>
+              ) : (
+                eligibleTargets.map((t) => (
+                  <MenuItem key={t.teamId} value={t.teamId}>
+                    {t.teamName} ({t.acceptedCount}/{maxTeamSize ?? '?'})
+                  </MenuItem>
+                ))
+              )}
+            </Select>
+          </FormControl>
+
+          {/* Cảnh báo & checkbox vượt max */}
+          {targetTeamId && targetExceeds && (
+            <FormControlLabel
+              control={
+                <Checkbox
+                  checked={allowExceedMax}
+                  onChange={(e) => setAllowExceedMax(e.target.checked)}
+                  color="warning"
+                />
+              }
+              label={
+                <Typography variant="body2" sx={{ color: '#c2410c', fontWeight: 600 }}>
+                  Nhóm đích sẽ có {newTargetCount}/{maxTeamSize} người — xác nhận cho phép vượt tối đa
+                </Typography>
+              }
+            />
+          )}
+
+          {error && <Alert severity="error">{error}</Alert>}
+        </Stack>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={onClose} disabled={submitting}>
+          Hủy
+        </Button>
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={handleSubmit}
+          disabled={
+            !selectedMemberId ||
+            !targetTeamId ||
+            submitting ||
+            (targetExceeds && !allowExceedMax)
+          }
+          startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />}
+          sx={{ fontWeight: 700, textTransform: 'none' }}
+        >
+          Lưu
+        </Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
+
+// =============================================================================
+// MODAL 3: XẾP THỦ CÔNG (ManualAssignModal)
+// =============================================================================
+function ManualAssignModal({
+  open,
+  onClose,
+  classId,
+  selectedStudentIds,
+  selectedStudents,
+  allTeams,
+  onSuccess,
+}) {
+  // 'existing' | 'new'
+  const [mode, setMode] = useState('existing')
+  const [targetTeamId, setTargetTeamId] = useState('')
+  const [newTeamName, setNewTeamName] = useState('')
+  const [newLeaderId, setNewLeaderId] = useState('')
+  const [submitting, setSubmitting] = useState(false)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    if (!open) return
+    setMode('existing')
+    setTargetTeamId('')
+    setNewTeamName('')
+    setNewLeaderId('')
+    setError('')
+  }, [open])
+
+  const eligibleTeams = (allTeams || []).filter((t) => t.hasProject === false)
+
+  const handleSubmit = async () => {
+    setSubmitting(true)
+    setError('')
+    try {
+      let payload
+      if (mode === 'existing') {
+        if (!targetTeamId) {
+          setError('Vui lòng chọn nhóm đích.')
+          setSubmitting(false)
+          return
+        }
+        payload = {
+          existingTeams: [{ teamId: targetTeamId, addedStudentProfileIds: selectedStudentIds }],
+          newTeams: [],
+          allowExceedMax: false,
+        }
+      } else {
+        if (!newTeamName.trim()) {
+          setError('Vui lòng nhập tên nhóm mới.')
+          setSubmitting(false)
+          return
+        }
+        payload = {
+          existingTeams: [],
+          newTeams: [
+            {
+              teamName: newTeamName.trim(),
+              leaderStudentProfileId: newLeaderId || null,
+              studentProfileIds: selectedStudentIds,
+            },
+          ],
+          allowExceedMax: false,
+        }
+      }
+
+      await assignTeams(classId, payload)
+      onSuccess()
+    } catch (err) {
+      setError(extractErrorMessage(err, 'Xếp nhóm thất bại'))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
+      <DialogTitle sx={{ fontWeight: 800 }}>
+        Xếp thủ công {selectedStudentIds.length} sinh viên vào nhóm
+      </DialogTitle>
+      <DialogContent dividers>
+        <Stack spacing={2.5}>
+          {/* Danh sách SV được chọn */}
+          <Box>
+            <Typography variant="caption" sx={{ fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase' }}>
+              Sinh viên được chọn
+            </Typography>
+            <Stack direction="row" flexWrap="wrap" gap={0.75} mt={0.75}>
+              {selectedStudents.map((sv) => (
+                <Chip
+                  key={sv.studentProfileId}
+                  label={`${sv.fullName} (${sv.studentCode})`}
+                  size="small"
+                  sx={{ fontWeight: 600 }}
+                />
+              ))}
+            </Stack>
+          </Box>
+
+          {/* Chọn chế độ */}
+          <Box sx={{ display: 'flex', gap: 1.5 }}>
+            <Button
+              variant={mode === 'existing' ? 'contained' : 'outlined'}
+              size="small"
+              onClick={() => setMode('existing')}
+              sx={{ fontWeight: 700, textTransform: 'none', flex: 1 }}
+            >
+              Vào nhóm có sẵn
+            </Button>
+            <Button
+              variant={mode === 'new' ? 'contained' : 'outlined'}
+              size="small"
+              onClick={() => setMode('new')}
+              sx={{ fontWeight: 700, textTransform: 'none', flex: 1 }}
+            >
+              Tạo nhóm mới
+            </Button>
+          </Box>
+
+          {/* Form theo mode */}
+          {mode === 'existing' ? (
+            <FormControl size="small" fullWidth>
+              <InputLabel>Chọn nhóm đích</InputLabel>
+              <Select
+                label="Chọn nhóm đích"
+                value={targetTeamId}
+                onChange={(e) => setTargetTeamId(e.target.value)}
+              >
+                {eligibleTeams.length === 0 ? (
+                  <MenuItem disabled value="">
+                    Không có nhóm hợp lệ (chưa có đề tài)
+                  </MenuItem>
+                ) : (
+                  eligibleTeams.map((t) => (
+                    <MenuItem key={t.teamId} value={t.teamId}>
+                      {t.teamName} ({t.acceptedCount}/{t.maxTeamSize ?? '?'})
+                    </MenuItem>
+                  ))
+                )}
+              </Select>
+            </FormControl>
+          ) : (
+            <Stack spacing={1.5}>
+              <TextField
+                size="small"
+                label="Tên nhóm mới"
+                value={newTeamName}
+                onChange={(e) => setNewTeamName(e.target.value)}
+                fullWidth
+                required
+              />
+              <FormControl size="small" fullWidth>
+                <InputLabel>Trưởng nhóm</InputLabel>
+                <Select
+                  label="Trưởng nhóm"
+                  value={newLeaderId}
+                  onChange={(e) => setNewLeaderId(e.target.value)}
+                >
+                  <MenuItem value=""><em>Không chỉ định</em></MenuItem>
+                  {selectedStudents.map((sv) => (
+                    <MenuItem key={sv.studentProfileId} value={sv.studentProfileId}>
+                      {sv.fullName} ({sv.studentCode})
+                    </MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Stack>
+          )}
+
+          {error && <Alert severity="error">{error}</Alert>}
+        </Stack>
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button onClick={onClose} disabled={submitting}>
+          Hủy
+        </Button>
+        <Button
+          variant="contained"
+          color="primary"
+          onClick={handleSubmit}
+          disabled={submitting}
+          startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />}
+          sx={{ fontWeight: 700, textTransform: 'none' }}
+        >
+          Lưu
+        </Button>
+      </DialogActions>
+    </Dialog>
   )
 }
