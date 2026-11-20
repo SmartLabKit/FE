@@ -335,9 +335,9 @@ export default function LabRoomManagement() {
                       <TableCell sx={{ fontWeight: 600 }}>{getRoomName(room) || '—'}</TableCell>
                       <TableCell>{room.cabinetCount ?? room.activeCabinetCount ?? room.cabinetsCount ?? 0}</TableCell>
                       <TableCell>
-                        {staffLabels.length > 0
-                          ? staffLabels.join(', ')
-                          : '—'}
+                        {staffLabels.length > 0 && staffLabels.join(', ')}
+                        {staffLabels.length === 0 && !canManageStaff && (room.staffCount ?? 0) > 0 && `${room.staffCount} nhân viên`}
+                        {staffLabels.length === 0 && (canManageStaff || !(room.staffCount > 0)) && 'Chưa phân công'}
                       </TableCell>
                       <TableCell>
                         <Chip

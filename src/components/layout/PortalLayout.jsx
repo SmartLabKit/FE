@@ -200,7 +200,7 @@ export default function PortalLayout({
     {
       label: isStudent ? 'Phòng lab' : 'Tủ lưu trữ',
       icon: <RoomIcon fontSize="small" />,
-      path: isStudent ? '/class-setup/admin/lab-rooms' : '/class-setup/admin/categories',
+      path: isStudent ? '/class-setup/admin/lab-rooms' : '/class-setup/admin/cabinets',
       roles: ['InventoryManager', 'LabStaff', 'Student'],
     },
     {
@@ -403,7 +403,7 @@ export default function PortalLayout({
               ? isComponentsRoute
               : item.path === '/class-setup/admin/stock-inwards'
               ? isStockInwardsRoute || isStorageAllocationRoute
-              : item.path === '/class-setup/admin/categories' || item.path === '/class-setup/admin/lab-rooms'
+              : item.path === '/class-setup/admin/cabinets' || item.path === '/class-setup/admin/lab-rooms'
               ? isCategoriesRoute || isLabRoomsRoute || isCabinetsRoute
               : item.path === '/class-setup/admin/stock-receipts'
               ? isStockReceiptsRoute
