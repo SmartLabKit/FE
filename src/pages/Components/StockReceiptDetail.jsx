@@ -31,6 +31,7 @@ import {
   InfoOutlined as InfoIcon,
 } from '@mui/icons-material'
 import PortalLayout from '../../components/layout/PortalLayout'
+import ConfirmDialog from '../../components/common/ConfirmDialog'
 import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
 import {
@@ -70,6 +71,7 @@ export default function StockReceiptDetail() {
   const { receiptId } = useParams()
   const navigate = useNavigate()
   const [receipt, setReceipt] = useState(null)
+  const [confirmRequest, setConfirmRequest] = useState(null)
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
@@ -242,8 +244,15 @@ export default function StockReceiptDetail() {
     }
   }
 
-  const deleteInvoice = async () => {
-    if (!window.confirm('Bạn có chắc muốn xóa tệp hóa đơn này?')) return
+  const deleteInvoice = () =>
+    setConfirmRequest({
+      title: 'Xóa tệp hóa đơn?',
+      message: 'Tệp hóa đơn đính kèm sẽ bị xóa khỏi phiếu nhập.',
+      confirmText: 'Xóa tệp',
+      onConfirm: doDeleteInvoice,
+    })
+
+  const doDeleteInvoice = async () => {
     setBusy(true)
     setError('')
     try {
@@ -257,12 +266,20 @@ export default function StockReceiptDetail() {
     }
   }
 
-  const cancelReceipt = async () => {
-    if (!window.confirm('Bạn có chắc chắn muốn hủy phiếu nhập này? (Nếu có sai sót về hàng hóa, vui lòng hủy phiếu để tạo phiếu mới)')) return
+  const cancelReceipt = () =>
+    setConfirmRequest({
+      title: 'Hủy phiếu nhập?',
+      message: 'Số hàng của phiếu sẽ bị trừ khỏi tồn kho. Không hoàn tác được; nếu sai mặt hàng, hãy tạo phiếu mới sau khi hủy.',
+      confirmText: 'Hủy phiếu',
+      reasonLabel: 'Lý do hủy phiếu',
+      onConfirm: doCancelReceipt,
+    })
+
+  const doCancelReceipt = async (reason) => {
     setBusy(true)
     setError('')
     try {
-      await inventoryService.cancelStockReceipt(receiptId)
+      await inventoryService.cancelStockReceipt(receiptId, reason)
       setNotice('Đã hủy phiếu nhập thành công. Bạn có thể tạo phiếu mới.')
       await load()
     } catch (cancelError) {
@@ -720,6 +737,7 @@ export default function StockReceiptDetail() {
           </DialogContent>
         </Dialog>
       </Box>
+      <ConfirmDialog request={confirmRequest} onClose={() => setConfirmRequest(null)} />
     </PortalLayout>
   )
 }

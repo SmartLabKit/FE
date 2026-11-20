@@ -642,7 +642,7 @@ export default function ComponentExcelImport() {
                                 if (['-', '+', 'e', 'E'].includes(e.key)) e.preventDefault()
                               }}
                               onChange={(e) => updateRow(row.key, { unitPrice: e.target.value })}
-                              slotProps={{ htmlInput: { min: 0, step: 1000 } }}
+                              slotProps={{ htmlInput: { min: 0, step: 1 } }}
                             />
                           </TableCell>
                           <TableCell>

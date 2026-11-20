@@ -35,6 +35,7 @@ import {
 } from '@mui/material'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import PortalLayout from '../../components/layout/PortalLayout'
+import ConfirmDialog from '../../components/common/ConfirmDialog'
 import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
 import {
@@ -87,6 +88,7 @@ export default function StockInwards() {
   const [searchParams] = useSearchParams()
   const editId = searchParams.get('edit')
   const [components, setComponents] = useState([])
+  const [confirmRequest, setConfirmRequest] = useState(null)
   const [categories, setCategories] = useState([])
   const [cabinets, setCabinets] = useState([])
   const [labRooms, setLabRooms] = useState([])
@@ -436,14 +438,21 @@ export default function StockInwards() {
   }, [lines])
 
   // Hủy phiếu hiện tại và tạo phiếu mới khi có sai sót về mặt hàng
-  const handleCancelAndRecreate = async () => {
+  const handleCancelAndRecreate = () => {
     if (!editId) return
-    if (!window.confirm('Bạn có chắc chắn muốn hủy phiếu nhập này? Sau khi hủy, hệ thống sẽ mở form tạo phiếu mới.')) {
-      return
-    }
+    setConfirmRequest({
+      title: 'Hủy phiếu nhập?',
+      message: 'Số hàng của phiếu sẽ bị trừ khỏi tồn kho. Sau khi hủy, hệ thống mở form tạo phiếu mới.',
+      confirmText: 'Hủy phiếu',
+      reasonLabel: 'Lý do hủy phiếu',
+      onConfirm: doCancelAndRecreate,
+    })
+  }
+
+  const doCancelAndRecreate = async (reason) => {
     setLoading(true)
     try {
-      await inventoryService.cancelStockReceipt(editId)
+      await inventoryService.cancelStockReceipt(editId, reason)
       navigate('/class-setup/admin/stock-inwards')
     } catch (cancelError) {
       setError(extractErrorMessage(cancelError, 'Không thể hủy phiếu nhập.'))
@@ -1314,6 +1323,7 @@ export default function StockInwards() {
           </CardContent>
         </Card>
       </Box>
+      <ConfirmDialog request={confirmRequest} onClose={() => setConfirmRequest(null)} />
     </PortalLayout>
   )
 }

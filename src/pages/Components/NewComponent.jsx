@@ -707,7 +707,7 @@ export default function NewComponent() {
                       if (['-', '+', 'e', 'E'].includes(e.key)) e.preventDefault()
                     }}
                     onChange={updateField}
-                    slotProps={{ htmlInput: { min: 0, step: 1000 } }}
+                    slotProps={{ htmlInput: { min: 0, step: 1 } }}
                     helperText={
                       Number(form.unitPrice) > 0
                         ? `Tự điền ${Number(form.unitPrice).toLocaleString('vi-VN')} ₫ khi lập phiếu nhập kho.`
