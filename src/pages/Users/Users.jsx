@@ -49,6 +49,7 @@ import {
 } from '@mui/icons-material'
 import PortalLayout from '../../components/layout/PortalLayout'
 import { userService } from '../../services/userService'
+import { PASSWORD_HINT, passwordError } from '../../utils/passwordRules'
 
 // Danh sách vai trò hệ thống
 const SYSTEM_ROLES = [
@@ -104,6 +105,7 @@ export default function Users() {
   const [resetUserTarget, setResetUserTarget] = useState(null)
   const [tempPassword, setTempPassword] = useState('')
   const [resetSubmitting, setResetSubmitting] = useState(false)
+  const [resetConfirmUser, setResetConfirmUser] = useState(null)
 
   // Notification Toast
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
@@ -198,7 +200,7 @@ export default function Users() {
     if (!createForm.email.trim()) errors.email = 'Email không được để trống'
     else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(createForm.email)) errors.email = 'Email không đúng định dạng'
     if (!createForm.password) errors.password = 'Mật khẩu không được để trống'
-    else if (createForm.password.length < 6) errors.password = 'Mật khẩu tối thiểu 6 ký tự'
+    else if (passwordError(createForm.password)) errors.password = passwordError(createForm.password)
     if (!createForm.fullName.trim()) errors.fullName = 'Họ và tên không được để trống'
 
     if (createForm.role === 'Lecturer' && !createForm.instructorCode.trim()) {
@@ -292,11 +294,16 @@ export default function Users() {
 
   // Xử lý Admin reset mật khẩu cho người dùng (POST /api/users/{id}/reset-password)
   const handleRequestResetPassword = async (user) => {
+    setResetConfirmUser(null)
     setResetUserTarget(user)
     setResetSubmitting(true)
     try {
       const res = await userService.resetPassword(user.userId)
-      setTempPassword(res?.temporaryPassword || 'Temp@123456')
+      if (!res?.temporaryPassword) {
+        showToast('Không nhận được mật khẩu tạm từ máy chủ, vui lòng thử lại.', 'error')
+        return
+      }
+      setTempPassword(res.temporaryPassword)
       setResetDialogOpen(true)
     } catch (err) {
       showToast(err.message, 'error')
@@ -640,7 +647,7 @@ export default function Users() {
                             size="small"
                             startIcon={<LockResetIcon fontSize="small" />}
                             disabled={resetSubmitting && resetUserTarget?.userId === item.userId}
-                            onClick={() => handleRequestResetPassword(item)}
+                            onClick={() => setResetConfirmUser(item)}
                             sx={{
                               borderRadius: 1.5,
                               textTransform: 'none',
@@ -773,7 +780,7 @@ export default function Users() {
                   value={createForm.password}
                   onChange={(e) => setCreateForm({ ...createForm, password: e.target.value })}
                   error={Boolean(createErrors.password)}
-                  helperText={createErrors.password || 'Mật khẩu tạm thời để người dùng đăng nhập lần đầu'}
+                  helperText={createErrors.password || `Mật khẩu tạm thời để người dùng đăng nhập lần đầu. ${PASSWORD_HINT}`}
                 />
 
                 {/* Nếu chọn Giảng viên, bổ sung trường Mã giảng viên & Học hàm */}
@@ -1162,6 +1169,27 @@ export default function Users() {
           </Alert>
         </Snackbar>
       </Container>
+      <Dialog open={Boolean(resetConfirmUser)} onClose={() => setResetConfirmUser(null)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800, fontSize: 17 }}>Reset mật khẩu?</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ fontSize: 14, color: '#3d4556', lineHeight: 1.6 }}>
+            Mật khẩu hiện tại của <strong>{resetConfirmUser?.fullName || resetConfirmUser?.username}</strong> sẽ
+            không dùng được nữa. Hệ thống tạo mật khẩu tạm, bạn cần gửi lại cho người dùng.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 1.5 }}>
+          <Button onClick={() => setResetConfirmUser(null)} sx={{ textTransform: 'none' }}>Hủy</Button>
+          <Button
+            variant="contained"
+            color="warning"
+            disabled={resetSubmitting}
+            onClick={() => handleRequestResetPassword(resetConfirmUser)}
+            sx={{ textTransform: 'none', fontWeight: 700 }}
+          >
+            Reset mật khẩu
+          </Button>
+        </DialogActions>
+      </Dialog>
     </PortalLayout>
   )
 }

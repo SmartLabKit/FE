@@ -27,6 +27,7 @@ import {
   PhotoCamera as PhotoCameraIcon,
 } from '@mui/icons-material'
 import PortalLayout from '../../components/layout/PortalLayout'
+import { PASSWORD_HINT, passwordError } from '../../utils/passwordRules'
 import { useAuth } from '../../context/AuthContext'
 import { authService } from '../../services/authService'
 
@@ -151,8 +152,10 @@ export default function Profile() {
     }
     if (!passwordForm.newPassword) {
       errors.newPassword = 'Vui lòng nhập mật khẩu mới'
-    } else if (passwordForm.newPassword.length < 6) {
-      errors.newPassword = 'Mật khẩu mới tối thiểu 6 ký tự'
+    } else if (passwordError(passwordForm.newPassword)) {
+      errors.newPassword = passwordError(passwordForm.newPassword)
+    } else if (passwordForm.newPassword === passwordForm.currentPassword) {
+      errors.newPassword = 'Mật khẩu mới phải khác mật khẩu hiện tại'
     }
     if (passwordForm.newPassword !== passwordForm.confirmPassword) {
       errors.confirmPassword = 'Xác nhận mật khẩu mới không khớp'
@@ -493,7 +496,7 @@ export default function Profile() {
                 value={passwordForm.newPassword}
                 onChange={(e) => setPasswordForm({ ...passwordForm, newPassword: e.target.value })}
                 error={Boolean(passwordErrors.newPassword)}
-                helperText={passwordErrors.newPassword || 'Mật khẩu tối thiểu 6 ký tự'}
+                helperText={passwordErrors.newPassword || PASSWORD_HINT}
                 sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5 } }}
                 slotProps={{
                   input: {

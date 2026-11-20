@@ -41,6 +41,7 @@ export default function IssueReportDetailDialog({ issueReportId, onClose, onChan
   const [error, setError] = useState('')
   const [note, setNote] = useState('')
   const [acting, setActing] = useState('')
+  const [pendingAction, setPendingAction] = useState('')
 
   useEffect(() => {
     let active = true
@@ -72,6 +73,7 @@ export default function IssueReportDetailDialog({ issueReportId, onClose, onChan
   const borrow = detail?.borrowContext
 
   const runAction = async (kind) => {
+    setPendingAction('')
     setActing(kind)
     setError('')
     try {
@@ -159,7 +161,7 @@ export default function IssueReportDetailDialog({ issueReportId, onClose, onChan
       </DialogContent>
       <DialogActions sx={{ px: 3, py: 2, flexWrap: 'wrap', gap: 1 }}>
         {canCancel && (
-          <Button color="inherit" onClick={() => runAction('cancel')} disabled={Boolean(acting)} sx={{ mr: 'auto', textTransform: 'none' }}>
+          <Button color="inherit" onClick={() => setPendingAction('cancel')} disabled={Boolean(acting)} sx={{ mr: 'auto', textTransform: 'none' }}>
             {acting === 'cancel' ? 'Đang hủy...' : 'Hủy báo cáo'}
           </Button>
         )}
@@ -169,7 +171,7 @@ export default function IssueReportDetailDialog({ issueReportId, onClose, onChan
             <Button
               variant="outlined"
               color="error"
-              onClick={() => runAction('Rejected')}
+              onClick={() => setPendingAction('Rejected')}
               disabled={Boolean(acting)}
               startIcon={acting === 'Rejected' ? <CircularProgress size={14} /> : null}
               sx={{ textTransform: 'none', fontWeight: 700 }}
@@ -179,7 +181,7 @@ export default function IssueReportDetailDialog({ issueReportId, onClose, onChan
             <Button
               variant="contained"
               color="success"
-              onClick={() => runAction('Confirmed')}
+              onClick={() => setPendingAction('Confirmed')}
               disabled={Boolean(acting)}
               startIcon={acting === 'Confirmed' ? <CircularProgress size={14} color="inherit" /> : null}
               sx={{ textTransform: 'none', fontWeight: 700 }}
@@ -189,6 +191,31 @@ export default function IssueReportDetailDialog({ issueReportId, onClose, onChan
           </Stack>
         )}
       </DialogActions>
+      <Dialog open={Boolean(pendingAction)} onClose={() => setPendingAction('')} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800 }}>
+          {pendingAction === 'Confirmed' && 'Xác nhận sự cố?'}
+          {pendingAction === 'Rejected' && 'Từ chối báo cáo?'}
+          {pendingAction === 'cancel' && 'Hủy báo cáo?'}
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ lineHeight: 1.6 }}>
+            {pendingAction === 'Confirmed' &&
+              `Thiết bị ${detail?.itemCode || item?.itemCode || ''} sẽ chuyển sang ${detail?.issueType === 'Lost' ? 'Thất lạc' : 'Thanh lý'} và không cho mượn được nữa. Không hoàn tác được.`}
+            {pendingAction === 'Rejected' && 'Báo cáo bị từ chối, thiết bị giữ nguyên trạng thái.'}
+            {pendingAction === 'cancel' && 'Báo cáo sẽ bị hủy, thiết bị giữ nguyên trạng thái.'}
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setPendingAction('')}>Đóng</Button>
+          <Button
+            variant="contained"
+            color={pendingAction === 'Confirmed' ? 'success' : 'error'}
+            onClick={() => runAction(pendingAction)}
+          >
+            {pendingAction === 'Confirmed' ? 'Xác nhận sự cố' : pendingAction === 'Rejected' ? 'Từ chối' : 'Hủy báo cáo'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Dialog>
   )
 }

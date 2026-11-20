@@ -19,6 +19,7 @@ import {
 } from '@mui/icons-material'
 import { useNavigate, useSearchParams, Link } from 'react-router-dom'
 import { authService } from '../../services/authService'
+import { passwordError } from '../../utils/passwordRules'
 
 export default function ResetPassword() {
   const navigate = useNavigate()
@@ -47,8 +48,9 @@ export default function ResetPassword() {
       setErrorMsg('Mã xác thực gồm 6 chữ số')
       return
     }
-    if (!newPassword || newPassword.length < 6) {
-      setErrorMsg('Mật khẩu mới tối thiểu 6 ký tự')
+    const newPasswordError = passwordError(newPassword)
+    if (newPasswordError) {
+      setErrorMsg(newPasswordError)
       return
     }
     if (newPassword !== confirmPassword) {

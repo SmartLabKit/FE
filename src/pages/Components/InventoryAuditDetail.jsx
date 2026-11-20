@@ -32,6 +32,7 @@ import {
   Typography,
 } from '@mui/material'
 import { useNavigate, useParams } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
 import PortalLayout from '../../components/layout/PortalLayout'
 import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
@@ -101,6 +102,9 @@ export default function InventoryAuditDetail() {
   const [note, setNote] = useState('')
   const [confirm, setConfirm] = useState(null)
   const [saving, setSaving] = useState(false)
+  const [review, setReview] = useState(null)
+  const [reviewText, setReviewText] = useState('')
+  const { user, hasRole, hasPermission } = useAuth()
 
   // Dữ liệu đồng bộ realtime từ tủ (tồn vật tư hiện tại & danh sách thiết bị đang báo thất lạc trong hệ thống)
   const [liveStockMap, setLiveStockMap] = useState(() => new Map())
@@ -189,6 +193,9 @@ export default function InventoryAuditDetail() {
   }, [auditId, applyAudit])
 
   const inProgress = audit?.status === 'InProgress'
+  const submitted = audit?.status === 'Submitted'
+  const canReview = hasPermission?.('INVENTORY_AUDIT_APPROVE')
+  const isOwnCount = Boolean(audit?.auditorId && user?.userId && audit.auditorId === user.userId && !hasRole?.('Admin'))
   const consumables = useMemo(() => audit?.consumables || [], [audit])
   const items = useMemo(() => audit?.items || [], [audit])
 
@@ -394,11 +401,36 @@ export default function InventoryAuditDetail() {
       // Tải lại toàn bộ phiên kiểm kê + tồn tủ realtime + danh sách thiết bị thất lạc để đảm bảo đồng bộ 100%
       const refreshed = await inventoryService.getInventoryAudit(auditId)
       await applyAudit(refreshed)
-      setNotice('Hoàn tất kiểm kê và đã đồng bộ số liệu với sổ kho.')
+      setNotice('Đã gửi kết quả kiểm kê, chờ quản lý kho duyệt. Tồn kho chưa thay đổi cho tới khi được duyệt.')
       setConfirm(null)
     } catch (saveError) {
       setError(extractErrorMessage(saveError, 'Không thể hoàn tất kiểm kê.'))
       setConfirm(null)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  const submitReview = async () => {
+    const kind = review
+    setSaving(true)
+    setError('')
+    try {
+      const updated =
+        kind === 'approve'
+          ? await inventoryService.approveInventoryAudit(auditId, reviewText)
+          : await inventoryService.recountInventoryAudit(auditId, reviewText)
+      setReview(null)
+      setReviewText('')
+      await applyAudit(updated)
+      setNotice(
+        kind === 'approve'
+          ? 'Đã duyệt kết quả kiểm kê, tồn kho đã được điều chỉnh và ghi vào sổ kho.'
+          : 'Đã trả kết quả về cho nhân viên lab đếm lại.'
+      )
+    } catch (reviewError) {
+      setError(extractErrorMessage(reviewError, kind === 'approve' ? 'Không thể duyệt kết quả kiểm kê.' : 'Không thể trả về đếm lại.'))
+      setReview(null)
     } finally {
       setSaving(false)
     }
@@ -510,6 +542,11 @@ export default function InventoryAuditDetail() {
 
             {inProgress ? (
               <>
+                {audit.reviewNote && (
+                  <Alert severity="warning" sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>
+                    Quản lý kho trả về đếm lại{audit.reviewedByName ? ` (${audit.reviewedByName})` : ''}: {audit.reviewNote}
+                  </Alert>
+                )}
                 {/* Cảnh báo lệch đồng bộ giữa snapshot lúc mở phiên và tồn tủ realtime hiện tại */}
                 {driftedConsumables.length > 0 && (
                   <Alert
@@ -838,12 +875,102 @@ export default function InventoryAuditDetail() {
                     disabled={saving || invalidCount}
                     sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#0058be' }}
                   >
-                    Hoàn tất kiểm kê
+                    Gửi kết quả chờ duyệt
                   </Button>
                 </Box>
               </>
             ) : (
               <>
+                {submitted && (
+                  <SectionCard
+                    title="Kết quả đếm chờ duyệt"
+                    subtitle={`Gửi bởi ${audit.auditorName || 'nhân viên lab'}${audit.submittedAt ? ` lúc ${formatDateTime(audit.submittedAt)}` : ''}. Tồn kho chưa thay đổi cho tới khi được duyệt.`}
+                  >
+                    <TableContainer>
+                      <Table size="small">
+                        <TableHead>
+                          <TableRow sx={{ bgcolor: '#faf9ff' }}>
+                            <TableCell sx={{ fontWeight: 700 }}>Vật tư</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 700 }}>Hệ thống</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 700 }}>Đếm được</TableCell>
+                            <TableCell align="right" sx={{ fontWeight: 700 }}>Chênh lệch</TableCell>
+                          </TableRow>
+                        </TableHead>
+                        <TableBody>
+                          {(audit.submittedCounts || []).length === 0 && (
+                            <TableRow>
+                              <TableCell colSpan={4} sx={{ color: 'text.secondary' }}>Tủ không có vật tư tiêu hao.</TableCell>
+                            </TableRow>
+                          )}
+                          {(audit.submittedCounts || []).map((line) => (
+                            <TableRow key={line.componentId}>
+                              <TableCell>
+                                <Typography sx={{ fontWeight: 600, fontSize: 13 }}>{line.componentName}</Typography>
+                                <Typography sx={{ fontSize: 12, color: '#64748b' }}>{line.componentCode}</Typography>
+                              </TableCell>
+                              <TableCell align="right">{line.systemQuantity}</TableCell>
+                              <TableCell align="right">{line.countedQuantity}</TableCell>
+                              <TableCell
+                                align="right"
+                                sx={{ fontWeight: 700, color: line.difference === 0 ? '#64748b' : line.difference < 0 ? '#b42318' : '#067647' }}
+                              >
+                                {line.difference > 0 ? `+${line.difference}` : line.difference}
+                              </TableCell>
+                            </TableRow>
+                          ))}
+                        </TableBody>
+                      </Table>
+                    </TableContainer>
+                    <Typography sx={{ fontWeight: 700, fontSize: 14, mt: 2, mb: 1 }}>
+                      Thiết bị báo không tìm thấy ({(audit.missingItems || []).length})
+                    </Typography>
+                    {(audit.missingItems || []).length === 0 ? (
+                      <Typography variant="body2" color="text.secondary">Không có thiết bị nào bị báo thiếu.</Typography>
+                    ) : (
+                      <Stack spacing={0.5}>
+                        {audit.missingItems.map((item) => (
+                          <Typography key={item.itemId} variant="body2">
+                            <strong>{item.itemCode}</strong> · {item.componentName}
+                            {item.serialNumber ? ` · S/N ${item.serialNumber}` : ''} — sẽ chuyển sang Thất lạc khi duyệt
+                          </Typography>
+                        ))}
+                      </Stack>
+                    )}
+                    {canReview && (
+                      <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', flexWrap: 'wrap', mt: 2 }}>
+                        {isOwnCount && (
+                          <Typography variant="body2" sx={{ color: '#b45309', mr: 'auto', alignSelf: 'center' }}>
+                            Bạn là người đã đếm tủ này, cần một người khác duyệt.
+                          </Typography>
+                        )}
+                        <Button
+                          variant="outlined"
+                          disabled={saving || isOwnCount}
+                          onClick={() => { setReviewText(''); setReview('recount') }}
+                          sx={{ textTransform: 'none', fontWeight: 700 }}
+                        >
+                          Trả về đếm lại
+                        </Button>
+                        <Button
+                          variant="contained"
+                          disabled={saving || isOwnCount}
+                          onClick={() => { setReviewText(''); setReview('approve') }}
+                          sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#0058be' }}
+                        >
+                          Duyệt kết quả
+                        </Button>
+                      </Box>
+                    )}
+                    {!canReview && (
+                      <Alert severity="info" sx={{ mt: 2 }}>Đang chờ quản lý kho duyệt.</Alert>
+                    )}
+                  </SectionCard>
+                )}
+                {audit.reviewNote && !inProgress && (
+                  <Alert severity="info" sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>
+                    Ghi chú duyệt{audit.reviewedByName ? ` của ${audit.reviewedByName}` : ''}: {audit.reviewNote}
+                  </Alert>
+                )}
                 {(audit.reservationShortages || []).length > 0 && (
                   <Alert severity="warning" sx={{ mb: 2 }}>
                     Lab đang thiếu hàng cho các đơn đã duyệt:{' '}
@@ -860,6 +987,7 @@ export default function InventoryAuditDetail() {
                     Ghi chú biên bản: {audit.note}
                   </Alert>
                 )}
+                {!submitted && (
                 <SectionCard
                   title={`Biên bản chênh lệch (${(audit.differences || []).length})`}
                   subtitle="Các dòng đã ghi nhận vào sổ kho bởi phiên kiểm kê này. Thiết bị thất lạc vẫn được lưu mã bên dưới để khôi phục khi tìm thấy."
@@ -909,6 +1037,7 @@ export default function InventoryAuditDetail() {
                     </Table>
                   </TableContainer>
                 </SectionCard>
+                )}
               </>
             )}
 
@@ -967,13 +1096,16 @@ export default function InventoryAuditDetail() {
 
       <Dialog open={Boolean(confirm)} onClose={() => !saving && setConfirm(null)} fullWidth maxWidth="xs">
         <DialogTitle sx={{ fontWeight: 800 }}>
-          {confirm === 'cancel' ? 'Hủy phiên kiểm kê?' : 'Xác nhận hoàn tất kiểm kê?'}
+          {confirm === 'cancel' ? 'Hủy phiên kiểm kê?' : 'Gửi kết quả kiểm kê?'}
         </DialogTitle>
         <DialogContent>
           {confirm === 'cancel' ? (
             <Typography variant="body2">Phiên kiểm kê sẽ bị hủy, tồn kho không thay đổi.</Typography>
           ) : (
             <Stack spacing={1}>
+              <Typography variant="body2" sx={{ color: '#3d4556' }}>
+                Kết quả được gửi cho quản lý kho duyệt. Tồn kho chỉ thay đổi sau khi được duyệt:
+              </Typography>
               <Typography variant="body2">
                 • <strong>{changedConsumables.length}</strong> loại vật tư tiêu hao sẽ được điều chỉnh số lượng.
               </Typography>
@@ -999,6 +1131,39 @@ export default function InventoryAuditDetail() {
             disabled={saving}
           >
             {saving ? 'Đang xử lý...' : 'Xác nhận'}
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={Boolean(review)} onClose={() => !saving && setReview(null)} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ fontWeight: 800 }}>
+          {review === 'approve' ? 'Duyệt kết quả kiểm kê?' : 'Trả về đếm lại?'}
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" sx={{ mb: 2 }}>
+            {review === 'approve'
+              ? 'Vật tư lệch được điều chỉnh theo số đếm, thiết bị báo thiếu chuyển sang Thất lạc, mọi thay đổi ghi vào sổ kho.'
+              : 'Phiên kiểm kê quay về trạng thái Đang kiểm để nhân viên lab đếm lại. Tồn kho không thay đổi.'}
+          </Typography>
+          <TextField
+            fullWidth
+            multiline
+            minRows={2}
+            label={review === 'approve' ? 'Ghi chú (không bắt buộc)' : 'Lý do đếm lại *'}
+            value={reviewText}
+            onChange={(event) => setReviewText(event.target.value)}
+          />
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2 }}>
+          <Button onClick={() => setReview(null)} disabled={saving}>
+            Đóng
+          </Button>
+          <Button
+            variant="contained"
+            onClick={submitReview}
+            disabled={saving || (review === 'recount' && !reviewText.trim())}
+          >
+            {saving ? 'Đang xử lý...' : review === 'approve' ? 'Duyệt' : 'Trả về đếm lại'}
           </Button>
         </DialogActions>
       </Dialog>

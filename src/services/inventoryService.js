@@ -88,6 +88,12 @@ export const inventoryService = {
   async completeInventoryAudit(id, data) {
     return unwrap(await api.post(`/api/inventory-audits/${id}/complete`, data))
   },
+  async approveInventoryAudit(id, note) {
+    return unwrap(await api.post(`/api/inventory-audits/${id}/approve`, { note: note?.trim() || null }))
+  },
+  async recountInventoryAudit(id, reason) {
+    return unwrap(await api.post(`/api/inventory-audits/${id}/recount`, { reason: reason.trim() }))
+  },
   async cancelInventoryAudit(id) {
     return api.delete(`/api/inventory-audits/${id}`)
   },
