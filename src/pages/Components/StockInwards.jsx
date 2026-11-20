@@ -809,7 +809,7 @@ export default function StockInwards() {
                   fullWidth
                   required
                   type="date"
-                  label="Ngày nhập kho (thực tế) *"
+                  label="Ngày nhập kho (thực tế)"
                   value={receivedAt}
                   onChange={(event) => setReceivedAt(event.target.value)}
                   helperText="Ngày thực tế hàng về kho Lab và được cộng vào tồn kho (≤ hôm nay)."
@@ -1115,7 +1115,7 @@ export default function StockInwards() {
                                 type="number"
                                 size="small"
                                 fullWidth
-                                label={line.isGift ? 'Đơn giá (Cho tặng)' : 'Đơn giá (VNĐ) *'}
+                                label={line.isGift ? 'Đơn giá (Cho tặng)' : 'Đơn giá (VNĐ)'}
                                 placeholder="VD: 115000"
                                 value={line.isGift ? '0' : line.unitPrice}
                                 error={showPriceError}
@@ -1200,7 +1200,7 @@ export default function StockInwards() {
                                     <TextField
                                       required
                                       size="small"
-                                      label="Version *"
+                                      label="Version"
                                       value={line.version}
                                       onChange={(event) => updateLine(line.key, { version: event.target.value })}
                                     />
@@ -1208,7 +1208,7 @@ export default function StockInwards() {
                                       required
                                       type="date"
                                       size="small"
-                                      label="Bảo hành đến *"
+                                      label="Bảo hành đến"
                                       value={line.warrantyExpiresAt}
                                       error={warrantyInvalid}
                                       helperText={warrantyInvalid ? 'Phải ≥ ngày nhập' : ''}

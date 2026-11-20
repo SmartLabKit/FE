@@ -4,6 +4,7 @@ import {
   ArrowBack as ArrowBackIcon,
   ArrowForward as ArrowForwardIcon,
   AutoAwesome as AutoAwesomeIcon,
+  Check as CheckIcon,
   Close as CloseIcon,
   Groups as GroupsIcon,
   Save as SaveIcon,
@@ -26,6 +27,7 @@ import {
   DialogTitle,
   Divider,
   Grid,
+  IconButton,
   InputAdornment,
   MenuItem,
   Paper,
@@ -1211,6 +1213,26 @@ export default function ProjectManagement() {
           },
         }}
       />
+      <Tooltip title="Thêm vào danh sách (Enter)">
+        <IconButton
+          size="small"
+          aria-label="Thêm vào danh sách"
+          onClick={() => commitInlineDraft()}
+          sx={{ p: 0.25, color: '#16a34a' }}
+        >
+          <CheckIcon sx={{ fontSize: 18 }} />
+        </IconButton>
+      </Tooltip>
+      <Tooltip title="Bỏ dòng này (Esc)">
+        <IconButton
+          size="small"
+          aria-label="Bỏ dòng này"
+          onClick={() => cancelInlineDraft()}
+          sx={{ p: 0.25, color: '#94a3b8' }}
+        >
+          <CloseIcon sx={{ fontSize: 18 }} />
+        </IconButton>
+      </Tooltip>
     </Box>
   ) : null
 

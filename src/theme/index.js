@@ -10,6 +10,12 @@ const theme = createTheme({
     fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
   },
   components: {
+    MuiButton: {
+      styleOverrides: { root: { textTransform: 'none' } },
+    },
+    MuiTab: {
+      styleOverrides: { root: { textTransform: 'none' } },
+    },
     MuiAlert: {
       defaultProps: { closeText: 'Đóng' },
     },
