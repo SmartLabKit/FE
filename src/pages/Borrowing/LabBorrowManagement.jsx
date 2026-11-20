@@ -759,8 +759,12 @@ export default function LabBorrowManagement() {
                   </Grid>
                   <Grid size={{ xs: 12, sm: 3 }}>
                     <Typography variant="caption" color="text.secondary">Ngày gửi đơn</Typography>
+                    <Typography fontWeight={600}>{formatVietnamDate(requestDetail.requestDate)}</Typography>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 3 }}>
+                    <Typography variant="caption" color="text.secondary">Ngày nhận đồ</Typography>
                     <Typography fontWeight={600}>
-                      {formatVietnamDate(requestDetail.requestDate || requestDetail.expectedBorrowDate || requestDetail.borrowDate)}
+                      {requestDetail.borrowDate ? formatVietnamDate(requestDetail.borrowDate) : '—'}
                     </Typography>
                   </Grid>
                   <Grid size={{ xs: 12, sm: 3 }}>
