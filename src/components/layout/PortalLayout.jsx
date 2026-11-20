@@ -102,7 +102,6 @@ export default function PortalLayout({
   }
 
   const isStudent = hasUserRole('Student')
-  const isLecturer = hasUserRole('Lecturer')
 
   const navItems = [
     {
@@ -132,7 +131,7 @@ export default function PortalLayout({
       roles: ['Student'],
     },
     {
-      label: 'Thiết lập dự án',
+      label: 'Dự án của tôi',
       icon: <MenuBookIcon fontSize="small" />,
       path: '/class-setup/student/project',
       roles: ['Student'],

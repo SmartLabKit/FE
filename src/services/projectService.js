@@ -5,6 +5,10 @@ function unwrap(response) {
   return response.data?.data ?? response.data
 }
 
+async function getProjectPage(params) {
+  return unwrap(await api.get('/api/projects', { params }))
+}
+
 export const projectService = {
   async getPendingApprovalProjects(params = { page: 1, size: 100 }) {
     try {
@@ -18,11 +22,30 @@ export const projectService = {
 
   async getAllProjects(params = { page: 1, size: 100 }) {
     try {
-      const response = await api.get('/api/projects', { params })
-      const data = unwrap(response)
+      const data = await getProjectPage(params)
       return Array.isArray(data) ? data : data?.items || []
     } catch {
       return []
+    }
+  },
+
+  async getMyProjects() {
+    const size = 100
+    const projects = []
+    try {
+      // API lọc dự án theo tài khoản đăng nhập. Đọc hết phân trang trước khi kết luận nhóm chưa có dự án.
+      for (let page = 1; ; page++) {
+        const result = await getProjectPage({ page, size })
+        const items = Array.isArray(result) ? result : result?.items
+        if (!Array.isArray(items)) throw new Error('Không nhận được danh sách dự án hợp lệ.')
+        projects.push(...items)
+
+        if (Array.isArray(result)) return projects
+        const totalPages = result.totalPages ?? Math.ceil((result.totalCount ?? items.length) / (result.pageSize || size))
+        if (page >= totalPages) return projects
+      }
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Không thể tải danh sách dự án của bạn.'), { cause: error })
     }
   },
 
@@ -102,10 +125,7 @@ export const projectService = {
 
   async getProjectsByClass(classId) {
     try {
-      const response = await api.get('/api/projects', {
-        params: { classId, ClassId: classId, page: 1, size: 100 },
-      })
-      const data = unwrap(response)
+      const data = await getProjectPage({ classId, ClassId: classId, page: 1, size: 100 })
       return Array.isArray(data) ? data : data?.items || []
     } catch {
       try {

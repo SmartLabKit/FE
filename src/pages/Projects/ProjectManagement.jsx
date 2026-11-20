@@ -6,10 +6,8 @@ import {
   AutoAwesome as AutoAwesomeIcon,
   Check as CheckIcon,
   Close as CloseIcon,
-  Groups as GroupsIcon,
+  Remove as RemoveIcon,
   Save as SaveIcon,
-  School as SchoolIcon,
-  Search as SearchIcon,
   Send as SendIcon,
   Undo as UndoIcon,
 } from '@mui/icons-material'
@@ -18,6 +16,7 @@ import {
   Alert,
   Box,
   Button,
+  ButtonBase,
   Chip,
   CircularProgress,
   Container,
@@ -26,22 +25,17 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
-  Grid,
   IconButton,
-  InputAdornment,
-  MenuItem,
   Paper,
-  Select,
   Snackbar,
   Stack,
   TextField,
   Tooltip,
   Typography,
 } from '@mui/material'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import PortalLayout from '../../components/layout/PortalLayout'
 import { useAuth } from '../../context/AuthContext'
-import { academicService } from '../../services/academicService'
 import { borrowService } from '../../services/borrowService'
 import { inventoryService } from '../../services/inventoryService'
 import { projectService } from '../../services/projectService'
@@ -49,22 +43,12 @@ import { teamService } from '../../services/teamService'
 import { formatVietnamDate, getVietnamDateInputValue } from '../../utils/dateFormatting'
 import { getBorrowRequestStatusMeta } from '../Borrowing/borrowHelpers'
 import FinalSubmissionPanel from './FinalSubmissionPanel'
-
-function getSemesterWeight(semCode = '') {
-  const str = String(semCode || '').trim().toUpperCase()
-  const matchYear = str.match(/(?:20)?(\d{2})$/)
-  const year = matchYear ? parseInt(matchYear[1], 10) + 2000 : 2000
-
-  let termScore = 0
-  if (str.includes('FA') || str.includes('FALL')) termScore = 3
-  else if (str.includes('SU') || str.includes('SUMMER')) termScore = 2
-  else if (str.includes('SP') || str.includes('SPRING')) termScore = 1
-
-  return year * 10 + termScore
-}
+import ProjectStatus from './ProjectStatus'
+import { isTeamLeader } from './projectHelpers'
 
 const emptyForm = () => ({ title: '', description: '', components: [], selfSuppliedItems: [] })
 const suggestionCacheKey = (projectId) => `smartlabkit:project-suggestions:${projectId}`
+const MAX_PROJECT_COMPONENT_QUANTITY = 1000
 
 function normalizeProjectForm(project) {
   return {
@@ -118,12 +102,17 @@ function mergeCachedSuggestionsIntoForm(form, selectedSuggestions = []) {
   return mergedForm
 }
 
+function isValidComponentQuantity(quantity) {
+  const value = Number(quantity)
+  return Number.isInteger(value) && value >= 1 && value <= MAX_PROJECT_COMPONENT_QUANTITY
+}
+
 function getFormError(form) {
   if (!form.title.trim() || !form.description.trim()) {
     return 'Vui lòng nhập tên và mô tả project.'
   }
-  if (form.components.some((item) => !item.componentId || Number(item.quantity) < 1)) {
-    return 'Vui lòng chọn loại linh kiện và số lượng hợp lệ cho tất cả các dòng.'
+  if (form.components.some((item) => !item.componentId || !isValidComponentQuantity(item.quantity))) {
+    return `Vui lòng chọn linh kiện và nhập số lượng nguyên từ 1 đến ${MAX_PROJECT_COMPONENT_QUANTITY}.`
   }
   if (form.selfSuppliedItems.some((item) => !item.itemName.trim() || Number(item.quantity) < 1)) {
     return 'Vui lòng nhập tên món tự mua và số lượng hợp lệ cho tất cả các dòng.'
@@ -156,48 +145,8 @@ function getSuggestionNote(suggestion) {
   return suggestion.note || suggestion.reason || suggestion.description || suggestion.purpose || suggestion.role || ''
 }
 
-function formatStatus(status) {
-  const labels = {
-    Draft: 'Bản nháp',
-    Submitted: 'Chờ duyệt',
-    Rejected: 'Bị từ chối',
-    Approved: 'Đã duyệt',
-    Cancelled: 'Đã hủy',
-  }
-  return labels[status] || status || 'Chưa xác định'
-}
-
 function localDateValue() {
   return getVietnamDateInputValue()
-}
-
-function ProjectStatus({ status }) {
-  const styles = {
-    Draft: { bgcolor: '#f1f5f9', color: '#475569', borderColor: '#cbd5e1', dotColor: '#64748b' },
-    Submitted: { bgcolor: '#fef3c7', color: '#92400e', borderColor: '#fcd34d', dotColor: '#f59e0b' },
-    Rejected: { bgcolor: '#fff1f2', color: '#be123c', borderColor: '#fda4af', dotColor: '#e11d48' },
-    Approved: { bgcolor: '#ecfdf5', color: '#047857', borderColor: '#6ee7b7', dotColor: '#10b981' },
-    Cancelled: { bgcolor: '#f1f5f9', color: '#475569', borderColor: '#cbd5e1', dotColor: '#64748b' },
-  }
-  const style = styles[status] || styles.Draft
-  return (
-    <Chip
-      icon={<Box component="span" sx={{ width: 8, height: 8, borderRadius: '50%', bgcolor: style.dotColor }} />}
-      label={formatStatus(status)}
-      sx={{
-        height: 32,
-        px: 0.5,
-        borderRadius: '999px',
-        border: `1px solid ${style.borderColor}`,
-        bgcolor: style.bgcolor,
-        color: style.color,
-        fontSize: 13,
-        fontWeight: 700,
-        '& .MuiChip-label': { px: 1.25 },
-        '& .MuiChip-icon': { ml: 1, mr: -0.5 },
-      }}
-    />
-  )
 }
 
 function QuantityLabel({ name, quantity }) {
@@ -223,6 +172,56 @@ function QuantityLabel({ name, quantity }) {
       >
         ×{quantity}
       </Box>
+    </Box>
+  )
+}
+
+const quantityButtonSx = {
+  width: 28,
+  height: 28,
+  color: '#1d4ed8',
+  '&[aria-disabled="true"]': { color: 'action.disabled', cursor: 'default', bgcolor: 'transparent' },
+}
+
+function ComponentQuantityStepper({ name, quantity, onChange, disabled, children }) {
+  const value = Math.trunc(Number(quantity)) || 0
+  const atMinimum = value <= 1
+  const atMaximum = value >= MAX_PROJECT_COMPONENT_QUANTITY
+
+  // Dùng aria-disabled ở hai giới hạn để dòng đang nhập không mất tiêu điểm khi bấm tới giới hạn.
+  return (
+    <Box role="group" aria-label={`Số lượng ${name}`} sx={{ display: 'inline-flex', alignItems: 'center', flexShrink: 0 }}>
+      <IconButton
+        type="button"
+        size="small"
+        aria-label={`Giảm số lượng ${name}`}
+        aria-disabled={atMinimum || undefined}
+        disabled={disabled}
+        onClick={() => {
+          if (!atMinimum) onChange(Math.min(MAX_PROJECT_COMPONENT_QUANTITY, value - 1))
+        }}
+        sx={quantityButtonSx}
+      >
+        <RemoveIcon fontSize="small" />
+      </IconButton>
+      {children ?? (
+        <Typography component="span" aria-live="polite" sx={{ minWidth: 28, textAlign: 'center', fontSize: 13, fontWeight: 600 }}>
+          {quantity}
+        </Typography>
+      )}
+      <IconButton
+        type="button"
+        size="small"
+        aria-label={`Tăng số lượng ${name}`}
+        aria-disabled={atMaximum || undefined}
+        disabled={disabled}
+        onClick={() => {
+          if (!atMaximum) onChange(Math.max(1, value + 1))
+        }}
+        sx={quantityButtonSx}
+      >
+        <AddIcon fontSize="small" />
+      </IconButton>
     </Box>
   )
 }
@@ -308,10 +307,10 @@ function SuggestionCard({ suggestion, name, onSelect, disabled = false }) {
 
 export default function ProjectManagement() {
   const { teamId } = useParams()
+  const { state } = useLocation()
   const navigate = useNavigate()
   const { user } = useAuth()
   const [team, setTeam] = useState(null)
-  const [teamChoices, setTeamChoices] = useState([])
   const [project, setProject] = useState(null)
   const [form, setForm] = useState(emptyForm)
   const [savedFormSnapshot, setSavedFormSnapshot] = useState(null)
@@ -333,10 +332,6 @@ export default function ProjectManagement() {
   const [loadError, setLoadError] = useState('')
   const [componentError, setComponentError] = useState('')
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
-  const [selectedSemester, setSelectedSemester] = useState(() => {
-    return localStorage.getItem('student_selected_semester') || 'ALL'
-  })
-  const [teamSearchQuery, setTeamSearchQuery] = useState('')
   const rowKeySequence = useRef(0)
   const inlineDraftRef = useRef(null)
   const inlineDraftFocusedRef = useRef(false)
@@ -366,85 +361,15 @@ export default function ProjectManagement() {
     return () => window.cancelAnimationFrame(frameId)
   }, [inlineDraft])
 
-  const updateSemester = (sem) => {
-    setSelectedSemester(sem)
-    try {
-      localStorage.setItem('student_selected_semester', sem)
-    } catch (err) {
-      console.warn('Lỗi lưu selected semester:', err)
-    }
-  }
-
-  const handleSemesterChange = (event) => {
-    updateSemester(event.target.value)
-  }
-
-  // Danh sách các học kỳ có nhóm, sắp xếp từ mới nhất đến cũ nhất
-  const semestersList = useMemo(() => {
-    const semMap = new Map()
-    teamChoices.forEach((teamChoice) => {
-      const code = teamChoice.semesterCode || 'Chưa phân kỳ'
-      if (!semMap.has(code)) {
-        semMap.set(code, {
-          code,
-          weight: getSemesterWeight(code),
-          count: 1,
-        })
-      } else {
-        semMap.get(code).count += 1
-      }
-    })
-    return Array.from(semMap.values()).sort((a, b) => b.weight - a.weight)
-  }, [teamChoices])
-
-  // Lọc danh sách nhóm theo học kỳ và từ khóa tìm kiếm
-  const filteredTeamChoices = useMemo(() => {
-    return teamChoices.filter((teamChoice) => {
-      // Lọc học kỳ
-      if (selectedSemester !== 'ALL') {
-        const sem = teamChoice.semesterCode || 'Chưa phân kỳ'
-        if (sem !== selectedSemester) return false
-      }
-
-      // Lọc từ khóa tìm kiếm
-      if (teamSearchQuery.trim()) {
-        const q = teamSearchQuery.toLowerCase().trim()
-        const matchName = teamChoice.teamName?.toLowerCase().includes(q)
-        const matchClass = teamChoice.classCode?.toLowerCase().includes(q)
-        const matchCourse = teamChoice.courseName?.toLowerCase().includes(q)
-        const matchSem = teamChoice.semesterCode?.toLowerCase().includes(q)
-        if (!matchName && !matchClass && !matchCourse && !matchSem) return false
-      }
-
-      return true
-    })
-  }, [teamChoices, selectedSemester, teamSearchQuery])
-
   const nextRowKey = (prefix) => {
     rowKeySequence.current += 1
     return `${prefix}-${rowKeySequence.current}`
   }
 
-  const isLeader = useMemo(() => {
-    if (!team || !user) return false
-    const identity = [
-      user.studentProfileId,
-      user.profileId,
-      user.userId,
-      user.id,
-      user.studentCode,
-    ].filter(Boolean).map(String)
-    if (identity.includes(String(team.leaderId))) return true
-    return (team.members || []).some(
-      (member) =>
-        member.isLeader &&
-        identity.some(
-          (id) => id === String(member.studentProfileId) || id === String(member.studentCode)
-        )
-    )
-  }, [team, user])
+  const isLeader = useMemo(() => isTeamLeader(team, user), [team, user])
 
   const canEdit = isLeader && (!project || ['Draft', 'Rejected'].includes(project.status))
+  const projectActionsPending = saving || submitting
   const requiresBorrow = form.components.length > 0
   const hasUnsavedChanges = !project ||
     Boolean(inlineDraft) ||
@@ -492,38 +417,6 @@ export default function ProjectManagement() {
     setLoadError('')
     setSavedFormSnapshot(null)
     try {
-      if (!teamId) {
-        const classResponse = await academicService.getMyClasses()
-        const classes = Array.isArray(classResponse) ? classResponse : classResponse?.items || []
-        const teamResults = await Promise.all(
-          classes.map(async (classItem) => ({
-            classItem,
-            team: await teamService.getMyTeam(classItem.classId),
-          }))
-        )
-        const mappedTeams = teamResults
-          .filter(({ team: teamInClass }) => teamInClass)
-          .map(({ classItem, team: teamInClass }) => ({
-            ...teamInClass,
-            classCode: teamInClass.classCode || classItem.classCode,
-            courseName: classItem.courseName,
-            semesterCode:
-              teamInClass.semesterCode ||
-              classItem.semesterCode ||
-              classItem.semester?.semesterCode ||
-              classItem.semester?.code ||
-              '',
-          }))
-          .sort((a, b) => {
-            const diff = getSemesterWeight(b.semesterCode) - getSemesterWeight(a.semesterCode)
-            if (diff !== 0) return diff
-            return (a.teamName || '').localeCompare(b.teamName || '')
-          })
-        setTeamChoices(mappedTeams)
-        return
-      }
-
-      setTeamChoices([])
       const teamData = await teamService.getTeamById(teamId)
       if (!teamData?.classId) {
         throw new Error('Không tìm thấy lớp của nhóm để tải project.')
@@ -882,7 +775,8 @@ export default function ProjectManagement() {
 
   const commitInlineDraft = (draft = inlineDraftRef.current) => {
     if (!draft) return
-    const name = draft.type === 'component'
+    const isComponent = draft.type === 'component'
+    const name = isComponent
       ? componentTypes.find((component) => component.componentId === draft.componentId)?.componentName
       : draft.itemName.trim()
     if (!name) {
@@ -890,12 +784,15 @@ export default function ProjectManagement() {
       return
     }
     const quantity = Number(draft.quantity)
-    if (!Number.isInteger(quantity) || quantity < 1) {
-      showToast('Vui lòng nhập số lượng nguyên lớn hơn 0.', 'warning')
+    const validQuantity = isComponent ? isValidComponentQuantity(quantity) : Number.isInteger(quantity) && quantity >= 1
+    if (!validQuantity) {
+      showToast(isComponent
+        ? `Vui lòng nhập số lượng nguyên từ 1 đến ${MAX_PROJECT_COMPONENT_QUANTITY}.`
+        : 'Vui lòng nhập số lượng nguyên lớn hơn 0.', 'warning')
       window.requestAnimationFrame(() => inlineQuantityInputRef.current?.focus())
       return
     }
-    if (draft.type === 'component') {
+    if (isComponent) {
       if (draft.mode === 'edit') {
         const oldItem = form.components.find((item) => item.clientKey === draft.clientKey)
         updateForm('components', form.components.map((item) => (
@@ -976,7 +873,8 @@ export default function ProjectManagement() {
       cancelInlineDraft()
       return
     }
-    if (event.key !== 'Enter') return
+    // Chỉ chốt dòng từ ô nhập để Enter trên nút số lượng vẫn kích hoạt nút.
+    if (event.key !== 'Enter' || event.target.tagName !== 'INPUT') return
     if (event.defaultPrevented) return
     const current = inlineDraftRef.current
     if (!current) return
@@ -1092,6 +990,38 @@ export default function ProjectManagement() {
 
   const inlineInputText = inlineDraft?.type === 'component' ? inlineDraft.searchText : inlineDraft?.itemName
   const inlineInputWidth = Math.min(220, Math.max(120, (inlineInputText?.length || 0) * 8 + 8))
+  const inlineQuantityInput = inlineDraft && (
+    <TextField
+      inputRef={inlineQuantityInputRef}
+      type="number"
+      size="small"
+      variant="standard"
+      value={inlineDraft.quantity}
+      onChange={(event) => updateInlineDraft({ quantity: event.target.value })}
+      slotProps={{
+        input: { disableUnderline: true },
+        htmlInput: {
+          min: 1,
+          max: inlineDraft.type === 'component' ? MAX_PROJECT_COMPONENT_QUANTITY : undefined,
+          step: 1,
+          'aria-label': 'Số lượng',
+        },
+      }}
+      sx={{
+        width: 38,
+        '& .MuiInput-root:before, & .MuiInput-root:after': { display: 'none' },
+        '& .MuiInputBase-root': { p: 0, fontSize: '0.875rem', fontWeight: 500, color: '#1e293b' },
+        '& .MuiInputBase-input': {
+          p: '0 !important',
+          textAlign: 'center',
+          lineHeight: 1.43,
+          appearance: 'textfield',
+          MozAppearance: 'textfield',
+          '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': { display: 'none', margin: 0 },
+        },
+      }}
+    />
+  )
   const inlineDraftView = inlineDraft ? (
     <Box
       ref={inlineDraftRootRef}
@@ -1101,6 +1031,7 @@ export default function ProjectManagement() {
         display: 'inline-flex',
         alignItems: 'center',
         gap: 0.5,
+        maxWidth: '100%',
         minHeight: 36,
         height: 36,
         boxSizing: 'border-box',
@@ -1156,6 +1087,7 @@ export default function ProjectManagement() {
           }}
           sx={{
             width: inlineInputWidth,
+            minWidth: 0,
             '& .MuiInput-root:before, & .MuiInput-root:after': { display: 'none' },
             '& .MuiInputBase-root': { p: 0, fontSize: '0.875rem', fontWeight: 500, color: '#1e293b' },
             '& .MuiInputBase-input': { p: '0 !important', lineHeight: 1.43 },
@@ -1168,8 +1100,11 @@ export default function ProjectManagement() {
               variant="standard"
               size="small"
               placeholder="Tìm linh kiện..."
-              InputProps={{ ...params.InputProps, disableUnderline: true }}
-              inputProps={{ ...params.inputProps, 'aria-label': 'Tìm linh kiện từ kho' }}
+              slotProps={{
+                ...params.slotProps,
+                input: { ...params.slotProps.input, disableUnderline: true },
+                htmlInput: { ...params.slotProps.htmlInput, 'aria-label': 'Tìm linh kiện từ kho' },
+              }}
             />
           )}
         />
@@ -1192,32 +1127,23 @@ export default function ProjectManagement() {
           }}
         />
       )}
-      <Typography component="span" sx={{ color: '#94a3b8', fontSize: 12, lineHeight: 1.4 }}>
-        ×
-      </Typography>
-      <TextField
-        inputRef={inlineQuantityInputRef}
-        type="number"
-        size="small"
-        variant="standard"
-        value={inlineDraft.quantity}
-        onChange={(event) => updateInlineDraft({ quantity: event.target.value })}
-        InputProps={{ disableUnderline: true }}
-        inputProps={{ min: 1, step: 1, 'aria-label': 'Số lượng' }}
-        sx={{
-          width: 34,
-          '& .MuiInput-root:before, & .MuiInput-root:after': { display: 'none' },
-          '& .MuiInputBase-root': { p: 0, fontSize: '0.875rem', fontWeight: 500, color: '#1e293b' },
-          '& .MuiInputBase-input': {
-            p: '0 !important',
-            textAlign: 'center',
-            lineHeight: 1.43,
-            appearance: 'textfield',
-            MozAppearance: 'textfield',
-            '&::-webkit-outer-spin-button, &::-webkit-inner-spin-button': { display: 'none', margin: 0 },
-          },
-        }}
-      />
+      {inlineDraft.type === 'component' ? (
+        <ComponentQuantityStepper
+          name={inlineDraft.componentId ? inlineDraft.searchText : 'linh kiện'}
+          quantity={inlineDraft.quantity}
+          onChange={(quantity) => updateInlineDraft({ quantity })}
+          disabled={projectActionsPending}
+        >
+          {inlineQuantityInput}
+        </ComponentQuantityStepper>
+      ) : (
+        <>
+          <Typography component="span" sx={{ color: '#94a3b8', fontSize: 12, lineHeight: 1.4 }}>
+            ×
+          </Typography>
+          {inlineQuantityInput}
+        </>
+      )}
       <Tooltip title="Thêm vào danh sách (Enter)">
         <IconButton
           size="small"
@@ -1264,10 +1190,10 @@ export default function ProjectManagement() {
         <Button
           size="small"
           startIcon={<ArrowBackIcon />}
-          onClick={() => navigate('/class-setup/student/groups')}
+          onClick={() => navigate(state?.fromProjectList ? '/class-setup/student/project' : '/class-setup/student/groups')}
           sx={{ mb: 2, textTransform: 'none', fontWeight: 700 }}
         >
-          Quay lại nhóm
+          {state?.fromProjectList ? 'Quay lại danh sách' : 'Quay lại nhóm'}
         </Button>
 
         <Box sx={{ mb: 3 }}>
@@ -1279,234 +1205,7 @@ export default function ProjectManagement() {
           </Typography>
         </Box>
 
-        {!teamId && loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}>
-            <CircularProgress />
-          </Box>
-        ) : !teamId && loadError ? (
-          <Alert severity="error" action={<Button onClick={loadData}>Thử lại</Button>}>{loadError}</Alert>
-        ) : !teamId ? (
-          <Box>
-            {/* Thanh lọc theo học kỳ & Tìm kiếm (Thiết kế đồng bộ với Nhóm & Lời mời) */}
-            <Paper
-              elevation={0}
-              sx={{
-                p: 2.5,
-                mb: 3,
-                borderRadius: 2,
-                border: '1px solid #e4e6ef',
-                bgcolor: '#ffffff',
-                display: 'flex',
-                flexWrap: 'wrap',
-                alignItems: 'center',
-                justifyContent: 'space-between',
-                gap: 2,
-              }}
-            >
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, minWidth: 280, flexWrap: 'wrap' }}>
-                <SchoolIcon sx={{ color: '#0058be', fontSize: 28 }} />
-
-                {/* Phân loại theo kỳ học */}
-                <Box sx={{ minWidth: 200 }}>
-                  <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 10, mb: 0.5 }}>
-                    PHÂN LOẠI THEO HỌC KỲ:
-                  </Typography>
-                  <Select
-                    fullWidth
-                    size="small"
-                    value={selectedSemester}
-                    onChange={handleSemesterChange}
-                    sx={{ borderRadius: 1.5, height: 40, fontSize: 13, bgcolor: '#fafbff' }}
-                  >
-                    <MenuItem value="ALL" sx={{ fontSize: 13, fontWeight: 700 }}>
-                      Tất cả các kỳ ({teamChoices.length} nhóm)
-                    </MenuItem>
-                    {semestersList.map((sem) => (
-                      <MenuItem key={sem.code} value={sem.code} sx={{ fontSize: 13 }}>
-                        Kỳ {sem.code} ({sem.count} nhóm)
-                      </MenuItem>
-                    ))}
-                  </Select>
-                </Box>
-
-                {/* Ô tìm kiếm nhóm / môn */}
-                <Box sx={{ flex: 1, minWidth: 240, maxWidth: 420 }}>
-                  <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 10, mb: 0.5 }}>
-                    TÌM KIẾM NHÓM / MÔN HỌC:
-                  </Typography>
-                  <TextField
-                    fullWidth
-                    size="small"
-                    placeholder="Nhập tên nhóm, môn học, mã lớp..."
-                    value={teamSearchQuery}
-                    onChange={(e) => setTeamSearchQuery(e.target.value)}
-                    InputProps={{
-                      startAdornment: (
-                        <InputAdornment position="start">
-                          <SearchIcon sx={{ color: '#94a3b8', fontSize: 18 }} />
-                        </InputAdornment>
-                      ),
-                    }}
-                    sx={{
-                      '& .MuiOutlinedInput-root': {
-                        borderRadius: 1.5,
-                        height: 40,
-                        fontSize: 13,
-                        bgcolor: '#fafbff',
-                      },
-                    }}
-                  />
-                </Box>
-              </Box>
-
-              {/* Nút lọc nhanh dạng Chip */}
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                <Chip
-                  label={`Tất cả (${teamChoices.length})`}
-                  size="small"
-                  onClick={() => updateSemester('ALL')}
-                  color={selectedSemester === 'ALL' ? 'primary' : 'default'}
-                  variant={selectedSemester === 'ALL' ? 'filled' : 'outlined'}
-                  sx={{ fontWeight: 700, fontSize: 12, cursor: 'pointer' }}
-                />
-                {semestersList.map((sem) => (
-                  <Chip
-                    key={`chip-${sem.code}`}
-                    label={`Kỳ ${sem.code} (${sem.count})`}
-                    size="small"
-                    onClick={() => updateSemester(sem.code)}
-                    color={selectedSemester === sem.code ? 'primary' : 'default'}
-                    variant={selectedSemester === sem.code ? 'filled' : 'outlined'}
-                    sx={{ fontWeight: 700, fontSize: 12, cursor: 'pointer' }}
-                  />
-                ))}
-              </Box>
-            </Paper>
-
-            {/* Tiêu đề & Đếm số lượng */}
-            <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-              <Typography variant="h6" sx={{ fontWeight: 800, color: '#131b2e' }}>
-                Chọn nhóm để thiết lập dự án
-              </Typography>
-              <Typography variant="caption" sx={{ color: '#64748b', fontWeight: 600 }}>
-                Hiển thị {filteredTeamChoices.length} / {teamChoices.length} nhóm
-              </Typography>
-            </Box>
-
-            {teamChoices.length === 0 ? (
-              <Alert severity="info" sx={{ borderRadius: 2 }}>
-                Bạn chưa tham gia nhóm nào trong các lớp hiện tại. Hãy tham gia hoặc tạo nhóm trước.
-              </Alert>
-            ) : filteredTeamChoices.length === 0 ? (
-              <Alert severity="warning" sx={{ borderRadius: 2 }}>
-                {teamSearchQuery
-                  ? `Không tìm thấy nhóm nào phù hợp với từ khóa "${teamSearchQuery}".`
-                  : `Không có nhóm nào thuộc kỳ ${selectedSemester}. Bạn có thể chọn "Tất cả các kỳ" để xem tất cả nhóm.`}
-              </Alert>
-            ) : (
-              <Grid container spacing={2.5}>
-                {filteredTeamChoices.map((teamChoice) => (
-                  <Grid item xs={12} md={6} key={teamChoice.teamId}>
-                    <Paper
-                      elevation={0}
-                      sx={{
-                        p: 2.5,
-                        border: '1px solid #e4e6ef',
-                        borderRadius: 2,
-                        bgcolor: '#ffffff',
-                        display: 'flex',
-                        flexDirection: 'column',
-                        justifyContent: 'space-between',
-                        height: '100%',
-                        transition: 'all 0.2s ease',
-                        '&:hover': {
-                          borderColor: '#0058be',
-                          boxShadow: '0 4px 16px rgba(0, 88, 190, 0.08)',
-                        },
-                      }}
-                    >
-                      <Box sx={{ mb: 2 }}>
-                        <Box sx={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', gap: 1.5, mb: 1 }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
-                            <Box
-                              sx={{
-                                width: 40,
-                                height: 40,
-                                borderRadius: 1.5,
-                                bgcolor: '#eff6ff',
-                                color: '#0058be',
-                                display: 'flex',
-                                alignItems: 'center',
-                                justifyContent: 'center',
-                                flexShrink: 0,
-                              }}
-                            >
-                              <GroupsIcon sx={{ fontSize: 24 }} />
-                            </Box>
-                            <Box>
-                              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#131b2e', lineHeight: 1.3 }}>
-                                {teamChoice.teamName}
-                              </Typography>
-                              <Typography variant="caption" sx={{ color: '#64748b', fontSize: 12 }}>
-                                {teamChoice.classCode}
-                              </Typography>
-                            </Box>
-                          </Box>
-                          {teamChoice.semesterCode && (
-                            <Chip
-                              label={`Kỳ ${teamChoice.semesterCode}`}
-                              size="small"
-                              sx={{
-                                bgcolor: '#eaedff',
-                                color: '#0058be',
-                                fontWeight: 800,
-                                fontSize: 11,
-                                borderRadius: 1.5,
-                              }}
-                            />
-                          )}
-                        </Box>
-
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1.5, color: '#475569' }}>
-                          <SchoolIcon sx={{ fontSize: 17, color: '#94a3b8' }} />
-                          <Typography variant="body2" sx={{ color: '#475569', fontSize: 13, fontWeight: 500 }}>
-                            {teamChoice.courseName || 'Môn học đồ án'}
-                          </Typography>
-                        </Box>
-                      </Box>
-
-                      <Divider sx={{ my: 1.5, borderStyle: 'dashed' }} />
-
-                      <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mt: 'auto' }}>
-                        <Typography variant="caption" sx={{ color: '#94a3b8', fontSize: 11.5 }}>
-                          {teamChoice.teamName}
-                        </Typography>
-                        <Button
-                          variant="contained"
-                          endIcon={<ArrowForwardIcon sx={{ fontSize: 16 }} />}
-                          onClick={() => navigate(`/class-setup/student/project/${teamChoice.teamId}`)}
-                          sx={{
-                            textTransform: 'none',
-                            fontWeight: 700,
-                            fontSize: 12.5,
-                            borderRadius: 1.5,
-                            bgcolor: '#0058be',
-                            boxShadow: 'none',
-                            px: 2,
-                            py: 0.7,
-                            '&:hover': { bgcolor: '#0049a3' },
-                          }}
-                        >
-                          Mở dự án
-                        </Button>
-                      </Box>
-                    </Paper>
-                  </Grid>
-                ))}
-              </Grid>
-            )}
-          </Box>
-        ) : loading ? (
+        {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 10 }}>
             <CircularProgress />
           </Box>
@@ -1597,26 +1296,65 @@ export default function ProjectManagement() {
                         <Typography variant="subtitle1" sx={{ fontWeight: 800 }}>Linh kiện mượn kho</Typography>
                       </Box>
                       <Box sx={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', gap: 1 }}>
-                        {form.components.map((item) => (
-                          inlineDraft?.mode === 'edit' &&
-                          inlineDraft.type === 'component' &&
-                          inlineDraft.clientKey === item.clientKey
-                            ? <Fragment key={item.clientKey}>{inlineDraftView}</Fragment>
-                            : (
-                              <Tooltip
-                                key={item.clientKey}
-                                title={item.note || ''}
-                              >
+                        {form.components.map((item) => {
+                          if (inlineDraft?.mode === 'edit' && inlineDraft.type === 'component' && inlineDraft.clientKey === item.clientKey) {
+                            return <Fragment key={item.clientKey}>{inlineDraftView}</Fragment>
+                          }
+
+                          const name = getComponentName(item.componentId) || 'Linh kiện'
+                          if (!canEdit) {
+                            return (
+                              <Tooltip key={item.clientKey} title={item.note || ''}>
                                 <Chip
-                                  label={<QuantityLabel name={getComponentName(item.componentId) || 'Linh kiện'} quantity={item.quantity} />}
-                                  deleteIcon={<CloseIcon sx={{ fontSize: '17px !important' }} />}
-                                  onDoubleClick={canEdit ? () => startInlineEdit('component', item) : undefined}
-                                  onDelete={canEdit ? () => removeComponent(item.clientKey) : undefined}
-                                  sx={{ ...selectedChipStyles, width: 'fit-content', cursor: canEdit ? 'pointer' : 'default' }}
+                                  label={<QuantityLabel name={name} quantity={item.quantity} />}
+                                  sx={{ ...selectedChipStyles, width: 'fit-content', cursor: 'default' }}
                                 />
                               </Tooltip>
                             )
-                        ))}
+                          }
+
+                          return (
+                            <Box
+                              key={item.clientKey}
+                              sx={{
+                                display: 'inline-flex', alignItems: 'center', gap: 0.5, maxWidth: '100%',
+                                minHeight: 36, pl: 1.1, pr: 0.5, borderRadius: 2, bgcolor: '#f1f5f9',
+                              }}
+                            >
+                              <Tooltip title={item.note || name}>
+                                <Box sx={{ display: 'flex', minWidth: 0 }}>
+                                  <ButtonBase
+                                    type="button"
+                                    aria-label={`Chỉnh sửa ${name}`}
+                                    onClick={() => startInlineEdit('component', item)}
+                                    disabled={projectActionsPending}
+                                    sx={{ minWidth: 0, borderRadius: 1, '&.Mui-focusVisible': { outline: '2px solid #2563eb' } }}
+                                  >
+                                    <Typography component="span" variant="body2" noWrap sx={{ fontWeight: 600 }}>
+                                      {name}
+                                    </Typography>
+                                  </ButtonBase>
+                                </Box>
+                              </Tooltip>
+                              <ComponentQuantityStepper
+                                name={name}
+                                quantity={item.quantity}
+                                onChange={(quantity) => updateComponent(item.clientKey, 'quantity', quantity)}
+                                disabled={projectActionsPending}
+                              />
+                              <IconButton
+                                type="button"
+                                size="small"
+                                aria-label={`Xóa ${name}`}
+                                onClick={() => removeComponent(item.clientKey)}
+                                disabled={projectActionsPending}
+                                sx={{ flexShrink: 0, color: '#64748b', '&:hover': { color: '#ef4444' } }}
+                              >
+                                <CloseIcon sx={{ fontSize: 17 }} />
+                              </IconButton>
+                            </Box>
+                          )
+                        })}
                         {form.components.length === 0 && (
                           <Alert severity="info" sx={{ display: 'inline-flex', width: 'fit-content', py: 0.25 }}>
                             Chưa thêm linh kiện mượn kho.
