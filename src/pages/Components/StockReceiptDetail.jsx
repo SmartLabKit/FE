@@ -160,7 +160,9 @@ export default function StockReceiptDetail() {
     setEditError('')
 
     const rawLines = getLines(receipt)
-    const isoReceivedAt = editReceivedAt ? toReceiptReceivedAtIso(editReceivedAt) : receipt?.receivedAt
+    const receivedDateUnchanged = editReceivedAt === getVietnamDateInputValue(receipt?.receivedAt)
+    const isoReceivedAt =
+      editReceivedAt && !receivedDateUnchanged ? toReceiptReceivedAtIso(editReceivedAt) : receipt?.receivedAt
     const isoInvoiceDate = editInvoiceDate ? toSafeInvoiceDateIso(editInvoiceDate) : null
     const noteVal = editNote.trim() || null
 
@@ -344,6 +346,13 @@ export default function StockReceiptDetail() {
                   <Typography variant="h6" fontWeight={800}>{receipt.receiptCode || receipt.receiptId}</Typography>
                   <Chip label={receiptStatusOf(receipt.status).label} color={isCancelled ? 'default' : 'success'} />
                 </Box>
+                {isCancelled && (
+                  <Alert severity="warning" sx={{ mb: 2 }}>
+                    Đã hủy{receipt.cancelledAt ? ` lúc ${formatDateTime(receipt.cancelledAt)}` : ''}
+                    {receipt.cancelledByName ? ` bởi ${receipt.cancelledByName}` : ''}
+                    {receipt.cancelReason ? `. Lý do: ${receipt.cancelReason}` : ''}
+                  </Alert>
+                )}
                 <Grid container spacing={2}>
                   <Grid size={{ xs: 12, sm: 6, md: 3 }}>
                     <Typography color="text.secondary" fontSize={13}>Nhà cung cấp</Typography>

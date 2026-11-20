@@ -7,11 +7,13 @@ import {
   Card,
   CardContent,
   Chip,
+  FormControlLabel,
   Grid,
   IconButton,
   InputAdornment,
   MenuItem,
   Stack,
+  Switch,
   Tab,
   Tabs,
   TextField,
@@ -736,6 +738,19 @@ export default function NewComponent() {
                     placeholder="cái, chiếc, bộ, gói, cuộn..."
                   />
                 </Grid>
+                {componentId && (
+                  <Grid size={{ xs: 12, md: 6 }}>
+                    <FormControlLabel
+                      control={
+                        <Switch
+                          checked={form.isActive !== false}
+                          onChange={(event) => setForm((current) => ({ ...current, isActive: event.target.checked }))}
+                        />
+                      }
+                      label={form.isActive !== false ? 'Đang hoạt động' : 'Ngừng hoạt động'}
+                    />
+                  </Grid>
+                )}
                 <Grid size={{ xs: 12, md: 6 }}>
                   <TextField
                     fullWidth

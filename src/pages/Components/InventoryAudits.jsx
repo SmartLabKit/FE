@@ -74,7 +74,7 @@ function StartAuditDialog({ onClose, onStarted }) {
             renderInput={(params) => <TextField {...params} label="Tủ cần kiểm kê" required />}
           />
           <TextField label="Ghi chú (không bắt buộc)" value={note} onChange={(event) => setNote(event.target.value)} fullWidth />
-          <Alert severity="info">Mỗi tủ chỉ có một phiên đang kiểm. Kho chỉ thay đổi khi bấm Hoàn tất kiểm kê.</Alert>
+          <Alert severity="info">Mỗi tủ chỉ có một phiên đang kiểm. Tồn kho chỉ thay đổi khi quản lý kho duyệt kết quả đếm.</Alert>
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
