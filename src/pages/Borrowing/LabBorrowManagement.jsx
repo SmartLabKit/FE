@@ -428,7 +428,7 @@ export default function LabBorrowManagement() {
   return (
     <PortalLayout
       headerTitle="Đơn mượn tại Lab"
-      headerSubtitle="Xử lý đơn đã duyệt và chuyển hàng giữa các phòng Lab"
+      headerSubtitle="Xử lý đơn đã duyệt: giao đồ, nhận trả và theo dõi đơn của lab mình"
       activeMenuKey="handover"
     >
       <Container maxWidth="xl" sx={{ py: 3 }}>
@@ -459,11 +459,13 @@ export default function LabBorrowManagement() {
             }}
             aria-label="Danh sách đơn Lab"
           >
-            <Tab label="Đơn mượn" />
-            <Tab label={`Chuyển liên lab (${transfers.length})`} />
-            <Tab label="Quầy giao đồ" />
-            <Tab label="Quầy nhận trả" />
-            <Tab label="Lịch sử đã trả" />
+            <Tab value={0} label="Đơn mượn" />
+            {(transfers.length > 0 || tab === 1) && (
+              <Tab value={1} label={`Đơn cũ chờ chuyển lab (${transfers.length})`} />
+            )}
+            <Tab value={2} label="Quầy giao đồ" />
+            <Tab value={3} label="Quầy nhận trả" />
+            <Tab value={4} label="Lịch sử đã trả" />
           </Tabs>
 
           {/* Thanh tìm kiếm & bộ lọc trạng thái đơn mượn */}
@@ -718,6 +720,7 @@ export default function LabBorrowManagement() {
             onPageChange={(_, nextPage) => setPage(nextPage + 1)}
             rowsPerPage={PAGE_SIZE}
             rowsPerPageOptions={[PAGE_SIZE]}
+            labelDisplayedRows={({ from, to, count }) => `${from}–${to} / ${count}`}
           />
         </Paper>
 
