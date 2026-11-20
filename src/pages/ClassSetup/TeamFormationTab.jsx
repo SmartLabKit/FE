@@ -195,6 +195,10 @@ export default function TeamFormationTab({
               minTeamSize: min,
               maxTeamSize: max,
               deadline: payload.deadline,
+              teams: (prev.teams || []).map((t) => ({
+                ...t,
+                maxTeamSize: max,
+              })),
             }
           : null
       )
@@ -334,7 +338,6 @@ export default function TeamFormationTab({
               variant="contained"
               color="primary"
               size="medium"
-              startIcon={<AutoAwesomeIcon />}
               disabled={!isSettingsConfigured}
               onClick={handleOpenAutoAssignModal}
               sx={{
@@ -634,6 +637,7 @@ export default function TeamFormationTab({
                 teams.map((team) => {
                   const min = overview.minTeamSize || 0
                   const missingCount = Math.max(0, min - (team.acceptedCount || 0))
+                  const effectiveMax = team.maxTeamSize ?? overview?.maxTeamSize
 
                   return (
                     <TableRow key={team.teamId} hover sx={{ '&:last-child td': { borderBottom: 0 } }}>
@@ -649,7 +653,7 @@ export default function TeamFormationTab({
 
                       {/* Cột 3: THÀNH VIÊN */}
                       <TableCell align="center" sx={{ py: 1.3, fontWeight: 600 }}>
-                        {team.acceptedCount}/{team.maxTeamSize}
+                        {team.acceptedCount}/{effectiveMax ?? '-'}
                       </TableCell>
 
                       {/* Cột 4: LỜI MỜI CHỜ */}
@@ -869,6 +873,7 @@ export default function TeamFormationTab({
         onClose={() => setAutoAssignOpen(false)}
         classId={classId}
         maxTeamSize={overview?.maxTeamSize}
+        overviewTeams={teams}
         onSuccess={() => {
           setAutoAssignOpen(false)
           window.location.reload()
@@ -915,7 +920,7 @@ export default function TeamFormationTab({
 // =============================================================================
 // MODAL 1: TỰ XẾP (AutoAssignModal)
 // =============================================================================
-function AutoAssignModal({ open, onClose, classId, maxTeamSize, onSuccess }) {
+function AutoAssignModal({ open, onClose, classId, maxTeamSize, overviewTeams, onSuccess }) {
   const [loading, setLoading] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
@@ -961,9 +966,39 @@ function AutoAssignModal({ open, onClose, classId, maxTeamSize, onSuccess }) {
       .finally(() => setLoading(false))
   }, [open, classId])
 
+  // Danh sách các nhóm hợp lệ để xếp vào (chưa có đề tài) gộp từ overviewTeams và preview.existingTeams
+  const mergedEligibleTeams = (() => {
+    const map = new Map()
+    // Ưu tiên các nhóm từ overview.teams (lọc !team.hasProject)
+    ;(overviewTeams || []).forEach((t) => {
+      if (!t.hasProject) {
+        map.set(t.teamId, { teamId: t.teamId, teamName: t.teamName, hasProject: false })
+      }
+    })
+    // Gộp thêm preview.existingTeams
+    ;(preview?.existingTeams || []).forEach((t) => {
+      if (!t.hasProject) {
+        if (!map.has(t.teamId)) {
+          map.set(t.teamId, { teamId: t.teamId, teamName: t.teamName, hasProject: false })
+        }
+      }
+    })
+    return Array.from(map.values())
+  })()
+
+  // Sĩ số cơ bản của từng nhóm (từ preview.existingTeams hoặc overviewTeams)
+  const getBaseCount = (teamId) => {
+    const previewTeam = preview?.existingTeams?.find((t) => t.teamId === teamId)
+    if (previewTeam && previewTeam.currentCount !== undefined) {
+      return previewTeam.currentCount
+    }
+    const ovTeam = (overviewTeams || []).find((t) => t.teamId === teamId)
+    return ovTeam?.acceptedCount || 0
+  }
+
   // Tính sĩ số mới cho từng nhóm dựa trên studentTeamMap
   const computeNewCount = (teamId) => {
-    const base = preview?.existingTeams?.find((t) => t.teamId === teamId)?.currentCount || 0
+    const base = getBaseCount(teamId)
     const added = Object.values(studentTeamMap).filter((tid) => tid === teamId).length
     return base + added
   }
@@ -1071,8 +1106,9 @@ function AutoAssignModal({ open, onClose, classId, maxTeamSize, onSuccess }) {
 
                           {/* Dropdown đổi nhóm (chỉ khi nhóm đích chưa có đề tài) */}
                           <FormControl size="small" sx={{ minWidth: 160 }}>
-                            <InputLabel>Xếp vào nhóm</InputLabel>
+                            <InputLabel id={`assign-team-label-${sv.studentProfileId}`}>Xếp vào nhóm</InputLabel>
                             <Select
+                              labelId={`assign-team-label-${sv.studentProfileId}`}
                               label="Xếp vào nhóm"
                               value={curTeamId}
                               onChange={(e) =>
@@ -1081,14 +1117,20 @@ function AutoAssignModal({ open, onClose, classId, maxTeamSize, onSuccess }) {
                                   [sv.studentProfileId]: e.target.value,
                                 }))
                               }
+                              MenuProps={{
+                                PaperProps: {
+                                  sx: {
+                                    zIndex: 1400,
+                                    maxHeight: 300,
+                                  },
+                                },
+                              }}
                             >
-                              {(preview.existingTeams || [])
-                                .filter((t) => t.hasProject === false)
-                                .map((t) => (
-                                  <MenuItem key={t.teamId} value={t.teamId}>
-                                    {t.teamName}
-                                  </MenuItem>
-                                ))}
+                              {mergedEligibleTeams.map((t) => (
+                                <MenuItem key={t.teamId} value={t.teamId}>
+                                  {t.teamName}
+                                </MenuItem>
+                              ))}
                             </Select>
                           </FormControl>
 
