@@ -34,6 +34,7 @@ const headCellSx = { fontWeight: 700, color: '#334155' }
 
 function StartAuditDialog({ onClose, onStarted }) {
   const [cabinets, setCabinets] = useState([])
+  const [busyCabinets, setBusyCabinets] = useState({})
   const [cabinet, setCabinet] = useState(null)
   const [note, setNote] = useState('')
   const [error, setError] = useState('')
@@ -44,6 +45,20 @@ function StartAuditDialog({ onClose, onStarted }) {
     inventoryService.getCabinets()
       .then((items) => { if (active) setCabinets(items) })
       .catch((loadError) => { if (active) setError(extractErrorMessage(loadError, 'Không thể tải danh sách tủ.')) })
+    Promise.all(
+      ['InProgress', 'Submitted'].map((value) =>
+        inventoryService.getInventoryAudits({ status: value, page: 1, size: 100 }).catch(() => null)
+      )
+    ).then((results) => {
+      if (!active) return
+      const busy = {}
+      results.forEach((res, index) => {
+        rowsOf(res).forEach((audit) => {
+          busy[audit.cabinetId] = index === 0 ? 'đang có phiên kiểm' : 'đang chờ duyệt kết quả'
+        })
+      })
+      setBusyCabinets(busy)
+    })
     return () => { active = false }
   }, [])
 
@@ -70,6 +85,16 @@ function StartAuditDialog({ onClose, onStarted }) {
             value={cabinet}
             onChange={(_, value) => setCabinet(value)}
             getOptionLabel={cabinetLabel}
+            getOptionDisabled={(option) => Boolean(busyCabinets[option.cabinetId])}
+            renderOption={(props, option) => {
+              const { key, ...rest } = props
+              return (
+                <li key={key} {...rest}>
+                  {cabinetLabel(option)}
+                  {busyCabinets[option.cabinetId] ? ` — ${busyCabinets[option.cabinetId]}` : ''}
+                </li>
+              )
+            }}
             isOptionEqualToValue={(option, value) => option.cabinetId === value.cabinetId}
             renderInput={(params) => <TextField {...params} label="Tủ cần kiểm kê" required />}
           />

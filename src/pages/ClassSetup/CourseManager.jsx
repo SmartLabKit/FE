@@ -10,6 +10,7 @@ import {
   DialogTitle,
   IconButton,
   InputAdornment,
+  MenuItem,
   Paper,
   Snackbar,
   Table,
@@ -31,6 +32,7 @@ import {
   MenuBook as CourseIcon,
 } from '@mui/icons-material'
 import { academicService } from '../../services/academicService'
+import { inventoryService } from '../../services/inventoryService'
 
 /**
  * CourseManager Component: Quản lý danh mục môn học (Admin / Lab Staff)
@@ -43,6 +45,7 @@ import { academicService } from '../../services/academicService'
  */
 export default function CourseManager() {
   const [courses, setCourses] = useState([])
+  const [labRooms, setLabRooms] = useState([])
   const [loading, setLoading] = useState(false)
   const [search, setSearch] = useState('')
 
@@ -69,6 +72,27 @@ export default function CourseManager() {
   const showToast = (message, severity = 'success') => setToast({ open: true, message, severity })
 
   // Tải danh sách môn học
+  useEffect(() => {
+    let active = true
+    inventoryService
+      .getLabRooms()
+      .then((data) => {
+        const rooms = Array.isArray(data) ? data : data?.items || data?.labRooms || []
+        if (active) setLabRooms(rooms)
+      })
+      .catch(() => {
+        if (active) setLabRooms([])
+      })
+    return () => {
+      active = false
+    }
+  }, [])
+
+  const roomLabel = (roomId) => {
+    const room = labRooms.find((r) => r.roomId === roomId)
+    return room ? `${room.roomCode} · ${room.roomName}` : null
+  }
+
   const fetchCourses = useCallback(() => {
     setLoading(true)
     academicService
@@ -112,6 +136,7 @@ export default function CourseManager() {
       credits: 3,
       description: '',
       isActive: true,
+      roomId: '',
     })
     setFormErrors({})
     setOpenModal(true)
@@ -134,6 +159,7 @@ export default function CourseManager() {
       credits: target.credits || course.credits || 3,
       description: target.description || course.description || '',
       isActive: target.isActive !== undefined ? target.isActive : (course.isActive !== undefined ? course.isActive : true),
+      roomId: target.roomId || course.roomId || '',
     })
     setFormErrors({})
     setOpenModal(true)
@@ -170,6 +196,7 @@ export default function CourseManager() {
           credits: Number(form.credits),
           description: form.description.trim(),
           isActive: form.isActive,
+          roomId: form.roomId || null,
         })
         showToast('Tạo môn học mới thành công!', 'success')
       } else {
@@ -179,6 +206,7 @@ export default function CourseManager() {
           credits: Number(form.credits),
           description: form.description.trim(),
           isActive: form.isActive,
+          roomId: form.roomId || null,
         })
         showToast('Cập nhật thông tin môn học thành công!', 'success')
       }
@@ -292,6 +320,7 @@ export default function CourseManager() {
                 <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#424754' }}>MÃ MÔN</TableCell>
                 <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#424754' }}>TÊN MÔN HỌC</TableCell>
                 <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#424754' }}>TÍN CHỈ</TableCell>
+                <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#424754' }}>LAB</TableCell>
                 <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#424754' }}>MÔ TẢ CHI TIẾT</TableCell>
                 <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#424754' }}>TRẠNG THÁI</TableCell>
                 <TableCell align="right" sx={{ fontWeight: 800, fontSize: 11, color: '#424754' }}>
@@ -302,7 +331,7 @@ export default function CourseManager() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
+                  <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
                     <CircularProgress size={30} sx={{ color: '#0058be' }} />
                     <Typography variant="body2" sx={{ mt: 1, color: '#6b7280' }}>
                       Đang tải danh sách môn học...
@@ -311,7 +340,7 @@ export default function CourseManager() {
                 </TableRow>
               ) : filteredCourses.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={6} align="center" sx={{ py: 6 }}>
+                  <TableCell colSpan={7} align="center" sx={{ py: 6 }}>
                     <CourseIcon sx={{ fontSize: 40, color: '#c2c6d6', mb: 1 }} />
                     <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#131b2e' }}>
                       Không có môn học nào
@@ -332,6 +361,9 @@ export default function CourseManager() {
                     </TableCell>
                     <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#424754' }}>
                       {c.credits} TC
+                    </TableCell>
+                    <TableCell sx={{ fontSize: 12, color: c.roomId ? '#424754' : '#b45309', fontWeight: c.roomId ? 500 : 700 }}>
+                      {c.roomId ? roomLabel(c.roomId) || 'Đã gán' : 'Chưa gán lab'}
                     </TableCell>
                     <TableCell sx={{ fontSize: 12, color: '#6b7280', maxWidth: 300 }}>
                       {c.description || 'Chưa có mô tả'}
@@ -418,6 +450,23 @@ export default function CourseManager() {
                 error={Boolean(formErrors.courseName)}
                 helperText={formErrors.courseName}
               />
+
+              <TextField
+                select
+                label="Lab phụ trách"
+                size="small"
+                fullWidth
+                value={form.roomId || ''}
+                onChange={(e) => setForm({ ...form, roomId: e.target.value })}
+                helperText="Đề tài của các lớp thuộc môn này mượn linh kiện tại lab này. Chưa gán lab thì sinh viên không mượn được."
+              >
+                <MenuItem value="">— Chưa gán lab —</MenuItem>
+                {labRooms.map((room) => (
+                  <MenuItem key={room.roomId} value={room.roomId}>
+                    {room.roomCode} · {room.roomName}
+                  </MenuItem>
+                ))}
+              </TextField>
 
               <TextField
                 label="Mô Tả Nội Dung Môn Học"

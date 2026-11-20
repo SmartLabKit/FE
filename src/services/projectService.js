@@ -168,9 +168,9 @@ export const projectService = {
     }
   },
 
-  async submitProject(projectId) {
+  async submitProject(projectId, borrowDate = null) {
     try {
-      return unwrap(await api.post(`/api/projects/${projectId}/submit`, {}, {
+      return unwrap(await api.post(`/api/projects/${projectId}/submit`, { borrowDate: borrowDate || null }, {
         headers: { 'Content-Type': 'application/json' },
       }))
     } catch (error) {
@@ -186,9 +186,9 @@ export const projectService = {
     }
   },
 
-  async approveProject(projectId, comment = '') {
+  async approveProject(projectId, comment = '', adjustments = []) {
     try {
-      return unwrap(await api.post(`/api/projects/${projectId}/approve`, { comment }))
+      return unwrap(await api.post(`/api/projects/${projectId}/approve`, { comment: comment || null, adjustments }))
     } catch (error) {
       throw new Error(extractErrorMessage(error, 'Không thể duyệt project'), { cause: error })
     }

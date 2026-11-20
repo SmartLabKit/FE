@@ -322,6 +322,7 @@ export default function ProjectManagement() {
   const [suggestions, setSuggestions] = useState(null)
   const [selectedSuggestions, setSelectedSuggestions] = useState([])
   const [submitDialogOpen, setSubmitDialogOpen] = useState(false)
+  const [pickupDate, setPickupDate] = useState(() => localDateValue())
   const [inlineDraft, setInlineDraft] = useState(null)
   const [borrowDeadline, setBorrowDeadline] = useState(null)
   const [loadingDeadline, setLoadingDeadline] = useState(false)
@@ -466,6 +467,7 @@ export default function ProjectManagement() {
     if (!project?.projectId) return
     setBorrowDeadline(null)
     setDeadlineError('')
+    setPickupDate(localDateValue())
     setSubmitDialogOpen(true)
     if (!requiresBorrow) {
       setLoadingDeadline(false)
@@ -1018,7 +1020,10 @@ export default function ProjectManagement() {
         project.projectId,
         toProjectPayload(form)
       )
-      const submittedProject = await projectService.submitProject(updatedProject.projectId)
+      const submittedProject = await projectService.submitProject(
+        updatedProject.projectId,
+        requiresBorrow ? pickupDate : null
+      )
       let refreshedProject
       let refreshError
       try {
@@ -2013,10 +2018,20 @@ export default function ProjectManagement() {
                     </Typography>
                   </Box>
                   <Box>
-                    <Typography variant="caption" color="text.secondary" display="block">Ngày mượn</Typography>
-                    <Typography variant="body2" sx={{ fontWeight: 700, color: '#1e293b' }}>
-                      {formatVietnamDate(localDateValue())}
-                    </Typography>
+                    <Typography variant="caption" color="text.secondary" display="block">Ngày nhận đồ</Typography>
+                    <TextField
+                      type="date"
+                      size="small"
+                      value={pickupDate}
+                      onChange={(event) => setPickupDate(event.target.value)}
+                      slotProps={{
+                        htmlInput: {
+                          min: localDateValue(),
+                          max: borrowDeadline.dueDate ? getVietnamDateInputValue(borrowDeadline.dueDate) : undefined,
+                        },
+                      }}
+                      sx={{ mt: 0.5, '& input': { py: 0.5, fontSize: 13, fontWeight: 700 } }}
+                    />
                   </Box>
                   <Box>
                     <Typography variant="caption" color="text.secondary" display="block">Hạn trả thiết bị</Typography>
@@ -2054,6 +2069,9 @@ export default function ProjectManagement() {
               submitting ||
               loadingDeadline ||
               (requiresBorrow && (
+                !pickupDate ||
+                pickupDate < localDateValue() ||
+                (borrowDeadline?.dueDate && pickupDate > getVietnamDateInputValue(borrowDeadline.dueDate)) ||
                 Boolean(deadlineError) ||
                 !borrowDeadline ||
                 !borrowDeadline.canBorrow ||

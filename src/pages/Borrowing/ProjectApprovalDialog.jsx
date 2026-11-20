@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Alert,
   Box,
@@ -33,6 +33,7 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
   const [loading, setLoading] = useState(false)
   const [busy, setBusy] = useState(false)
   const [comment, setComment] = useState('')
+  const [approvedQty, setApprovedQty] = useState({})
   const [error, setError] = useState('')
   const rejectValidationMessage = 'Vui lòng nhập lý do từ chối.'
 
@@ -47,6 +48,7 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
       setDetail(null)
       setPendingBorrowDetail(null)
       setComment('')
+      setApprovedQty({})
       try {
         const result = await projectService.getProject(project.projectId)
         if (!active) return
@@ -87,11 +89,39 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
     currentStatus === 'Approved' && (Boolean(pendingBorrowRequest) || Boolean(project?.isSupplementary))
   const canReview = isProjectPending || isSupplementaryPending || Boolean(project?.hasPendingApproval)
 
+  const reviewLines = useMemo(() => {
+    const source = isSupplementaryPending ? pendingBorrowDetail?.items || [] : detail?.components || []
+    const byComponent = new Map()
+    source.forEach((item) => {
+      if (!item?.componentId) return
+      const current = byComponent.get(item.componentId)
+      if (current) current.quantity += Number(item.quantity) || 0
+      else byComponent.set(item.componentId, { componentId: item.componentId, componentName: item.componentName, unit: item.unit, quantity: Number(item.quantity) || 0 })
+    })
+    return [...byComponent.values()]
+  }, [isSupplementaryPending, pendingBorrowDetail, detail])
+
+  const adjustments = reviewLines
+    .filter((line) => approvedQty[line.componentId] !== undefined && approvedQty[line.componentId] !== '' && Number(approvedQty[line.componentId]) < line.quantity)
+    .map((line) => ({ componentId: line.componentId, quantity: Number(approvedQty[line.componentId]) }))
+
   const handleApprove = async () => {
+    const invalid = reviewLines.some((line) => {
+      const value = approvedQty[line.componentId]
+      return value !== undefined && (value === '' || Number(value) < 0 || Number(value) > line.quantity)
+    })
+    if (invalid) {
+      setError('Số lượng duyệt phải từ 0 đến số nhóm xin.')
+      return
+    }
+    if (adjustments.length > 0 && !comment.trim()) {
+      setError('Đã giảm số lượng thì phải ghi lý do cho nhóm ở ô nhận xét.')
+      return
+    }
     setBusy(true)
     setError('')
     try {
-      await projectService.approveProject(project.projectId, comment.trim())
+      await projectService.approveProject(project.projectId, comment.trim(), adjustments)
       onReviewed(
         isSupplementaryPending
           ? 'Đã duyệt đơn mượn thêm thành công.'
@@ -400,13 +430,46 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
 
                 <Divider />
 
+                {canReview && reviewLines.length > 0 && (
+                  <Box>
+                    <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 0.5 }}>
+                      Số lượng duyệt
+                    </Typography>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                      Chỉ giảm được (0 = bỏ linh kiện khỏi đơn). Muốn tăng thì trả về để nhóm gửi lại. Có giảm thì phải ghi lý do.
+                    </Typography>
+                    <Stack spacing={1}>
+                      {reviewLines.map((line) => (
+                        <Box key={line.componentId} sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
+                          <Typography variant="body2" sx={{ flex: '1 1 220px', fontWeight: 600 }}>
+                            {line.componentName}
+                          </Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ minWidth: 90 }}>
+                            Nhóm xin: {line.quantity} {line.unit || ''}
+                          </Typography>
+                          <TextField
+                            type="number"
+                            size="small"
+                            label="Duyệt"
+                            value={approvedQty[line.componentId] ?? line.quantity}
+                            onChange={(event) => setApprovedQty((current) => ({ ...current, [line.componentId]: event.target.value }))}
+                            disabled={busy}
+                            slotProps={{ htmlInput: { min: 0, max: line.quantity, step: 1 } }}
+                            sx={{ width: 110 }}
+                          />
+                        </Box>
+                      ))}
+                    </Stack>
+                  </Box>
+                )}
+
                 {/* Khối nhận xét / trạng thái phê duyệt */}
                 {canReview ? (
                   <TextField
                     label={
                       isSupplementaryPending
-                        ? 'Nhận xét duyệt đơn mượn thêm (bắt buộc nếu từ chối)'
-                        : 'Nhận xét (bắt buộc nếu từ chối)'
+                        ? 'Nhận xét duyệt đơn mượn thêm (bắt buộc nếu từ chối hoặc giảm số lượng)'
+                        : 'Nhận xét (bắt buộc nếu từ chối hoặc giảm số lượng)'
                     }
                     value={comment}
                     onChange={(event) => {
