@@ -318,6 +318,7 @@ export default function ProjectManagement() {
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
   const [suggesting, setSuggesting] = useState(false)
+  const [suggestSeconds, setSuggestSeconds] = useState(0)
   const [submitting, setSubmitting] = useState(false)
   const [withdrawing, setWithdrawing] = useState(false)
   const [suggestions, setSuggestions] = useState(null)
@@ -574,14 +575,18 @@ export default function ProjectManagement() {
       return
     }
     setSuggesting(true)
+    setSuggestSeconds(0)
+    const startedAt = Date.now()
+    const ticker = window.setInterval(() => setSuggestSeconds(Math.floor((Date.now() - startedAt) / 1000)), 1000)
     try {
-      const result = await projectService.suggestComponents(form.description.trim())
+      const result = await projectService.suggestComponents(form.description.trim(), team?.classId)
       setSuggestions(result)
       setSelectedSuggestions([])
       writeSuggestionCache(result, [])
     } catch (error) {
       showToast(error.message || 'Không thể lấy gợi ý linh kiện.', 'error')
     } finally {
+      window.clearInterval(ticker)
       setSuggesting(false)
     }
   }
@@ -1450,7 +1455,9 @@ export default function ProjectManagement() {
                               {suggesting ? 'Đang lấy gợi ý...' : 'AI Gợi ý Linh kiện'}
                             </Button>
                             <Typography variant="caption" color="text.secondary">
-                              Tối đa 10 lượt mỗi giờ.
+                              {suggesting
+                                ? `AI đang phân tích mô tả và tồn kho của lab (thường 2–6 giây)… ${suggestSeconds}s`
+                                : 'Tối đa 10 lượt mỗi giờ.'}
                             </Typography>
                           </Box>
                           {suggestions && (warehouseSuggestions.length > 0 || availableSelfSuppliedSuggestions.length > 0) && (
