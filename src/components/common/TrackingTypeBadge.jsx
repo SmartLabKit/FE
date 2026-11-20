@@ -1,5 +1,11 @@
 import { Chip } from '@mui/material'
 
+const TYPE_LABELS = {
+  CONSUMABLE: 'Tiêu hao',
+  REUSABLE: 'Tái sử dụng',
+  HIGH_VALUE: 'Giá trị cao',
+}
+
 const TYPE_STYLES = {
   CONSUMABLE: { borderColor: '#fdba74', color: '#ea580c' },
   REUSABLE: { borderColor: '#93c5fd', color: '#2563eb' },
@@ -8,7 +14,7 @@ const TYPE_STYLES = {
 
 export default function TrackingTypeBadge({ type }) {
   const normalizedType = String(type || '').trim().toUpperCase()
-  const label = normalizedType || '—'
+  const label = TYPE_LABELS[normalizedType] || normalizedType || '—'
 
   return (
     <Chip

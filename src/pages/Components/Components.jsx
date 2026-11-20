@@ -40,9 +40,9 @@ import {
 
 const TRACKING_TYPE_OPTIONS = [
   { value: '', label: 'Tất cả loại quản lý' },
-  { value: 'HIGH_VALUE', label: 'HIGH_VALUE (Giá thành cao)' },
-  { value: 'CONSUMABLE', label: 'CONSUMABLE (Tiêu hao)' },
-  { value: 'REUSABLE', label: 'REUSABLE (Tái sử dụng)' },
+  { value: 'HIGH_VALUE', label: 'Giá trị cao', short: 'Giá trị cao' },
+  { value: 'CONSUMABLE', label: 'Tiêu hao', short: 'Tiêu hao' },
+  { value: 'REUSABLE', label: 'Tái sử dụng', short: 'Tái sử dụng' },
 ]
 
 export default function Components() {
@@ -235,7 +235,7 @@ export default function Components() {
               {TRACKING_TYPE_OPTIONS.map((opt) => (
                 <Chip
                   key={opt.value}
-                  label={opt.value === '' ? 'Tất cả' : opt.value}
+                  label={opt.value === '' ? 'Tất cả' : opt.short}
                   size="small"
                   clickable
                   color={typeFilter === opt.value ? 'primary' : 'default'}

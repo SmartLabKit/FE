@@ -52,11 +52,11 @@ import { userService } from '../../services/userService'
 
 // Danh sách vai trò hệ thống
 const SYSTEM_ROLES = [
-  { value: 'Admin', label: 'Quản trị viên (Admin)', color: '#0058be', icon: <AdminIcon fontSize="small" /> },
-  { value: 'LabStaff', label: 'Cán bộ Lab (LabStaff)', color: '#7c3aed', icon: <StaffIcon fontSize="small" /> },
-  { value: 'InventoryManager', label: 'Quản lý kho (InventoryManager)', color: '#0d9488', icon: <InventoryIcon fontSize="small" /> },
-  { value: 'Lecturer', label: 'Giảng viên (Lecturer)', color: '#0284c7', icon: <SchoolIcon fontSize="small" /> },
-  { value: 'Student', label: 'Sinh viên (Student)', color: '#059669', icon: <PersonIcon fontSize="small" /> },
+  { value: 'Admin', short: 'Quản trị viên', label: 'Quản trị viên (Admin)', color: '#0058be', icon: <AdminIcon fontSize="small" /> },
+  { value: 'LabStaff', short: 'Nhân viên lab', label: 'Nhân viên lab (LabStaff)', color: '#7c3aed', icon: <StaffIcon fontSize="small" /> },
+  { value: 'InventoryManager', short: 'Quản lý kho', label: 'Quản lý kho (InventoryManager)', color: '#0d9488', icon: <InventoryIcon fontSize="small" /> },
+  { value: 'Lecturer', short: 'Giảng viên', label: 'Giảng viên (Lecturer)', color: '#0284c7', icon: <SchoolIcon fontSize="small" /> },
+  { value: 'Student', short: 'Sinh viên', label: 'Sinh viên (Student)', color: '#059669', icon: <PersonIcon fontSize="small" /> },
 ]
 
 export default function Users() {
@@ -313,6 +313,11 @@ export default function Users() {
     }
   }
 
+  const getRoleShortName = (roleName) => {
+    const found = SYSTEM_ROLES.find((r) => r.value.toLowerCase() === (roleName || '').toLowerCase())
+    return found ? found.short : roleName
+  }
+
   // Lấy màu badge cho role
   const getRoleBadge = (roleName) => {
     const found = SYSTEM_ROLES.find((r) => r.value.toLowerCase() === (roleName || '').toLowerCase())
@@ -462,7 +467,7 @@ export default function Users() {
                 <TableRow>
                   <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#424754' }}>NGƯỜI DÙNG</TableCell>
                   <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#424754' }}>EMAIL & LIÊN HỆ</TableCell>
-                  <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#424754' }}>VAI TRÒ (ROLES)</TableCell>
+                  <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#424754' }}>VAI TRÒ</TableCell>
                   <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#424754' }}>TRẠNG THÁI</TableCell>
                   <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#424754' }}>ĐĂNG NHẬP CUỐI</TableCell>
                   <TableCell align="right" sx={{ fontWeight: 700, fontSize: 12, color: '#424754' }}>
@@ -550,7 +555,7 @@ export default function Users() {
                             return (
                               <Chip
                                 key={r}
-                                label={r}
+                                label={getRoleShortName(r)}
                                 size="small"
                                 sx={{
                                   fontSize: 11,
