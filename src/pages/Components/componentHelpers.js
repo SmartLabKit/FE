@@ -215,6 +215,13 @@ export function saveLocalTutorials(id, tutorials) {
 // Lấy URL ảnh đại diện chính của linh kiện (hỗ trợ cả API backend lẫn localStorage đã lưu khi upload)
 export function getComponentImage(component) {
   if (!component) return ''
+
+  // API danh sách trả ảnh đại diện qua primaryImageUrl.
+  const primaryImageUrl = component.primaryImageUrl || component.PrimaryImageUrl
+  if (typeof primaryImageUrl === 'string' && primaryImageUrl.trim()) {
+    return primaryImageUrl.trim()
+  }
+
   const id = component.componentId || component.id || component.ComponentId || component.Id
 
   // 1. Kiểm tra mảng images từ API
