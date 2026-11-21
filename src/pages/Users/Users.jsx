@@ -97,7 +97,17 @@ export default function Users() {
   // State Modal Sửa thông tin user (PUT /api/users/{id})
   const [editDialogOpen, setEditDialogOpen] = useState(false)
   const [editingUser, setEditingUser] = useState(null)
-  const [editForm, setEditForm] = useState({ fullName: '', phoneNumber: '', isActive: true })
+  const [editForm, setEditForm] = useState({
+    username: '',
+    email: '',
+    password: '',
+    fullName: '',
+    phoneNumber: '',
+    role: 'LabStaff',
+    isActive: true,
+  })
+  const [editErrors, setEditErrors] = useState({})
+  const [editApiError, setEditApiError] = useState('')
   const [editSubmitting, setEditSubmitting] = useState(false)
 
   // State Modal Reset mật khẩu tạm (POST /api/users/{id}/reset-password)
@@ -257,9 +267,26 @@ export default function Users() {
     }
   }
 
+  // Validate form sửa người dùng
+  const validateEditForm = () => {
+    const errors = {}
+    if (!editForm.username.trim()) errors.username = 'Tên đăng nhập không được để trống'
+    if (!editForm.email.trim()) errors.email = 'Email không được để trống'
+    else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(editForm.email)) errors.email = 'Email không đúng định dạng'
+    if (editForm.password && passwordError(editForm.password)) {
+      errors.password = passwordError(editForm.password)
+    }
+    if (!editForm.fullName.trim()) errors.fullName = 'Họ và tên không được để trống'
+
+    setEditErrors(errors)
+    return Object.keys(errors).length === 0
+  }
+
   // Mở modal sửa thông tin người dùng (GET /api/users/{id})
   const handleOpenEditDialog = async (user) => {
     setEditingUser(user)
+    setEditErrors({})
+    setEditApiError('')
     let target = user
     try {
       const detail = await userService.getUserById(user.userId)
@@ -267,9 +294,16 @@ export default function Users() {
     } catch {
       // fallback
     }
+
+    const resolvedRole = (target.roles && target.roles[0]) || (user.roles && user.roles[0]) || 'LabStaff'
+
     setEditForm({
+      username: target.username || user.username || '',
+      email: target.email || user.email || '',
+      password: '',
       fullName: target.fullName || user.fullName || '',
       phoneNumber: target.phoneNumber || user.phoneNumber || '',
+      role: resolvedRole,
       isActive: (target.isActive !== undefined ? target.isActive : user.isActive) !== false,
     })
     setEditDialogOpen(true)
@@ -279,13 +313,31 @@ export default function Users() {
   const handleSaveEditUser = async (e) => {
     e.preventDefault()
     if (!editingUser) return
+    if (!validateEditForm()) return
+
     setEditSubmitting(true)
+    setEditApiError('')
+
+    const payload = {
+      role: editForm.role,
+      username: editForm.username.trim(),
+      email: editForm.email.trim(),
+      fullName: editForm.fullName.trim(),
+      phoneNumber: editForm.phoneNumber ? editForm.phoneNumber.trim() : '',
+      isActive: Boolean(editForm.isActive),
+    }
+
+    if (editForm.password && editForm.password.trim()) {
+      payload.password = editForm.password.trim()
+    }
+
     try {
-      await userService.updateUser(editingUser.userId, editForm)
+      await userService.updateUser(editingUser.userId, payload)
       showToast(`Đã cập nhật thông tin người dùng ${editForm.fullName || editingUser.username}!`, 'success')
       setEditDialogOpen(false)
       fetchUsers()
     } catch (err) {
+      setEditApiError(err.message || 'Cập nhật người dùng thất bại')
       showToast(err.message, 'error')
     } finally {
       setEditSubmitting(false)
@@ -1010,59 +1062,127 @@ export default function Users() {
           onClose={() => !editSubmitting && setEditDialogOpen(false)}
           maxWidth="sm"
           fullWidth
-          PaperProps={{ sx: { borderRadius: 2 } }}
+          PaperProps={{ sx: { borderRadius: 2.5 } }}
         >
-          <form onSubmit={handleSaveEditUser}>
-            <DialogTitle sx={{ px: 3, pt: 3, pb: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
-              <Box>
-                <Typography variant="h6" sx={{ fontWeight: 800, color: '#131b2e' }}>
-                  Cập nhật thông tin người dùng
-                </Typography>
-                <Typography variant="caption" sx={{ color: '#6b7280' }}>
-                  Tài khoản: <strong>{editingUser?.username}</strong> ({editingUser?.email})
-                </Typography>
-              </Box>
-              <IconButton size="small" onClick={() => setEditDialogOpen(false)}>
-                <CloseIcon fontSize="small" />
-              </IconButton>
-            </DialogTitle>
-            <Divider />
-            <DialogContent sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
-              <TextField
-                fullWidth
-                size="small"
-                label="Họ và tên"
-                value={editForm.fullName}
-                onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })}
-                required
-              />
-              <TextField
-                fullWidth
-                size="small"
-                label="Số điện thoại"
-                value={editForm.phoneNumber}
-                onChange={(e) => setEditForm({ ...editForm, phoneNumber: e.target.value })}
-                placeholder="VD: 0912345678"
-              />
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', p: 1.5, border: '1px solid #e4e6ef', borderRadius: 1.5 }}>
-                <Box>
-                  <Typography variant="body2" sx={{ fontWeight: 700, color: '#131b2e' }}>
-                    Trạng thái hoạt động
-                  </Typography>
-                  <Typography variant="caption" sx={{ color: '#6b7280' }}>
-                    Cho phép người dùng đăng nhập vào hệ thống
-                  </Typography>
+          <DialogTitle sx={{ fontWeight: 800, fontSize: 17, color: '#131b2e', pb: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+            <Box>
+              <Typography variant="h6" sx={{ fontWeight: 800, color: '#131b2e' }}>
+                Cập nhật thông tin người dùng
+              </Typography>
+              <Typography variant="caption" sx={{ color: '#6b7280' }}>
+                Tài khoản: <strong>{editingUser?.username}</strong> ({editingUser?.email})
+              </Typography>
+            </Box>
+            <IconButton size="small" onClick={() => setEditDialogOpen(false)} disabled={editSubmitting}>
+              <CloseIcon fontSize="small" />
+            </IconButton>
+          </DialogTitle>
+          <Divider />
+          <Box component="form" onSubmit={handleSaveEditUser}>
+            <DialogContent sx={{ py: 2.5 }}>
+              {editApiError && (
+                <Alert severity="error" sx={{ mb: 2, borderRadius: 1.5, fontSize: 13 }}>
+                  {editApiError}
+                </Alert>
+              )}
+
+              <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+                {/* Vai trò */}
+                <FormControl fullWidth size="small">
+                  <InputLabel>Vai trò hệ thống *</InputLabel>
+                  <Select
+                    value={editForm.role}
+                    label="Vai trò hệ thống *"
+                    onChange={(e) => setEditForm({ ...editForm, role: e.target.value })}
+                  >
+                    {SYSTEM_ROLES.map((r) => (
+                      <MenuItem key={r.value} value={r.value}>
+                        {r.label}
+                      </MenuItem>
+                    ))}
+                  </Select>
+                </FormControl>
+
+                {/* Hàng 2: Grid 2 cột - Username & Email */}
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                  <TextField
+                    label="Tên đăng nhập (Username) *"
+                    size="small"
+                    value={editForm.username}
+                    onChange={(e) => setEditForm({ ...editForm, username: e.target.value })}
+                    error={Boolean(editErrors.username)}
+                    helperText={editErrors.username}
+                  />
+                  <TextField
+                    label="Email liên kết *"
+                    size="small"
+                    type="email"
+                    value={editForm.email}
+                    onChange={(e) => setEditForm({ ...editForm, email: e.target.value })}
+                    error={Boolean(editErrors.email)}
+                    helperText={editErrors.email}
+                  />
                 </Box>
-                <Checkbox
-                  checked={editForm.isActive}
-                  onChange={(e) => setEditForm({ ...editForm, isActive: e.target.checked })}
-                  color="primary"
+
+                {/* Hàng 3: Grid 2 cột - Full Name & Phone Number */}
+                <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }}>
+                  <TextField
+                    label="Họ và tên *"
+                    size="small"
+                    value={editForm.fullName}
+                    onChange={(e) => setEditForm({ ...editForm, fullName: e.target.value })}
+                    error={Boolean(editErrors.fullName)}
+                    helperText={editErrors.fullName}
+                  />
+                  <TextField
+                    label="Số điện thoại"
+                    size="small"
+                    value={editForm.phoneNumber}
+                    onChange={(e) => setEditForm({ ...editForm, phoneNumber: e.target.value })}
+                  />
+                </Box>
+
+                {/* Trường Mật khẩu mới (tùy chọn) */}
+                <TextField
+                  label="Mật khẩu mới (để trống nếu không đổi)"
+                  size="small"
+                  type="password"
+                  value={editForm.password}
+                  onChange={(e) => setEditForm({ ...editForm, password: e.target.value })}
+                  error={Boolean(editErrors.password)}
+                  helperText={editErrors.password || `Để trống nếu không muốn đổi mật khẩu. ${PASSWORD_HINT}`}
                 />
+
+                {/* Trạng thái hoạt động */}
+                <Box
+                  sx={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    p: 1.5,
+                    border: '1px solid #e4e6ef',
+                    borderRadius: 1.5,
+                  }}
+                >
+                  <Box>
+                    <Typography variant="body2" sx={{ fontWeight: 700, color: '#131b2e' }}>
+                      Trạng thái hoạt động
+                    </Typography>
+                    <Typography variant="caption" sx={{ color: '#6b7280' }}>
+                      Cho phép người dùng đăng nhập vào hệ thống
+                    </Typography>
+                  </Box>
+                  <Checkbox
+                    checked={editForm.isActive}
+                    onChange={(e) => setEditForm({ ...editForm, isActive: e.target.checked })}
+                    color="primary"
+                  />
+                </Box>
               </Box>
             </DialogContent>
             <Divider />
             <DialogActions sx={{ px: 3, py: 1.5 }}>
-              <Button onClick={() => setEditDialogOpen(false)} disabled={editSubmitting} sx={{ textTransform: 'none' }}>
+              <Button onClick={() => setEditDialogOpen(false)} disabled={editSubmitting} sx={{ textTransform: 'none', color: '#6b7280' }}>
                 Hủy bỏ
               </Button>
               <Button
@@ -1070,12 +1190,18 @@ export default function Users() {
                 variant="contained"
                 disabled={editSubmitting}
                 startIcon={editSubmitting && <CircularProgress size={16} color="inherit" />}
-                sx={{ bgcolor: '#0058be', textTransform: 'none', fontWeight: 700 }}
+                sx={{
+                  bgcolor: '#0058be',
+                  textTransform: 'none',
+                  fontWeight: 700,
+                  boxShadow: 'none',
+                  '&:hover': { bgcolor: '#004aa6' },
+                }}
               >
                 {editSubmitting ? 'Đang lưu...' : 'Lưu thay đổi'}
               </Button>
             </DialogActions>
-          </form>
+          </Box>
         </Dialog>
 
         {/* Dialog 4: Hiển thị mật khẩu tạm khi Reset mật khẩu (POST /api/users/{id}/reset-password) */}

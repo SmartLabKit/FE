@@ -74,7 +74,7 @@ export const userService = {
    * Cập nhật thông tin người dùng
    * PUT /api/users/{id}
    * Quyền: USER_MANAGE (Admin)
-   * Body: UpdateUserRequest { fullName, phoneNumber, isActive }
+   * Body: UpdateUserRequest { fullName, phoneNumber, isActive, username, email, password, role }
    * Trả về (200): UserDetailResponse
    */
   async updateUser(id, data) {
