@@ -792,7 +792,7 @@ export default function TeamFormationTab({
               whiteSpace: 'nowrap',
             }}
           >
-            Xếp đã chọn vào nhóm...
+            Xếp nhóm
           </Button>
         </Stack>
 
@@ -1040,7 +1040,7 @@ function AutoAssignModal({ open, onClose, classId, maxTeamSize, overviewTeams, o
       })
       onSuccess()
     } catch (err) {
-      setError(extractErrorMessage(err, 'Áp dụng xếp nhóm thất bại'))
+      setError(extractErrorMessage(err, 'Áp dụng không thành công. Vui lòng thử lại.'))
     } finally {
       setSubmitting(false)
     }
@@ -1246,10 +1246,9 @@ function AutoAssignModal({ open, onClose, classId, maxTeamSize, overviewTeams, o
           color="primary"
           onClick={handleSubmit}
           disabled={loading || submitting || !preview || (needsConfirm && !allowExceedMax)}
-          startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : <AutoAwesomeIcon />}
           sx={{ fontWeight: 700, textTransform: 'none' }}
         >
-          Áp dụng xếp nhóm
+          Áp dụng
         </Button>
       </DialogActions>
     </Dialog>
@@ -1402,7 +1401,7 @@ function MoveMemberModal({ open, onClose, classId, sourceTeam, allTeams, maxTeam
           startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />}
           sx={{ fontWeight: 700, textTransform: 'none' }}
         >
-          Lưu
+          Xếp
         </Button>
       </DialogActions>
     </Dialog>
@@ -1649,7 +1648,7 @@ function ManualAssignModal({
           startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />}
           sx={{ fontWeight: 700, textTransform: 'none' }}
         >
-          Lưu
+          Áp dụng
         </Button>
       </DialogActions>
     </Dialog>
