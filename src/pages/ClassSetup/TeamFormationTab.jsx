@@ -1417,7 +1417,7 @@ function ManualAssignModal({
   allTeams,
   onSuccess,
 }) {
-  // 'existing' | 'new'
+  // 'existing' | 'new' — mặc định luôn mở ở chế độ "Vào nhóm có sẵn"
   const [mode, setMode] = useState('existing')
   const [targetTeamId, setTargetTeamId] = useState('')
   const [newTeamName, setNewTeamName] = useState('')
@@ -1425,14 +1425,18 @@ function ManualAssignModal({
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
+  // Khi chỉ có 1 SV, tự động gán làm trưởng nhóm khi chuyển sang mode 'new'
+  const isSingleStudent = selectedStudents.length === 1
+
   useEffect(() => {
     if (!open) return
     setMode('existing')
     setTargetTeamId('')
     setNewTeamName('')
-    setNewLeaderId('')
+    // Nếu chỉ có 1 SV, pre-fill leader ngay từ đầu
+    setNewLeaderId(isSingleStudent ? (selectedStudents[0]?.studentProfileId ?? '') : '')
     setError('')
-  }, [open])
+  }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const eligibleTeams = (allTeams || []).filter((t) => t.hasProject === false)
 
@@ -1450,7 +1454,7 @@ function ManualAssignModal({
         payload = {
           existingTeams: [{ teamId: targetTeamId, addedStudentProfileIds: selectedStudentIds }],
           newTeams: [],
-          allowExceedMax: false,
+          allowExceedMax: Boolean(false),
         }
       } else {
         if (!newTeamName.trim()) {
@@ -1458,16 +1462,20 @@ function ManualAssignModal({
           setSubmitting(false)
           return
         }
+        // Nếu 1 SV: tự động làm trưởng; nếu nhiều SV: dùng newLeaderId đã chọn
+        const resolvedLeader = isSingleStudent
+          ? (selectedStudents[0]?.studentProfileId ?? null)
+          : (newLeaderId || null)
         payload = {
           existingTeams: [],
           newTeams: [
             {
               teamName: newTeamName.trim(),
-              leaderStudentProfileId: newLeaderId || null,
+              leaderStudentProfileId: resolvedLeader,
               studentProfileIds: selectedStudentIds,
             },
           ],
-          allowExceedMax: false,
+          allowExceedMax: Boolean(false),
         }
       }
 
@@ -1504,74 +1512,105 @@ function ManualAssignModal({
             </Stack>
           </Box>
 
-          {/* Chọn chế độ */}
-          <Box sx={{ display: 'flex', gap: 1.5 }}>
-            <Button
-              variant={mode === 'existing' ? 'contained' : 'outlined'}
-              size="small"
-              onClick={() => setMode('existing')}
-              sx={{ fontWeight: 700, textTransform: 'none', flex: 1 }}
-            >
-              Vào nhóm có sẵn
-            </Button>
-            <Button
-              variant={mode === 'new' ? 'contained' : 'outlined'}
-              size="small"
-              onClick={() => setMode('new')}
-              sx={{ fontWeight: 700, textTransform: 'none', flex: 1 }}
-            >
-              Tạo nhóm mới
-            </Button>
-          </Box>
-
-          {/* Form theo mode */}
+          {/* ——— Chế độ "Vào nhóm có sẵn" (mặc định) ——— */}
           {mode === 'existing' ? (
-            <FormControl size="small" fullWidth>
-              <InputLabel>Chọn nhóm đích</InputLabel>
-              <Select
-                label="Chọn nhóm đích"
-                value={targetTeamId}
-                onChange={(e) => setTargetTeamId(e.target.value)}
-              >
-                {eligibleTeams.length === 0 ? (
-                  <MenuItem disabled value="">
-                    Không có nhóm hợp lệ (chưa có đề tài)
-                  </MenuItem>
-                ) : (
-                  eligibleTeams.map((t) => (
-                    <MenuItem key={t.teamId} value={t.teamId}>
-                      {t.teamName} ({t.acceptedCount}/{t.maxTeamSize ?? '?'})
-                    </MenuItem>
-                  ))
-                )}
-              </Select>
-            </FormControl>
-          ) : (
-            <Stack spacing={1.5}>
-              <TextField
-                size="small"
-                label="Tên nhóm mới"
-                value={newTeamName}
-                onChange={(e) => setNewTeamName(e.target.value)}
-                fullWidth
-                required
-              />
+            <>
               <FormControl size="small" fullWidth>
-                <InputLabel>Trưởng nhóm</InputLabel>
+                <InputLabel>Chọn nhóm đích</InputLabel>
                 <Select
-                  label="Trưởng nhóm"
-                  value={newLeaderId}
-                  onChange={(e) => setNewLeaderId(e.target.value)}
+                  label="Chọn nhóm đích"
+                  value={targetTeamId}
+                  onChange={(e) => setTargetTeamId(e.target.value)}
                 >
-                  <MenuItem value=""><em>Không chỉ định</em></MenuItem>
-                  {selectedStudents.map((sv) => (
-                    <MenuItem key={sv.studentProfileId} value={sv.studentProfileId}>
-                      {sv.fullName} ({sv.studentCode})
+                  {eligibleTeams.length === 0 ? (
+                    <MenuItem disabled value="">
+                      Không có nhóm hợp lệ (chưa có đề tài)
                     </MenuItem>
-                  ))}
+                  ) : (
+                    eligibleTeams.map((t) => (
+                      <MenuItem key={t.teamId} value={t.teamId}>
+                        {t.teamName} ({t.acceptedCount}/{t.maxTeamSize ?? '?'})
+                      </MenuItem>
+                    ))
+                  )}
                 </Select>
               </FormControl>
-            </Stack>
+
+              {/* Nút chuyển sang chế độ tạo nhóm mới */}
+              <Box sx={{ display: 'flex', justifyContent: 'flex-end' }}>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  onClick={() => {
+                    setMode('new')
+                    setError('')
+                    // Pre-fill leader nếu chỉ có 1 SV
+                    if (isSingleStudent) {
+                      setNewLeaderId(selectedStudents[0]?.studentProfileId ?? '')
+                    }
+                  }}
+                  sx={{ fontWeight: 700, textTransform: 'none' }}
+                >
+                  Tạo nhóm mới
+                </Button>
+              </Box>
+            </>
+          ) : (
+            /* ——— Chế độ "Tạo nhóm mới" ——— */
+            <>
+              <Stack spacing={1.5}>
+                <TextField
+                  size="small"
+                  label="Tên nhóm mới"
+                  value={newTeamName}
+                  onChange={(e) => setNewTeamName(e.target.value)}
+                  fullWidth
+                  required
+                  autoFocus
+                />
+
+                {/* Chỉ hiện dropdown trưởng nhóm khi có ≥ 2 SV được chọn */}
+                {!isSingleStudent && (
+                  <FormControl size="small" fullWidth>
+                    <InputLabel>Trưởng nhóm</InputLabel>
+                    <Select
+                      label="Trưởng nhóm"
+                      value={newLeaderId}
+                      onChange={(e) => setNewLeaderId(e.target.value)}
+                    >
+                      <MenuItem value=""><em>Không chỉ định</em></MenuItem>
+                      {selectedStudents.map((sv) => (
+                        <MenuItem key={sv.studentProfileId} value={sv.studentProfileId}>
+                          {sv.fullName} ({sv.studentCode})
+                        </MenuItem>
+                      ))}
+                    </Select>
+                  </FormControl>
+                )}
+
+                {/* Thông báo khi chỉ có 1 SV — tự động làm trưởng */}
+                {isSingleStudent && (
+                  <Typography variant="caption" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
+                    {selectedStudents[0]?.fullName} sẽ tự động được gán làm Trưởng nhóm.
+                  </Typography>
+                )}
+              </Stack>
+
+              {/* Nút quay lại chế độ nhóm có sẵn */}
+              <Box sx={{ display: 'flex', justifyContent: 'flex-start' }}>
+                <Button
+                  size="small"
+                  variant="text"
+                  onClick={() => {
+                    setMode('existing')
+                    setError('')
+                  }}
+                  sx={{ fontWeight: 700, textTransform: 'none', color: 'text.secondary' }}
+                >
+                  ← Quay lại nhóm có sẵn
+                </Button>
+              </Box>
+            </>
           )}
 
           {error && <Alert severity="error">{error}</Alert>}

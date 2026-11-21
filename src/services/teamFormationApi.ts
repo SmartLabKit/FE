@@ -187,8 +187,8 @@ export async function getMyTeam(
     )
     return unwrapResponse<MyTeamResponse>(response)
   } catch (error: any) {
-    // 404 biểu thị sinh viên chưa tham gia hoặc chưa tạo nhóm trong lớp này
-    if (error?.response?.status === 404) {
+    // 404 / 409 biểu thị sinh viên chưa tham gia hoặc lớp chưa có thông tin nhóm khả dụng
+    if (error?.response?.status === 404 || error?.response?.status === 409) {
       return null
     }
     throw new Error(

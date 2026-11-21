@@ -454,9 +454,11 @@ export default function PortalLayout({
                 </ListItemIcon>
                 <ListItemText
                   primary={item.label}
-                  primaryTypographyProps={{
-                    fontSize: 13,
-                    fontWeight: isActive ? 700 : 500,
+                  slotProps={{
+                    primary: {
+                      fontSize: 13,
+                      fontWeight: isActive ? 700 : 500,
+                    },
                   }}
                 />
               </ListItemButton>
