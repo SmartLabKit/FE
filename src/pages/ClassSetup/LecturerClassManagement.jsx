@@ -571,7 +571,11 @@ export default function LecturerClassManagement() {
                     '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 },
                   }}
                 >
-                  <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    sx={{ justifyContent: 'space-between', alignItems: 'flex-start' }}
+                  >
                     <Box sx={{ minWidth: 0 }}>
                       <Typography variant="subtitle2" sx={{ fontWeight: 800, lineHeight: 1.4 }} noWrap>
                         {classItem.classCode}

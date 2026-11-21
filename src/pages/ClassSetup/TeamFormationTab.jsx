@@ -653,7 +653,7 @@ export default function TeamFormationTab({
 
                       {/* Cột 3: THÀNH VIÊN */}
                       <TableCell align="center" sx={{ py: 1.3, fontWeight: 600 }}>
-                        {team.acceptedCount}/{effectiveMax ?? '-'}
+                        {effectiveMax != null ? `${team.acceptedCount}/${effectiveMax}` : `${team.acceptedCount} thành viên`}
                       </TableCell>
 
                       {/* Cột 4: LỜI MỜI CHỜ */}
@@ -908,6 +908,7 @@ export default function TeamFormationTab({
           selectedStudentIds.includes(s.studentProfileId)
         )}
         allTeams={teams}
+        overviewMaxTeamSize={overview?.maxTeamSize}
         onSuccess={() => {
           setManualAssignOpen(false)
           window.location.reload()
@@ -1019,7 +1020,7 @@ function AutoAssignModal({ open, onClose, classId, maxTeamSize, overviewTeams, o
       const addedIds = Object.entries(studentTeamMap)
         .filter(([, tid]) => tid === team.teamId)
         .map(([spid]) => spid)
-      return { teamId: team.teamId, addedStudentProfileIds: addedIds }
+      return { teamId: team.teamId, studentProfileIds: addedIds }
     })
 
     // Payload newTeams
@@ -1136,7 +1137,7 @@ function AutoAssignModal({ open, onClose, classId, maxTeamSize, overviewTeams, o
 
                           {/* Badge sĩ số mới */}
                           <Chip
-                            label={`${newCount}/${maxTeamSize ?? '?'}`}
+                            label={maxTeamSize != null ? `${newCount}/${maxTeamSize}` : `${newCount} thành viên`}
                             size="small"
                             sx={{
                               fontWeight: 700,
@@ -1351,11 +1352,14 @@ function MoveMemberModal({ open, onClose, classId, sourceTeam, allTeams, maxTeam
                   Không có nhóm đích hợp lệ
                 </MenuItem>
               ) : (
-                eligibleTargets.map((t) => (
-                  <MenuItem key={t.teamId} value={t.teamId}>
-                    {t.teamName} ({t.acceptedCount}/{maxTeamSize ?? '?'})
-                  </MenuItem>
-                ))
+                eligibleTargets.map((t) => {
+                  const max = t.maxTeamSize ?? maxTeamSize
+                  return (
+                    <MenuItem key={t.teamId} value={t.teamId}>
+                      {t.teamName} ({max != null ? `${t.acceptedCount}/${max}` : `${t.acceptedCount} thành viên`})
+                    </MenuItem>
+                  )
+                })
               )}
             </Select>
           </FormControl>
@@ -1415,6 +1419,7 @@ function ManualAssignModal({
   selectedStudentIds,
   selectedStudents,
   allTeams,
+  overviewMaxTeamSize,
   onSuccess,
 }) {
   // 'existing' | 'new' — mặc định luôn mở ở chế độ "Vào nhóm có sẵn"
@@ -1425,8 +1430,14 @@ function ManualAssignModal({
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
 
+  // Đảm bảo luôn lấy danh sách id sinh viên chính xác từ selectedStudents hoặc selectedStudentIds
+  const resolvedStudentProfileIds =
+    selectedStudentIds && selectedStudentIds.length > 0
+      ? selectedStudentIds
+      : (selectedStudents || []).map((s) => s.studentProfileId)
+
   // Khi chỉ có 1 SV, tự động gán làm trưởng nhóm khi chuyển sang mode 'new'
-  const isSingleStudent = selectedStudents.length === 1
+  const isSingleStudent = (selectedStudents || []).length === 1
 
   useEffect(() => {
     if (!open) return
@@ -1443,6 +1454,13 @@ function ManualAssignModal({
   const handleSubmit = async () => {
     setSubmitting(true)
     setError('')
+
+    if (!resolvedStudentProfileIds || resolvedStudentProfileIds.length === 0) {
+      setError('Chưa có sinh viên nào được chọn để xếp nhóm.')
+      setSubmitting(false)
+      return
+    }
+
     try {
       let payload
       if (mode === 'existing') {
@@ -1452,7 +1470,7 @@ function ManualAssignModal({
           return
         }
         payload = {
-          existingTeams: [{ teamId: targetTeamId, addedStudentProfileIds: selectedStudentIds }],
+          existingTeams: [{ teamId: targetTeamId, studentProfileIds: resolvedStudentProfileIds }],
           newTeams: [],
           allowExceedMax: Boolean(false),
         }
@@ -1472,7 +1490,7 @@ function ManualAssignModal({
             {
               teamName: newTeamName.trim(),
               leaderStudentProfileId: resolvedLeader,
-              studentProfileIds: selectedStudentIds,
+              studentProfileIds: resolvedStudentProfileIds,
             },
           ],
           allowExceedMax: Boolean(false),
@@ -1491,7 +1509,7 @@ function ManualAssignModal({
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle sx={{ fontWeight: 800 }}>
-        Xếp thủ công {selectedStudentIds.length} sinh viên vào nhóm
+        Xếp thủ công {resolvedStudentProfileIds.length} sinh viên vào nhóm
       </DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2.5}>
@@ -1501,7 +1519,7 @@ function ManualAssignModal({
               Sinh viên được chọn
             </Typography>
             <Stack direction="row" flexWrap="wrap" gap={0.75} mt={0.75}>
-              {selectedStudents.map((sv) => (
+              {(selectedStudents || []).map((sv) => (
                 <Chip
                   key={sv.studentProfileId}
                   label={`${sv.fullName} (${sv.studentCode})`}
@@ -1527,11 +1545,14 @@ function ManualAssignModal({
                       Không có nhóm hợp lệ (chưa có đề tài)
                     </MenuItem>
                   ) : (
-                    eligibleTeams.map((t) => (
-                      <MenuItem key={t.teamId} value={t.teamId}>
-                        {t.teamName} ({t.acceptedCount}/{t.maxTeamSize ?? '?'})
-                      </MenuItem>
-                    ))
+                    eligibleTeams.map((t) => {
+                      const max = t.maxTeamSize ?? overviewMaxTeamSize
+                      return (
+                        <MenuItem key={t.teamId} value={t.teamId}>
+                          {t.teamName} ({max != null ? `${t.acceptedCount}/${max}` : `${t.acceptedCount} thành viên`})
+                        </MenuItem>
+                      )
+                    })
                   )}
                 </Select>
               </FormControl>
