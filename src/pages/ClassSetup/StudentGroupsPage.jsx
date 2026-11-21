@@ -540,41 +540,36 @@ export default function StudentGroupsPage() {
         ) : (
           <>
             {/* Chọn lớp */}
-            <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
-              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
-                <Typography variant="subtitle2" sx={{ whiteSpace: 'nowrap', minWidth: 80 }}>
-                  Lớp học:
-                </Typography>
-                <TextField
-                  select
-                  size="small"
-                  value={selectedClassId}
-                  onChange={(e) => setSelectedClassId(e.target.value)}
-                  sx={{ minWidth: 260 }}
-                  label="Chọn lớp"
-                >
-                  {semesterGroups.map((group) =>
-                    group.classes.map((cls) => (
-                      <MenuItem key={cls.classId} value={cls.classId}>
-                        <Box>
-                          <Typography variant="body2" component="span" fontWeight={600}>
-                            {cls.classCode}
-                          </Typography>
-                          <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
-                            {cls.courseName} · {group.semesterCode}
-                          </Typography>
-                        </Box>
-                      </MenuItem>
-                    ))
-                  )}
-                </TextField>
-                {selectedClass && (
-                  <Typography variant="caption" color="text.secondary">
-                    {selectedClass.courseName}
-                  </Typography>
-                )}
-              </Stack>
-            </Paper>
+<Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
+  <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2} alignItems={{ sm: 'center' }}>
+    <Typography variant="subtitle2" sx={{ whiteSpace: 'nowrap', minWidth: 80 }}>
+      Lớp học:
+    </Typography>
+    <TextField
+      select
+      size="small"
+      value={selectedClassId}
+      onChange={(e) => setSelectedClassId(e.target.value)}
+      sx={{ minWidth: 260 }}
+      label="Chọn lớp"
+    >
+      {semesterGroups.map((group) =>
+        group.classes.map((cls) => (
+          <MenuItem key={cls.classId} value={cls.classId}>
+            <Box>
+              <Typography variant="body2" component="span" fontWeight={600}>
+                {cls.classCode}
+              </Typography>
+              <Typography variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+                {cls.courseName} [{group.semesterCode}]
+              </Typography>
+            </Box>
+          </MenuItem>
+        ))
+      )}
+    </TextField>
+  </Stack>
+</Paper>
 
             {/* Loading dữ liệu nhóm */}
             {loadingData ? (
