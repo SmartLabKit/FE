@@ -154,10 +154,7 @@ export async function changeTeamLeader(
   try {
     const response = await api.put<ApiResponse<any>>(
       `/api/teams/${teamId}/leader`,
-      {
-        newLeaderStudentProfileId,
-        studentProfileId: newLeaderStudentProfileId,
-      }
+      { studentProfileId: newLeaderStudentProfileId }
     )
     return unwrapResponse<any>(response)
   } catch (error) {

@@ -127,14 +127,8 @@ export const projectService = {
     try {
       const data = await getProjectPage({ classId, ClassId: classId, page: 1, size: 100 })
       return Array.isArray(data) ? data : data?.items || []
-    } catch {
-      try {
-        const response2 = await api.get(`/api/classes/${classId}/projects`)
-        const data2 = unwrap(response2)
-        return Array.isArray(data2) ? data2 : data2?.items || []
-      } catch (error) {
-        throw new Error(extractErrorMessage(error, 'Không thể tải project của lớp'), { cause: error })
-      }
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Không thể tải project của lớp'), { cause: error })
     }
   },
 

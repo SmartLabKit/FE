@@ -21,7 +21,6 @@ export interface BorrowRequestResponse {
   roomName: string
   requestDate: string
   approvedAt: string | null
-  expectedBorrowDate?: string | null
   borrowDate: string | null
   dueDate: string | null
   itemCount: number
