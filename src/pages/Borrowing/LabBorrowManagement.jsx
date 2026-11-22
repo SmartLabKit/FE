@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useRef, useState } from 'react'
+import { useCallback, useRef, useState } from 'react'
 import {
   Alert,
   Box,
@@ -35,7 +35,6 @@ import SearchIcon from '@mui/icons-material/Search'
 import PortalLayout from '../../components/layout/PortalLayout'
 import TrackingTypeBadge from '../../components/common/TrackingTypeBadge'
 import IssueBorrowModal from '../../components/borrowing/IssueBorrowModal'
-import ReceiveTransferModal from '../../components/borrowing/ReceiveTransferModal'
 import ReturnBorrowModal from '../../components/borrowing/ReturnBorrowModal'
 import { useLabBorrowRequests } from '../../hooks/useLabBorrowRequests'
 import { borrowService } from '../../services/borrowService'
@@ -214,9 +213,7 @@ export default function LabBorrowManagement() {
   const [tab, setTab] = useState(0)
   const {
     requests,
-    transfers,
     requestResult,
-    transferResult,
     loading,
     error,
     realtimeUnavailable,
@@ -229,7 +226,6 @@ export default function LabBorrowManagement() {
   const [detailError, setDetailError] = useState('')
   const [actionError, setActionError] = useState('')
   const [actionLoading, setActionLoading] = useState('')
-  const [receiveLine, setReceiveLine] = useState(null)
   const [issueRequest, setIssueRequest] = useState(null)
   const [returnRequest, setReturnRequest] = useState(null)
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
@@ -326,28 +322,7 @@ export default function LabBorrowManagement() {
     }
   }
 
-  const receiveTransfer = (payload) => runAction(
-    `receive-${payload.borrowItemId}`,
-    () => borrowService.receiveTransfer(receiveLine.borrowRequestId, payload),
-    'Xác nhận nhận hàng thất bại.',
-  )
-
-  const openReceiveDialog = (line) => {
-    setReceiveLine(line)
-  }
-
-  const pendingTransfers = useMemo(() => {
-    const items = requestDetail?.items || []
-    return items.filter((item) =>
-      item.sourceRoomId &&
-      requestDetail?.roomId &&
-      item.sourceRoomId !== requestDetail.roomId &&
-      !item.receivedAt,
-    )
-  }, [requestDetail])
-
-  const pageInfo = tab === 1 ? transferResult : requestResult
-  const totalCount = Number(pageInfo?.totalCount ?? pageInfo?.total ?? 0)
+  const totalCount = Number(requestResult?.totalCount ?? requestResult?.total ?? 0)
   const detailItems = requestDetail?.items || []
   const detailRoomId = requestDetail?.roomId
   const canCancel = ['Approved', 'Ready'].includes(requestDetail?.status)
@@ -364,14 +339,6 @@ export default function LabBorrowManagement() {
       setCancelOpen(false)
       setCancelReason('')
     }
-  }
-
-  const dispatchLine = async (line) => {
-    await runAction(
-      `dispatch-${line.borrowItemId}`,
-      () => borrowService.dispatchTransfer(line.borrowRequestId, { borrowItemId: line.borrowItemId }),
-      'Xác nhận gửi linh kiện thất bại.',
-    )
   }
 
   const acceptRequest = async () => {
@@ -460,9 +427,6 @@ export default function LabBorrowManagement() {
             aria-label="Danh sách đơn Lab"
           >
             <Tab value={0} label="Đơn mượn" />
-            {(transfers.length > 0 || tab === 1) && (
-              <Tab value={1} label={`Đơn cũ chờ chuyển lab (${transfers.length})`} />
-            )}
             <Tab value={2} label="Quầy giao đồ" />
             <Tab value={3} label="Quầy nhận trả" />
             <Tab value={4} label="Lịch sử đã trả" />
@@ -593,7 +557,7 @@ export default function LabBorrowManagement() {
 
           {loading ? (
             <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}><CircularProgress /></Box>
-          ) : tab !== 1 ? (
+          ) : (
             <TableContainer>
               <Table size="small">
                 <TableHead>
@@ -669,46 +633,6 @@ export default function LabBorrowManagement() {
                       </TableCell>
                     </TableRow>
                   )}
-                </TableBody>
-              </Table>
-            </TableContainer>
-          ) : (
-            <TableContainer>
-              <Table size="small">
-                <TableHead>
-                  <TableRow>
-                    <TableCell>Mã đơn</TableCell>
-                    <TableCell>Linh kiện</TableCell>
-                    <TableCell>Số lượng</TableCell>
-                    <TableCell>Luân chuyển</TableCell>
-                    <TableCell>Thao tác</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {transfers.map((line) => (
-                    <TableRow key={line.borrowItemId}>
-                      <TableCell>{line.requestCode || '—'}</TableCell>
-                      <TableCell>{line.componentName}<br /><Typography variant="caption" color="text.secondary">{line.componentCode}</Typography></TableCell>
-                      <TableCell>{line.quantity} {line.unit || ''}</TableCell>
-                      <TableCell>{line.sourceRoomCode || '—'} → {line.pickupRoomCode || '—'}<br /><Typography variant="caption" color="text.secondary">{line.dispatchedAt ? 'Đã gửi' : 'Chờ gửi'}</Typography></TableCell>
-                      <TableCell>
-                        <Stack direction="row" spacing={1}>
-                          {line.canDispatch && (
-                            <Button size="small" disabled={Boolean(actionLoading)} onClick={() => dispatchLine(line)}>
-                              Xác nhận
-                            </Button>
-                          )}
-                          {line.canReceive && (
-                            <Button size="small" variant="contained" disabled={Boolean(actionLoading)} onClick={() => openReceiveDialog(line)}>
-                              Xác nhận
-                            </Button>
-                          )}
-                          {!line.canDispatch && !line.canReceive && <Typography variant="caption" color="text.secondary">Đang luân chuyển</Typography>}
-                        </Stack>
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                  {!transfers.length && <TableRow><TableCell colSpan={5} align="center">Không có dòng chuyển hàng.</TableCell></TableRow>}
                 </TableBody>
               </Table>
             </TableContainer>
@@ -797,31 +721,11 @@ export default function LabBorrowManagement() {
                     </Box>
                   )}
                 </Box>
-                {pendingTransfers.length > 0 && (
-                  <Alert
-                    severity="warning"
-                    sx={{
-                      width: 'fit-content',
-                      display: 'inline-flex',
-                      alignItems: 'center',
-                      gap: 1,
-                      px: 1.5,
-                      py: 0.75,
-                      fontSize: 12,
-                      borderRadius: 1,
-                      '& .MuiAlert-icon': { p: 0, mr: 0.5 },
-                      '& .MuiAlert-message': { p: 0 },
-                    }}
-                  >
-                    Còn linh kiện đang chuyển về lab. Chưa thể chấp nhận đơn.
-                  </Alert>
-                )}
                 <TableContainer>
                   <Table size="small">
                     <TableHead><TableRow><TableCell>Linh kiện</TableCell><TableCell>Loại quản lý</TableCell><TableCell>Số lượng</TableCell><TableCell>Nguồn</TableCell><TableCell>Trạng thái dòng</TableCell><TableCell /></TableRow></TableHead>
                     <TableBody>
                       {detailItems.map((item) => {
-                        const transferLine = transfers.find((line) => line.borrowItemId === item.borrowItemId)
                         const isRemote = Boolean(item.sourceRoomId && detailRoomId && item.sourceRoomId !== detailRoomId)
                         const statusInfo = getItemStatusInfo(item, requestDetail.status, isRemote)
                         return (
@@ -843,30 +747,6 @@ export default function LabBorrowManagement() {
                               />
                             </TableCell>
                             <TableCell>
-                              {transferLine?.canDispatch && (
-                                <Button size="small" onClick={() => dispatchLine(transferLine)} disabled={Boolean(actionLoading)}>Xác nhận gửi</Button>
-                              )}
-                              {transferLine?.canReceive && (
-                                <Button
-                                  size="small"
-                                  variant="outlined"
-                                  onClick={() => openReceiveDialog(transferLine)}
-                                  disabled={Boolean(actionLoading)}
-                                  sx={{
-                                    px: 1.5,
-                                    py: 0.75,
-                                    fontSize: 12,
-                                    fontWeight: 700,
-                                    borderRadius: 1,
-                                    borderColor: '#2563eb',
-                                    color: '#2563eb',
-                                    whiteSpace: 'nowrap',
-                                    '&:hover': { bgcolor: '#eff6ff', borderColor: '#1d4ed8' },
-                                  }}
-                                >
-                                  Chuyển linh kiện
-                                </Button>
-                              )}
                             </TableCell>
                           </TableRow>
                         )
@@ -927,17 +807,13 @@ export default function LabBorrowManagement() {
                 )}
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="flex-end">
                   {requestDetail.status === 'Approved' && (
-                    <Tooltip title={pendingTransfers.length ? 'Còn linh kiện đang chuyển về lab' : ''}>
-                      <span>
-                        <Button
-                          variant="contained"
-                          disabled={pendingTransfers.length > 0 || Boolean(actionLoading)}
-                          onClick={acceptRequest}
-                        >
-                          Xác nhận sẵn sàng
-                        </Button>
-                      </span>
-                    </Tooltip>
+                    <Button
+                      variant="contained"
+                      disabled={Boolean(actionLoading)}
+                      onClick={acceptRequest}
+                    >
+                      Xác nhận sẵn sàng
+                    </Button>
                   )}
                   {requestDetail.status === 'Ready' && (
                     <Button
@@ -969,14 +845,6 @@ export default function LabBorrowManagement() {
           </Paper>
         )}
       </Container>
-
-      <ReceiveTransferModal
-        open={Boolean(receiveLine)}
-        line={receiveLine}
-        loading={Boolean(actionLoading)}
-        onClose={() => setReceiveLine(null)}
-        onReceive={receiveTransfer}
-      />
 
       <IssueBorrowModal
         key={issueRequest?.borrowRequestId || 'issue-modal'}

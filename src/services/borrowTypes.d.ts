@@ -53,37 +53,6 @@ export interface BorrowRequestDetailResponse extends BorrowRequestResponse {
   items: BorrowItemResponse[]
 }
 
-export interface TransferLineResponse {
-  borrowItemId: string
-  borrowRequestId: string
-  requestCode: string
-  componentId: string
-  componentCode: string
-  componentName: string
-  trackingType: string
-  unit: string
-  quantity: number
-  sourceRoomId: string
-  sourceRoomCode: string
-  pickupRoomId: string
-  pickupRoomCode: string
-  approvedAt: string
-  borrowDate: string
-  dispatchedAt: string | null
-  canDispatch: boolean
-  canReceive: boolean
-}
-
-export interface ReceiveTransferRequest {
-  borrowItemId: string
-  toCabinetId: string
-  itemIds: string[]
-}
-
-export interface DispatchTransferRequest {
-  borrowItemId: string
-}
-
 export interface CancelBorrowRequest {
   reason: string
 }
