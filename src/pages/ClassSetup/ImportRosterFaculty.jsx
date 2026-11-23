@@ -1,15 +1,15 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
 import { useSearchParams } from 'react-router-dom'
+import * as XLSX from 'xlsx'
 import {
-  Accordion,
-  AccordionDetails,
-  AccordionSummary,
   Alert,
+  Autocomplete,
   Avatar,
   Box,
   Button,
   Chip,
   CircularProgress,
+  Collapse,
   Dialog,
   DialogActions,
   DialogContent,
@@ -35,12 +35,10 @@ import {
   CheckCircle as CheckCircleIcon,
   Person as PersonIcon,
   PersonAdd as PersonAddIcon,
-  ArrowForward as ArrowForwardIcon,
-  ArrowBack as ArrowBackIcon,
-  School as SchoolIcon,
   AssignmentInd as AssignmentIndIcon,
   Search as SearchIcon,
   ExpandMore as ExpandMoreIcon,
+  Download as DownloadIcon,
 } from '@mui/icons-material'
 import { academicService } from '../../services/academicService'
 import { userService } from '../../services/userService'
@@ -154,7 +152,24 @@ function resolveAssignedInstructor(assignment, instructors) {
   }
 }
 
-export default function ImportRosterFaculty({ onNext, onPrev }) {
+/** File mẫu đúng thứ tự cột BE đọc: Mã SV, Họ tên, Email, Ngành, Khóa (dòng 1 là tiêu đề). */
+function downloadRosterTemplate() {
+  const wb = XLSX.utils.book_new()
+  const data = XLSX.utils.aoa_to_sheet([['Mã SV', 'Họ tên', 'Email', 'Ngành (không bắt buộc)', 'Khóa (không bắt buộc)']])
+  data['!cols'] = [{ wch: 14 }, { wch: 28 }, { wch: 32 }, { wch: 24 }, { wch: 20 }]
+  const guide = XLSX.utils.aoa_to_sheet([
+    ['Hướng dẫn'],
+    ['Điền sinh viên vào sheet đầu tiên, từ dòng 2. Giữ nguyên thứ tự cột.'],
+    ['Bắt buộc: Mã SV và Email. Dòng trùng MSSV hoặc email trong file sẽ bị bỏ qua.'],
+    ['Sinh viên chưa có tài khoản sẽ được tạo tài khoản và gửi email.'],
+  ])
+  guide['!cols'] = [{ wch: 90 }]
+  XLSX.utils.book_append_sheet(wb, data, 'DanhSachSinhVien')
+  XLSX.utils.book_append_sheet(wb, guide, 'HuongDan')
+  XLSX.writeFile(wb, 'Mau_Roster_SinhVien.xlsx')
+}
+
+export default function ImportRosterFaculty() {
   const [searchParams] = useSearchParams()
   const requestedSemester = searchParams.get('semester') || ''
   const requestedClassId = searchParams.get('classId') || ''
@@ -169,6 +184,7 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
   const [students, setStudents] = useState([])
   const [loadingStudents, setLoadingStudents] = useState(false)
   const [studentSearch, setStudentSearch] = useState('')
+  const [showStudents, setShowStudents] = useState(false)
 
   // State upload file Excel
   const [selectedFile, setSelectedFile] = useState(null)
@@ -178,7 +194,6 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
   // Danh sách giảng viên trong hệ thống (khởi tạo với các giảng viên mẫu và cập nhật từ API)
   // Chỉ giảng viên thật lấy từ API (không dùng danh sách mẫu, tránh phân công nhầm tài khoản giả)
   const [instructors, setInstructors] = useState([])
-  const [instructorSearch, setInstructorSearch] = useState('')
 
   // State phân công giảng viên
   const [instructorForm, setInstructorForm] = useState({
@@ -550,18 +565,6 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
     }
   }
 
-  // Lọc giảng viên theo từ khóa tìm kiếm
-  const filteredInstructors = useMemo(() => {
-    if (!instructorSearch.trim()) return instructors
-    const q = instructorSearch.trim().toLowerCase()
-    return instructors.filter(
-      (inst) =>
-        (inst.name && inst.name.toLowerCase().includes(q)) ||
-        (inst.code && inst.code.toLowerCase().includes(q)) ||
-        (inst.email && inst.email.toLowerCase().includes(q))
-    )
-  }, [instructors, instructorSearch])
-
   // Chọn một giảng viên từ danh sách
   const handleSelectSampleInstructor = (sample) => {
     setInstructorForm({
@@ -733,27 +736,12 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
 
   return (
     <Box>
-      {/* Breadcrumb Header */}
-      <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-        <Box>
-          <Typography variant="caption" sx={{ color: '#0058be', fontWeight: 700, fontSize: 11 }}>
-            Quản lý lớp &gt; Lớp môn học &gt; Nhập danh sách sinh viên &amp; Phân công giảng viên
-          </Typography>
-          <Typography variant="h5" sx={{ fontWeight: 800, color: '#131b2e', mt: 0.5, mb: 0.5 }}>
-            Nhập danh sách (Roster) &amp; Phân công Giảng viên
-          </Typography>
-          <Typography variant="body2" sx={{ color: '#424754', fontSize: 13 }}>
-            Quản lý sĩ số lớp qua file Excel và chỉ định giảng viên phụ trách chuyên môn
-          </Typography>
-        </Box>
-      </Box>
-
       {/* Class Selector Bar */}
       <Paper
         elevation={0}
         sx={{
-          p: 2.5,
-          mb: 3,
+          p: 2,
+          mb: 2.5,
           borderRadius: 2,
           border: '1px solid #e4e6ef',
           bgcolor: '#ffffff',
@@ -764,12 +752,10 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
         }}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, minWidth: 320, flexWrap: 'wrap' }}>
-          <SchoolIcon sx={{ color: '#0058be', fontSize: 28 }} />
-
           {/* Phân loại theo kỳ học */}
           <Box sx={{ minWidth: 190 }}>
             <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 10, mb: 0.5 }}>
-              PHÂN LOẠI THEO HỌC KỲ:
+              Học kỳ
             </Typography>
             <Select
               fullWidth
@@ -792,7 +778,7 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
           {/* Chọn lớp môn học */}
           <Box sx={{ flex: 1, minWidth: 260 }}>
             <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 10, mb: 0.5 }}>
-              CHỌN LỚP CẦN NẠP SINH VIÊN HOẶC PHÂN CÔNG GIẢNG VIÊN:
+              Lớp
             </Typography>
             {loadingClasses ? (
               <CircularProgress size={20} />
@@ -841,30 +827,6 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
           </Box>
         </Box>
 
-        {currentClass && (
-          <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center' }}>
-            <Chip
-              label={`Môn: ${currentClass.courseCode || 'N/A'}`}
-              size="small"
-              sx={{ bgcolor: '#eaedff', color: '#0058be', fontWeight: 700, fontSize: 11 }}
-            />
-            <Chip
-              label={`Sĩ số: ${students.length > 0 ? students.length : (currentClass.currentStudents || 0)}/${currentClass.maxStudents || 30}`}
-              size="small"
-              sx={{ bgcolor: '#ecfdf5', color: '#047857', fontWeight: 700, fontSize: 11 }}
-            />
-            <Chip
-              label={`Giảng viên: ${currentClass.instructorName || 'Chưa phân công'}`}
-              size="small"
-              sx={{
-                bgcolor: currentClass.instructorName ? '#fef3c7' : '#f1f5f9',
-                color: currentClass.instructorName ? '#b45309' : '#64748b',
-                fontWeight: 700,
-                fontSize: 11,
-              }}
-            />
-          </Box>
-        )}
       </Paper>
 
       {/* Main Form Split */}
@@ -880,12 +842,19 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
               bgcolor: '#ffffff',
             }}
           >
-            <Typography variant="h6" sx={{ fontWeight: 700, fontSize: 16, color: '#131b2e', mb: 0.5 }}>
-              1. Import danh sách sinh viên (Roster)
-            </Typography>
-            <Typography variant="body2" sx={{ color: '#6b7280', fontSize: 12, mb: 2 }}>
-              File Excel chứa các cột Mã SV, Họ tên, Email.
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, mb: 1.5, flexWrap: 'wrap' }}>
+              <Typography variant="h6" sx={{ fontWeight: 700, fontSize: 16, color: '#131b2e' }}>
+                Sinh viên
+              </Typography>
+              <Button
+                size="small"
+                startIcon={<DownloadIcon sx={{ fontSize: 16 }} />}
+                onClick={downloadRosterTemplate}
+                sx={{ textTransform: 'none', fontWeight: 700, fontSize: 12 }}
+              >
+                Tải file mẫu
+              </Button>
+            </Box>
 
             {/* Drag and Drop Zone */}
             <Box
@@ -895,7 +864,7 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
                 flexDirection: 'column',
                 alignItems: 'center',
                 justifyContent: 'center',
-                p: 3.5,
+                p: 2,
                 border: '2px dashed #a0aec0',
                 borderRadius: 2,
                 bgcolor: '#fafbff',
@@ -906,26 +875,12 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
               }}
             >
               <input type="file" accept=".xlsx, .xls, .csv" hidden onChange={handleFileChange} />
-              <Box
-                sx={{
-                  width: 48,
-                  height: 48,
-                  borderRadius: '50%',
-                  bgcolor: '#eaedff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  justifyContent: 'center',
-                  color: '#0058be',
-                  mb: 1.5,
-                }}
-              >
-                <CloudUploadIcon sx={{ fontSize: 26 }} />
-              </Box>
+              <CloudUploadIcon sx={{ fontSize: 26, color: '#0058be', mb: 0.5 }} />
               <Typography variant="body2" sx={{ fontWeight: 700, color: '#0058be', mb: 0.5 }}>
                 {selectedFile ? selectedFile.name : 'Click để chọn file hoặc kéo thả file Excel vào đây'}
               </Typography>
               <Typography variant="caption" sx={{ color: '#81899a', fontSize: 11 }}>
-                Hỗ trợ định dạng .xlsx, .xls, .csv (Dung lượng tối đa 10MB)
+                Cột: Mã SV, Họ tên, Email (Ngành, Khóa không bắt buộc) · .xlsx, .xls, .csv · tối đa 10MB
               </Typography>
             </Box>
 
@@ -1049,9 +1004,15 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
                   mb: 1.5,
                 }}
               >
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 15 }}>
-                    Danh sách sinh viên trong lớp
+                <Box
+                  sx={{ display: 'flex', alignItems: 'center', gap: 1, cursor: 'pointer' }}
+                  onClick={() => setShowStudents((current) => !current)}
+                >
+                  <ExpandMoreIcon
+                    sx={{ fontSize: 20, color: '#0058be', transform: showStudents ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
+                  />
+                  <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 14 }}>
+                    {showStudents ? 'Ẩn danh sách sinh viên' : 'Xem danh sách sinh viên'}
                   </Typography>
                   <Chip
                     label={`${students.length} sinh viên`}
@@ -1066,6 +1027,7 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
                   />
                 </Box>
 
+                {showStudents && students.length > 0 && (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                   <TextField
                     size="small"
@@ -1090,8 +1052,10 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
                     }}
                   />
                 </Box>
+                )}
               </Box>
 
+              <Collapse in={showStudents} unmountOnExit>
               {loadingStudents ? (
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', py: 4, gap: 1.5 }}>
                   <CircularProgress size={22} />
@@ -1120,13 +1084,12 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
                           <TableCell sx={{ minWidth: 110 }}>MÃ SINH VIÊN</TableCell>
                           <TableCell sx={{ minWidth: 160 }}>HỌ VÀ TÊN</TableCell>
                           <TableCell sx={{ minWidth: 180 }}>EMAIL</TableCell>
-                          <TableCell align="center" sx={{ minWidth: 100 }}>NGÀY GHI DANH</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
                         {filteredStudents.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={5} align="center" sx={{ py: 3, color: '#9ca3af', fontSize: 12 }}>
+                            <TableCell colSpan={4} align="center" sx={{ py: 3, color: '#9ca3af', fontSize: 12 }}>
                               Không tìm thấy sinh viên nào khớp với từ khóa &quot;{studentSearch}&quot;
                             </TableCell>
                           </TableRow>
@@ -1135,8 +1098,6 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
                             const code = s.studentCode || s.StudentCode || s.code || s.studentId || '—'
                             const name = s.fullName || s.FullName || s.name || s.studentName || '—'
                             const email = s.email || s.Email || s.userEmail || '—'
-                            const enrolledDate = s.enrolledAt || s.EnrolledAt
-                            const formattedDate = enrolledDate ? new Date(enrolledDate).toLocaleDateString('vi-VN') : '—'
 
                             return (
                               <TableRow key={s.studentProfileId || s.id || `${code}-${index}`} hover>
@@ -1163,9 +1124,6 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
                                 <TableCell sx={{ fontSize: 12, color: '#475569' }}>
                                   {email}
                                 </TableCell>
-                                <TableCell align="center" sx={{ fontSize: 11, color: '#64748b' }}>
-                                  {formattedDate}
-                                </TableCell>
                               </TableRow>
                             )
                           })
@@ -1181,54 +1139,9 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
                   )}
                 </>
               )}
+              </Collapse>
             </Box>
 
-            {/* Accordion Mẫu cấu trúc file Excel chuẩn */}
-            <Accordion
-              disableGutters
-              elevation={0}
-              sx={{
-                mt: 2,
-                border: '1px solid #e4e6ef',
-                borderRadius: '8px !important',
-                '&:before': { display: 'none' },
-                bgcolor: '#fafbff',
-              }}
-            >
-              <AccordionSummary expandIcon={<ExpandMoreIcon sx={{ fontSize: 20, color: '#0058be' }} />}>
-                <Typography variant="caption" sx={{ fontWeight: 700, color: '#0058be', fontSize: 12 }}>
-                  📄 Xem hướng dẫn &amp; cấu trúc file Excel chuẩn để import (.xlsx, .csv)
-                </Typography>
-              </AccordionSummary>
-              <AccordionDetails sx={{ pt: 0 }}>
-                <Typography variant="caption" sx={{ color: '#6b7280', fontSize: 11, display: 'block', mb: 1 }}>
-                  File Excel cần chứa các cột: <strong>Mã SV</strong>, <strong>Họ tên</strong>, <strong>Email trường</strong>. Các dòng trùng lặp sẽ được hệ thống tự động bỏ qua an toàn.
-                </Typography>
-                <TableContainer sx={{ border: '1px solid #e2e8f0', borderRadius: 1.5, bgcolor: '#ffffff' }}>
-                  <Table size="small">
-                    <TableHead sx={{ bgcolor: '#f8fafc' }}>
-                      <TableRow>
-                        <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>MÃ SV</TableCell>
-                        <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>HỌ TÊN</TableCell>
-                        <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>EMAIL</TableCell>
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      <TableRow hover>
-                        <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#0058be' }}>STU204758A</TableCell>
-                        <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#131b2e' }}>Nguyen Van Nhom Truong</TableCell>
-                        <TableCell sx={{ fontSize: 12, color: '#424754' }}>stu204758a@smartlab.edu.vn</TableCell>
-                      </TableRow>
-                      <TableRow hover>
-                        <TableCell sx={{ fontWeight: 700, fontSize: 12, color: '#0058be' }}>STU204758B</TableCell>
-                        <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#131b2e' }}>Tran Thi Thanh Vien</TableCell>
-                        <TableCell sx={{ fontSize: 12, color: '#424754' }}>stu204758b@smartlab.edu.vn</TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </AccordionDetails>
-            </Accordion>
           </Paper>
         </Grid>
 
@@ -1244,18 +1157,8 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
             }}
           >
             <Box>
-              <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 0.5 }}>
-                <Typography variant="h6" sx={{ fontWeight: 700, fontSize: 16, color: '#131b2e' }}>
-                  2. Phân công giảng viên
-                </Typography>
-                <Chip
-                  label={`${instructors.length} giảng viên`}
-                  size="small"
-                  sx={{ bgcolor: '#eff6ff', color: '#1d4ed8', fontWeight: 700, fontSize: 11 }}
-                />
-              </Box>
-              <Typography variant="body2" sx={{ color: '#6b7280', fontSize: 12, mb: 2 }}>
-                Chọn hoặc thêm giảng viên mới để phân công cho lớp
+              <Typography variant="h6" sx={{ fontWeight: 700, fontSize: 16, color: '#131b2e', mb: 1.5 }}>
+                Giảng viên phụ trách
               </Typography>
 
               {/* Giảng viên hiện tại của lớp */}
@@ -1307,62 +1210,40 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
                 </Paper>
               ) : (
                 <Alert severity="info" sx={{ mb: 2.5, fontSize: 12, borderRadius: 1.5 }}>
-                  Lớp này hiện chưa có giảng viên phụ trách. Vui lòng chọn hoặc thêm giảng viên bên dưới.
+                  Lớp chưa có giảng viên phụ trách.
                 </Alert>
               )}
 
-              {/* Dropdown chọn giảng viên */}
-              <Box sx={{ mb: 1.5 }}>
-                <Typography variant="caption" sx={{ fontWeight: 700, color: '#6b7280', display: 'block', mb: 0.5, fontSize: 10 }}>
-                  CHỌN GIẢNG VIÊN TỪ DANH SÁCH:
-                </Typography>
-                <Select
+              <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+                <Autocomplete
                   fullWidth
                   size="small"
-                  value={instructorForm.instructorCode || ''}
-                  onChange={(e) => {
-                    const selected = instructors.find((inst) => inst.code === e.target.value)
-                    if (selected) {
-                      handleSelectSampleInstructor(selected)
-                    }
+                  options={instructors}
+                  value={instructors.find((inst) => inst.code === instructorForm.instructorCode) || null}
+                  onChange={(_, selected) => {
+                    if (selected) handleSelectSampleInstructor(selected)
                   }}
-                  displayEmpty
-                  sx={{ borderRadius: 1.5, height: 38, fontSize: 13, bgcolor: '#fafbff' }}
-                >
-                  <MenuItem value="" disabled sx={{ fontSize: 12 }}>
-                    <em>— Chọn giảng viên phụ trách —</em>
-                  </MenuItem>
-                  {instructors.map((inst) => (
-                    <MenuItem key={inst.code} value={inst.code} sx={{ fontSize: 13 }}>
-                      <strong>{inst.code}</strong> - {inst.name} ({inst.title})
-                    </MenuItem>
-                  ))}
-                </Select>
-              </Box>
-
-              {/* Tìm kiếm và nút Thêm giảng viên */}
-              <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 1.5 }}>
-                <TextField
-                  fullWidth
-                  size="small"
-                  placeholder="Lọc theo tên, mã, email..."
-                  value={instructorSearch}
-                  onChange={(e) => setInstructorSearch(e.target.value)}
-                  InputProps={{
-                    startAdornment: (
-                      <InputAdornment position="start">
-                        <SearchIcon sx={{ fontSize: 18, color: '#9ca3af' }} />
-                      </InputAdornment>
-                    ),
+                  getOptionLabel={(inst) => `${inst.name} (${inst.title})`}
+                  isOptionEqualToValue={(option, value) => option.code === value.code}
+                  filterOptions={(options, { inputValue }) => {
+                    const q = inputValue.trim().toLowerCase()
+                    if (!q) return options
+                    return options.filter((inst) =>
+                      [inst.name, inst.code, inst.email].some((v) => v && v.toLowerCase().includes(q))
+                    )
                   }}
-                  sx={{
-                    '& .MuiOutlinedInput-root': {
-                      height: 34,
-                      fontSize: 12,
-                      borderRadius: 1.5,
-                      bgcolor: '#fafbff',
-                    },
-                  }}
+                  renderOption={(props, inst) => (
+                    <li {...props} key={inst.code}>
+                      <Box>
+                        <Typography sx={{ fontSize: 13, fontWeight: 700 }}>{inst.name} ({inst.title})</Typography>
+                        <Typography sx={{ fontSize: 11, color: '#6b7280' }}>{inst.code} • {inst.email}</Typography>
+                      </Box>
+                    </li>
+                  )}
+                  noOptionsText="Không tìm thấy giảng viên"
+                  renderInput={(params) => (
+                    <TextField {...params} label="Đổi / chọn giảng viên" placeholder="Gõ tên, mã hoặc email" />
+                  )}
                 />
                 <Button
                   variant="outlined"
@@ -1370,108 +1251,16 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
                   startIcon={<PersonAddIcon sx={{ fontSize: 16 }} />}
                   onClick={handleOpenAddInstructorDialog}
                   sx={{
-                    minWidth: 160,
-                    height: 34,
+                    height: 40,
                     textTransform: 'none',
                     fontWeight: 700,
                     fontSize: 12,
                     borderRadius: 1.5,
-                    borderColor: '#0058be',
-                    color: '#0058be',
                     whiteSpace: 'nowrap',
-                    '&:hover': { bgcolor: '#f0f4ff', borderColor: '#0049a3' },
                   }}
                 >
-                  + Thêm giảng viên
+                  Thêm mới
                 </Button>
-              </Box>
-
-              {/* Danh sách thẻ giảng viên có thanh cuộn */}
-              <Box
-                sx={{
-                  display: 'flex',
-                  flexDirection: 'column',
-                  gap: 1,
-                  maxHeight: 240,
-                  overflowY: 'auto',
-                  pr: 0.5,
-                  mb: 2,
-                }}
-              >
-                {filteredInstructors.length === 0 ? (
-                  <Typography variant="caption" sx={{ color: '#9ca3af', textAlign: 'center', py: 2 }}>
-                    Không tìm thấy giảng viên nào khớp với &quot;{instructorSearch}&quot;
-                  </Typography>
-                ) : (
-                  filteredInstructors.map((sample) => {
-                    const isSelected = instructorForm.instructorCode === sample.code
-                    return (
-                      <Paper
-                        key={sample.code}
-                        elevation={0}
-                        onClick={() => handleSelectSampleInstructor(sample)}
-                        sx={{
-                          p: 1.2,
-                          px: 1.8,
-                          borderRadius: 1.5,
-                          border: isSelected ? '2px solid #0058be' : '1px solid #e2e8f0',
-                          bgcolor: isSelected ? '#f0f4ff' : '#ffffff',
-                          cursor: 'pointer',
-                          display: 'flex',
-                          alignItems: 'center',
-                          justifyContent: 'space-between',
-                          transition: 'all 0.15s',
-                          '&:hover': {
-                            borderColor: '#0058be',
-                            bgcolor: isSelected ? '#f0f4ff' : '#f8fafc',
-                          },
-                        }}
-                      >
-                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, minWidth: 0 }}>
-                          <Avatar
-                            sx={{
-                              width: 32,
-                              height: 32,
-                              fontSize: 12,
-                              fontWeight: 700,
-                              bgcolor: isSelected ? '#0058be' : '#e2e8f0',
-                              color: isSelected ? '#ffffff' : '#475569',
-                            }}
-                          >
-                            {(sample.name || 'G').charAt(0)}
-                          </Avatar>
-                          <Box sx={{ minWidth: 0 }}>
-                            <Typography
-                              variant="body2"
-                              noWrap
-                              sx={{
-                                fontWeight: 700,
-                                fontSize: 12,
-                                color: isSelected ? '#0058be' : '#131b2e',
-                              }}
-                            >
-                              {sample.name} ({sample.title})
-                            </Typography>
-                            <Typography variant="caption" noWrap sx={{ color: '#6b7280', fontSize: 11, display: 'block' }}>
-                              {sample.code} • {sample.email}
-                            </Typography>
-                          </Box>
-                        </Box>
-                        <Chip
-                          label={isSelected ? 'Đang chọn' : 'Chọn'}
-                          size="small"
-                          sx={{
-                            ml: 1,
-                            fontSize: 10,
-                            fontWeight: 700,
-                            bgcolor: isSelected ? '#0058be' : '#f1f5f9',
-                            color: isSelected ? '#ffffff' : '#64748b',
-                          }}
-                        />
-                      </Paper>
-                    )
-                  })
-                )}
               </Box>
             </Box>
 
@@ -1498,29 +1287,6 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
               >
                 {assigning ? 'Đang phân công...' : instructorForm.fullName ? `Xác nhận phân công cho ${instructorForm.fullName}` : 'Chọn giảng viên để phân công'}
               </Button>
-
-              <Box sx={{ display: 'flex', gap: 1.5, mt: 1.5 }}>
-                {onPrev && (
-                  <Button
-                    variant="text"
-                    startIcon={<ArrowBackIcon />}
-                    onClick={onPrev}
-                    sx={{ textTransform: 'none', fontWeight: 700, fontSize: 12, color: '#6b7280' }}
-                  >
-                    Quay lại
-                  </Button>
-                )}
-                {onNext && (
-                  <Button
-                    variant="text"
-                    endIcon={<ArrowForwardIcon />}
-                    onClick={onNext}
-                    sx={{ textTransform: 'none', fontWeight: 700, fontSize: 12, color: '#0058be', ml: 'auto' }}
-                  >
-                    Tiếp tục
-                  </Button>
-                )}
-              </Box>
             </Box>
           </Paper>
         </Grid>
