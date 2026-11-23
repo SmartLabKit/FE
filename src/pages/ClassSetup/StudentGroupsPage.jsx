@@ -69,6 +69,28 @@ import {
 const LOCKED_REASON = 'Đã quá hạn chót chia nhóm. Bạn không thể thay đổi nhóm hoặc phản hồi lời mời.'
 const PROJECT_LOCKED_REASON = 'Nhóm đã đăng ký đề tài, không thể thay đổi thành viên hoặc trưởng nhóm'
 
+const BLUE_TOOLTIP_SLOT_PROPS = {
+  tooltip: {
+    sx: {
+      bgcolor: '#0058be',
+      color: '#ffffff',
+      fontSize: 12,
+      fontWeight: 600,
+      px: 1.5,
+      py: 0.9,
+      borderRadius: 1.5,
+      maxWidth: 280,
+      lineHeight: 1.45,
+      boxShadow: '0 6px 18px rgba(0, 88, 190, 0.25)',
+    },
+  },
+  arrow: {
+    sx: {
+      color: '#0058be',
+    },
+  },
+}
+
 function formatDeadline(dateStr) {
   if (!dateStr) return 'Chưa thiết lập'
   const d = new Date(dateStr)
@@ -183,10 +205,12 @@ function TeamFormationStatusCard({ overview }) {
         <Box
           sx={{
             display: 'flex',
-            gap: 2.5,
+            columnGap: { xs: 2.5, sm: 3.5, lg: 4.5 },
+            rowGap: 1.5,
             flexWrap: 'wrap',
             alignItems: 'center',
             flexShrink: 0,
+            pl: { lg: 2 },
             pt: { xs: 0.5, lg: 0 },
           }}
         >
@@ -862,11 +886,11 @@ export default function StudentGroupsPage() {
               gap: 2,
             }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, minWidth: 300, flexWrap: 'wrap' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: '0 1 auto', minWidth: { xs: '100%', md: 460 }, flexWrap: 'wrap' }}>
               <SchoolIcon sx={{ color: '#0058be', fontSize: 28 }} />
 
               {/* Học kỳ */}
-              <Box sx={{ minWidth: 190 }}>
+              <Box sx={{ minWidth: 180 }}>
                 <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 10, mb: 0.5 }}>
                   Học kỳ:
                 </Typography>
@@ -896,7 +920,7 @@ export default function StudentGroupsPage() {
               </Box>
 
               {/* Môn học / Lớp */}
-              <Box sx={{ flex: 1, minWidth: 240 }}>
+              <Box sx={{ flex: '1 1 260px', minWidth: 230, maxWidth: { md: 360, lg: 400 } }}>
                 <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 10, mb: 0.5 }}>
                   Môn học:
                 </Typography>
@@ -927,7 +951,15 @@ export default function StudentGroupsPage() {
             </Box>
 
             {selectedClass && (
-              <Box sx={{ display: 'flex', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+              <Box
+                sx={{
+                  display: 'flex',
+                  columnGap: { xs: 2.5, sm: 3.5, lg: 4.5 },
+                  rowGap: 1.5,
+                  flexWrap: 'wrap',
+                  alignItems: 'center',
+                }}
+              >
                 <Chip
                   label={`Học kỳ: ${selectedClass.semesterCode || 'N/A'}`}
                   size="small"
@@ -1089,7 +1121,7 @@ export default function StudentGroupsPage() {
                       height: '100%',
                     }}
                   >
-                    {/* Header nhóm: Tên + badges */}
+                    {/* Header nhóm: Tên + trạng thái + cụm nút thao tác gọn gàng */}
                     <Box
                       sx={{
                         display: 'flex',
@@ -1097,7 +1129,7 @@ export default function StudentGroupsPage() {
                         alignItems: 'flex-start',
                         flexWrap: 'wrap',
                         gap: 1.5,
-                        mb: 1.5,
+                        mb: 2,
                       }}
                     >
                       <Box sx={{ minWidth: 0 }}>
@@ -1145,179 +1177,178 @@ export default function StudentGroupsPage() {
                         </Typography>
                       </Box>
 
-                      <Chip
-                        label={isReadyForProject ? 'Đủ điều kiện lập dự án' : 'Đang tuyển thành viên'}
-                        size="small"
-                        sx={{
-                          bgcolor: isReadyForProject ? '#ecfdf5' : '#eff6ff',
-                          color: isReadyForProject ? '#047857' : '#1d4ed8',
-                          fontWeight: 700,
-                          fontSize: 11,
-                          flexShrink: 0,
-                        }}
-                      />
-                    </Box>
-
-                    {/* Hàng nút thao tác nhóm: [Chuyển trưởng nhóm] [Xóa khỏi nhóm] [Thiết lập dự án] [Rời nhóm] */}
-                    <Box
-                      sx={{
-                        display: 'flex',
-                        alignItems: 'center',
-                        justifyContent: 'flex-end',
-                        flexWrap: 'wrap',
-                        gap: 1,
-                        mb: hasProject ? 1.5 : 2,
-                      }}
-                    >
-                      {isLeader && (
-                        <>
-                          <Tooltip
-                            title={
-                              !canModifyTeam
-                                ? teamLockReason
-                                : eligibleTargetMembers.length === 0
-                                  ? 'Chưa có thành viên chính thức khác để chuyển quyền'
-                                  : ''
-                            }
-                          >
-                            <span>
-                              <Button
-                                size="small"
-                                variant={selectionMode === 'transfer' ? 'contained' : 'outlined'}
-                                color="primary"
-                                disabled={!canModifyTeam || eligibleTargetMembers.length === 0 || actionLoading}
-                                startIcon={<TransferIcon sx={{ fontSize: 15 }} />}
-                                onClick={() => handleToggleSelectionMode('transfer')}
-                                sx={{
-                                  textTransform: 'none',
-                                  fontWeight: 700,
-                                  fontSize: 12,
-                                  whiteSpace: 'nowrap',
-                                  boxShadow: 'none',
-                                }}
-                              >
-                                Chuyển trưởng nhóm
-                              </Button>
-                            </span>
-                          </Tooltip>
-
-                          <Tooltip
-                            title={
-                              !canModifyTeam
-                                ? teamLockReason
-                                : eligibleTargetMembers.length === 0
-                                  ? 'Chưa có thành viên chính thức khác trong nhóm'
-                                  : ''
-                            }
-                          >
-                            <span>
-                              <Button
-                                size="small"
-                                variant={selectionMode === 'remove' ? 'contained' : 'outlined'}
-                                color="error"
-                                disabled={!canModifyTeam || eligibleTargetMembers.length === 0 || actionLoading}
-                                startIcon={<DeleteIcon sx={{ fontSize: 15 }} />}
-                                onClick={() => handleToggleSelectionMode('remove')}
-                                sx={{
-                                  textTransform: 'none',
-                                  fontWeight: 700,
-                                  fontSize: 12,
-                                  whiteSpace: 'nowrap',
-                                  boxShadow: 'none',
-                                }}
-                              >
-                                Xóa khỏi nhóm
-                              </Button>
-                            </span>
-                          </Tooltip>
-                        </>
-                      )}
-
-                      {/* Nút lối tắt Thiết lập dự án (vẫn mở khi quá hạn nếu isReadyForProject === true) */}
-                      <Tooltip
-                        title={
-                          isReadyForProject || hasProject
-                            ? 'Đi tới màn hình thiết lập dự án cho nhóm'
-                            : `Nhóm cần đủ tối thiểu ${minTeamSize ?? 'số'} thành viên để thiết lập dự án`
-                        }
-                      >
-                        <span>
-                          <Button
-                            size="small"
-                            variant="contained"
-                            disabled={!isReadyForProject && !hasProject}
-                            startIcon={<ProjectIcon sx={{ fontSize: 15 }} />}
-                            onClick={() => navigate(`/class-setup/student/project/${currentTeam.teamId}`)}
-                            sx={{
-                              bgcolor: '#0058be',
-                              textTransform: 'none',
-                              fontWeight: 700,
-                              fontSize: 12,
-                              boxShadow: 'none',
-                              whiteSpace: 'nowrap',
-                              '&:hover': { bgcolor: '#0049a3' },
-                            }}
-                          >
-                            Thiết lập dự án
-                          </Button>
-                        </span>
-                      </Tooltip>
-
-                      {/* Nút Rời nhóm */}
-                      <Tooltip
-                        title={
-                          !canModifyTeam
-                            ? teamLockReason
-                            : leaderMustTransferBeforeLeave
-                              ? 'Trưởng nhóm cần chuyển quyền trưởng nhóm cho thành viên khác trước khi rời nhóm'
-                              : ''
-                        }
-                      >
-                        <span>
-                          <Button
-                            size="small"
-                            variant="outlined"
-                            color="error"
-                            disabled={!canModifyTeam || actionLoading || leaderMustTransferBeforeLeave}
-                            startIcon={<LeaveIcon sx={{ fontSize: 15 }} />}
-                            onClick={() => {
-                              setSelectionMode(null)
-                              setPendingConfirm({ type: 'leave' })
-                            }}
-                            sx={{
-                              textTransform: 'none',
-                              fontWeight: 700,
-                              fontSize: 12,
-                              whiteSpace: 'nowrap',
-                            }}
-                          >
-                            Rời nhóm
-                          </Button>
-                        </span>
-                      </Tooltip>
-                    </Box>
-
-                    {/* Chỉ báo gọn khi nhóm đã đăng ký đề tài */}
-                    {hasProject && (
                       <Box
                         sx={{
                           display: 'flex',
-                          alignItems: 'center',
+                          flexDirection: 'column',
+                          alignItems: { xs: 'flex-start', sm: 'flex-end' },
                           gap: 1,
-                          px: 1.5,
-                          py: 1,
-                          mb: 2,
-                          borderRadius: 1.5,
-                          bgcolor: '#f8fafc',
-                          border: '1px solid #e2e8f0',
+                          ml: 'auto',
                         }}
                       >
-                        <LockIcon sx={{ fontSize: 15, color: '#64748b', flexShrink: 0 }} />
-                        <Typography variant="caption" sx={{ color: '#475569', fontWeight: 600, fontSize: 12 }}>
-                          {PROJECT_LOCKED_REASON}
-                        </Typography>
+                        <Chip
+                          label={isReadyForProject ? 'Đủ điều kiện lập dự án' : 'Đang tuyển thành viên'}
+                          size="small"
+                          sx={{
+                            bgcolor: isReadyForProject ? '#ecfdf5' : '#eff6ff',
+                            color: isReadyForProject ? '#047857' : '#1d4ed8',
+                            fontWeight: 700,
+                            fontSize: 11,
+                            flexShrink: 0,
+                          }}
+                        />
+
+                        {/* Hàng nút thao tác nhóm: [Chuyển trưởng nhóm] [Xóa khỏi nhóm] [Thiết lập dự án] [Rời nhóm] */}
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: { xs: 'flex-start', sm: 'flex-end' },
+                            flexWrap: 'wrap',
+                            gap: 1,
+                          }}
+                        >
+                          {isLeader && (
+                            <>
+                              <Tooltip
+                                arrow
+                                placement="top"
+                                slotProps={BLUE_TOOLTIP_SLOT_PROPS}
+                                title={
+                                  !canModifyTeam
+                                    ? teamLockReason
+                                    : eligibleTargetMembers.length === 0
+                                      ? 'Chưa có thành viên chính thức khác để chuyển quyền'
+                                      : ''
+                                }
+                              >
+                                <span>
+                                  <Button
+                                    size="small"
+                                    variant={selectionMode === 'transfer' ? 'contained' : 'outlined'}
+                                    color="primary"
+                                    disabled={!canModifyTeam || eligibleTargetMembers.length === 0 || actionLoading}
+                                    startIcon={<TransferIcon sx={{ fontSize: 15 }} />}
+                                    onClick={() => handleToggleSelectionMode('transfer')}
+                                    sx={{
+                                      textTransform: 'none',
+                                      fontWeight: 700,
+                                      fontSize: 12,
+                                      whiteSpace: 'nowrap',
+                                      boxShadow: 'none',
+                                    }}
+                                  >
+                                    Chuyển trưởng nhóm
+                                  </Button>
+                                </span>
+                              </Tooltip>
+
+                              <Tooltip
+                                arrow
+                                placement="top"
+                                slotProps={BLUE_TOOLTIP_SLOT_PROPS}
+                                title={
+                                  !canModifyTeam
+                                    ? teamLockReason
+                                    : eligibleTargetMembers.length === 0
+                                      ? 'Chưa có thành viên chính thức khác trong nhóm'
+                                      : ''
+                                }
+                              >
+                                <span>
+                                  <Button
+                                    size="small"
+                                    variant={selectionMode === 'remove' ? 'contained' : 'outlined'}
+                                    color="error"
+                                    disabled={!canModifyTeam || eligibleTargetMembers.length === 0 || actionLoading}
+                                    startIcon={<DeleteIcon sx={{ fontSize: 15 }} />}
+                                    onClick={() => handleToggleSelectionMode('remove')}
+                                    sx={{
+                                      textTransform: 'none',
+                                      fontWeight: 700,
+                                      fontSize: 12,
+                                      whiteSpace: 'nowrap',
+                                      boxShadow: 'none',
+                                    }}
+                                  >
+                                    Xóa khỏi nhóm
+                                  </Button>
+                                </span>
+                              </Tooltip>
+                            </>
+                          )}
+
+                          {/* Nút lối tắt Thiết lập dự án (vẫn mở khi quá hạn nếu isReadyForProject === true) */}
+                          <Tooltip
+                            arrow
+                            placement="top"
+                            slotProps={BLUE_TOOLTIP_SLOT_PROPS}
+                            title={
+                              isReadyForProject || hasProject
+                                ? 'Đi tới màn hình thiết lập dự án cho nhóm'
+                                : `Nhóm cần đủ tối thiểu ${minTeamSize ?? 'số'} thành viên để thiết lập dự án`
+                            }
+                          >
+                            <span>
+                              <Button
+                                size="small"
+                                variant="contained"
+                                disabled={!isReadyForProject && !hasProject}
+                                startIcon={<ProjectIcon sx={{ fontSize: 15 }} />}
+                                onClick={() => navigate(`/class-setup/student/project/${currentTeam.teamId}`)}
+                                sx={{
+                                  bgcolor: '#0058be',
+                                  textTransform: 'none',
+                                  fontWeight: 700,
+                                  fontSize: 12,
+                                  boxShadow: 'none',
+                                  whiteSpace: 'nowrap',
+                                  '&:hover': { bgcolor: '#0049a3' },
+                                }}
+                              >
+                                Thiết lập dự án
+                              </Button>
+                            </span>
+                          </Tooltip>
+
+                          {/* Nút Rời nhóm */}
+                          <Tooltip
+                            arrow
+                            placement="top"
+                            slotProps={BLUE_TOOLTIP_SLOT_PROPS}
+                            title={
+                              !canModifyTeam
+                                ? teamLockReason
+                                : leaderMustTransferBeforeLeave
+                                  ? 'Trưởng nhóm cần chuyển quyền trưởng nhóm cho thành viên khác trước khi rời nhóm'
+                                  : ''
+                            }
+                          >
+                            <span>
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                color="error"
+                                disabled={!canModifyTeam || actionLoading || leaderMustTransferBeforeLeave}
+                                startIcon={<LeaveIcon sx={{ fontSize: 15 }} />}
+                                onClick={() => {
+                                  setSelectionMode(null)
+                                  setPendingConfirm({ type: 'leave' })
+                                }}
+                                sx={{
+                                  textTransform: 'none',
+                                  fontWeight: 700,
+                                  fontSize: 12,
+                                  whiteSpace: 'nowrap',
+                                }}
+                              >
+                                Rời nhóm
+                              </Button>
+                            </span>
+                          </Tooltip>
+                        </Box>
                       </Box>
-                    )}
+                    </Box>
 
                     <Divider sx={{ mb: 2 }} />
 
