@@ -101,7 +101,6 @@ export default function PortalLayout({
     return targetRoles.some((r) => userRoles.includes(r.toUpperCase()))
   }
 
-  const isStudent = hasUserRole('Student')
 
   const navItems = [
     {
@@ -197,10 +196,10 @@ export default function PortalLayout({
       roles: ['Admin', 'InventoryManager', 'LabStaff', 'Lecturer', 'Student'],
     },
     {
-      label: isStudent ? 'Phòng lab' : 'Tủ lưu trữ',
+      label: 'Tủ lưu trữ',
       icon: <RoomIcon fontSize="small" />,
-      path: isStudent ? '/class-setup/admin/lab-rooms' : '/class-setup/admin/cabinets',
-      roles: ['InventoryManager', 'LabStaff', 'Student'],
+      path: '/class-setup/admin/cabinets',
+      roles: ['InventoryManager', 'LabStaff'],
     },
     {
       label: 'Quản lý phòng lab',

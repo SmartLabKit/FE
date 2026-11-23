@@ -152,7 +152,6 @@ export default function InventorySetup() {
 
   // Phân quyền theo vai trò
   const isLabStaff = hasRole('LabStaff') && !hasRole('Admin') && !hasRole('InventoryManager')
-  const isStudent = hasRole('Student') && !hasRole('Admin') && !hasRole('InventoryManager') && !hasRole('LabStaff')
   const canManageCategories = hasRole('Admin') || hasRole('InventoryManager') || hasPermission('COMPONENT_MANAGE')
   const canManageStaff = hasRole('Admin') || hasPermission('USER_MANAGE')
   const canManageStorage = hasRole('Admin') || hasRole('InventoryManager') || hasPermission('COMPONENT_MANAGE')
@@ -160,11 +159,6 @@ export default function InventorySetup() {
 
   // Xác định các Tabs hiển thị phù hợp với quyền người dùng
   const tabs = useMemo(() => {
-    if (isStudent) {
-      return [
-        ['/class-setup/admin/lab-rooms', 'Phòng lab'],
-      ]
-    }
     if (isLabStaff || !canManageStorage) {
       return [['/class-setup/admin/cabinets', 'Tủ lưu trữ']]
     }
@@ -173,16 +167,14 @@ export default function InventorySetup() {
       ['/class-setup/admin/lab-rooms', 'Phòng lab'],
       ['/class-setup/admin/cabinets', 'Tủ lưu trữ'],
     ]
-  }, [canManageStorage, isLabStaff, isStudent])
+  }, [canManageStorage, isLabStaff])
 
-  // Đưa Student về danh sách phòng; người không có quyền quản lý rời khỏi mục danh mục.
+  // Người không có quyền quản lý rời khỏi mục danh mục.
   useEffect(() => {
-    if (isStudent && !location.pathname.endsWith('/lab-rooms')) {
-      navigate('/class-setup/admin/lab-rooms', { replace: true })
-    } else if ((isLabStaff || !canManageStorage) && location.pathname.endsWith('/categories')) {
+    if ((isLabStaff || !canManageStorage) && location.pathname.endsWith('/categories')) {
       navigate('/class-setup/admin/cabinets', { replace: true })
     }
-  }, [canManageStorage, isStudent, isLabStaff, location.pathname, navigate])
+  }, [canManageStorage, isLabStaff, location.pathname, navigate])
 
   const kind = location.pathname.endsWith('/categories')
     ? 'categories'
@@ -506,8 +498,8 @@ export default function InventorySetup() {
 
   return (
     <PortalLayout
-      headerTitle={isStudent ? 'Danh sách Phòng Lab' : 'Tủ lưu trữ'}
-      headerSubtitle={isStudent ? 'Tra cứu thông tin các phòng lab thực hành trong hệ thống' : 'Quản lý tủ lưu trữ được phân công'}
+      headerTitle="Tủ lưu trữ"
+      headerSubtitle="Quản lý tủ lưu trữ được phân công"
     >
       <Box sx={{ maxWidth: 1440, mx: 'auto' }}>
         {tabs.length > 1 && (

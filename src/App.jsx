@@ -85,7 +85,7 @@ function App() {
           <Route path="/class-setup/admin/components/import" element={<RequireRole roles={['Admin', 'InventoryManager']}><ComponentExcelImport /></RequireRole>} />
           <Route path="/class-setup/admin/components/:componentId/edit" element={<RequireRole roles={['Admin', 'InventoryManager']}><NewComponent /></RequireRole>} />
           <Route path="/class-setup/admin/categories" element={<RequireRole roles={['Admin', 'InventoryManager', 'LabStaff']}><InventorySetup /></RequireRole>} />
-          <Route path="/class-setup/admin/lab-rooms" element={<RequireRole roles={['Admin', 'InventoryManager', 'LabStaff', 'Student']}><InventorySetup /></RequireRole>} />
+          <Route path="/class-setup/admin/lab-rooms" element={<RequireRole roles={['Admin', 'InventoryManager', 'LabStaff']}><InventorySetup /></RequireRole>} />
           <Route path="/class-setup/admin/lab-room-management" element={<RequireRole roles={['Admin', 'InventoryManager']}><LabRoomManagement /></RequireRole>} />
           <Route path="/class-setup/admin/cabinets" element={<RequireRole roles={['Admin', 'InventoryManager', 'LabStaff']}><InventorySetup /></RequireRole>} />
           <Route path="/class-setup/admin/cabinets/:cabinetId" element={<RequireRole roles={['Admin', 'InventoryManager', 'LabStaff']}><CabinetDetail /></RequireRole>} />
