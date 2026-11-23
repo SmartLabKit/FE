@@ -54,6 +54,28 @@ import { formatVietnamDate, getVietnamDateInputValue } from '../../utils/dateFor
  * - PUT /api/classes/{id}
  * - DELETE /api/classes/{id}
  */
+/** Giống BE: tháng 1–4 Spring, 5–8 Summer, 9–12 Fall; năm theo ngày bắt đầu. */
+function getSemesterTerm(startDate) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate || '')) return null
+  const month = Number(startDate.slice(5, 7))
+  let term = 'Fall'
+  if (month <= 4) term = 'Spring'
+  else if (month <= 8) term = 'Summer'
+  return { term, year: Number(startDate.slice(0, 4)) }
+}
+
+function describeSemesterTerm(startDate) {
+  const info = getSemesterTerm(startDate)
+  return info ? `${info.term} ${info.year}` : '—'
+}
+
+function suggestSemesterCode(startDate) {
+  const info = getSemesterTerm(startDate)
+  if (!info) return 'FA26'
+  const prefix = { Spring: 'SP', Summer: 'SU', Fall: 'FA' }[info.term]
+  return `${prefix}${String(info.year % 100).padStart(2, '0')}`
+}
+
 export default function SemesterClassManager({ onNext }) {
   // State dữ liệu
   const [semesters, setSemesters] = useState([])
@@ -70,8 +92,6 @@ export default function SemesterClassManager({ onNext }) {
   const [originalEndDate, setOriginalEndDate] = useState('')
   const [semesterForm, setSemesterForm] = useState({
     semesterCode: '',
-    term: 'Spring',
-    year: new Date().getFullYear(),
     startDate: '',
     endDate: '',
     isActive: true,
@@ -146,12 +166,9 @@ export default function SemesterClassManager({ onNext }) {
     setSemesterModalMode('create')
     setEditingSemesterId(null)
     setOriginalEndDate('')
-    const startDate = getVietnamDateInputValue()
     setSemesterForm({
       semesterCode: '',
-      term: 'Spring',
-      year: Number(startDate.slice(0, 4)),
-      startDate,
+      startDate: getVietnamDateInputValue(),
       endDate: getVietnamDateInputValue(new Date(Date.now() + 120 * 24 * 3600 * 1000)),
       isActive: true,
     })
@@ -170,8 +187,6 @@ export default function SemesterClassManager({ onNext }) {
     }
     setSemesterForm({
       semesterCode: target.semesterCode || sem.semesterCode,
-      term: target.term || sem.term || 'Spring',
-      year: target.year || sem.year || new Date().getFullYear(),
       startDate: target.startDate ? target.startDate.split('T')[0] : (sem.startDate ? sem.startDate.split('T')[0] : ''),
       endDate: target.endDate ? target.endDate.split('T')[0] : (sem.endDate ? sem.endDate.split('T')[0] : ''),
       isActive: target.isActive !== undefined ? target.isActive : (sem.isActive !== undefined ? sem.isActive : true),
@@ -180,20 +195,8 @@ export default function SemesterClassManager({ onNext }) {
     setSemesterModalOpen(true)
   }
 
-  const handleSemesterStartDateChange = (value) => {
-    setSemesterForm((current) => {
-      const next = { ...current, startDate: value }
-      if (/^\d{4}-\d{2}-\d{2}$/.test(value)) next.year = Number(value.slice(0, 4))
-      return next
-    })
-  }
-
   const handleSaveSemester = async (e) => {
     e.preventDefault()
-    if (!semesterForm.semesterCode.trim()) {
-      showToast('Mã kỳ học không được để trống', 'warning')
-      return
-    }
     if (!semesterForm.startDate || !semesterForm.endDate) {
       showToast('Vui lòng chọn ngày bắt đầu và ngày kết thúc', 'warning')
       return
@@ -218,19 +221,21 @@ export default function SemesterClassManager({ onNext }) {
     try {
       if (semesterModalMode === 'create') {
         const created = await academicService.createSemester({
-          ...semesterForm,
-          year: Number(semesterForm.year),
+          semesterCode: semesterForm.semesterCode.trim() || null,
+          startDate: semesterForm.startDate,
+          endDate: semesterForm.endDate,
         })
         showToast(`Đã tạo học kỳ ${created.semesterCode}!`, 'success')
-        setSelectedYear(Number(created.year || semesterForm.year))
+        setSelectedYear(Number(created.year))
         setSelectedSemesterId(created.semesterId)
       } else {
-        await academicService.updateSemester(editingSemesterId, {
-          ...semesterForm,
-          year: Number(semesterForm.year),
+        const updated = await academicService.updateSemester(editingSemesterId, {
+          startDate: semesterForm.startDate,
+          endDate: semesterForm.endDate,
+          isActive: semesterForm.isActive,
         })
         showToast(`Đã cập nhật học kỳ ${semesterForm.semesterCode}!`, 'success')
-        setSelectedYear(Number(semesterForm.year))
+        if (updated?.year) setSelectedYear(Number(updated.year))
         setSelectedSemesterId(editingSemesterId)
       }
       setSemesterModalOpen(false)
@@ -705,34 +710,15 @@ export default function SemesterClassManager({ onNext }) {
           <DialogContent dividers>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <TextField
-                label="Mã Học Kỳ *"
-                placeholder="VD: SP26, FA25, SU26"
+                label="Mã học kỳ"
+                placeholder={semesterModalMode === 'create' ? `Để trống để tự sinh (VD: ${suggestSemesterCode(semesterForm.startDate)})` : ''}
                 size="small"
                 fullWidth
                 value={semesterForm.semesterCode}
+                disabled={semesterModalMode === 'edit'}
+                helperText={semesterModalMode === 'edit' ? 'Mã học kỳ không đổi được' : 'Có thể để trống'}
                 onChange={(e) => setSemesterForm({ ...semesterForm, semesterCode: e.target.value.toUpperCase() })}
               />
-              <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
-                <FormControl size="small">
-                  <InputLabel>Học kỳ</InputLabel>
-                  <Select
-                    value={semesterForm.term}
-                    label="Học kỳ"
-                    onChange={(e) => setSemesterForm({ ...semesterForm, term: e.target.value })}
-                  >
-                    <MenuItem value="Spring">Spring (Mùa Xuân)</MenuItem>
-                    <MenuItem value="Summer">Summer (Mùa Hè)</MenuItem>
-                    <MenuItem value="Fall">Fall (Mùa Thu)</MenuItem>
-                  </Select>
-                </FormControl>
-                <TextField
-                  label="Năm học"
-                  size="small"
-                  value={semesterForm.year}
-                  helperText="Theo ngày bắt đầu"
-                  slotProps={{ input: { readOnly: true } }}
-                />
-              </Box>
               <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
                 <TextField
                   label="Ngày bắt đầu *"
@@ -740,7 +726,7 @@ export default function SemesterClassManager({ onNext }) {
                   size="small"
                   InputLabelProps={{ shrink: true }}
                   value={semesterForm.startDate}
-                  onChange={(e) => handleSemesterStartDateChange(e.target.value)}
+                  onChange={(e) => setSemesterForm({ ...semesterForm, startDate: e.target.value })}
                 />
                 <TextField
                   label="Ngày kết thúc *"
@@ -755,17 +741,22 @@ export default function SemesterClassManager({ onNext }) {
                   helperText={semesterModalMode === 'create' ? 'Từ hôm nay trở đi' : ''}
                 />
               </Box>
-              <FormControl size="small">
-                <InputLabel>Trạng thái</InputLabel>
-                <Select
-                  value={semesterForm.isActive ? 'true' : 'false'}
-                  label="Trạng thái"
-                  onChange={(e) => setSemesterForm({ ...semesterForm, isActive: e.target.value === 'true' })}
-                >
-                  <MenuItem value="true">Đang hoạt động (Active)</MenuItem>
-                  <MenuItem value="false">Đã kết thúc / Lưu trữ (Archived)</MenuItem>
-                </Select>
-              </FormControl>
+              <Typography sx={{ fontSize: 13, color: '#475569' }}>
+                Kỳ: <strong>{describeSemesterTerm(semesterForm.startDate)}</strong> (tự theo ngày bắt đầu)
+              </Typography>
+              {semesterModalMode === 'edit' && (
+                <FormControl size="small">
+                  <InputLabel>Trạng thái</InputLabel>
+                  <Select
+                    value={semesterForm.isActive ? 'true' : 'false'}
+                    label="Trạng thái"
+                    onChange={(e) => setSemesterForm({ ...semesterForm, isActive: e.target.value === 'true' })}
+                  >
+                    <MenuItem value="true">Đang hoạt động (Active)</MenuItem>
+                    <MenuItem value="false">Đã kết thúc / Lưu trữ (Archived)</MenuItem>
+                  </Select>
+                </FormControl>
+              )}
             </Box>
           </DialogContent>
           <DialogActions sx={{ p: 2 }}>
