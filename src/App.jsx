@@ -33,6 +33,7 @@ import InventoryAudits from './pages/Components/InventoryAudits.jsx'
 import InventoryAuditDetail from './pages/Components/InventoryAuditDetail.jsx'
 import ProjectManagement from './pages/Projects/ProjectManagement.jsx'
 import StudentProjectList from './pages/Projects/StudentProjectList.jsx'
+import StudentGroupsPage from './pages/ClassSetup/StudentGroupsPage.jsx'
 import FinalSubmissionReview from './pages/Projects/FinalSubmissionReview.jsx'
 import Dashboard from './pages/Reports/Dashboard.jsx'
 import Reports from './pages/Reports/Reports.jsx'
@@ -97,7 +98,7 @@ function App() {
           <Route path="/class-setup/admin/inventory-audits/:auditId" element={<RequireRole roles={['Admin', 'InventoryManager', 'LabStaff']}><InventoryAuditDetail /></RequireRole>} />
           <Route path="/class-setup/lecturer/classes" element={<RequireRole roles={['Lecturer']}><ClassSetup /></RequireRole>} />
           <Route path="/class-setup/lecturer/final-submissions" element={<RequireRole roles={['Lecturer', 'Admin']}><FinalSubmissionReview /></RequireRole>} />
-          <Route path="/class-setup/student/groups" element={<RequireRole roles={['Student']}><ClassSetup /></RequireRole>} />
+          <Route path="/class-setup/student/groups" element={<RequireRole roles={['Student']}><StudentGroupsPage /></RequireRole>} />
           <Route path="/class-setup/student/project" element={<RequireRole roles={['Student']}><StudentProjectList /></RequireRole>} />
           <Route path="/class-setup/student/project/:teamId" element={<RequireRole roles={['Student']}><ProjectManagement /></RequireRole>} />
 

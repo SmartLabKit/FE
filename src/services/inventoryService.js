@@ -174,16 +174,9 @@ export const inventoryService = {
   async uploadDatasheet(id, file) {
     const formData = new FormData()
     formData.append('file', file)
-    formData.append('datasheet', file)
-    try {
-      return unwrap(await api.put(`/api/components/${id}/datasheet`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      }))
-    } catch {
-      return unwrap(await api.post(`/api/components/${id}/datasheet`, formData, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      }))
-    }
+    return unwrap(await api.put(`/api/components/${id}/datasheet`, formData, {
+      headers: { 'Content-Type': 'multipart/form-data' },
+    }))
   },
   async deleteDatasheet(id) {
     return api.delete(`/api/components/${id}/datasheet`)

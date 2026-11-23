@@ -19,12 +19,14 @@ import {
   Paper,
   Select,
   Stack,
+  Tab,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
+  Tabs,
   TextField,
   Typography,
 } from '@mui/material'
@@ -38,6 +40,7 @@ import {
 import { academicService } from '../../services/academicService'
 import { teamService } from '../../services/teamService'
 import { useAuth } from '../../context/AuthContext'
+import TeamFormationTab from './TeamFormationTab'
 
 function asArray(value) {
   if (Array.isArray(value)) return value
@@ -123,6 +126,7 @@ export default function LecturerClassManagement() {
   const [selectedTeam, setSelectedTeam] = useState(null)
   const [selectedLeaderId, setSelectedLeaderId] = useState('')
   const [studentSearch, setStudentSearch] = useState('')
+  const [classSubTab, setClassSubTab] = useState(0)
   const [loadingClasses, setLoadingClasses] = useState(true)
   const [loadingStudents, setLoadingStudents] = useState(false)
   const [loadingTeam, setLoadingTeam] = useState(false)
@@ -567,7 +571,11 @@ export default function LecturerClassManagement() {
                     '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: 2 },
                   }}
                 >
-                  <Stack direction="row" justifyContent="space-between" alignItems="flex-start" spacing={1}>
+                  <Stack
+                    direction="row"
+                    spacing={1}
+                    sx={{ justifyContent: 'space-between', alignItems: 'flex-start' }}
+                  >
                     <Box sx={{ minWidth: 0 }}>
                       <Typography variant="subtitle2" sx={{ fontWeight: 800, lineHeight: 1.4 }} noWrap>
                         {classItem.classCode}
@@ -617,164 +625,122 @@ export default function LecturerClassManagement() {
                     {selectedClass?.courseName || selectedClass?.courseCode || ''} · {filteredStudents.length} / {students.length} sinh viên
                   </Typography>
                 </Box>
-                <TextField
-                  size="small"
-                  placeholder="Tìm sinh viên hoặc nhóm"
-                  value={studentSearch}
-                  onChange={(event) => setStudentSearch(event.target.value)}
-                  sx={{ width: { xs: '100%', sm: 280 } }}
-                />
+                {classSubTab === 0 && (
+                  <TextField
+                    size="small"
+                    placeholder="Tìm sinh viên hoặc nhóm"
+                    value={studentSearch}
+                    onChange={(event) => setStudentSearch(event.target.value)}
+                    sx={{ width: { xs: '100%', sm: 280 } }}
+                  />
+                )}
               </Box>
 
-              {studentError && <Alert severity="error">{studentError}</Alert>}
-              {loadingStudents ? (
-                <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}><CircularProgress /></Box>
-              ) : (
-                <Stack spacing={1.25}>
-                  {groupedFilteredStudents.length > 0 && (
-                    <Accordion
-                      defaultExpanded
-                      disableGutters
-                      elevation={0}
-                      sx={{
-                        border: '1px solid',
-                        borderColor: 'grey.200',
-                        borderRadius: '8px !important',
-                        overflow: 'hidden',
-                        '&:before': { display: 'none' },
-                      }}
-                    >
-                      <AccordionSummary
-                        expandIcon={<ExpandMoreIcon />}
-                        sx={{
-                          minHeight: 48,
-                          px: 1.5,
-                          bgcolor: 'grey.50',
-                          '&:hover': { bgcolor: '#eef5ff' },
-                          '& .MuiAccordionSummary-content': { my: 1 },
-                        }}
-                      >
-                        <Typography fontWeight={800}>
-                          Đã vào nhóm <Typography component="span" variant="body2" color="text.secondary">({groupedFilteredStudents.length})</Typography>
-                        </Typography>
-                      </AccordionSummary>
-                      <AccordionDetails sx={{ p: { xs: 1, sm: 1.5 } }}>
-                        <Stack spacing={1.25}>
-                          {visibleTeams.map((group) => (
-                    <Paper key={group.teamId} variant="outlined" sx={{ overflow: 'hidden', borderColor: 'grey.200', borderRadius: 1.75 }}>
-                      <Box
-                        component="button"
-                        type="button"
-                        onClick={() => openTeamDetail(group.teamId)}
-                        aria-label={`Xem chi tiết nhóm ${group.teamName}`}
-                        sx={{
-                          width: '100%',
-                          minWidth: 0,
-                          border: 0,
-                          textAlign: 'left',
-                          font: 'inherit',
-                          color: 'inherit',
-                          cursor: 'pointer',
-                          p: 1.5,
-                          display: 'flex',
-                          justifyContent: 'space-between',
-                          alignItems: 'center',
-                          gap: 1,
-                          bgcolor: 'grey.50',
-                          transition: 'background-color 160ms ease',
-                          '&:hover': {
-                            bgcolor: '#eaf3ff',
-                            boxShadow: 'inset 3px 0 #60a5fa',
-                            '& .team-open-chevron': { transform: 'translateX(3px)' },
-                          },
-                          '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: -2 },
-                        }}
-                      >
-                        <Stack direction="row" spacing={1} alignItems="center">
-                          <GroupsIcon color="primary" fontSize="small" />
-                          <Box>
-                            <Typography fontWeight={700}>{group.teamName}</Typography>
-                            <Typography variant="caption" color="text.secondary">
-                              {group.students.filter(isInTeam).length} thành viên · Nhấn để xem chi tiết
-                            </Typography>
-                          </Box>
-                        </Stack>
-                        <ChevronRightIcon
-                          className="team-open-chevron"
-                          color="action"
-                          sx={{ transition: 'transform 160ms ease' }}
-                        />
-                      </Box>
-                      <TableContainer sx={{ overflowX: 'auto' }}>
-                        <Table size="small" sx={{ minWidth: 560 }}>
-                          <TableHead>
-                            <TableRow sx={{ bgcolor: 'background.default' }}>
-                              <TableCell sx={{ py: 1.1, fontSize: 11, fontWeight: 800, color: 'text.secondary' }}>SINH VIÊN</TableCell>
-                              <TableCell align="center" sx={{ py: 1.1, fontSize: 11, fontWeight: 800, color: 'text.secondary' }}>MSSV</TableCell>
-                              <TableCell sx={{ py: 1.1, fontSize: 11, fontWeight: 800, color: 'text.secondary' }}>EMAIL</TableCell>
-                              <TableCell align="center" sx={{ py: 1.1, fontSize: 11, fontWeight: 800, color: 'text.secondary' }}>TRẠNG THÁI</TableCell>
-                            </TableRow>
-                          </TableHead>
-                          <TableBody>
-                            {group.students.filter((student) => filteredStudents.includes(student)).map((student) => (
-                              <TableRow key={student.studentProfileId || student.studentCode} sx={{ '&:last-child td': { borderBottom: 0 } }}>
-                                <TableCell sx={{ py: 1.2, fontWeight: 600 }}>
-                                  <Stack direction="row" spacing={0.5} alignItems="center">
-                                    <span>{studentName(student)}</span>
-                                    {(student.isTeamLeader || student.isLeader) && (
-                                      <LeaderIcon
-                                        titleAccess="Trưởng nhóm"
-                                        sx={{ fontSize: 17, color: 'warning.main' }}
-                                      />
-                                    )}
-                                  </Stack>
-                                </TableCell>
-                                <TableCell align="center" sx={{ py: 1.2, fontFamily: 'monospace' }}>{student.studentCode || '—'}</TableCell>
-                                <TableCell sx={{ py: 1.2 }}>{student.email || '—'}</TableCell>
-                                <TableCell align="center" sx={{ py: 1.2 }}>{statusLabel(student.status || student.memberStatus)}</TableCell>
-                              </TableRow>
-                            ))}
-                          </TableBody>
-                        </Table>
-                      </TableContainer>
-                    </Paper>
-                          ))}
-                        </Stack>
-                      </AccordionDetails>
-                    </Accordion>
-                  )}
+              <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                <Tabs
+                  value={classSubTab}
+                  onChange={(e, val) => setClassSubTab(val)}
+                  sx={{
+                    minHeight: 40,
+                    '& .MuiTab-root': {
+                      fontWeight: 700,
+                      fontSize: 13,
+                      textTransform: 'none',
+                      minHeight: 40,
+                      py: 1,
+                    },
+                  }}
+                >
+                  <Tab label="Danh sách sinh viên & nhóm" />
+                  <Tab label="Chia nhóm" />
+                </Tabs>
+              </Box>
 
-                  {ungroupedFilteredStudents.length > 0 && (
-                    <Accordion
-                      defaultExpanded
-                      disableGutters
-                      elevation={0}
-                      sx={{
-                        border: '1px solid',
-                        borderColor: 'grey.200',
-                        borderRadius: '8px !important',
-                        overflow: 'hidden',
-                        '&:before': { display: 'none' },
-                      }}
-                    >
-                      <AccordionSummary
-                        expandIcon={<ExpandMoreIcon />}
-                        sx={{
-                          minHeight: 48,
-                          px: 1.5,
-                          bgcolor: 'grey.50',
-                          '&:hover': { bgcolor: '#eef5ff' },
-                          '& .MuiAccordionSummary-content': { my: 1 },
-                        }}
-                      >
-                        <Typography fontWeight={800}>
-                          Chưa vào nhóm <Typography component="span" variant="body2" color="text.secondary">({ungroupedFilteredStudents.length})</Typography>
-                        </Typography>
-                      </AccordionSummary>
-                      <AccordionDetails sx={{ p: { xs: 1, sm: 1.5 } }}>
-                        <Paper variant="outlined" sx={{ overflow: 'hidden', borderColor: 'grey.200', borderRadius: 1.75 }}>
+              {classSubTab === 1 ? (
+                <TeamFormationTab classId={selectedClassId} />
+              ) : (
+                <>
+                  {studentError && <Alert severity="error">{studentError}</Alert>}
+                  {loadingStudents ? (
+                    <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}><CircularProgress /></Box>
+                  ) : (
+                    <Stack spacing={1.25}>
+                      {groupedFilteredStudents.length > 0 && (
+                        <Accordion
+                          defaultExpanded
+                          disableGutters
+                          elevation={0}
+                          sx={{
+                            border: '1px solid',
+                            borderColor: 'grey.200',
+                            borderRadius: '8px !important',
+                            overflow: 'hidden',
+                            '&:before': { display: 'none' },
+                          }}
+                        >
+                          <AccordionSummary
+                            expandIcon={<ExpandMoreIcon />}
+                            sx={{
+                              minHeight: 48,
+                              px: 1.5,
+                              bgcolor: 'grey.50',
+                              '&:hover': { bgcolor: '#eef5ff' },
+                              '& .MuiAccordionSummary-content': { my: 1 },
+                            }}
+                          >
+                            <Typography fontWeight={800}>
+                              Đã vào nhóm <Typography component="span" variant="body2" color="text.secondary">({groupedFilteredStudents.length})</Typography>
+                            </Typography>
+                          </AccordionSummary>
+                          <AccordionDetails sx={{ p: { xs: 1, sm: 1.5 } }}>
+                            <Stack spacing={1.25}>
+                              {visibleTeams.map((group) => (
+                        <Paper key={group.teamId} variant="outlined" sx={{ overflow: 'hidden', borderColor: 'grey.200', borderRadius: 1.75 }}>
+                          <Box
+                            component="button"
+                            type="button"
+                            onClick={() => openTeamDetail(group.teamId)}
+                            aria-label={`Xem chi tiết nhóm ${group.teamName}`}
+                            sx={{
+                              width: '100%',
+                              minWidth: 0,
+                              border: 0,
+                              textAlign: 'left',
+                              font: 'inherit',
+                              color: 'inherit',
+                              cursor: 'pointer',
+                              p: 1.5,
+                              display: 'flex',
+                              justifyContent: 'space-between',
+                              alignItems: 'center',
+                              gap: 1,
+                              bgcolor: 'grey.50',
+                              transition: 'background-color 160ms ease',
+                              '&:hover': {
+                                bgcolor: '#eaf3ff',
+                                boxShadow: 'inset 3px 0 #60a5fa',
+                                '& .team-open-chevron': { transform: 'translateX(3px)' },
+                              },
+                              '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: -2 },
+                            }}
+                          >
+                            <Stack direction="row" spacing={1} alignItems="center">
+                              <GroupsIcon color="primary" fontSize="small" />
+                              <Box>
+                                <Typography fontWeight={700}>{group.teamName}</Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {group.students.filter(isInTeam).length} thành viên · Nhấn để xem chi tiết
+                                </Typography>
+                              </Box>
+                            </Stack>
+                            <ChevronRightIcon
+                              className="team-open-chevron"
+                              color="action"
+                              sx={{ transition: 'transform 160ms ease' }}
+                            />
+                          </Box>
                           <TableContainer sx={{ overflowX: 'auto' }}>
-                            <Table size="small" sx={{ minWidth: 540 }}>
+                            <Table size="small" sx={{ minWidth: 560 }}>
                               <TableHead>
                                 <TableRow sx={{ bgcolor: 'background.default' }}>
                                   <TableCell sx={{ py: 1.1, fontSize: 11, fontWeight: 800, color: 'text.secondary' }}>SINH VIÊN</TableCell>
@@ -784,23 +750,93 @@ export default function LecturerClassManagement() {
                                 </TableRow>
                               </TableHead>
                               <TableBody>
-                                {ungroupedFilteredStudents.map((student) => (
+                                {group.students.filter((student) => filteredStudents.includes(student)).map((student) => (
                                   <TableRow key={student.studentProfileId || student.studentCode} sx={{ '&:last-child td': { borderBottom: 0 } }}>
-                                    <TableCell sx={{ py: 1.2, fontWeight: 600 }}>{studentName(student)}</TableCell>
+                                    <TableCell sx={{ py: 1.2, fontWeight: 600 }}>
+                                      <Stack direction="row" spacing={0.5} alignItems="center">
+                                        <span>{studentName(student)}</span>
+                                        {(student.isTeamLeader || student.isLeader) && (
+                                          <LeaderIcon
+                                            titleAccess="Trưởng nhóm"
+                                            sx={{ fontSize: 17, color: 'warning.main' }}
+                                          />
+                                        )}
+                                      </Stack>
+                                    </TableCell>
                                     <TableCell align="center" sx={{ py: 1.2, fontFamily: 'monospace' }}>{student.studentCode || '—'}</TableCell>
-                                    <TableCell>{student.email || '—'}</TableCell>
-                                    <TableCell align="center">{statusLabel(student.status)}</TableCell>
+                                    <TableCell sx={{ py: 1.2 }}>{student.email || '—'}</TableCell>
+                                    <TableCell align="center" sx={{ py: 1.2 }}>{statusLabel(student.status || student.memberStatus)}</TableCell>
                                   </TableRow>
                                 ))}
                               </TableBody>
                             </Table>
                           </TableContainer>
                         </Paper>
-                      </AccordionDetails>
-                    </Accordion>
+                              ))}
+                            </Stack>
+                          </AccordionDetails>
+                        </Accordion>
+                      )}
+
+                      {ungroupedFilteredStudents.length > 0 && (
+                        <Accordion
+                          defaultExpanded
+                          disableGutters
+                          elevation={0}
+                          sx={{
+                            border: '1px solid',
+                            borderColor: 'grey.200',
+                            borderRadius: '8px !important',
+                            overflow: 'hidden',
+                            '&:before': { display: 'none' },
+                          }}
+                        >
+                          <AccordionSummary
+                            expandIcon={<ExpandMoreIcon />}
+                            sx={{
+                              minHeight: 48,
+                              px: 1.5,
+                              bgcolor: 'grey.50',
+                              '&:hover': { bgcolor: '#eef5ff' },
+                              '& .MuiAccordionSummary-content': { my: 1 },
+                            }}
+                          >
+                            <Typography fontWeight={800}>
+                              Chưa vào nhóm <Typography component="span" variant="body2" color="text.secondary">({ungroupedFilteredStudents.length})</Typography>
+                            </Typography>
+                          </AccordionSummary>
+                          <AccordionDetails sx={{ p: { xs: 1, sm: 1.5 } }}>
+                            <Paper variant="outlined" sx={{ overflow: 'hidden', borderColor: 'grey.200', borderRadius: 1.75 }}>
+                              <TableContainer sx={{ overflowX: 'auto' }}>
+                                <Table size="small" sx={{ minWidth: 540 }}>
+                                  <TableHead>
+                                    <TableRow sx={{ bgcolor: 'background.default' }}>
+                                      <TableCell sx={{ py: 1.1, fontSize: 11, fontWeight: 800, color: 'text.secondary' }}>SINH VIÊN</TableCell>
+                                      <TableCell align="center" sx={{ py: 1.1, fontSize: 11, fontWeight: 800, color: 'text.secondary' }}>MSSV</TableCell>
+                                      <TableCell sx={{ py: 1.1, fontSize: 11, fontWeight: 800, color: 'text.secondary' }}>EMAIL</TableCell>
+                                      <TableCell align="center" sx={{ py: 1.1, fontSize: 11, fontWeight: 800, color: 'text.secondary' }}>TRẠNG THÁI</TableCell>
+                                    </TableRow>
+                                  </TableHead>
+                                  <TableBody>
+                                    {ungroupedFilteredStudents.map((student) => (
+                                      <TableRow key={student.studentProfileId || student.studentCode} sx={{ '&:last-child td': { borderBottom: 0 } }}>
+                                        <TableCell sx={{ py: 1.2, fontWeight: 600 }}>{studentName(student)}</TableCell>
+                                        <TableCell align="center" sx={{ py: 1.2, fontFamily: 'monospace' }}>{student.studentCode || '—'}</TableCell>
+                                        <TableCell>{student.email || '—'}</TableCell>
+                                        <TableCell align="center">{statusLabel(student.status)}</TableCell>
+                                      </TableRow>
+                                    ))}
+                                  </TableBody>
+                                </Table>
+                              </TableContainer>
+                            </Paper>
+                          </AccordionDetails>
+                        </Accordion>
+                      )}
+                      {!filteredStudents.length && <Alert severity="info">Không tìm thấy sinh viên phù hợp.</Alert>}
+                    </Stack>
                   )}
-                  {!filteredStudents.length && <Alert severity="info">Không tìm thấy sinh viên phù hợp.</Alert>}
-                </Stack>
+                </>
               )}
             </Stack>
           )}

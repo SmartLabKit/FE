@@ -173,7 +173,7 @@ export default function BorrowRequestDetail() {
                 <Typography variant="body2"><strong>Người yêu cầu:</strong> {request.requesterName} ({request.studentCode})</Typography>
                 <Typography variant="body2"><strong>Phòng nhận:</strong> {request.roomName || request.roomCode || '—'}</Typography>
                 <Typography variant="body2"><strong>Ngày gửi:</strong> {formatVietnamDateTime(request.requestDate)}</Typography>
-                <Typography variant="body2"><strong>Ngày mượn:</strong> {formatVietnamDate(request.expectedBorrowDate || request.borrowDate)}</Typography>
+                <Typography variant="body2"><strong>Ngày mượn:</strong> {formatVietnamDate(request.borrowDate)}</Typography>
                 <Typography variant="body2"><strong>Ngày trả:</strong> {formatVietnamDate(request.dueDate)}</Typography>
                 <Typography variant="body2"><strong>Mục đích:</strong> {request.purpose || '—'}</Typography>
               </Stack>

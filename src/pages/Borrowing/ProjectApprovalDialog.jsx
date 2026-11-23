@@ -159,11 +159,7 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
   const teamName = detail?.teamName || project?.teamName || 'Nhóm'
   const classCode = detail?.classCode || project?.classCode || '—'
   const submittedAt = detail?.submittedAt || project?.submittedAt
-  const borrowDate =
-    borrowRequest?.expectedBorrowDate ||
-    detail?.expectedBorrowDate ||
-    borrowRequest?.borrowDate ||
-    detail?.borrowDate
+  const borrowDate = borrowRequest?.borrowDate || detail?.borrowDate
   const dueDate = borrowRequest?.dueDate || detail?.dueDate
   const submittedDate = formatVietnamDate(submittedAt)
   const borrowedDate = formatVietnamDate(borrowDate)

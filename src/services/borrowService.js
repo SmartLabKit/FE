@@ -9,7 +9,6 @@ export const MOCK_AVAILABLE_COMPONENTS = []
 export const MOCK_ORIGINAL_BORROWS = []
 export const MOCK_RETURN_REQUESTS = []
 export const MOCK_BORROW_EXTENSIONS = []
-export const MOCK_BORROW_TRANSFERS = []
 
 function extractPagedItems(data) {
   if (!data) return []

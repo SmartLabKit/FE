@@ -176,8 +176,7 @@ export interface TeamInvitationDto {
  * Request thay đổi quyền trưởng nhóm
  */
 export interface ChangeTeamLeaderRequest {
-  newLeaderStudentProfileId: string
-  studentProfileId?: string
+  studentProfileId: string
 }
 
 /**

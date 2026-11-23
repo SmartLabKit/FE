@@ -621,7 +621,7 @@ export default function SupplementaryBorrowList() {
                               {formatVietnamDate(project.submittedAt)}
                             </TableCell>
                             <TableCell sx={{ fontSize: 12, color: '#334155' }}>
-                              {formatVietnamDate(project.expectedBorrowDate || project.borrowDate)}
+                              {formatVietnamDate(project.borrowDate)}
                               {' / '}
                               {formatVietnamDate(project.dueDate)}
                             </TableCell>
