@@ -230,6 +230,12 @@ export default function Roles() {
                   {roles.map((role) => {
                     const isSelected = role.roleId === selectedRoleId
                     const color = ROLE_COLORS[role.roleName] || '#0058be'
+                    const rawCount = role.permissionCount ?? (role.permissions ? role.permissions.length : 0)
+                    const displayCount =
+                      role.roleName === 'Admin'
+                        ? Math.max(0, rawCount - ADMIN_FORCE_DISABLED_PERMISSIONS.length)
+                        : rawCount
+
                     return (
                       <Paper
                         key={role.roleId}
@@ -298,7 +304,7 @@ export default function Roles() {
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                             <KeyIcon sx={{ fontSize: 14, color: color }} />
                             <Typography variant="caption" sx={{ color: color, fontWeight: 700 }}>
-                              {role.permissionCount || (role.permissions ? role.permissions.length : 0)} quyền
+                              {displayCount} quyền
                             </Typography>
                           </Box>
                         </Box>
