@@ -414,18 +414,51 @@ export default function Components() {
                         {Number(component.availableQuantity || 0).toLocaleString('vi-VN')}
                       </TableCell>
                       <TableCell>
-                        <Chip
-                          size="small"
-                          label={
-                            component.isLowStock
-                              ? 'Sắp hết'
-                              : component.isActive === false
-                                ? 'Ngừng hoạt động'
-                                : 'Đang hoạt động'
+                        {(() => {
+                          if (component.isActive === false) {
+                            return (
+                              <Chip
+                                size="small"
+                                label="Ngừng hoạt động"
+                                color="default"
+                                sx={{ fontWeight: 600, fontSize: 11 }}
+                              />
+                            )
                           }
-                          color={component.isLowStock ? 'warning' : 'success'}
-                          sx={{ fontWeight: 600, fontSize: 11 }}
-                        />
+                          const totalQty = Number(component.totalQuantity || 0)
+                          const availQty = Number(component.availableQuantity || 0)
+                          if (totalQty === 0 || availQty === 0) {
+                            return (
+                              <Chip
+                                size="small"
+                                label="Hết hàng"
+                                color="error"
+                                sx={{ fontWeight: 600, fontSize: 11 }}
+                              />
+                            )
+                          }
+                          const isLow =
+                            component.isLowStock === true ||
+                            (component.minStock != null && totalQty <= Number(component.minStock))
+                          if (isLow) {
+                            return (
+                              <Chip
+                                size="small"
+                                label="Sắp hết"
+                                color="warning"
+                                sx={{ fontWeight: 600, fontSize: 11 }}
+                              />
+                            )
+                          }
+                          return (
+                            <Chip
+                              size="small"
+                              label="Đang hoạt động"
+                              color="success"
+                              sx={{ fontWeight: 600, fontSize: 11 }}
+                            />
+                          )
+                        })()}
                       </TableCell>
                       <TableCell>
                         <Box sx={{ display: 'flex', gap: 0.5 }}>
