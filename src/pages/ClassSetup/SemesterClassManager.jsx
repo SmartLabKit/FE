@@ -99,7 +99,7 @@ export default function SemesterClassManager({ onNext }) {
   const [semesters, setSemesters] = useState([])
   const [courses, setCourses] = useState([])
   const [classes, setClasses] = useState([])
-  const [selectedYear, setSelectedYear] = useState('all')
+  const [selectedYear, setSelectedYear] = useState(() => Number(getVietnamDateInputValue().slice(0, 4)))
   const [statusFilter, setStatusFilter] = useState('open')
   const [selectedSemesterId, setSelectedSemesterId] = useState('')
   const [classSearch, setClassSearch] = useState('')
@@ -148,7 +148,8 @@ export default function SemesterClassManager({ onNext }) {
         if (!ignore) {
           setSemesters(semData || [])
           setCourses(courseData || [])
-          const initialSemester = filterSemesters(semData || [], 'all', 'open', getVietnamDateInputValue())[0]
+          const today = getVietnamDateInputValue()
+          const initialSemester = filterSemesters(semData || [], Number(today.slice(0, 4)), 'open', today)[0]
           setSelectedSemesterId(initialSemester?.semesterId || '')
         }
       })
@@ -246,7 +247,7 @@ export default function SemesterClassManager({ onNext }) {
           endDate: semesterForm.endDate,
         })
         showToast(`Đã tạo học kỳ ${created.semesterCode}!`, 'success')
-        setSelectedYear('all')
+        setSelectedYear(Number(created.year))
         setStatusFilter('open')
         setSelectedSemesterId(created.semesterId)
       } else {
@@ -385,9 +386,10 @@ export default function SemesterClassManager({ onNext }) {
 
   const currentSemester = semesters.find((s) => s.semesterId === selectedSemesterId)
   const todayVn = getVietnamDateInputValue()
-  const availableYears = [...new Set(
-    semesters.map((semester) => Number(semester.year)).filter(Number.isFinite),
-  )].sort((a, b) => b - a)
+  const availableYears = [...new Set([
+    Number(todayVn.slice(0, 4)),
+    ...semesters.map((semester) => Number(semester.year)).filter(Number.isFinite),
+  ])].sort((a, b) => b - a)
   const visibleSemesters = filterSemesters(semesters, selectedYear, statusFilter, todayVn)
 
   const selectFirstSemester = (list) => {
