@@ -59,7 +59,7 @@ export function downloadComponentsTemplate(categories = [], existingComponents =
     'Danh mục (*)',
     'Đơn vị (*)',
     'Loại quản lý (*)',
-    'Đơn giá chuẩn (VNĐ)',
+    'Tồn tối thiểu',
     'Hãng sản xuất',
     'Mô tả',
     'Thông số kỹ thuật',
@@ -98,9 +98,16 @@ export function downloadComponentsTemplate(categories = [], existingComponents =
       'Ghi chú / Quy định': 'Một trong 3 giá trị: CONSUMABLE (Tiêu hao), REUSABLE (Tái sử dụng), HIGH_VALUE (Giá thành cao - có Serial).',
     },
     {
-      'Cột dữ liệu': 'Đơn giá chuẩn (VNĐ)',
-      'Bắt buộc': 'Khuyến nghị',
-      'Ghi chú / Quy định': 'Đơn giá quy định cho từng linh kiện (số nguyên >= 0), tự gợi ý khi lập phiếu nhập.',
+      'Cột dữ liệu': 'Tồn tối thiểu',
+      'Bắt buộc': 'Không',
+      'Ghi chú / Quy định':
+        'Số nguyên >= 0. Tồn kho dưới mức này sẽ báo "Sắp hết". Đơn giá không khai báo ở đây: giá lấy theo phiếu nhập kho.',
+    },
+    {
+      'Cột dữ liệu': 'Thông số kỹ thuật',
+      'Bắt buộc': 'Không',
+      'Ghi chú / Quy định':
+        'Ghi dạng "Tên: giá trị", các thông số cách nhau bằng dấu chấm phẩy. VD: Điện áp: 3.3V; Giao tiếp: I2C',
     },
     {
       'Cột dữ liệu': 'Link Datasheet (NSX)',
@@ -151,7 +158,7 @@ export function downloadComponentsTemplate(categories = [], existingComponents =
         'Danh mục': c.categoryName || '',
         'Đơn vị': c.unit || '',
         'Loại quản lý': c.trackingType || '',
-        'Đơn giá chuẩn (VNĐ)': getComponentReferencePrice(c) || '',
+        'Giá nhập gần nhất (VNĐ)': c.latestUnitPrice ?? '',
       }))
     )
     wsExisting['!cols'] = [{ wch: 20 }, { wch: 38 }, { wch: 22 }, { wch: 12 }, { wch: 16 }, { wch: 20 }]
@@ -200,8 +207,8 @@ export async function parseComponentsExcel(file) {
               ? 'CONSUMABLE'
               : 'CONSUMABLE'
 
-      const unitPriceRaw = pickCell(row, ['Đơn giá chuẩn', 'Đơn giá', 'unitPrice', 'don gia', 'price'])
-      const unitPrice = parseNumberStrict(unitPriceRaw, 0)
+      const minStockRaw = pickCell(row, ['Tồn tối thiểu', 'minStock', 'ton toi thieu'])
+      const minStock = parseNumberStrict(minStockRaw, '')
       const manufacturer = String(pickCell(row, ['Hãng sản xuất', 'manufacturer', 'hang san xuat'])).trim()
       const description = String(pickCell(row, ['Mô tả', 'description', 'mo ta'])).trim()
       const specifications = String(pickCell(row, ['Thông số kỹ thuật', 'specifications', 'thong so'])).trim()
@@ -216,7 +223,7 @@ export async function parseComponentsExcel(file) {
         categoryName,
         unit,
         trackingType,
-        unitPrice: typeof unitPrice === 'number' && unitPrice >= 0 ? unitPrice : 0,
+        minStock: minStock === '' ? '' : String(minStock),
         manufacturer,
         description,
         specifications,

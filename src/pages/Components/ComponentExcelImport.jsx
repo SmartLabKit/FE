@@ -37,11 +37,10 @@ import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
 import { downloadComponentsTemplate, parseComponentsExcel } from '../../utils/excelHelper'
 import {
+  findDuplicateSpecKeys,
   generateComponentShortCode,
   normalizeSearchText,
-  saveComponentReferencePrice,
-  saveComponentShortCode,
-  saveLocalTutorials,
+  parseSpecsText,
 } from './componentHelpers'
 
 const TRACKING_TYPES = ['CONSUMABLE', 'REUSABLE', 'HIGH_VALUE']
@@ -108,8 +107,15 @@ export default function ComponentExcelImport() {
     if (!row.categoryId) errors.push(`Không khớp danh mục "${row.categoryName || 'trống'}"`)
     if (!row.unit?.trim()) errors.push('Thiếu đơn vị tính')
     if (!TRACKING_TYPES.includes(row.trackingType)) errors.push('Loại quản lý không hợp lệ')
-    const price = Number(row.unitPrice)
-    if (Number.isNaN(price) || price < 0) errors.push('Đơn giá phải >= 0')
+    if (String(row.minStock ?? '').trim() !== '') {
+      const minStock = Number(row.minStock)
+      if (!Number.isInteger(minStock) || minStock < 0) errors.push('Tồn tối thiểu phải là số nguyên >= 0')
+    }
+    const specs = parseSpecsText(row.specifications)
+    if (specs.some((s) => s.specKey.length > 100)) errors.push('Tên thông số tối đa 100 ký tự')
+    if (specs.some((s) => s.specValue.length > 255)) errors.push('Giá trị thông số tối đa 255 ký tự')
+    const duplicateKeys = findDuplicateSpecKeys(specs)
+    if (duplicateKeys.length > 0) errors.push(`Thông số bị trùng tên: ${duplicateKeys.join(', ')}`)
     return errors
   }
 
@@ -200,108 +206,62 @@ export default function ComponentExcelImport() {
       const row = selectedValidRows[i]
       setProgress({ current: i + 1, total: selectedValidRows.length })
 
-      const specsList = row.specifications?.trim() ? [row.specifications.trim()] : []
-      const dsUrl = row.datasheetUrl?.trim() || null
-      const shortCode = (row.shortCode || generateComponentShortCode(row.componentName)).trim().toUpperCase()
-      const refPrice = Number(row.unitPrice) > 0 ? Math.round(Number(row.unitPrice)) : 0
+      const name = row.componentName.trim()
+      const shortCode = (row.shortCode || generateComponentShortCode(name)).trim().toUpperCase()
+      const minStockText = String(row.minStock ?? '').trim()
 
       const payload = {
-        componentName: row.componentName.trim(),
-        componentCode: shortCode || undefined,
-        shortCode: shortCode || undefined,
         categoryId: row.categoryId,
-        manufacturer: row.manufacturer?.trim() || '',
-        description: row.description?.trim() || '',
-        specifications: row.specifications?.trim() || '',
-        specs: specsList,
-        unit: row.unit.trim(),
+        componentName: name,
+        shortCode: shortCode || null,
+        manufacturer: row.manufacturer?.trim() || null,
+        description: row.description?.trim() || null,
+        datasheetUrl: row.datasheetUrl?.trim() || null,
         trackingType: row.trackingType,
-        datasheetUrl: dsUrl,
-        unitPrice: refPrice,
-        referencePrice: refPrice,
-        isActive: true,
-        // PascalCase compatibility
-        ComponentName: row.componentName.trim(),
-        ComponentCode: shortCode || undefined,
-        CategoryId: row.categoryId,
-        Manufacturer: row.manufacturer?.trim() || '',
-        Description: row.description?.trim() || '',
-        Specifications: row.specifications?.trim() || '',
-        Specs: specsList,
-        Unit: row.unit.trim(),
-        TrackingType: row.trackingType,
-        DatasheetUrl: dsUrl,
-        UnitPrice: refPrice,
+        unit: row.unit.trim(),
+        minStock: minStockText === '' ? null : Number(minStockText),
+        specs: parseSpecsText(row.specifications),
       }
 
       try {
         const saved = await inventoryService.createComponent(payload)
-        const id =
-          saved?.componentId ||
-          saved?.ComponentId ||
-          saved?.id ||
-          saved?.Id ||
-          saved?.data?.componentId ||
-          ''
-        const apiCode = saved?.componentCode || saved?.ComponentCode || ''
+        const id = saved?.componentId || ''
+        const apiCode = saved?.componentCode || ''
 
+        const tutorialsToSave = []
+        if (row.youtubeUrl?.trim()) {
+          tutorialsToSave.push({
+            title: `Video hướng dẫn ${name} (YouTube)`,
+            url: row.youtubeUrl.trim(),
+            content: `Video YouTube hướng dẫn đấu nối và sử dụng ${name}.`,
+          })
+        }
+        if (row.pdfGuideUrl?.trim()) {
+          tutorialsToSave.push({
+            title: `Tài liệu PDF hướng dẫn ${name}`,
+            url: row.pdfGuideUrl.trim(),
+            content: `Tài liệu PDF hướng dẫn thực hành cho ${name}.`,
+          })
+        }
+
+        const tutorialErrors = []
         if (id) {
-          saveComponentShortCode(id, shortCode)
-          if (refPrice > 0) {
-            saveComponentReferencePrice(id, refPrice, apiCode || shortCode)
-          }
-          if (dsUrl) {
-            localStorage.setItem(`component_datasheet_url_${id}`, dsUrl)
-          }
-
-          // Tự động lưu link YouTube & PDF hướng dẫn (nếu có trong file Excel)
-          const tutorialsToSave = []
-          if (row.youtubeUrl?.trim()) {
-            tutorialsToSave.push({
-              title: `Video hướng dẫn ${row.componentName.trim()} (YouTube)`,
-              url: row.youtubeUrl.trim(),
-              content: `Video YouTube hướng dẫn đấu nối và sử dụng ${row.componentName.trim()}.`,
-              description: `Video YouTube hướng dẫn đấu nối và sử dụng ${row.componentName.trim()}.`,
-              type: 'youtube',
-            })
-          }
-          if (row.pdfGuideUrl?.trim()) {
-            tutorialsToSave.push({
-              title: `Tài liệu PDF hướng dẫn ${row.componentName.trim()}`,
-              url: row.pdfGuideUrl.trim(),
-              content: `Tài liệu PDF hướng dẫn thực hành cho ${row.componentName.trim()}.`,
-              description: `Tài liệu PDF hướng dẫn thực hành cho ${row.componentName.trim()}.`,
-              type: 'pdf',
-            })
-          }
-
-          const createdTuts = []
           for (const tut of tutorialsToSave) {
             try {
-              const created = await inventoryService.createTutorial(id, {
-                ...tut,
-                Title: tut.title,
-                Url: tut.url,
-                Content: tut.content,
-                Description: tut.description,
-              })
-              createdTuts.push({ ...tut, ...(created || {}) })
-            } catch {
-              createdTuts.push({ ...tut, tutorialId: `local-${Date.now()}-${Math.random()}` })
+              await inventoryService.createTutorial(id, tut)
+            } catch (tutErr) {
+              tutorialErrors.push(extractErrorMessage(tutErr, `Không lưu được "${tut.title}"`))
             }
-          }
-          if (createdTuts.length > 0) {
-            saveLocalTutorials(id, createdTuts)
           }
         }
 
         successCount += 1
+        let message = apiCode ? `Đã tạo (${apiCode})` : 'Đã tạo thành công'
+        if (tutorialErrors.length > 0) {
+          message += `. Lỗi hướng dẫn: ${tutorialErrors.join('; ')}`
+        }
         setRows((current) =>
-          current.map((r) =>
-            r.key === row.key
-              ? { ...r, status: 'success', statusMessage: apiCode ? `Đã tạo (${apiCode})` : 'Đã tạo thành công' }
-              : r
-          )
+          current.map((r) => (r.key === row.key ? { ...r, status: 'success', statusMessage: message } : r))
         )
       } catch (saveErr) {
         failedCount += 1
@@ -532,7 +492,7 @@ export default function ComponentExcelImport() {
                       <TableCell sx={{ fontWeight: 700, minWidth: 170 }}>Danh mục (*)</TableCell>
                       <TableCell sx={{ fontWeight: 700, minWidth: 145 }}>Loại quản lý</TableCell>
                       <TableCell sx={{ fontWeight: 700, minWidth: 90 }}>Đơn vị</TableCell>
-                      <TableCell sx={{ fontWeight: 700, minWidth: 120 }}>Đơn giá chuẩn</TableCell>
+                      <TableCell sx={{ fontWeight: 700, minWidth: 110 }}>Tồn tối thiểu</TableCell>
                       <TableCell sx={{ fontWeight: 700, minWidth: 105 }}>Tài liệu</TableCell>
                       <TableCell sx={{ fontWeight: 700, minWidth: 170 }}>Trạng thái</TableCell>
                       <TableCell />
@@ -637,11 +597,11 @@ export default function ComponentExcelImport() {
                               type="number"
                               fullWidth
                               disabled={importing || row.status === 'success'}
-                              value={row.unitPrice}
+                              value={row.minStock}
                               onKeyDown={(e) => {
-                                if (['-', '+', 'e', 'E'].includes(e.key)) e.preventDefault()
+                                if (['-', '+', 'e', 'E', '.', ','].includes(e.key)) e.preventDefault()
                               }}
-                              onChange={(e) => updateRow(row.key, { unitPrice: e.target.value })}
+                              onChange={(e) => updateRow(row.key, { minStock: e.target.value })}
                               slotProps={{ htmlInput: { min: 0, step: 1 } }}
                             />
                           </TableCell>

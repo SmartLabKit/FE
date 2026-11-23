@@ -156,6 +156,59 @@ export function saveComponentReferencePrice(id, price, componentCode = '') {
   }
 }
 
+/**
+ * Đổi ô "Thông số kỹ thuật" dạng chữ thành danh sách { specKey, specValue } theo đúng API.
+ * Mỗi thông số cách nhau bằng dấu ; hoặc xuống dòng, tên và giá trị cách nhau bằng dấu :
+ * VD: "Điện áp: 3.3V; Giao tiếp: I2C". Thông số không có dấu : sẽ lấy tên "Thông số 1", "Thông số 2"...
+ */
+export function parseSpecsText(text = '') {
+  const parts = String(text || '')
+    .split(/[;\n]/)
+    .map((part) => part.trim())
+    .filter(Boolean)
+
+  const specs = []
+  parts.forEach((part, index) => {
+    const colon = part.indexOf(':')
+    let specKey = `Thông số ${index + 1}`
+    let specValue = part
+    if (colon > 0) {
+      specKey = part.slice(0, colon).trim()
+      specValue = part.slice(colon + 1).trim()
+    }
+    if (specKey && specValue) specs.push({ specKey, specValue })
+  })
+  return specs
+}
+
+/** Tên thông số bị lặp (không phân biệt hoa thường); API sẽ từ chối nếu có. */
+export function findDuplicateSpecKeys(specs = []) {
+  const seen = new Set()
+  const duplicates = new Set()
+  for (const spec of specs) {
+    const key = spec.specKey.trim().toLowerCase()
+    if (seen.has(key)) duplicates.add(spec.specKey.trim())
+    seen.add(key)
+  }
+  return [...duplicates]
+}
+
+/** Ngược lại với parseSpecsText: danh sách thông số từ API thành chữ "Tên: giá trị; ..." để sửa. */
+export function formatSpecsText(specs) {
+  if (!Array.isArray(specs)) return ''
+  return specs
+    .map((spec) => {
+      if (typeof spec === 'string') return spec
+      const key = spec?.specKey || spec?.SpecKey || ''
+      const value = spec?.specValue || spec?.SpecValue || ''
+      const unit = spec?.unit || spec?.Unit || ''
+      const fullValue = unit ? `${value} ${unit}` : value
+      return key ? `${key}: ${fullValue}` : fullValue
+    })
+    .filter(Boolean)
+    .join('; ')
+}
+
 // Nhận diện link YouTube và tạo URL embed
 export function extractYoutubeVideoId(url = '') {
   if (!url) return ''

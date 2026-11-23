@@ -4,6 +4,22 @@ function unwrap(response) {
   return response.data?.data ?? response.data
 }
 
+/**
+ * API hướng dẫn chỉ nhận { title, content, videoUrl }. Link YouTube hay PDF đều lưu vào videoUrl
+ * (trang hiển thị tự nhận dạng loại theo đường dẫn).
+ */
+function toTutorialRequest(data = {}) {
+  const title = String(data.title || data.Title || '').trim()
+  const content = String(data.content || data.Content || data.description || data.Description || title).trim()
+  const link = String(data.videoUrl || data.VideoUrl || data.url || data.Url || '').trim()
+  return { title, content, videoUrl: link || null }
+}
+
+function fromTutorialResponse(tutorial) {
+  if (!tutorial || typeof tutorial !== 'object') return tutorial
+  return { ...tutorial, url: tutorial.url || tutorial.videoUrl || '' }
+}
+
 function asList(value, keys = []) {
   if (Array.isArray(value)) return value
   for (const key of keys) {
@@ -182,13 +198,16 @@ export const inventoryService = {
     return api.delete(`/api/components/${id}/datasheet`)
   },
   async getTutorials(id) {
-    return asList(unwrap(await api.get(`/api/components/${id}/tutorials`)), ['items', 'tutorials'])
+    const list = asList(unwrap(await api.get(`/api/components/${id}/tutorials`)), ['items', 'tutorials'])
+    return list.map(fromTutorialResponse)
   },
   async createTutorial(id, data) {
-    return unwrap(await api.post(`/api/components/${id}/tutorials`, data))
+    return fromTutorialResponse(unwrap(await api.post(`/api/components/${id}/tutorials`, toTutorialRequest(data))))
   },
   async updateTutorial(id, tutorialId, data) {
-    return unwrap(await api.put(`/api/components/${id}/tutorials/${tutorialId}`, data))
+    return fromTutorialResponse(
+      unwrap(await api.put(`/api/components/${id}/tutorials/${tutorialId}`, toTutorialRequest(data))),
+    )
   },
   async deleteTutorial(id, tutorialId) {
     return api.delete(`/api/components/${id}/tutorials/${tutorialId}`)

@@ -35,11 +35,13 @@ import { extractErrorMessage } from '../../services/api'
 import {
   classifyTutorialType,
   extractYoutubeVideoId,
+  formatSpecsText,
   generateComponentShortCode,
   getComponentReferencePrice,
   getComponentShortCode,
   getLocalTutorials,
   isYoutubeUrl,
+  parseSpecsText,
   saveComponentReferencePrice,
   saveComponentShortCode,
   saveLocalTutorials,
@@ -140,7 +142,7 @@ export default function NewComponent() {
               manufacturer: component.manufacturer || component.Manufacturer || '',
               description: component.description || component.Description || '',
               specifications: Array.isArray(component.specs || component.Specs)
-                ? (component.specs || component.Specs).join(', ')
+                ? formatSpecsText(component.specs || component.Specs)
                 : component.specifications || component.Specifications || '',
               unit: component.unit || component.Unit || '',
               trackingType: component.trackingType || component.TrackingType || 'CONSUMABLE',
@@ -380,7 +382,7 @@ export default function NewComponent() {
 
     setSaving(true)
     try {
-      const specsList = form.specifications.trim() ? [form.specifications.trim()] : []
+      const specsList = parseSpecsText(form.specifications)
       const dsUrl = form.datasheetUrl.trim() || null
       const shortCodeVal = (
         form.shortCode.trim() || generateComponentShortCode(form.componentName)
@@ -770,7 +772,8 @@ export default function NewComponent() {
                     minRows={3}
                     label="Thông số kỹ thuật"
                     name="specifications"
-                    placeholder="VD: Nguồn 3.3-5V, giao tiếp I2C/SPI, kích thước..."
+                    placeholder="VD: Điện áp: 3.3-5V; Giao tiếp: I2C/SPI"
+                    helperText='Ghi "Tên: giá trị", mỗi thông số cách nhau bằng dấu ; hoặc xuống dòng'
                     value={form.specifications}
                     onChange={updateField}
                   />
