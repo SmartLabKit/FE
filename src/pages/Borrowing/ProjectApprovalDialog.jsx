@@ -21,6 +21,8 @@ import { useNavigate } from 'react-router-dom'
 import ProjectStatusChip from '../../components/borrowing/ProjectStatusChip'
 import { projectService } from '../../services/projectService'
 import { borrowService } from '../../services/borrowService'
+import { issueReportService } from '../../services/issueReportService'
+import { formatDateTime, issueStatusOf, issueTypeLabel } from '../IssueReports/issueReportLabels'
 import { formatVietnamDate } from '../../utils/dateFormatting'
 import { getBorrowRequestStatusMeta } from './borrowHelpers'
 
@@ -30,6 +32,7 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
   const navigate = useNavigate()
   const [detail, setDetail] = useState(null)
   const [pendingBorrowDetail, setPendingBorrowDetail] = useState(null)
+  const [issues, setIssues] = useState([])
   const [loading, setLoading] = useState(false)
   const [busy, setBusy] = useState(false)
   const [comment, setComment] = useState('')
@@ -47,12 +50,20 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
       setError('')
       setDetail(null)
       setPendingBorrowDetail(null)
+      setIssues([])
       setComment('')
       setApprovedQty({})
       try {
         const result = await projectService.getProject(project.projectId)
         if (!active) return
         setDetail(result)
+
+        issueReportService
+          .getIssueReports({ projectId: project.projectId, page: 1, size: 50 })
+          .then((data) => {
+            if (active) setIssues(Array.isArray(data) ? data : data?.items || [])
+          })
+          .catch(() => {})
 
         // Nếu đề tài đang có đơn mượn ở trạng thái Pending (đặc biệt là đơn mượn thêm),
         // tải chi tiết đơn đó để hiển thị đúng danh sách linh kiện xin mượn thêm.
@@ -423,6 +434,40 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
                     </Stack>
                   )}
                 </Box>
+
+                {issues.length > 0 && (
+                  <>
+                    <Divider />
+                    <Box>
+                      <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1.25 }}>
+                        Sự cố linh kiện ({issues.length})
+                      </Typography>
+                      <Stack spacing={1}>
+                        {issues.map((issue) => {
+                          const status = issueStatusOf(issue.status)
+                          return (
+                            <Paper
+                              key={issue.issueReportId}
+                              variant="outlined"
+                              sx={{ p: 1.25, borderRadius: 1.5, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}
+                            >
+                              <Box sx={{ minWidth: 0 }}>
+                                <Typography variant="body2" sx={{ fontWeight: 700 }}>
+                                  {issue.componentName || '—'} · {issue.itemCode || '—'}
+                                </Typography>
+                                <Typography variant="caption" color="text.secondary">
+                                  {issueTypeLabel(issue.issueType)} · {formatDateTime(issue.createdAt)}
+                                  {issue.description ? ` · ${issue.description}` : ''}
+                                </Typography>
+                              </Box>
+                              <Chip size="small" color={status.color} label={status.label} />
+                            </Paper>
+                          )
+                        })}
+                      </Stack>
+                    </Box>
+                  </>
+                )}
 
                 <Divider />
 
