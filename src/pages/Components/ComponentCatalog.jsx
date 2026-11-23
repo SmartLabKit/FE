@@ -9,6 +9,13 @@ import {
   CircularProgress,
   IconButton,
   InputBase,
+  Paper,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   Typography,
 } from '@mui/material'
 import {
@@ -16,9 +23,11 @@ import {
   PhotoCameraOutlined as CameraIcon,
   Search as SearchIcon,
   TableRows as TableViewIcon,
+  GridView as GridViewIcon,
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
 import PortalLayout from '../../components/layout/PortalLayout'
+import TrackingTypeBadge from '../../components/common/TrackingTypeBadge'
 import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
 import {
@@ -39,6 +48,7 @@ export default function ComponentCatalog() {
   const [search, setSearch] = useState('')
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
+  const [viewMode, setViewMode] = useState('grid')
 
   // Tải danh sách linh kiện và danh mục từ API
   useEffect(() => {
@@ -169,11 +179,10 @@ export default function ComponentCatalog() {
             )}
           </Box>
 
-          {/* Nút chuyển đổi sang dạng bảng quản lý (dành cho người muốn quản lý chi tiết) */}
           <Button
             variant="outlined"
-            startIcon={<TableViewIcon />}
-            onClick={() => navigate('/class-setup/admin/components')}
+            startIcon={viewMode === 'grid' ? <TableViewIcon /> : <GridViewIcon />}
+            onClick={() => setViewMode((current) => (current === 'grid' ? 'table' : 'grid'))}
             sx={{
               borderRadius: '9999px',
               borderColor: '#e2e8f0',
@@ -191,7 +200,7 @@ export default function ComponentCatalog() {
               },
             }}
           >
-            Dạng bảng
+            {viewMode === 'grid' ? 'Dạng bảng' : 'Dạng lưới'}
           </Button>
         </Box>
 
@@ -257,7 +266,74 @@ export default function ComponentCatalog() {
         )}
 
         {/* Danh sách linh kiện dạng lưới (E-commerce Grid Cards - Đúng theo Hình 2) */}
-        {!loading && !error && (
+        {!loading && !error && viewMode === 'table' && filteredComponents.length > 0 && (
+          <TableContainer component={Paper} variant="outlined" sx={{ borderRadius: 3, borderColor: '#e2e8f0' }}>
+            <Table size="small">
+              <TableHead>
+                <TableRow sx={{ '& th': { fontWeight: 700, color: '#475569', bgcolor: '#f8fafc' } }}>
+                  <TableCell sx={{ width: 64 }}>Ảnh</TableCell>
+                  <TableCell>Linh kiện</TableCell>
+                  <TableCell>Danh mục</TableCell>
+                  <TableCell>Loại</TableCell>
+                  <TableCell align="right">Còn</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {filteredComponents.map((component) => {
+                  const imgUrl = getComponentImage(component)
+                  const availableQty = Number(component.availableQuantity ?? component.stock ?? 0)
+                  const unit = component.unit || 'cái'
+                  return (
+                    <TableRow
+                      key={component.componentId || component.id}
+                      hover
+                      sx={{ cursor: 'pointer' }}
+                      onClick={() =>
+                        navigate(`/components/${component.componentId || component.id}`, { state: { component } })
+                      }
+                    >
+                      <TableCell>
+                        <Box
+                          sx={{
+                            width: 44,
+                            height: 44,
+                            borderRadius: 1.5,
+                            bgcolor: '#f8fafc',
+                            display: 'flex',
+                            alignItems: 'center',
+                            justifyContent: 'center',
+                            overflow: 'hidden',
+                          }}
+                        >
+                          {imgUrl ? (
+                            <Box component="img" src={imgUrl} alt={component.componentName} loading="lazy"
+                              sx={{ maxWidth: '100%', maxHeight: '100%', objectFit: 'contain' }} />
+                          ) : (
+                            <CameraIcon sx={{ fontSize: 20, color: '#cbd5e1' }} />
+                          )}
+                        </Box>
+                      </TableCell>
+                      <TableCell>
+                        <Typography sx={{ fontWeight: 700, fontSize: 13.5, color: '#1e293b' }}>{component.componentName}</Typography>
+                        <Typography sx={{ fontSize: 12, color: '#64748b' }}>
+                          {component.componentCode}
+                          {getComponentShortCode(component) ? ` · ${getComponentShortCode(component)}` : ''}
+                        </Typography>
+                      </TableCell>
+                      <TableCell sx={{ fontSize: 13, color: '#475569' }}>{component.categoryName || '—'}</TableCell>
+                      <TableCell><TrackingTypeBadge type={component.trackingType} /></TableCell>
+                      <TableCell align="right" sx={{ fontSize: 13, fontWeight: 600, color: availableQty > 0 ? '#0f172a' : '#94a3b8' }}>
+                        {availableQty > 0 ? `${availableQty.toLocaleString('vi-VN')} ${unit}` : 'Hết hàng'}
+                      </TableCell>
+                    </TableRow>
+                  )
+                })}
+              </TableBody>
+            </Table>
+          </TableContainer>
+        )}
+
+        {!loading && !error && viewMode === 'grid' && (
           <Box
             sx={{
               display: 'grid',
