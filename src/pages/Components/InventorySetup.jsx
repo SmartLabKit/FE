@@ -245,7 +245,7 @@ export default function InventorySetup() {
 
           if (!roomHint) {
             const borrowResult = await borrowService
-              .getLabBorrowRequests({ pickupOnly: true, page: 1, size: 100 })
+              .getLabBorrowRequests({ page: 1, size: 100 })
               .catch(() => null)
             const requestRows = getPagedRows(borrowResult)
             if (requestRows.length > 0) {

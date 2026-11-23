@@ -24,7 +24,6 @@ export interface BorrowRequestResponse {
   borrowDate: string | null
   dueDate: string | null
   itemCount: number
-  waitingTransferCount: number
 }
 
 export interface BorrowItemResponse {
@@ -36,10 +35,6 @@ export interface BorrowItemResponse {
   unit: string
   quantity: number
   status: string
-  sourceRoomId: string | null
-  sourceRoomCode: string | null
-  receivedAt: string | null
-  dispatchedAt: string | null
   componentItemId: string | null
   itemCode: string | null
   serialNumber: string | null

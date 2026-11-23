@@ -274,7 +274,7 @@ export const borrowService = {
   },
 
   /**
-   * Danh sách đơn cho nhân viên lab: đơn có lab nhận đồ hoặc lab chuyển hàng là lab mình phụ trách (Admin thấy tất cả).
+   * Danh sách đơn cho nhân viên lab: đơn thuộc lab mình phụ trách (Admin thấy tất cả).
    * GET /api/borrow-requests
    * Quyền: BORROW_ISSUE (Admin, LabStaff)
    * Query: Search (string), Status (string), Overdue (bool), Page (int), Size (int)

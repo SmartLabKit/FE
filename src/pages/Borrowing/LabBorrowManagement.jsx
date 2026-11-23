@@ -90,7 +90,7 @@ function isOverdue(request) {
   return Boolean(request?.isOverdue) || request?.status === 'Overdue'
 }
 
-function getItemStatusInfo(item, requestStatus, isRemote) {
+function getItemStatusInfo(item, requestStatus) {
   const isConsum = String(item.trackingType || '').toLowerCase() === 'consumable'
   const isReturned = Boolean(item.returnedAt) ||
     ['returned', 'đã trả'].includes(String(item.status || '').toLowerCase())
@@ -168,13 +168,6 @@ function getItemStatusInfo(item, requestStatus, isRemote) {
 
   // 6. Đơn đã duyệt nhưng chưa giao
   if (requestStatus === 'Approved') {
-    if (isRemote && !item.receivedAt) {
-      return {
-        label: 'Đang chuyển',
-        bgcolor: '#fef3c7',
-        textColor: '#b45309',
-      }
-    }
     return {
       label: 'Sẵn sàng',
       bgcolor: '#dcfce7',
@@ -324,7 +317,6 @@ export default function LabBorrowManagement() {
 
   const totalCount = Number(requestResult?.totalCount ?? requestResult?.total ?? 0)
   const detailItems = requestDetail?.items || []
-  const detailRoomId = requestDetail?.roomId
   const canCancel = ['Approved', 'Ready'].includes(requestDetail?.status)
 
   const submitCancel = async () => {
@@ -723,17 +715,15 @@ export default function LabBorrowManagement() {
                 </Box>
                 <TableContainer>
                   <Table size="small">
-                    <TableHead><TableRow><TableCell>Linh kiện</TableCell><TableCell>Loại quản lý</TableCell><TableCell>Số lượng</TableCell><TableCell>Nguồn</TableCell><TableCell>Trạng thái dòng</TableCell><TableCell /></TableRow></TableHead>
+                    <TableHead><TableRow><TableCell>Linh kiện</TableCell><TableCell>Loại quản lý</TableCell><TableCell>Số lượng</TableCell><TableCell>Trạng thái dòng</TableCell></TableRow></TableHead>
                     <TableBody>
                       {detailItems.map((item) => {
-                        const isRemote = Boolean(item.sourceRoomId && detailRoomId && item.sourceRoomId !== detailRoomId)
-                        const statusInfo = getItemStatusInfo(item, requestDetail.status, isRemote)
+                        const statusInfo = getItemStatusInfo(item, requestDetail.status)
                         return (
                           <TableRow key={item.borrowItemId}>
                             <TableCell>{item.componentName}<br /><Typography variant="caption" color="text.secondary">{item.componentCode}</Typography></TableCell>
                             <TableCell><TrackingTypeBadge type={item.trackingType} /></TableCell>
                             <TableCell>{item.quantity} {item.unit || ''}</TableCell>
-                            <TableCell>{item.sourceRoomCode || 'Lab nhận'}</TableCell>
                             <TableCell>
                               <Chip
                                 size="small"
@@ -746,12 +736,10 @@ export default function LabBorrowManagement() {
                                 }}
                               />
                             </TableCell>
-                            <TableCell>
-                            </TableCell>
                           </TableRow>
                         )
                       })}
-                      {!detailItems.length && <TableRow><TableCell colSpan={6} align="center">Đơn không có linh kiện mượn kho.</TableCell></TableRow>}
+                      {!detailItems.length && <TableRow><TableCell colSpan={4} align="center">Đơn không có linh kiện mượn kho.</TableCell></TableRow>}
                     </TableBody>
                   </Table>
                 </TableContainer>
