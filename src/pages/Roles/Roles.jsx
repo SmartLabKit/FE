@@ -25,6 +25,9 @@ import {
 import PortalLayout from '../../components/layout/PortalLayout'
 import { rolePermissionService } from '../../services/rolePermissionService'
 
+// Các quyền ép hiển thị tắt cố định trên UI khi xem vai trò Admin (không gọi API thay đổi backend)
+const ADMIN_FORCE_DISABLED_PERMISSIONS = ['ISSUE_RESOLVE']
+
 // Màu nhận diện cho các vai trò
 const ROLE_COLORS = {
   Admin: '#0058be',
@@ -172,13 +175,19 @@ export default function Roles() {
     return groups
   }, [filteredPermissions])
 
-  // Tập hợp mã quyền đã gán cho role hiện tại
+  const selectedRole = roles.find((r) => r.roleId === selectedRoleId) || roleDetail
+  const isAdminRole = selectedRole?.roleName === 'Admin'
+
+  // Tập hợp mã quyền đã gán cho role hiện tại (ép tắt một số quyền trên UI đối với Admin)
   const assignedCodes = useMemo(() => {
     if (!roleDetail || !roleDetail.permissions) return new Set()
-    return new Set(roleDetail.permissions.map((p) => p.permissionCode))
-  }, [roleDetail])
+    const codes = new Set(roleDetail.permissions.map((p) => p.permissionCode))
+    if (isAdminRole) {
+      ADMIN_FORCE_DISABLED_PERMISSIONS.forEach((code) => codes.delete(code))
+    }
+    return codes
+  }, [roleDetail, isAdminRole])
 
-  const selectedRole = roles.find((r) => r.roleId === selectedRoleId) || roleDetail
   const activeColor = selectedRole ? ROLE_COLORS[selectedRole.roleName] || '#0058be' : '#0058be'
 
   return (

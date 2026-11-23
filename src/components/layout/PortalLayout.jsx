@@ -119,7 +119,8 @@ export default function PortalLayout({
       label: 'Sự cố thiết bị',
       icon: <IssueIcon fontSize="small" />,
       path: '/issue-reports',
-      roles: ['Admin', 'InventoryManager', 'LabStaff', 'Student'],
+      roles: ['InventoryManager', 'LabStaff', 'Student'],
+      excludeRoles: ['Admin'],
     },
 
     // 1. Phân hệ SINH VIÊN (Student)
@@ -159,7 +160,8 @@ export default function PortalLayout({
       label: 'Duyệt bài cuối kỳ',
       icon: <FinalSubmissionIcon fontSize="small" />,
       path: '/class-setup/lecturer/final-submissions',
-      roles: ['Lecturer', 'Admin'],
+      roles: ['Lecturer'],
+      excludeRoles: ['Admin'],
     },
 
     // 3. Phân hệ HỌC VỤ & LỚP HỌC (Admin)
@@ -263,6 +265,9 @@ export default function PortalLayout({
 
   // Lọc navigation theo đúng vai trò tài khoản đăng nhập (loại bỏ hoàn toàn tính năng không liên quan)
   const visibleNavItems = navItems.filter((item) => {
+    if (item.excludeRoles && item.excludeRoles.some((r) => hasUserRole(r))) {
+      return false
+    }
     if (item.permissionCodes) {
       return item.permissionCodes.some((permission) => hasPermission(permission))
     }
