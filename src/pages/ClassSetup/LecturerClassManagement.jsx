@@ -377,8 +377,11 @@ export default function LecturerClassManagement() {
     }
   }
 
-  const teamMembers = asArray(selectedTeam?.members || selectedTeam?.students)
+  const teamMembers = asArray(selectedTeam?.members || selectedTeam?.students).filter(
+    (member) => String(member.status || member.memberStatus || '').toLowerCase() !== 'rejected',
+  )
   const acceptedMembers = teamMembers.filter(isAccepted)
+  const pendingMemberCount = teamMembers.length - acceptedMembers.length
   const projectRegistered = hasRegisteredProject(selectedTeam)
   const currentLeader = teamMembers.find((member) => member.isTeamLeader || member.isLeader) ||
     teamMembers.find((member) => String(member.studentProfileId) === String(selectedTeam?.leaderId))
@@ -908,7 +911,7 @@ export default function LecturerClassManagement() {
                 <Box>
                   <Typography fontWeight={800}>{selectedTeam.teamName}</Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {selectedTeam.classCode || selectedClass?.classCode || ''} · {teamMembers.length} thành viên
+                    {selectedTeam.classCode || selectedClass?.classCode || ''} · {acceptedMembers.length} thành viên{pendingMemberCount > 0 ? ` · ${pendingMemberCount} lời mời đang chờ` : ''}
                   </Typography>
                 </Box>
               </Stack>
