@@ -26,6 +26,7 @@ import {
   GridView as GridViewIcon,
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
+import { useAuth } from '../../context/AuthContext'
 import PortalLayout from '../../components/layout/PortalLayout'
 import TrackingTypeBadge from '../../components/common/TrackingTypeBadge'
 import { inventoryService } from '../../services/inventoryService'
@@ -42,6 +43,8 @@ import {
  */
 export default function ComponentCatalog() {
   const navigate = useNavigate()
+  const { hasRole } = useAuth()
+  const hideStock = hasRole?.('Student') && !hasRole?.('Admin') && !hasRole?.('InventoryManager') && !hasRole?.('LabStaff')
   const [components, setComponents] = useState([])
   const [categories, setCategories] = useState([])
   const [selectedCategory, setSelectedCategory] = useState('')
@@ -275,7 +278,7 @@ export default function ComponentCatalog() {
                   <TableCell>Linh kiện</TableCell>
                   <TableCell>Danh mục</TableCell>
                   <TableCell>Loại</TableCell>
-                  <TableCell align="right">Còn</TableCell>
+                  {!hideStock && <TableCell align="right">Còn</TableCell>}
                 </TableRow>
               </TableHead>
               <TableBody>
@@ -322,9 +325,11 @@ export default function ComponentCatalog() {
                       </TableCell>
                       <TableCell sx={{ fontSize: 13, color: '#475569' }}>{component.categoryName || '—'}</TableCell>
                       <TableCell><TrackingTypeBadge type={component.trackingType} /></TableCell>
-                      <TableCell align="right" sx={{ fontSize: 13, fontWeight: 600, color: availableQty > 0 ? '#0f172a' : '#94a3b8' }}>
-                        {availableQty > 0 ? `${availableQty.toLocaleString('vi-VN')} ${unit}` : 'Hết hàng'}
-                      </TableCell>
+                      {!hideStock && (
+                        <TableCell align="right" sx={{ fontSize: 13, fontWeight: 600, color: availableQty > 0 ? '#0f172a' : '#94a3b8' }}>
+                          {availableQty > 0 ? `${availableQty.toLocaleString('vi-VN')} ${unit}` : 'Hết hàng'}
+                        </TableCell>
+                      )}
                     </TableRow>
                   )
                 })}
@@ -452,6 +457,7 @@ export default function ComponentCatalog() {
                       </Typography>
 
                       {/* Dòng trạng thái tồn kho: Dấu chấm xanh + Còn x cái (Đúng theo hình 2) */}
+                      {!hideStock && (
                       <Box sx={{ mt: 'auto', display: 'flex', alignItems: 'center' }}>
                         <Box
                           component="span"
@@ -475,6 +481,7 @@ export default function ComponentCatalog() {
                           {isAvailable ? `Còn ${availableQty.toLocaleString('vi-VN')} ${unit}` : 'Hết hàng'}
                         </Typography>
                       </Box>
+                      )}
                     </CardContent>
                   </CardActionArea>
                 </Card>

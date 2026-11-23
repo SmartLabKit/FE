@@ -58,6 +58,7 @@ export default function ComponentDetail() {
     user?.roleLabel === 'INVENTORYMANAGER' ||
     hasRole?.('Admin') ||
     hasRole?.('InventoryManager')
+  const hideStock = hasRole?.('Student') && !hasRole?.('Admin') && !hasRole?.('InventoryManager') && !hasRole?.('LabStaff')
 
   // Ưu tiên dữ liệu truyền từ state khi click thẻ danh mục, sau đó tải chi tiết từ API
   const [component, setComponent] = useState(location.state?.component || null)
@@ -119,7 +120,7 @@ export default function ComponentDetail() {
   // Tải phân bổ tồn kho theo từng phòng Lab
   useEffect(() => {
     let active = true
-    if (!component) return
+    if (!component || hideStock) return
 
     getLabStocksForComponent(component, inventoryService)
       .then((stocks) => {
@@ -134,7 +135,7 @@ export default function ComponentDetail() {
     return () => {
       active = false
     }
-  }, [component])
+  }, [component, hideStock])
 
   // Xử lý upload ảnh mới
   const handleUploadImage = async (e) => {
@@ -342,6 +343,7 @@ export default function ComponentDetail() {
 
           {/* Badge tồn kho & giá nhập gần nhất */}
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
+            {!hideStock && (
             <Chip
               label={`Còn ${availableQty.toLocaleString('vi-VN')} ${unit}`}
               size="small"
@@ -355,6 +357,7 @@ export default function ComponentDetail() {
                 px: 0.5,
               }}
             />
+            )}
             {refPrice > 0 && (
               <Chip
                 label={`Giá nhập gần nhất: ${refPrice.toLocaleString('vi-VN')} ₫`}
@@ -454,6 +457,7 @@ export default function ComponentDetail() {
         </Box>
 
         {/* KHỐI TỒN THEO LAB (Đúng theo hình 3) */}
+        {!hideStock && (
         <Box sx={{ mb: 3 }}>
           <Typography
             sx={{
@@ -510,6 +514,7 @@ export default function ComponentDetail() {
             )}
           </Box>
         </Box>
+        )}
 
         {/* KHỐI 1: TÀI LIỆU KỸ THUẬT (DATASHEET TỪ NHÀ SẢN XUẤT) */}
         <Box sx={{ mb: 3 }}>
