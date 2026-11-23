@@ -4,7 +4,7 @@ import {
   getComponentLatestPrice,
   normalizeSearchText,
 } from '../pages/Components/componentHelpers'
-import { getDefaultWarrantyDateVn, parseFlexibleDateToYmd } from './dateFormatting'
+import { parseFlexibleDateToYmd } from './dateFormatting'
 
 /**
  * Chuẩn hóa tên cột để đọc linh hoạt cả tiêu đề tiếng Việt có dấu, không dấu và tiếng Anh.
@@ -34,12 +34,20 @@ function parseBoolFlag(value) {
   return ['co', 'yes', 'true', '1', 'x', 'tang', 'cho tang', 'mien phi', 'gift'].includes(text)
 }
 
+/**
+ * Đọc số từ ô Excel, chấp nhận cách viết Việt Nam: "1.500.000", "1.500.000 đ", "1,500,000", "2,5", "10 cái".
+ * Không đọc được thì trả fallback (không tự đoán).
+ */
 function parseNumberStrict(value, fallback = '') {
   if (value === '' || value === null || value === undefined) return fallback
   if (typeof value === 'number') return value
-  const cleaned = String(value).replace(/[^\d.-]/g, '')
-  if (!cleaned) return fallback
-  const num = Number(cleaned)
+  let text = String(value).trim().replace(/\s+/g, '').replace(/[^\d.,-]+$/u, '')
+  if (!text) return fallback
+  if (/^-?\d{1,3}(\.\d{3})+$/.test(text)) text = text.replace(/\./g, '')
+  else if (/^-?\d{1,3}(,\d{3})+$/.test(text)) text = text.replace(/,/g, '')
+  else if (/^-?\d+,\d+$/.test(text)) text = text.replace(',', '.')
+  if (!/^-?\d+(\.\d+)?$/.test(text)) return fallback
+  const num = Number(text)
   return Number.isFinite(num) ? num : fallback
 }
 
@@ -340,9 +348,9 @@ export async function parseStockReceiptExcel(file) {
             .filter(Boolean)
             .join('\n')
         : ''
-      const version = String(pickCell(row, ['Version', 'Phiên bản', 'hardwareVersion'])).trim() || '1.0'
+      const version = String(pickCell(row, ['Version', 'Phiên bản', 'hardwareVersion'])).trim()
       const rawWarranty = pickCell(row, ['Bảo hành đến', 'warrantyExpiresAt', 'bao hanh'])
-      const warrantyExpiresAt = parseFlexibleDateToYmd(rawWarranty) || getDefaultWarrantyDateVn(1)
+      const warrantyExpiresAt = parseFlexibleDateToYmd(rawWarranty) || ''
 
       return {
         rowNumber: idx + 2,

@@ -326,6 +326,13 @@ export default function StockInwards() {
         setError('File Excel không có dòng hàng nào. Vui lòng kiểm tra lại theo file mẫu.')
         return
       }
+      const filledLines = lines.filter((line) => line.componentId).length
+      if (
+        filledLines > 0 &&
+        !window.confirm(`Phiếu đang có ${filledLines} dòng hàng. Thay toàn bộ bằng ${parsedRows.length} dòng từ file "${file.name}"?`)
+      ) {
+        return
+      }
 
       const unmatchedWarnings = []
       const importedLines = parsedRows.map((row) => {
@@ -360,31 +367,43 @@ export default function StockInwards() {
           unmatchedWarnings.push(`Dòng #${row.rowNumber}: tủ "${row.cabinetCode}" không thuộc lab nhận hàng, đã đổi sang tủ mặc định`)
         }
 
-        const refPrice = matchedComp ? getComponentLatestPrice(matchedComp) : 0
+        const label = `Dòng #${row.rowNumber}`
         const rawQty = Number(row.quantity)
-        const safeQty = Number.isInteger(rawQty) && rawQty > 0 ? String(rawQty) : '1'
+        let quantity = ''
+        if (row.quantity !== '' && Number.isInteger(rawQty) && rawQty > 0) quantity = String(rawQty)
+        else unmatchedWarnings.push(`${label}: số lượng "${row.quantity}" không hợp lệ, hãy nhập số nguyên ≥ 1`)
+
+        let unitPrice = ''
         const rawPrice = Number(row.unitPrice)
-        const safePrice = row.isGift
-          ? '0'
-          : row.unitPrice !== '' && !Number.isNaN(rawPrice) && rawPrice >= 0
-            ? String(rawPrice)
-            : refPrice > 0
-              ? String(refPrice)
-              : ''
+        if (row.isGift) unitPrice = '0'
+        else if (row.unitPrice !== '' && !Number.isNaN(rawPrice) && rawPrice > 0) unitPrice = String(rawPrice)
+        else unmatchedWarnings.push(`${label}: chưa có đơn giá hợp lệ (> 0), hãy nhập lại`)
+
+        const isHighValue = matchedComp?.trackingType === 'HIGH_VALUE'
+        if (isHighValue && !row.warrantyExpiresAt) {
+          unmatchedWarnings.push(`${label}: thiếu ngày "Bảo hành đến" cho thiết bị giá trị cao`)
+        }
+        if (isHighValue && !row.version) {
+          unmatchedWarnings.push(`${label}: thiếu Version cho thiết bị giá trị cao`)
+        }
+
+        const cabinetFits = matchedCab && (!matchedCab.trackingType || matchedCab.trackingType === matchedComp?.trackingType)
+        if (matchedCab && matchedComp && !cabinetFits) {
+          unmatchedWarnings.push(`${label}: tủ "${row.cabinetCode}" không dành cho loại ${matchedComp.trackingType}, đã đổi sang tủ đúng loại`)
+        }
 
         return {
           ...newLine(),
           componentId: matchedComp?.componentId || '',
-          quantity: safeQty,
-          unitPrice: safePrice,
+          quantity,
+          unitPrice,
           isGift: Boolean(row.isGift),
-          cabinetId:
-            matchedCab && (!matchedCab.trackingType || matchedCab.trackingType === matchedComp?.trackingType)
-              ? matchedCab.cabinetId
-              : cabinetFor(roomCabinets, matchedComp) || roomCabinets[0]?.cabinetId || '',
+          cabinetId: cabinetFits
+            ? matchedCab.cabinetId
+            : cabinetFor(roomCabinets, matchedComp) || roomCabinets[0]?.cabinetId || '',
           serialsText: row.serialsText || '',
-          version: row.version || '1.0',
-          warrantyExpiresAt: row.warrantyExpiresAt || getDefaultWarrantyDateVn(1),
+          version: row.version,
+          warrantyExpiresAt: row.warrantyExpiresAt,
           importError,
         }
       })
@@ -395,7 +414,7 @@ export default function StockInwards() {
         message:
           `Đã đọc ${importedLines.length} dòng hàng từ file "${file.name}".` +
           (unmatchedWarnings.length > 0
-            ? ` Cần chọn lại thủ công (dòng tô đỏ bên dưới, chưa tính vào tổng): ${unmatchedWarnings.slice(0, 3).join('; ')}${unmatchedWarnings.length > 3 ? ` (+${unmatchedWarnings.length - 3} cảnh báo khác)` : ''}.`
+            ? ` Cần sửa trước khi lưu: ${unmatchedWarnings.slice(0, 6).join('; ')}${unmatchedWarnings.length > 6 ? ` (+${unmatchedWarnings.length - 6} lỗi khác)` : ''}.`
             : ' Vui lòng kiểm tra thông tin phiếu và bấm "Lưu phiếu và nhập kho".'),
       })
     } catch (parseErr) {
@@ -542,6 +561,9 @@ export default function StockInwards() {
         if (line.warrantyExpiresAt < receivedAt) {
           return setError(`Ngày hết hạn bảo hành của ${compName} không được trước ngày nhập kho (${formatVietnamDate(receivedAt)}).`)
         }
+        if (!String(line.version || '').trim()) {
+          return setError(`Vui lòng nhập Version cho ${compName}.`)
+        }
       }
     }
 
@@ -555,25 +577,23 @@ export default function StockInwards() {
         const comp = selectedComponent(line)
         const isHighValue = comp?.trackingType === 'HIGH_VALUE'
         const finalUnitPrice = line.isGift ? 0 : Number(line.unitPrice)
-        const serialNumbers = isHighValue
-          ? line.serialsText
-              .split('\n')
-              .map((s) => s.trim())
-              .filter(Boolean)
-          : undefined
+        let units = []
+        if (isHighValue) {
+          const warrantyIso = toSafeWarrantyDateIso(line.warrantyExpiresAt)
+          const hardwareVersion = String(line.version || '').trim()
+          units = line.serialsText
+            .split('\n')
+            .map((s) => s.trim())
+            .filter(Boolean)
+            .map((serialNumber) => ({ serialNumber, hardwareVersion, warrantyExpiresAt: warrantyIso }))
+        }
         return {
           componentId: line.componentId,
           cabinetId: line.cabinetId,
           quantity: Number(line.quantity),
           unitPrice: finalUnitPrice,
           isGift: Boolean(line.isGift),
-          ...(isHighValue
-            ? {
-                warrantyExpiresAt: toSafeWarrantyDateIso(line.warrantyExpiresAt),
-                serialNumbers,
-                version: (line.version || '1.0').trim(),
-              }
-            : {}),
+          units,
         }
       }),
     }
