@@ -17,16 +17,26 @@ import { Link as RouterLink } from 'react-router-dom'
 import PortalLayout from '../../components/layout/PortalLayout'
 import { useAuth } from '../../context/AuthContext'
 import { academicService } from '../../services/academicService'
+import { getVietnamDateInputValue } from '../../utils/dateFormatting'
 import { projectService } from '../../services/projectService'
 import { teamService } from '../../services/teamService'
 import ProjectStatus from './ProjectStatus'
 import { getProjectListAction, getSemesterWeight, isTeamLeader, normalizeProjectSearch } from './projectHelpers'
 
 const ALL_SEMESTERS = 'ALL'
-const SEMESTER_STORAGE_KEY = 'student_selected_semester'
 const STUDENT_PROJECT_PATH = '/class-setup/student/project'
 const listColumns = 'minmax(0, 1fr) 140px 156px'
 const rowSpacing = { px: { xs: 1.5, sm: 2.25 }, columnGap: { xs: 1, sm: 2 } }
+
+/** Kỳ đang diễn ra (hôm nay nằm trong khoảng ngày của kỳ) trong số các kỳ sinh viên có nhóm; kỳ bắt đầu muộn nhất nếu trùng. */
+function findCurrentSemesterCode(semesterList, teamSemesterCodes) {
+  const today = getVietnamDateInputValue()
+  const current = semesterList
+    .filter((semester) => teamSemesterCodes.has(semester.semesterCode))
+    .filter((semester) => String(semester.startDate).slice(0, 10) <= today && today <= String(semester.endDate).slice(0, 10))
+    .sort((a, b) => String(b.startDate).localeCompare(String(a.startDate)))
+  return current[0]?.semesterCode || null
+}
 
 function compareSemesters(first, second) {
   return getSemesterWeight(second) - getSemesterWeight(first) || second.localeCompare(first, 'vi', { numeric: true })
@@ -115,27 +125,31 @@ export default function StudentProjectList() {
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState('')
   const [search, setSearch] = useState('')
-  const [selectedSemester, setSelectedSemester] = useState(() => {
-    try {
-      return localStorage.getItem(SEMESTER_STORAGE_KEY) || ALL_SEMESTERS
-    } catch {
-      return ALL_SEMESTERS
-    }
-  })
+  const [selectedSemester, setSelectedSemester] = useState(null)
 
   const loadOverview = useCallback(async () => {
     setLoading(true)
     setLoadError('')
 
     // Tách lỗi tải dự án khỏi lỗi tải nhóm để nhóm vẫn hiện khi chưa biết trạng thái dự án.
-    const [teamsResult, projectsResult] = await Promise.allSettled([loadStudentTeams(), projectService.getMyProjects()])
+    const [teamsResult, projectsResult, semestersResult] = await Promise.allSettled([
+      loadStudentTeams(),
+      projectService.getMyProjects(),
+      academicService.getSemesters(),
+    ])
     if (teamsResult.status === 'rejected') {
       setLoadError(teamsResult.reason?.message || 'Không thể tải danh sách nhóm của bạn.')
     } else {
       const projectsByTeam = projectsResult.status === 'fulfilled'
         ? new Map(projectsResult.value.filter((project) => project?.teamId && project.projectId).map((project) => [project.teamId, project]))
         : null
-      setOverview({ ...teamsResult.value, projectsByTeam })
+      const semesterList = semestersResult.status === 'fulfilled' && Array.isArray(semestersResult.value) ? semestersResult.value : []
+      const teamSemesterCodes = new Set(teamsResult.value.teams.map((team) => team.semesterCode))
+      setOverview({
+        ...teamsResult.value,
+        projectsByTeam,
+        currentSemesterCode: findCurrentSemesterCode(semesterList, teamSemesterCodes),
+      })
     }
     setLoading(false)
   }, [])
@@ -148,7 +162,8 @@ export default function StudentProjectList() {
   const semesters = useMemo(() => (
     [...new Set(overview?.teams.map((team) => team.semesterCode))].sort(compareSemesters)
   ), [overview])
-  const activeSemester = semesters.includes(selectedSemester) ? selectedSemester : ALL_SEMESTERS
+  const wantedSemester = selectedSemester ?? overview?.currentSemesterCode ?? ALL_SEMESTERS
+  const activeSemester = semesters.includes(wantedSemester) ? wantedSemester : ALL_SEMESTERS
 
   const rows = useMemo(() => {
     if (!overview) return []
@@ -173,13 +188,7 @@ export default function StudentProjectList() {
   }, [activeSemester, overview, search, user])
 
   const handleSemesterChange = (event) => {
-    const semester = event.target.value
-    setSelectedSemester(semester)
-    try {
-      localStorage.setItem(SEMESTER_STORAGE_KEY, semester)
-    } catch {
-      // Bộ lọc vẫn áp dụng cho lần xem hiện tại.
-    }
+    setSelectedSemester(event.target.value)
   }
 
   return (
