@@ -1,5 +1,5 @@
 import {
-  Alert, Box, Card, CardContent, CircularProgress, Paper, Table, TableBody, TableCell,
+  Alert, Box, Card, CardActionArea, CardContent, CircularProgress, Paper, Table, TableBody, TableCell,
   TableContainer, TableHead, TablePagination, TableRow, Typography,
 } from '@mui/material'
 import { formatNumber, toLabel } from './reportFormat'
@@ -43,17 +43,30 @@ export function ReportSection({ title, subtitle, action, loading, error, childre
 }
 
 /** Ô số liệu (dùng cho Tổng quan và phần tóm tắt từng báo cáo). */
-export function StatTile({ label, value, icon, color = '#0865ce', valueColor = '#131b2e', hint }) {
+/** Ô số liệu; có onClick thì bấm được (dẫn tới danh sách chi tiết). */
+export function StatTile({ label, value, icon, color = '#0865ce', valueColor = '#131b2e', hint, onClick }) {
+  const content = (
+    <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
+      {icon && <Box sx={{ color, display: 'flex' }}>{icon}</Box>}
+      <Box sx={{ minWidth: 0 }}>
+        <Typography sx={{ color: 'text.secondary', fontSize: 12 }}>{label}</Typography>
+        <Typography sx={{ fontWeight: 800, fontSize: 21, color: valueColor }}>{value}</Typography>
+        {hint && <Typography sx={{ color: '#697386', fontSize: 11 }}>{hint}</Typography>}
+      </Box>
+    </CardContent>
+  )
   return (
-    <Card variant="outlined" sx={{ borderColor: '#d8dced', boxShadow: 'none', height: '100%' }}>
-      <CardContent sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-        {icon && <Box sx={{ color, display: 'flex' }}>{icon}</Box>}
-        <Box sx={{ minWidth: 0 }}>
-          <Typography sx={{ color: 'text.secondary', fontSize: 12 }}>{label}</Typography>
-          <Typography sx={{ fontWeight: 800, fontSize: 21, color: valueColor }}>{value}</Typography>
-          {hint && <Typography sx={{ color: '#697386', fontSize: 11 }}>{hint}</Typography>}
-        </Box>
-      </CardContent>
+    <Card
+      variant="outlined"
+      sx={{
+        borderColor: '#d8dced',
+        boxShadow: 'none',
+        height: '100%',
+        transition: 'border-color 0.15s',
+        ...(onClick ? { '&:hover': { borderColor: color } } : {}),
+      }}
+    >
+      {onClick ? <CardActionArea onClick={onClick} sx={{ height: '100%' }}>{content}</CardActionArea> : content}
     </Card>
   )
 }
