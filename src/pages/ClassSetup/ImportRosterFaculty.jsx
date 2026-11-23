@@ -1242,7 +1242,7 @@ export default function ImportRosterFaculty() {
                   )}
                   noOptionsText="Không tìm thấy giảng viên"
                   renderInput={(params) => (
-                    <TextField {...params} label="Đổi / chọn giảng viên" placeholder="Gõ tên, mã hoặc email" />
+                    <TextField {...params} label="Đổi giảng viên" placeholder="Gõ tên, mã hoặc email" />
                   )}
                 />
                 <Button
@@ -1294,7 +1294,7 @@ export default function ImportRosterFaculty() {
 
       {/* Modal Thêm Giảng Viên Mới */}
       <Dialog open={Boolean(replaceConfirm)} onClose={() => setReplaceConfirm(null)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 800, fontSize: 16 }}>Thay giảng viên phụ trách?</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 800, fontSize: 16 }}>Xác nhận thay đổi giảng viên phụ trách</DialogTitle>
         <DialogContent dividers>
           <Typography sx={{ fontSize: 14, mb: 1.5 }}>{replaceConfirm?.message?.split(' Xác nhận')[0]}</Typography>
           <Typography sx={{ fontSize: 14 }}>
@@ -1304,7 +1304,7 @@ export default function ImportRosterFaculty() {
         </DialogContent>
         <DialogActions sx={{ p: 2 }}>
           <Button onClick={() => setReplaceConfirm(null)} sx={{ textTransform: 'none' }}>
-            Hủy, giữ giảng viên cũ
+            Hủy
           </Button>
           <Button
             variant="contained"
@@ -1313,7 +1313,7 @@ export default function ImportRosterFaculty() {
             onClick={handleConfirmReplace}
             sx={{ textTransform: 'none', fontWeight: 700 }}
           >
-            Thay giảng viên
+            Thay đổi
           </Button>
         </DialogActions>
       </Dialog>
