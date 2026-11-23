@@ -45,6 +45,40 @@ import {
 
 const TRACKING_TYPES = ['CONSUMABLE', 'REUSABLE', 'HIGH_VALUE']
 
+const normalizeName = (name) => String(name || '').trim().toLowerCase()
+
+/**
+ * Tên linh kiện không được trùng (không phân biệt hoa thường), giống ràng buộc trong DB.
+ * Trả về key dòng → lý do: đã có trong hệ thống, hoặc trùng với dòng được chọn đầu tiên cùng tên trong file.
+ */
+function getDuplicateMessages(rows, existingByName) {
+  const firstSelectedByName = new Map()
+  for (const row of rows) {
+    const name = normalizeName(row.componentName)
+    if (!name || firstSelectedByName.has(name)) continue
+    if (row.selected || row.status === 'success') firstSelectedByName.set(name, row)
+  }
+
+  const messages = new Map()
+  for (const row of rows) {
+    if (row.status === 'success') continue
+    const name = normalizeName(row.componentName)
+    if (!name) continue
+
+    const existing = existingByName.get(name)
+    if (existing) {
+      messages.set(row.key, `Đã có trong hệ thống (${existing.componentCode || existing.componentName})`)
+      continue
+    }
+
+    const first = firstSelectedByName.get(name)
+    if (first && first.key !== row.key) {
+      messages.set(row.key, `Trùng tên với dòng #${first.rowNumber} trong file`)
+    }
+  }
+  return messages
+}
+
 /**
  * Màn hình Nhập hàng loạt linh kiện kho từ file Excel (.xlsx / .xls / .csv).
  * Cho phép tải template mẫu (dữ liệu thực tế ngoài thị trường như HShop.vn), đọc file,
@@ -62,6 +96,15 @@ export default function ComponentExcelImport() {
   const [importing, setImporting] = useState(false)
   const [progress, setProgress] = useState({ current: 0, total: 0 })
   const [importSummary, setImportSummary] = useState(null)
+
+  const existingByName = useMemo(() => {
+    const map = new Map()
+    existingComponents.forEach((component) => {
+      const name = normalizeName(component.componentName)
+      if (name) map.set(name, component)
+    })
+    return map
+  }, [existingComponents])
 
   useEffect(() => {
     let active = true
@@ -147,7 +190,8 @@ export default function ComponentExcelImport() {
           statusMessage: '',
         }
       })
-      setRows(enriched)
+      const duplicates = getDuplicateMessages(enriched, existingByName)
+      setRows(enriched.map((row) => (duplicates.has(row.key) ? { ...row, selected: false } : row)))
     } catch (parseErr) {
       setError(`Không thể đọc file Excel: ${parseErr.message || 'Định dạng không hợp lệ.'}`)
       setRows([])
@@ -171,11 +215,17 @@ export default function ComponentExcelImport() {
     setRows((current) => current.filter((row) => row.key !== key))
   }
 
-  const evaluatedRows = useMemo(
-    () => rows.map((row) => ({ ...row, errors: validateRow(row) })),
+  const evaluatedRows = useMemo(() => {
+    const duplicates = getDuplicateMessages(rows, existingByName)
+    return rows.map((row) => {
+      const errors = validateRow(row)
+      if (duplicates.has(row.key)) errors.unshift(duplicates.get(row.key))
+      return { ...row, errors, isDuplicate: duplicates.has(row.key) }
+    })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-    [rows, categories]
-  )
+  }, [rows, categories, existingByName])
+
+  const duplicateCount = useMemo(() => evaluatedRows.filter((row) => row.isDuplicate).length, [evaluatedRows])
 
   const selectedValidRows = useMemo(
     () => evaluatedRows.filter((row) => row.selected && row.errors.length === 0 && row.status !== 'success'),
@@ -255,6 +305,7 @@ export default function ComponentExcelImport() {
           }
         }
 
+        if (saved?.componentId) setExistingComponents((current) => [...current, saved])
         successCount += 1
         let message = apiCode ? `Đã tạo (${apiCode})` : 'Đã tạo thành công'
         if (tutorialErrors.length > 0) {
@@ -435,6 +486,15 @@ export default function ComponentExcelImport() {
                     <Chip size="small" color="success" variant="outlined" label={`Sẵn sàng đẩy: ${selectedValidRows.length}`} sx={{ fontWeight: 700 }} />
                     {invalidCount > 0 && (
                       <Chip size="small" color="error" variant="outlined" label={`Cần sửa lỗi: ${invalidCount}`} sx={{ fontWeight: 700 }} />
+                    )}
+                    {duplicateCount > 0 && (
+                      <Chip
+                        size="small"
+                        color="warning"
+                        variant="outlined"
+                        label={`Trùng tên, đã bỏ chọn: ${duplicateCount}`}
+                        sx={{ fontWeight: 700 }}
+                      />
                     )}
                   </Stack>
                 </Box>
