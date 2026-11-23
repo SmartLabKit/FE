@@ -34,6 +34,7 @@ import {
   Edit as EditIcon,
   DeleteOutlined as DeleteIcon,
   ArrowForward as ArrowForwardIcon,
+  GroupAdd as RosterIcon,
   Search as SearchIcon,
 } from '@mui/icons-material'
 import { academicService } from '../../services/academicService'
@@ -698,6 +699,17 @@ export default function SemesterClassManager({ onNext }) {
                           </Typography>
                         </TableCell>
                         <TableCell align="right">
+                          {onNext && (
+                            <Tooltip title="Nhập roster & phân công cho lớp này">
+                              <IconButton
+                                size="small"
+                                onClick={() => onNext({ semesterCode: currentSemester?.semesterCode, classId: cls.classId })}
+                                sx={{ color: '#059669' }}
+                              >
+                                <RosterIcon fontSize="small" />
+                              </IconButton>
+                            </Tooltip>
+                          )}
                           <Tooltip title="Chỉnh sửa lớp">
                             <IconButton size="small" onClick={() => handleOpenEditClass(cls)} sx={{ color: '#0058be' }}>
                               <EditIcon fontSize="small" />
@@ -729,7 +741,7 @@ export default function SemesterClassManager({ onNext }) {
                 <Button
                   variant="outlined"
                   endIcon={<ArrowForwardIcon />}
-                  onClick={onNext}
+                  onClick={() => onNext({ semesterCode: currentSemester?.semesterCode })}
                   sx={{
                     textTransform: 'none',
                     fontWeight: 700,
@@ -741,7 +753,7 @@ export default function SemesterClassManager({ onNext }) {
                     '&:hover': { bgcolor: '#eaedff' },
                   }}
                 >
-                  Tiếp tục
+                  Sang Nhập Roster{currentSemester ? ` (${currentSemester.semesterCode})` : ''}
                 </Button>
               </Box>
             )}

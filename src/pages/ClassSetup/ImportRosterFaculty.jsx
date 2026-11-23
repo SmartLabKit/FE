@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useMemo } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Accordion,
   AccordionDetails,
@@ -154,11 +155,15 @@ function resolveAssignedInstructor(assignment, instructors) {
 }
 
 export default function ImportRosterFaculty({ onNext, onPrev }) {
+  const [searchParams] = useSearchParams()
+  const requestedSemester = searchParams.get('semester') || ''
+  const requestedClassId = searchParams.get('classId') || ''
+
   // State danh sách lớp học
   const [classes, setClasses] = useState([])
   const [selectedClassId, setSelectedClassId] = useState('')
   const [loadingClasses, setLoadingClasses] = useState(true)
-  const [selectedSemester, setSelectedSemester] = useState('ALL')
+  const [selectedSemester, setSelectedSemester] = useState(requestedSemester || 'ALL')
 
   // State danh sách sinh viên thực tế trong lớp
   const [students, setStudents] = useState([])
@@ -333,10 +338,13 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
             return (a.classCode || '').localeCompare(b.classCode || '')
           })
           setClasses(classList)
-          if (classList.length > 0) {
-            const firstId = classList[0].classId
-            setSelectedClassId(firstId)
-            fetchClassStudents(firstId)
+          const requestedClass = classList.find((c) => c.classId === requestedClassId)
+          const firstInSemester = classList.find((c) => c.semesterCode === requestedSemester)
+          const initialClass = requestedClass || firstInSemester || classList[0]
+          if (requestedSemester && !firstInSemester && !requestedClass) setSelectedSemester('ALL')
+          if (initialClass) {
+            setSelectedClassId(initialClass.classId)
+            fetchClassStudents(initialClass.classId)
           }
         }
       })
@@ -356,7 +364,7 @@ export default function ImportRosterFaculty({ onNext, onPrev }) {
     return () => {
       ignore = true
     }
-  }, [fetchClassStudents])
+  }, [fetchClassStudents, requestedClassId, requestedSemester])
 
   // Tải danh sách giảng viên từ hệ thống
   useEffect(() => {

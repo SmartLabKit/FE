@@ -78,7 +78,17 @@ export default function ClassSetup() {
         {/* Vai trò ADMIN: Hiển thị tính năng theo URL */}
         {isAdminRoute && (
           <Box>
-            {adminTab === 0 && <SemesterClassManager onNext={() => navigate('/class-setup/admin/roster')} />}
+            {adminTab === 0 && (
+              <SemesterClassManager
+                onNext={({ semesterCode, classId } = {}) => {
+                  const params = new URLSearchParams()
+                  if (semesterCode) params.set('semester', semesterCode)
+                  if (classId) params.set('classId', classId)
+                  const query = params.toString()
+                  navigate(`/class-setup/admin/roster${query ? `?${query}` : ''}`)
+                }}
+              />
+            )}
             {adminTab === 1 && <CourseManager />}
             {adminTab === 2 && (
               <ImportRosterFaculty
