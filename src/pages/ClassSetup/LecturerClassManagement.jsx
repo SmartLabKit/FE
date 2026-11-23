@@ -9,6 +9,7 @@ import {
   Button,
   Chip,
   CircularProgress,
+  Collapse,
   Dialog,
   DialogActions,
   DialogContent,
@@ -126,6 +127,15 @@ export default function LecturerClassManagement() {
   const [selectedTeam, setSelectedTeam] = useState(null)
   const [selectedLeaderId, setSelectedLeaderId] = useState('')
   const [studentSearch, setStudentSearch] = useState('')
+  const [expandedTeamIds, setExpandedTeamIds] = useState(() => new Set())
+  const toggleTeamExpanded = (teamId) => {
+    setExpandedTeamIds((current) => {
+      const next = new Set(current)
+      if (next.has(teamId)) next.delete(teamId)
+      else next.add(teamId)
+      return next
+    })
+  }
   const [classSubTab, setClassSubTab] = useState(0)
   const [loadingClasses, setLoadingClasses] = useState(true)
   const [loadingStudents, setLoadingStudents] = useState(false)
@@ -701,14 +711,19 @@ export default function LecturerClassManagement() {
                           </AccordionSummary>
                           <AccordionDetails sx={{ p: { xs: 1, sm: 1.5 } }}>
                             <Stack spacing={1.25}>
-                              {visibleTeams.map((group) => (
+                              {visibleTeams.map((group) => {
+                        const isExpanded = expandedTeamIds.has(group.teamId) || Boolean(studentSearch.trim())
+                        return (
                         <Paper key={group.teamId} variant="outlined" sx={{ overflow: 'hidden', borderColor: 'grey.200', borderRadius: 1.75 }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', bgcolor: 'grey.50' }}>
                           <Box
                             component="button"
                             type="button"
-                            onClick={() => openTeamDetail(group.teamId)}
-                            aria-label={`Xem chi tiết nhóm ${group.teamName}`}
+                            onClick={() => toggleTeamExpanded(group.teamId)}
+                            aria-expanded={isExpanded}
+                            aria-label={`${isExpanded ? 'Ẩn' : 'Xem'} thành viên nhóm ${group.teamName}`}
                             sx={{
+                              flex: 1,
                               width: '100%',
                               minWidth: 0,
                               border: 0,
@@ -726,7 +741,6 @@ export default function LecturerClassManagement() {
                               '&:hover': {
                                 bgcolor: '#eaf3ff',
                                 boxShadow: 'inset 3px 0 #60a5fa',
-                                '& .team-open-chevron': { transform: 'translateX(3px)' },
                               },
                               '&:focus-visible': { outline: '2px solid', outlineColor: 'primary.main', outlineOffset: -2 },
                             }}
@@ -736,16 +750,24 @@ export default function LecturerClassManagement() {
                               <Box>
                                 <Typography fontWeight={700}>{group.teamName}</Typography>
                                 <Typography variant="caption" color="text.secondary">
-                                  {group.students.filter(isInTeam).length} thành viên · Nhấn để xem chi tiết
+                                  {group.students.filter(isInTeam).length} thành viên · {isExpanded ? 'Nhấn để ẩn' : 'Nhấn để xem thành viên'}
                                 </Typography>
                               </Box>
                             </Stack>
-                            <ChevronRightIcon
-                              className="team-open-chevron"
+                            <ExpandMoreIcon
                               color="action"
-                              sx={{ transition: 'transform 160ms ease' }}
+                              sx={{ transition: 'transform 160ms ease', transform: isExpanded ? 'rotate(180deg)' : 'none' }}
                             />
                           </Box>
+                          <Button
+                            size="small"
+                            onClick={() => openTeamDetail(group.teamId)}
+                            sx={{ mx: 1, textTransform: 'none', fontWeight: 700, whiteSpace: 'nowrap' }}
+                          >
+                            Chi tiết
+                          </Button>
+                          </Box>
+                          <Collapse in={isExpanded} unmountOnExit>
                           <TableContainer sx={{ overflowX: 'auto' }}>
                             <Table size="small" sx={{ minWidth: 560 }}>
                               <TableHead>
@@ -778,8 +800,10 @@ export default function LecturerClassManagement() {
                               </TableBody>
                             </Table>
                           </TableContainer>
+                          </Collapse>
                         </Paper>
-                              ))}
+                        )
+                              })}
                             </Stack>
                           </AccordionDetails>
                         </Accordion>
