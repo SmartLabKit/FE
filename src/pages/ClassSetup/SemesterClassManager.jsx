@@ -67,6 +67,7 @@ export default function SemesterClassManager({ onNext }) {
   const [semesterModalOpen, setSemesterModalOpen] = useState(false)
   const [semesterModalMode, setSemesterModalMode] = useState('create') // 'create' | 'edit'
   const [editingSemesterId, setEditingSemesterId] = useState(null)
+  const [originalEndDate, setOriginalEndDate] = useState('')
   const [semesterForm, setSemesterForm] = useState({
     semesterCode: '',
     term: 'Spring',
@@ -144,11 +145,13 @@ export default function SemesterClassManager({ onNext }) {
   const handleOpenCreateSemester = () => {
     setSemesterModalMode('create')
     setEditingSemesterId(null)
+    setOriginalEndDate('')
+    const startDate = getVietnamDateInputValue()
     setSemesterForm({
       semesterCode: '',
       term: 'Spring',
-      year: selectedYear,
-      startDate: getVietnamDateInputValue(),
+      year: Number(startDate.slice(0, 4)),
+      startDate,
       endDate: getVietnamDateInputValue(new Date(Date.now() + 120 * 24 * 3600 * 1000)),
       isActive: true,
     })
@@ -173,13 +176,41 @@ export default function SemesterClassManager({ onNext }) {
       endDate: target.endDate ? target.endDate.split('T')[0] : (sem.endDate ? sem.endDate.split('T')[0] : ''),
       isActive: target.isActive !== undefined ? target.isActive : (sem.isActive !== undefined ? sem.isActive : true),
     })
+    setOriginalEndDate((target.endDate || sem.endDate || '').split('T')[0])
     setSemesterModalOpen(true)
+  }
+
+  const handleSemesterStartDateChange = (value) => {
+    setSemesterForm((current) => {
+      const next = { ...current, startDate: value }
+      if (/^\d{4}-\d{2}-\d{2}$/.test(value)) next.year = Number(value.slice(0, 4))
+      return next
+    })
   }
 
   const handleSaveSemester = async (e) => {
     e.preventDefault()
     if (!semesterForm.semesterCode.trim()) {
       showToast('Mã kỳ học không được để trống', 'warning')
+      return
+    }
+    if (!semesterForm.startDate || !semesterForm.endDate) {
+      showToast('Vui lòng chọn ngày bắt đầu và ngày kết thúc', 'warning')
+      return
+    }
+    if (semesterForm.endDate <= semesterForm.startDate) {
+      showToast('Ngày kết thúc phải sau ngày bắt đầu', 'warning')
+      return
+    }
+    const todayVn = getVietnamDateInputValue()
+    const endDateChanged = semesterModalMode === 'create' || semesterForm.endDate !== originalEndDate
+    if (endDateChanged && semesterForm.endDate < todayVn) {
+      showToast(
+        semesterModalMode === 'create'
+          ? 'Không thể tạo kỳ học đã kết thúc: ngày kết thúc phải từ hôm nay trở đi'
+          : 'Ngày kết thúc mới không được ở quá khứ',
+        'warning'
+      )
       return
     }
 
@@ -695,29 +726,33 @@ export default function SemesterClassManager({ onNext }) {
                   </Select>
                 </FormControl>
                 <TextField
-                  label="Năm học *"
-                  type="number"
+                  label="Năm học"
                   size="small"
                   value={semesterForm.year}
-                  onChange={(e) => setSemesterForm({ ...semesterForm, year: e.target.value })}
+                  helperText="Theo ngày bắt đầu"
+                  slotProps={{ input: { readOnly: true } }}
                 />
               </Box>
               <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1.5 }}>
                 <TextField
-                  label="Ngày bắt đầu"
+                  label="Ngày bắt đầu *"
                   type="date"
                   size="small"
                   InputLabelProps={{ shrink: true }}
                   value={semesterForm.startDate}
-                  onChange={(e) => setSemesterForm({ ...semesterForm, startDate: e.target.value })}
+                  onChange={(e) => handleSemesterStartDateChange(e.target.value)}
                 />
                 <TextField
-                  label="Ngày kết thúc"
+                  label="Ngày kết thúc *"
                   type="date"
                   size="small"
                   InputLabelProps={{ shrink: true }}
                   value={semesterForm.endDate}
                   onChange={(e) => setSemesterForm({ ...semesterForm, endDate: e.target.value })}
+                  slotProps={{
+                    htmlInput: semesterModalMode === 'create' ? { min: getVietnamDateInputValue() } : {},
+                  }}
+                  helperText={semesterModalMode === 'create' ? 'Từ hôm nay trở đi' : ''}
                 />
               </Box>
               <FormControl size="small">
