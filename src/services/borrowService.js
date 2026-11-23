@@ -387,58 +387,7 @@ export const borrowService = {
     }
   },
 
-  // ===================== 3. ĐIỀU CHUYỂN, BÀN GIAO & ẢNH AI (TRANSFERS, ISSUE, PHOTOS) =====================
-
-  /**
-   * Các dòng linh kiện đang chờ mang từ lab khác về lab nhận đồ
-   * GET /api/borrow-requests/transfers
-   * Quyền: BORROW_ISSUE (Admin, LabStaff)
-   * Query: SourceRoomId (guid), Search (string), Page (int), Size (int)
-   * Trả về (200): PagedResult
-   * Lỗi có thể gặp: 403
-   */
-  async getBorrowTransfers(params = {}) {
-    try {
-      const response = await api.get('/api/borrow-requests/transfers', { params })
-      return response.data?.data || response.data
-    } catch (error) {
-      if (error.response?.status === 403) {
-        throw new Error('Bạn không có quyền truy cập luồng chuyển hàng (Yêu cầu LabStaff hoặc Admin).', { cause: error })
-      }
-      throw new Error(extractErrorMessage(error, 'Không thể tải danh sách chuyển hàng'), { cause: error })
-    }
-  },
-
-  /**
-   * Lab xuất xác nhận đã gửi một dòng linh kiện chuyển sang lab nhận
-   * POST /api/borrow-requests/{id}/dispatch
-   */
-  async dispatchTransfer(id, data) {
-    try {
-      const response = await api.post(`/api/borrow-requests/${id}/dispatch`, data)
-      return response.data?.data || response.data
-    } catch (error) {
-      throw new Error(extractErrorMessage(error, 'Xác nhận gửi linh kiện chuyển lab thất bại'), { cause: error })
-    }
-  },
-
-  /**
-   * Nhân viên lab nhận đồ xác nhận đã nhận 1 dòng mang từ lab khác về
-   * POST /api/borrow-requests/{id}/receive
-   * Quyền: BORROW_ISSUE (Admin, LabStaff)
-   * Path: id (guid)
-   * Body (JSON): ReceiveTransferRequest
-   * Trả về (200): BorrowRequestDetailResponse
-   * Lỗi có thể gặp: 400, 403, 404, 409
-   */
-  async receiveTransfer(id, data) {
-    try {
-      const response = await api.post(`/api/borrow-requests/${id}/receive`, data)
-      return response.data?.data || response.data
-    } catch (error) {
-      throw new Error(extractErrorMessage(error, 'Xác nhận nhận linh kiện chuyển lab thất bại'), { cause: error })
-    }
-  },
+  // ===================== 3. BÀN GIAO & ẢNH AI (ISSUE, PHOTOS) =====================
 
   /**
    * Lab nhận xác nhận đã đủ điều kiện giao đơn cho sinh viên

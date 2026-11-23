@@ -11,9 +11,7 @@ function getRows(result) {
 
 export function useLabBorrowRequests({ status, overdue, search, page, size = 20 }) {
   const [requests, setRequests] = useState([])
-  const [transfers, setTransfers] = useState([])
   const [requestResult, setRequestResult] = useState(null)
-  const [transferResult, setTransferResult] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [realtimeUnavailable, setRealtimeUnavailable] = useState(
@@ -24,24 +22,15 @@ export function useLabBorrowRequests({ status, overdue, search, page, size = 20 
     setLoading(true)
     setError('')
     try {
-      const [requestsResponse, transfersResponse] = await Promise.all([
-        borrowService.getLabBorrowRequests({
-          status: status || undefined,
-          overdue: overdue ? true : undefined,
-          search: search || undefined,
-          page,
-          size,
-        }),
-        borrowService.getBorrowTransfers({
-          search: search || undefined,
-          page,
-          size,
-        }),
-      ])
+      const requestsResponse = await borrowService.getLabBorrowRequests({
+        status: status || undefined,
+        overdue: overdue ? true : undefined,
+        search: search || undefined,
+        page,
+        size,
+      })
       setRequestResult(requestsResponse)
-      setTransferResult(transfersResponse)
       setRequests(getRows(requestsResponse))
-      setTransfers(getRows(transfersResponse))
     } catch (loadError) {
       setError(loadError.message || 'Không thể tải dữ liệu đơn mượn Lab.')
     } finally {
@@ -98,9 +87,7 @@ export function useLabBorrowRequests({ status, overdue, search, page, size = 20 
 
   return {
     requests,
-    transfers,
     requestResult,
-    transferResult,
     loading,
     error,
     realtimeUnavailable,
