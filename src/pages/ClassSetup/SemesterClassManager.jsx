@@ -64,6 +64,24 @@ function getSemesterTerm(startDate) {
   return { term, year: Number(startDate.slice(0, 4)) }
 }
 
+/** Kỳ đã kết thúc: bị khoá (không hoạt động) hoặc đã qua ngày kết thúc. */
+function isSemesterEnded(semester, today) {
+  return !semester.isActive || String(semester.endDate || '').split('T')[0] < today
+}
+
+/** Lọc theo năm ('all' = mọi năm) và trạng thái; kỳ đang mở xếp sớm trước, kỳ đã kết thúc xếp mới trước. */
+function filterSemesters(list, year, status, today) {
+  const result = list.filter((semester) => {
+    if (year !== 'all' && Number(semester.year) !== year) return false
+    if (status === 'open') return !isSemesterEnded(semester, today)
+    if (status === 'ended') return isSemesterEnded(semester, today)
+    return true
+  })
+  const byStart = (a, b) => String(a.startDate).localeCompare(String(b.startDate))
+  if (status === 'open') return result.sort(byStart)
+  return result.sort((a, b) => byStart(b, a))
+}
+
 function describeSemesterTerm(startDate) {
   const info = getSemesterTerm(startDate)
   return info ? `${info.term} ${info.year}` : '—'
@@ -81,7 +99,8 @@ export default function SemesterClassManager({ onNext }) {
   const [semesters, setSemesters] = useState([])
   const [courses, setCourses] = useState([])
   const [classes, setClasses] = useState([])
-  const [selectedYear, setSelectedYear] = useState(new Date().getFullYear())
+  const [selectedYear, setSelectedYear] = useState('all')
+  const [statusFilter, setStatusFilter] = useState('open')
   const [selectedSemesterId, setSelectedSemesterId] = useState('')
   const [classSearch, setClassSearch] = useState('')
 
@@ -129,14 +148,8 @@ export default function SemesterClassManager({ onNext }) {
         if (!ignore) {
           setSemesters(semData || [])
           setCourses(courseData || [])
-          if (semData && semData.length > 0) {
-            const currentYearSemesters = semData.filter(
-              (semester) => Number(semester.year) === new Date().getFullYear(),
-            )
-            const initialSemester = currentYearSemesters.find((semester) => semester.isActive) ||
-              currentYearSemesters[0]
-            setSelectedSemesterId(initialSemester?.semesterId || '')
-          }
+          const initialSemester = filterSemesters(semData || [], 'all', 'open', getVietnamDateInputValue())[0]
+          setSelectedSemesterId(initialSemester?.semesterId || '')
         }
       })
       .catch((err) => {
@@ -233,16 +246,16 @@ export default function SemesterClassManager({ onNext }) {
           endDate: semesterForm.endDate,
         })
         showToast(`Đã tạo học kỳ ${created.semesterCode}!`, 'success')
-        setSelectedYear(Number(created.year))
+        setSelectedYear('all')
+        setStatusFilter('open')
         setSelectedSemesterId(created.semesterId)
       } else {
-        const updated = await academicService.updateSemester(editingSemesterId, {
+        await academicService.updateSemester(editingSemesterId, {
           startDate: semesterForm.startDate,
           endDate: semesterForm.endDate,
           isActive: semesterForm.isActive,
         })
         showToast(`Đã cập nhật học kỳ ${semesterForm.semesterCode}!`, 'success')
-        if (updated?.year) setSelectedYear(Number(updated.year))
         setSelectedSemesterId(editingSemesterId)
       }
       setSemesterModalOpen(false)
@@ -344,9 +357,7 @@ export default function SemesterClassManager({ onNext }) {
         const updatedSems = await academicService.getSemesters()
         setSemesters(updatedSems || [])
         if (selectedSemesterId === itemToDelete.id) {
-          const replacement = updatedSems.find(
-            (semester) => Number(semester.year) === selectedYear && semester.isActive,
-          ) || updatedSems.find((semester) => Number(semester.year) === selectedYear)
+          const replacement = filterSemesters(updatedSems || [], selectedYear, statusFilter, getVietnamDateInputValue())[0]
           setSelectedSemesterId(replacement?.semesterId || '')
           if (!replacement) setClasses([])
         }
@@ -373,19 +384,28 @@ export default function SemesterClassManager({ onNext }) {
   })
 
   const currentSemester = semesters.find((s) => s.semesterId === selectedSemesterId)
-  const availableYears = [...new Set([
-    new Date().getFullYear(),
-    ...semesters.map((semester) => Number(semester.year)).filter(Number.isFinite),
-  ])].sort((a, b) => b - a)
-  const visibleSemesters = semesters.filter((semester) => Number(semester.year) === selectedYear)
+  const todayVn = getVietnamDateInputValue()
+  const availableYears = [...new Set(
+    semesters.map((semester) => Number(semester.year)).filter(Number.isFinite),
+  )].sort((a, b) => b - a)
+  const visibleSemesters = filterSemesters(semesters, selectedYear, statusFilter, todayVn)
+
+  const selectFirstSemester = (list) => {
+    const next = list[0]
+    setSelectedSemesterId(next?.semesterId || '')
+    if (!next) setClasses([])
+  }
 
   const handleYearChange = (event) => {
-    const year = Number(event.target.value)
-    const yearSemesters = semesters.filter((semester) => Number(semester.year) === year)
-    const nextSemester = yearSemesters.find((semester) => semester.isActive) || yearSemesters[0]
+    const year = event.target.value === 'all' ? 'all' : Number(event.target.value)
     setSelectedYear(year)
-    setSelectedSemesterId(nextSemester?.semesterId || '')
-    if (!nextSemester) setClasses([])
+    selectFirstSemester(filterSemesters(semesters, year, statusFilter, todayVn))
+  }
+
+  const handleStatusChange = (event) => {
+    const status = event.target.value
+    setStatusFilter(status)
+    selectFirstSemester(filterSemesters(semesters, selectedYear, status, todayVn))
   }
 
   return (
@@ -416,7 +436,7 @@ export default function SemesterClassManager({ onNext }) {
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <CalendarIcon sx={{ color: '#0058be', fontSize: 20 }} />
                 <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 15 }}>
-                  Học kỳ năm {selectedYear} ({visibleSemesters.length})
+                  Học kỳ ({visibleSemesters.length})
                 </Typography>
               </Box>
               <Button
@@ -437,19 +457,35 @@ export default function SemesterClassManager({ onNext }) {
               </Button>
             </Box>
 
-            <FormControl fullWidth size="small" sx={{ mb: 1.5 }}>
-              <InputLabel id="semester-year-label">Năm học</InputLabel>
-              <Select
-                labelId="semester-year-label"
-                label="Năm học"
-                value={selectedYear}
-                onChange={handleYearChange}
-              >
-                {availableYears.map((year) => (
-                  <MenuItem key={year} value={year}>{year}</MenuItem>
-                ))}
-              </Select>
-            </FormControl>
+            <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 1, mb: 1.5 }}>
+              <FormControl fullWidth size="small">
+                <InputLabel id="semester-status-label">Trạng thái</InputLabel>
+                <Select
+                  labelId="semester-status-label"
+                  label="Trạng thái"
+                  value={statusFilter}
+                  onChange={handleStatusChange}
+                >
+                  <MenuItem value="open">Đang mở</MenuItem>
+                  <MenuItem value="ended">Đã kết thúc</MenuItem>
+                  <MenuItem value="all">Tất cả</MenuItem>
+                </Select>
+              </FormControl>
+              <FormControl fullWidth size="small">
+                <InputLabel id="semester-year-label">Năm học</InputLabel>
+                <Select
+                  labelId="semester-year-label"
+                  label="Năm học"
+                  value={selectedYear}
+                  onChange={handleYearChange}
+                >
+                  <MenuItem value="all">Tất cả các năm</MenuItem>
+                  {availableYears.map((year) => (
+                    <MenuItem key={year} value={year}>{year}</MenuItem>
+                  ))}
+                </Select>
+              </FormControl>
+            </Box>
 
             <Typography variant="caption" sx={{ color: '#6b7280', display: 'block', mb: 2 }}>
               Chọn một trong các học kỳ của năm để quản lý lớp học phần
@@ -458,6 +494,7 @@ export default function SemesterClassManager({ onNext }) {
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.2 }}>
               {visibleSemesters.map((sem) => {
                 const isSelected = sem.semesterId === selectedSemesterId
+                const ended = isSemesterEnded(sem, todayVn)
                 return (
                   <Paper
                     key={sem.semesterId}
@@ -485,14 +522,14 @@ export default function SemesterClassManager({ onNext }) {
                         {sem.semesterCode} ({sem.term} {sem.year})
                       </Typography>
                       <Chip
-                        label={sem.isActive ? 'Đang mở' : 'Đã kết thúc'}
+                        label={ended ? 'Đã kết thúc' : 'Đang mở'}
                         size="small"
                         sx={{
                           height: 18,
                           fontSize: 9,
                           fontWeight: 800,
-                          bgcolor: sem.isActive ? '#ecfdf5' : '#f1f5f9',
-                          color: sem.isActive ? '#059669' : '#64748b',
+                          bgcolor: ended ? '#f1f5f9' : '#ecfdf5',
+                          color: ended ? '#64748b' : '#059669',
                         }}
                       />
                     </Box>
@@ -534,7 +571,9 @@ export default function SemesterClassManager({ onNext }) {
               })}
               {visibleSemesters.length === 0 && (
                 <Alert severity="info" sx={{ py: 0.5 }}>
-                  Chưa có học kỳ trong năm {selectedYear}. Hãy tạo kỳ mới để bắt đầu.
+                  {statusFilter === 'ended'
+                    ? 'Không có học kỳ đã kết thúc phù hợp.'
+                    : 'Không có học kỳ đang mở phù hợp. Hãy tạo kỳ mới hoặc đổi bộ lọc.'}
                 </Alert>
               )}
             </Box>
