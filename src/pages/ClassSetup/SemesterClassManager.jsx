@@ -89,7 +89,7 @@ export default function SemesterClassManager({ onNext }) {
   const [semesterModalOpen, setSemesterModalOpen] = useState(false)
   const [semesterModalMode, setSemesterModalMode] = useState('create') // 'create' | 'edit'
   const [editingSemesterId, setEditingSemesterId] = useState(null)
-  const [originalEndDate, setOriginalEndDate] = useState('')
+  const [originalDates, setOriginalDates] = useState({ startDate: '', endDate: '' })
   const [semesterForm, setSemesterForm] = useState({
     semesterCode: '',
     startDate: '',
@@ -165,7 +165,7 @@ export default function SemesterClassManager({ onNext }) {
   const handleOpenCreateSemester = () => {
     setSemesterModalMode('create')
     setEditingSemesterId(null)
-    setOriginalEndDate('')
+    setOriginalDates({ startDate: '', endDate: '' })
     setSemesterForm({
       semesterCode: '',
       startDate: getVietnamDateInputValue(),
@@ -191,7 +191,10 @@ export default function SemesterClassManager({ onNext }) {
       endDate: target.endDate ? target.endDate.split('T')[0] : (sem.endDate ? sem.endDate.split('T')[0] : ''),
       isActive: target.isActive !== undefined ? target.isActive : (sem.isActive !== undefined ? sem.isActive : true),
     })
-    setOriginalEndDate((target.endDate || sem.endDate || '').split('T')[0])
+    setOriginalDates({
+      startDate: (target.startDate || sem.startDate || '').split('T')[0],
+      endDate: (target.endDate || sem.endDate || '').split('T')[0],
+    })
     setSemesterModalOpen(true)
   }
 
@@ -206,14 +209,18 @@ export default function SemesterClassManager({ onNext }) {
       return
     }
     const todayVn = getVietnamDateInputValue()
-    const endDateChanged = semesterModalMode === 'create' || semesterForm.endDate !== originalEndDate
-    if (endDateChanged && semesterForm.endDate < todayVn) {
+    const isCreate = semesterModalMode === 'create'
+    if ((isCreate || semesterForm.startDate !== originalDates.startDate) && semesterForm.startDate < todayVn) {
       showToast(
-        semesterModalMode === 'create'
-          ? 'Không thể tạo kỳ học đã kết thúc: ngày kết thúc phải từ hôm nay trở đi'
-          : 'Ngày kết thúc mới không được ở quá khứ',
+        isCreate
+          ? 'Không thể tạo kỳ học trong quá khứ: ngày bắt đầu phải từ hôm nay trở đi'
+          : 'Ngày bắt đầu mới không được ở quá khứ',
         'warning'
       )
+      return
+    }
+    if (!isCreate && semesterForm.endDate !== originalDates.endDate && semesterForm.endDate < todayVn) {
+      showToast('Ngày kết thúc mới không được ở quá khứ', 'warning')
       return
     }
 
@@ -727,6 +734,10 @@ export default function SemesterClassManager({ onNext }) {
                   InputLabelProps={{ shrink: true }}
                   value={semesterForm.startDate}
                   onChange={(e) => setSemesterForm({ ...semesterForm, startDate: e.target.value })}
+                  slotProps={{
+                    htmlInput: semesterModalMode === 'create' ? { min: getVietnamDateInputValue() } : {},
+                  }}
+                  helperText={semesterModalMode === 'create' ? 'Từ hôm nay trở đi' : ''}
                 />
                 <TextField
                   label="Ngày kết thúc *"
@@ -736,9 +747,9 @@ export default function SemesterClassManager({ onNext }) {
                   value={semesterForm.endDate}
                   onChange={(e) => setSemesterForm({ ...semesterForm, endDate: e.target.value })}
                   slotProps={{
-                    htmlInput: semesterModalMode === 'create' ? { min: getVietnamDateInputValue() } : {},
+                    htmlInput: semesterModalMode === 'create' ? { min: semesterForm.startDate || getVietnamDateInputValue() } : {},
                   }}
-                  helperText={semesterModalMode === 'create' ? 'Từ hôm nay trở đi' : ''}
+                  helperText={semesterModalMode === 'create' ? 'Sau ngày bắt đầu' : ''}
                 />
               </Box>
               <Typography sx={{ fontSize: 13, color: '#475569' }}>
