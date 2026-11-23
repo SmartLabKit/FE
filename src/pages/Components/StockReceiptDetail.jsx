@@ -54,19 +54,6 @@ const formatDate = (value) => formatVietnamDate(value)
 // Chuyển chuỗi YYYY-MM-DD sang dd/mm/yyyy
 const formatDateDisplay = (dateStr) => (!dateStr ? '—' : formatVietnamDate(dateStr))
 
-const getReceiptNote = (r, id) => {
-  if (!r) return ''
-  return (
-    r.note ||
-    r.notes ||
-    r.description ||
-    r.remark ||
-    r.remarks ||
-    (id ? localStorage.getItem(`receipt_note_${id}`) : '') ||
-    ''
-  )
-}
-
 export default function StockReceiptDetail() {
   const { receiptId } = useParams()
   const navigate = useNavigate()
@@ -117,13 +104,8 @@ export default function StockReceiptDetail() {
     setEditSupplier(receipt?.supplierName || '')
     setEditInvoiceNumber(receipt?.invoiceNumber || '')
     setEditReceivedAt(getVietnamDateInputValue(receipt?.receivedAt))
-    const rawInvoiceDate =
-      receipt?.invoiceDate ||
-      receipt?.InvoiceDate ||
-      localStorage.getItem(`receipt_invoice_date_${receiptId}`) ||
-      ''
-    setEditInvoiceDate(getVietnamDateInputValue(rawInvoiceDate))
-    setEditNote(getReceiptNote(receipt, receiptId))
+    setEditInvoiceDate(receipt?.invoiceDate ? getVietnamDateInputValue(receipt.invoiceDate) : '')
+    setEditNote(receipt?.note || '')
     setEditError('')
     setEditOpen(true)
   }
@@ -159,7 +141,6 @@ export default function StockReceiptDetail() {
     setEditBusy(true)
     setEditError('')
 
-    const rawLines = getLines(receipt)
     const receivedDateUnchanged = editReceivedAt === getVietnamDateInputValue(receipt?.receivedAt)
     const isoReceivedAt =
       editReceivedAt && !receivedDateUnchanged ? toReceiptReceivedAtIso(editReceivedAt) : receipt?.receivedAt
@@ -167,60 +148,16 @@ export default function StockReceiptDetail() {
     const noteVal = editNote.trim() || null
 
     // Chỉ cập nhật các trường được phép: Nhà cung cấp, Số hóa đơn, Ngày nhận, Ngày hóa đơn, Ghi chú
-    const basePayload = {
+    const payload = {
       supplierName: editSupplier.trim(),
       invoiceNumber: editInvoiceNumber.trim() || null,
       receivedAt: isoReceivedAt,
       invoiceDate: isoInvoiceDate,
       note: noteVal,
-      notes: noteVal,
-      description: noteVal,
-      remarks: noteVal,
-      // PascalCase compatibility
-      SupplierName: editSupplier.trim(),
-      InvoiceNumber: editInvoiceNumber.trim() || null,
-      ReceivedAt: isoReceivedAt,
-      InvoiceDate: isoInvoiceDate,
-    }
-
-    const fullPayload = {
-      ...basePayload,
-      items: rawLines.map((line) => {
-        const units = line.units || line.Units || []
-        const serials = getSerials(line).map((s) => (typeof s === 'string' ? s : s.serialNumber))
-        return {
-          componentId: line.componentId,
-          cabinetId: line.cabinetId,
-          quantity: Number(line.quantity),
-          unitPrice: Number(line.unitPrice),
-          units,
-          Units: units,
-          ...(serials.length > 0 ? { serialNumbers: serials } : {}),
-          ...(line.version ? { version: line.version } : {}),
-        }
-      }),
     }
 
     try {
-      try {
-        await inventoryService.updateStockReceipt(receiptId, fullPayload)
-      } catch {
-        // Fallback gửi base payload nếu BE không nhận mảng items khi cập nhật
-        await inventoryService.updateStockReceipt(receiptId, basePayload)
-      }
-
-      if (editInvoiceDate) {
-        localStorage.setItem(`receipt_invoice_date_${receiptId}`, editInvoiceDate)
-      } else {
-        localStorage.removeItem(`receipt_invoice_date_${receiptId}`)
-      }
-
-      if (noteVal) {
-        localStorage.setItem(`receipt_note_${receiptId}`, noteVal)
-      } else {
-        localStorage.removeItem(`receipt_note_${receiptId}`)
-      }
-
+      await inventoryService.updateStockReceipt(receiptId, payload)
       setNotice('Cập nhật thông tin phiếu nhập thành công.')
       setEditOpen(false)
       await load()
@@ -293,12 +230,8 @@ export default function StockReceiptDetail() {
 
   const lines = getLines(receipt)
   const isCancelled = receipt?.status === 'Cancelled'
-  const currentNote = getReceiptNote(receipt, receiptId)
-  const currentInvoiceDate =
-    receipt?.invoiceDate ||
-    receipt?.InvoiceDate ||
-    localStorage.getItem(`receipt_invoice_date_${receiptId}`) ||
-    ''
+  const currentNote = receipt?.note || ''
+  const currentInvoiceDate = receipt?.invoiceDate || ''
 
   return (
     <PortalLayout headerTitle="Chi tiết phiếu nhập" headerSubtitle="Thông tin chứng từ, hàng hóa và hóa đơn">

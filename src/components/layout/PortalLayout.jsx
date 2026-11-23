@@ -373,7 +373,6 @@ export default function PortalLayout({
             location.pathname.startsWith('/class-setup/admin/components') &&
             !location.pathname.includes('/catalog')
           const isStockInwardsRoute = location.pathname.startsWith('/class-setup/admin/stock-inwards')
-          const isStorageAllocationRoute = location.pathname.startsWith('/class-setup/admin/storage-allocation')
           const isStockReceiptsRoute = location.pathname.startsWith('/class-setup/admin/stock-receipts')
           const isCategoriesRoute = location.pathname.startsWith('/class-setup/admin/categories')
           const isLabRoomsRoute = location.pathname.startsWith('/class-setup/admin/lab-rooms')
@@ -401,7 +400,7 @@ export default function PortalLayout({
               : item.path === '/class-setup/admin/components'
               ? isComponentsRoute
               : item.path === '/class-setup/admin/stock-inwards'
-              ? isStockInwardsRoute || isStorageAllocationRoute
+              ? isStockInwardsRoute
               : item.path === '/class-setup/admin/cabinets' || item.path === '/class-setup/admin/lab-rooms'
               ? isCategoriesRoute || isLabRoomsRoute || isCabinetsRoute
               : item.path === '/class-setup/admin/stock-receipts'

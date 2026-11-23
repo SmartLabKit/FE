@@ -223,21 +223,8 @@ export default function StockInwards() {
           setSupplier(receipt.supplierName || '')
           setInvoiceNumber(receipt.invoiceNumber || '')
           setReceivedAt(getVietnamDateInputValue(receipt.receivedAt) || getVietnamDateInputValue())
-          const rawInvDate =
-            receipt.invoiceDate ||
-            receipt.InvoiceDate ||
-            localStorage.getItem(`receipt_invoice_date_${editId}`) ||
-            ''
-          setInvoiceDate(getVietnamDateInputValue(rawInvDate))
-          setNote(
-            receipt.note ||
-              receipt.notes ||
-              receipt.description ||
-              receipt.remark ||
-              receipt.remarks ||
-              localStorage.getItem(`receipt_note_${editId}`) ||
-              ''
-          )
+          setInvoiceDate(receipt.invoiceDate ? getVietnamDateInputValue(receipt.invoiceDate) : '')
+          setNote(receipt.note || '')
           setLines(
             lineArray(receipt).map((line) => {
               const units = line.units || line.Units || []
@@ -498,29 +485,9 @@ export default function StockInwards() {
           receivedAt: isoReceivedAt,
           invoiceDate: isoInvoiceDate,
           note: noteVal,
-          notes: noteVal,
-          description: noteVal,
-          remarks: noteVal,
-          SupplierName: supplier.trim(),
-          InvoiceNumber: invoiceNumber.trim() || null,
-          ReceivedAt: isoReceivedAt,
-          InvoiceDate: isoInvoiceDate,
         }
 
         await inventoryService.updateStockReceipt(editId, payload)
-
-        if (invoiceDate) {
-          localStorage.setItem(`receipt_invoice_date_${editId}`, invoiceDate)
-        } else {
-          localStorage.removeItem(`receipt_invoice_date_${editId}`)
-        }
-
-        if (noteVal) {
-          localStorage.setItem(`receipt_note_${editId}`, noteVal)
-        } else {
-          localStorage.removeItem(`receipt_note_${editId}`)
-        }
-
         navigate(`/class-setup/admin/stock-receipts/${editId}`)
       } catch (saveError) {
         setError(extractErrorMessage(saveError, 'Không thể cập nhật phiếu nhập.'))
@@ -584,9 +551,6 @@ export default function StockInwards() {
       receivedAt: isoReceivedAt,
       invoiceDate: isoInvoiceDate,
       note: noteVal,
-      notes: noteVal,
-      description: noteVal,
-      remarks: noteVal,
       items: lines.map((line) => {
         const comp = selectedComponent(line)
         const isHighValue = comp?.trackingType === 'HIGH_VALUE'
@@ -619,15 +583,6 @@ export default function StockInwards() {
       const receipt = await inventoryService.createStockReceipt(payload)
       const id = receipt?.receiptId || receipt?.id
       if (!id) throw new Error('Phiếu đã gửi nhưng API không trả receiptId.')
-
-      if (invoiceDate) {
-        localStorage.setItem(`receipt_invoice_date_${id}`, invoiceDate)
-      }
-      if (noteVal) {
-        localStorage.setItem(`receipt_note_${id}`, noteVal)
-      } else {
-        localStorage.removeItem(`receipt_note_${id}`)
-      }
       navigate(`/class-setup/admin/stock-receipts/${id}`)
     } catch (saveError) {
       setError(extractErrorMessage(saveError, 'Không thể lưu phiếu nhập.'))

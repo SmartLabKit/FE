@@ -358,11 +358,7 @@ export default function StockReceipts() {
             </TableHead>
             <TableBody>
               {paginatedReceipts.map((receipt) => {
-                const invDate =
-                  receipt.invoiceDate ||
-                  receipt.InvoiceDate ||
-                  localStorage.getItem(`receipt_invoice_date_${receipt.receiptId}`) ||
-                  ''
+                const invDate = receipt.invoiceDate || ''
                 return (
                   <TableRow key={receipt.receiptId} hover>
                     <TableCell sx={{ fontWeight: 500 }}>{receipt.receiptCode || receipt.receiptId}</TableCell>

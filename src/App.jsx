@@ -16,7 +16,6 @@ import NewComponent from './pages/Components/NewComponent.jsx'
 import ComponentExcelImport from './pages/Components/ComponentExcelImport.jsx'
 import StockInwards from './pages/Components/StockInwards.jsx'
 
-import StorageAllocation from './pages/Components/StorageAllocation.jsx'
 import CreateSupplementaryBorrow from './pages/Borrowing/CreateSupplementaryBorrow.jsx'
 import SupplementaryBorrowDetail from './pages/Borrowing/SupplementaryBorrowDetail.jsx'
 import ReviewSupplementaryBorrow from './pages/Borrowing/ReviewSupplementaryBorrow.jsx'
@@ -93,7 +92,6 @@ function App() {
           <Route path="/class-setup/admin/stock-inwards" element={<RequireRole roles={['Admin', 'InventoryManager']}><StockInwards /></RequireRole>} />
           <Route path="/class-setup/admin/stock-receipts" element={<RequireRole roles={['Admin', 'InventoryManager']}><StockReceipts /></RequireRole>} />
           <Route path="/class-setup/admin/stock-receipts/:receiptId" element={<RequireRole roles={['Admin', 'InventoryManager']}><StockReceiptDetail /></RequireRole>} />
-          <Route path="/class-setup/admin/storage-allocation/:inwardId" element={<RequireRole roles={['Admin', 'InventoryManager']}><StorageAllocation /></RequireRole>} />
           <Route path="/class-setup/admin/inventory-audits" element={<RequireRole roles={['Admin', 'InventoryManager', 'LabStaff']}><InventoryAudits /></RequireRole>} />
           <Route path="/class-setup/admin/inventory-audits/:auditId" element={<RequireRole roles={['Admin', 'InventoryManager', 'LabStaff']}><InventoryAuditDetail /></RequireRole>} />
           <Route path="/class-setup/lecturer/classes" element={<RequireRole roles={['Lecturer']}><ClassSetup /></RequireRole>} />
