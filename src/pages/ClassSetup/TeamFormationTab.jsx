@@ -405,7 +405,7 @@ export default function TeamFormationTab({
             variant="caption"
             sx={{ fontWeight: 700, color: 'text.secondary', textTransform: 'uppercase', letterSpacing: 0.4 }}
           >
-            Số nhóm
+            Tổng số nhóm
           </Typography>
           <Typography
             variant="h4"
@@ -453,7 +453,7 @@ export default function TeamFormationTab({
             variant="caption"
             sx={{ fontWeight: 700, color: '#c2410c', textTransform: 'uppercase', letterSpacing: 0.4 }}
           >
-            Nhóm dưới tối thiểu
+            Nhóm thiếu người
           </Typography>
           <Typography
             variant="h4"

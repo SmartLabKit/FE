@@ -31,7 +31,7 @@ import {
   Check as CheckIcon,
   CheckCircle as CheckCircleIcon,
   Close as CloseIcon,
-  DeleteOutline as DeleteIcon,
+  Delete as DeleteIcon,
   ExitToApp as LeaveIcon,
   Groups as GroupsIcon,
   Lock as LockIcon,
