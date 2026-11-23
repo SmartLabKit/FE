@@ -241,6 +241,13 @@ export default function LecturerClassManagement() {
         if (!active) return
         const myClassesList = asArray(allClassesResult)
 
+        // Chỉ hiện các học kỳ mà giảng viên có lớp
+        semList = semList.filter((s) =>
+          myClassesList.some((c) => c.semesterId === s.semesterId || (s.semesterCode && c.semesterCode === s.semesterCode))
+        )
+        setSemesters(semList)
+        semestersRef.current = semList
+
         // Kiểm tra xem kỳ đang active có lớp của giảng viên không
         const activeSem = semList.find((s) => s.isActive)
         const hasClassesInActiveSem = activeSem && myClassesList.some(

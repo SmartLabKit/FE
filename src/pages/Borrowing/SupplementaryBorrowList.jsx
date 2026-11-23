@@ -381,23 +381,16 @@ export default function SupplementaryBorrowList() {
 
   return (
     <PortalLayout
-      headerTitle="Quản lý mượn linh kiện"
-      headerSubtitle="Mượn, gia hạn và trả linh kiện"
+      headerTitle={isLecturer ? 'Duyệt yêu cầu mượn' : 'Mượn / Trả linh kiện'}
+      headerSubtitle={
+        isLecturer
+          ? 'Duyệt đề tài, mượn bổ sung và xin gia hạn của sinh viên'
+          : 'Theo dõi đơn mượn, mượn bổ sung và xin gia hạn'
+      }
     >
       <Container maxWidth="xl" disableGutters sx={{ maxWidth: 1240, mx: 'auto', py: 3 }}>
         {/* Header Bar */}
-        <Box sx={{ mb: 3, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}>
-          <Box>
-            <Typography variant="h4" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 24, mb: 0.5 }}>
-              {isLecturer ? 'Danh sách yêu cầu mượn & gia hạn chờ duyệt' : 'Đơn mượn của tôi & Mượn bổ sung / Gia hạn'}
-            </Typography>
-            <Typography variant="body2" sx={{ color: '#556070', fontSize: 13 }}>
-              {isLecturer
-                ? 'Phê duyệt hoặc từ chối các yêu cầu mượn bổ sung và xin gia hạn thời gian mượn của sinh viên'
-                : 'Theo dõi tiến trình đơn mượn, lịch sử mượn trả, gửi phiếu mượn bổ sung và xin gia hạn thời gian mượn'}
-            </Typography>
-          </Box>
-
+        <Box sx={{ mb: isLecturer ? 0 : 3, display: 'flex', alignItems: 'center', justifyContent: 'flex-end', flexWrap: 'wrap', gap: 2 }}>
           {!isLecturer && (
             <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap' }}>
               <Button
@@ -611,7 +604,7 @@ export default function SupplementaryBorrowList() {
                                 {project.title}
                               </Typography>
                               <Typography variant="caption" sx={{ color: '#64748b' }}>
-                                {project.pendingRequestCode || project.requestCode || '—'} · {project.ownerName || '—'}
+                                {[project.pendingRequestCode || project.requestCode, project.ownerName].filter(Boolean).join(' · ') || '—'}
                               </Typography>
                             </TableCell>
                             <TableCell sx={{ fontSize: 12, color: '#334155' }}>

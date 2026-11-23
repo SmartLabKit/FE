@@ -1,5 +1,4 @@
 import api, { extractErrorMessage } from './api'
-import { academicService } from './academicService'
 
 function unwrap(response) {
   return response.data?.data ?? response.data
@@ -68,39 +67,10 @@ export const projectService = {
       // Bỏ qua nếu không hỗ trợ
     }
 
-    let classProjectsList = []
-    try {
-      const classesData = await academicService.getMyClasses()
-      const myClasses = Array.isArray(classesData) ? classesData : classesData?.items || []
-      if (myClasses.length > 0) {
-        const classBatches = await Promise.all(
-          myClasses.map(async (c) => {
-            try {
-              const list = await projectService.getProjectsByClass(c.classId)
-              return list.map((p) => ({
-                ...p,
-                classCode: p.classCode || c.classCode,
-              }))
-            } catch {
-              return []
-            }
-          })
-        )
-        classProjectsList = classBatches.flat()
-      }
-    } catch (err) {
-      console.warn('Lỗi tải projects theo lớp:', err)
-    }
-
+    // GET /api/projects đã trả đủ đề tài các lớp giảng viên phụ trách, không cần gọi thêm theo từng lớp
     const projectMap = new Map()
     directList.forEach((p) => {
       if (p?.projectId) projectMap.set(p.projectId, p)
-    })
-    classProjectsList.forEach((p) => {
-      if (p?.projectId) {
-        const existing = projectMap.get(p.projectId) || {}
-        projectMap.set(p.projectId, { ...existing, ...p })
-      }
     })
     pendingList.forEach((p) => {
       if (p?.projectId) {
@@ -125,7 +95,7 @@ export const projectService = {
 
   async getProjectsByClass(classId) {
     try {
-      const data = await getProjectPage({ classId, ClassId: classId, page: 1, size: 100 })
+      const data = await getProjectPage({ classId, page: 1, size: 100 })
       return Array.isArray(data) ? data : data?.items || []
     } catch (error) {
       throw new Error(extractErrorMessage(error, 'Không thể tải project của lớp'), { cause: error })

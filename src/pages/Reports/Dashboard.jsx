@@ -14,6 +14,7 @@ import PortalLayout from '../../components/layout/PortalLayout'
 import { useAuth } from '../../context/AuthContext'
 import { useReport } from '../../hooks/useReport'
 import { reportService } from '../../services/reportService'
+import { projectService } from '../../services/projectService'
 import { getVietnamDateInputValue } from '../../utils/dateFormatting'
 import { formatDate, formatMoney, formatNumber, getRows } from './reportFormat'
 import { ReportSection, ReportTable, StatTile } from './reportUi'
@@ -53,6 +54,7 @@ export default function Dashboard() {
   const dashboard = useReport(() => reportService.getDashboard(), [])
   const lowStock = useReport(() => reportService.getLowStock({ page: 1, size: 5 }), [], seesInventory)
   const overdue = useReport(() => reportService.getOverdueBorrows({ page: 1, size: 5 }), [])
+  const pendingProjects = useReport(() => projectService.getPendingApprovalProjects({ page: 1, size: 5 }), [], isLecturer)
 
   const data = dashboard.data || {}
   const has = (key) => data[key] != null
@@ -184,6 +186,35 @@ export default function Dashboard() {
 
         <TileGroup title="Việc cần xử lý" tiles={actionTiles} />
         <TileGroup title="Kho" tiles={stockTiles} />
+
+        {isLecturer && (
+          <Box sx={{ mb: 2 }}>
+            <ReportSection
+              title="Đề tài chờ bạn duyệt"
+              subtitle="Gửi sớm nhất trước"
+              loading={pendingProjects.loading}
+              error={pendingProjects.error}
+              action={
+                <Button size="small" onClick={() => navigate('/borrow/my-requests')} sx={{ textTransform: 'none', fontWeight: 600 }}>
+                  Xem tất cả
+                </Button>
+              }
+            >
+              <ReportTable
+                rows={getRows(pendingProjects.data)}
+                rowKey={(row) => `${row.projectId}-${row.borrowRequestId || ''}`}
+                emptyText="Không có đề tài nào chờ bạn duyệt."
+                onRowClick={() => navigate('/borrow/my-requests')}
+                columns={[
+                  { key: 'title', label: 'Đề tài', render: (row) => <><b>{row.title}</b>{row.isSupplementary && <Chip size="small" label="Mượn bổ sung" sx={{ ml: 1 }} />}</> },
+                  { key: 'teamName', label: 'Nhóm / Lớp', render: (row) => [row.teamName, row.classCode].filter(Boolean).join(' · ') || '—' },
+                  { key: 'submittedAt', label: 'Ngày gửi', render: (row) => formatDate(row.submittedAt) },
+                  { key: 'componentCount', label: 'Số linh kiện', align: 'right', render: (row) => formatNumber(row.componentCount) },
+                ]}
+              />
+            </ReportSection>
+          </Box>
+        )}
 
         {noOverdue && (
           <Alert severity="success" sx={{ mb: 2 }}>Không có đơn mượn quá hạn.</Alert>
