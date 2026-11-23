@@ -35,16 +35,12 @@ import { extractErrorMessage } from '../../services/api'
 import {
   classifyTutorialType,
   extractYoutubeVideoId,
+  findDuplicateSpecKeys,
   formatSpecsText,
   generateComponentShortCode,
-  getComponentReferencePrice,
   getComponentShortCode,
-  getLocalTutorials,
   isYoutubeUrl,
   parseSpecsText,
-  saveComponentReferencePrice,
-  saveComponentShortCode,
-  saveLocalTutorials,
 } from './componentHelpers'
 
 const blankForm = {
@@ -56,7 +52,7 @@ const blankForm = {
   specifications: '',
   unit: 'cái',
   trackingType: 'CONSUMABLE',
-  unitPrice: '',
+  minStock: '',
   datasheetUrl: '',
   youtubeUrl: '',
   pdfGuideUrl: '',
@@ -73,7 +69,6 @@ export default function NewComponent() {
   const [savedImages, setSavedImages] = useState([])
   const [datasheetFile, setDatasheetFile] = useState(null)
   const [savedDatasheetUrl, setSavedDatasheetUrl] = useState('')
-  const [savedDatasheetFile, setSavedDatasheetFile] = useState(null)
   const [tutorials, setTutorials] = useState([])
   const [tutorialForm, setTutorialForm] = useState({
     type: 'youtube',
@@ -99,39 +94,7 @@ export default function NewComponent() {
             .catch(() => inventoryService.getComponent(componentId))
           if (!component) throw new Error('Không tìm thấy linh kiện cần cập nhật.')
           if (active) {
-            const rawDs =
-              component.datasheetUrl ||
-              component.DatasheetUrl ||
-              component.datasheetLink ||
-              component.DatasheetLink ||
-              (typeof component.datasheet === 'string'
-                ? component.datasheet
-                : component.datasheet?.url || component.datasheet?.Url) ||
-              (typeof component.Datasheet === 'string'
-                ? component.Datasheet
-                : component.Datasheet?.url || component.Datasheet?.Url) ||
-              component.datasheetPath ||
-              component.DatasheetPath ||
-              localStorage.getItem(`component_datasheet_url_${componentId}`) ||
-              ''
-
-            let savedFile = null
-            try {
-              const raw = localStorage.getItem(`component_datasheet_file_${componentId}`)
-              if (raw) savedFile = JSON.parse(raw)
-            } catch {
-              // ignore
-            }
-
-            let localImages = []
-            try {
-              const raw = localStorage.getItem(`component_images_${componentId}`)
-              if (raw) localImages = JSON.parse(raw)
-            } catch {
-              // ignore
-            }
-
-            const refPrice = getComponentReferencePrice(component)
+            const rawDs = component.datasheetUrl || ''
             const existingShortCode = getComponentShortCode(component)
 
             setManualShortCode(true)
@@ -146,28 +109,18 @@ export default function NewComponent() {
                 : component.specifications || component.Specifications || '',
               unit: component.unit || component.Unit || '',
               trackingType: component.trackingType || component.TrackingType || 'CONSUMABLE',
-              unitPrice: refPrice > 0 ? String(refPrice) : '',
+              minStock: component.minStock ?? component.MinStock ?? '',
               datasheetUrl: rawDs,
               youtubeUrl: '',
               pdfGuideUrl: '',
               isActive: component.isActive !== false && component.IsActive !== false,
             })
 
-            const imgList =
-              Array.isArray(component.images) && component.images.length > 0
-                ? component.images
-                : Array.isArray(component.Images) && component.Images.length > 0
-                  ? component.Images
-                  : localImages
-            setSavedImages(imgList)
-
-            setSavedDatasheetUrl(rawDs || savedFile?.url || '')
-            setSavedDatasheetFile(savedFile)
+            setSavedImages(Array.isArray(component.images) ? component.images : [])
+            setSavedDatasheetUrl(rawDs)
 
             const apiTutorials = await inventoryService.getTutorials(componentId).catch(() => [])
-            const localTuts = getLocalTutorials(componentId)
-            const merged = apiTutorials.length > 0 ? apiTutorials : localTuts
-            setTutorials(merged)
+            setTutorials(apiTutorials)
           }
         }
       } catch (loadError) {
@@ -239,11 +192,6 @@ export default function NewComponent() {
       title: titleVal,
       url: urlVal,
       content: contentVal,
-      description: contentVal,
-      Title: titleVal,
-      Url: urlVal,
-      Content: contentVal,
-      Description: contentVal,
     }
 
     // Nếu đang tạo mới linh kiện (chưa có componentId), đưa vào hàng đợi để tự lưu ngay khi bấm Lưu linh kiện
@@ -263,20 +211,14 @@ export default function NewComponent() {
     try {
       if (editingTutorialId) {
         const saved = await inventoryService.updateTutorial(componentId, editingTutorialId, payload)
-        setTutorials((current) => {
-          const next = current.map((item) =>
+        setTutorials((current) =>
+          current.map((item) =>
             (item.tutorialId || item.id) === editingTutorialId ? { ...payload, ...(saved || {}) } : item
           )
-          saveLocalTutorials(componentId, next)
-          return next
-        })
+        )
       } else {
         const saved = await inventoryService.createTutorial(componentId, payload)
-        setTutorials((current) => {
-          const next = [...current, { ...payload, ...(saved || {}) }]
-          saveLocalTutorials(componentId, next)
-          return next
-        })
+        setTutorials((current) => [...current, { ...payload, ...(saved || {}) }])
       }
       setTutorialForm({ type: 'youtube', title: '', url: '', description: '', content: '' })
       setEditingTutorialId('')
@@ -293,11 +235,7 @@ export default function NewComponent() {
     }
     try {
       await inventoryService.deleteTutorial(componentId, tutId)
-      setTutorials((current) => {
-        const next = current.filter((item) => item !== tutorial)
-        saveLocalTutorials(componentId, next)
-        return next
-      })
+      setTutorials((current) => current.filter((item) => item !== tutorial))
     } catch (deleteError) {
       setError(extractErrorMessage(deleteError, 'Không thể xóa hướng dẫn.'))
     }
@@ -319,13 +257,9 @@ export default function NewComponent() {
     try {
       const imgId = image.imageId || image.id
       if (componentId && imgId) {
-        await inventoryService.deleteComponentImage(componentId, imgId).catch(() => {})
+        await inventoryService.deleteComponentImage(componentId, imgId)
       }
-      const updated = savedImages.filter((item) => (item.imageId || item.id) !== imgId && item !== image)
-      setSavedImages(updated)
-      if (componentId) {
-        localStorage.setItem(`component_images_${componentId}`, JSON.stringify(updated))
-      }
+      setSavedImages((current) => current.filter((item) => (item.imageId || item.id) !== imgId && item !== image))
     } catch (deleteError) {
       setError(extractErrorMessage(deleteError, 'Không thể xóa ảnh.'))
     }
@@ -334,12 +268,9 @@ export default function NewComponent() {
   const deleteDatasheet = async () => {
     try {
       if (componentId) {
-        await inventoryService.deleteDatasheet(componentId).catch(() => {})
-        localStorage.removeItem(`component_datasheet_url_${componentId}`)
-        localStorage.removeItem(`component_datasheet_file_${componentId}`)
+        await inventoryService.deleteDatasheet(componentId)
       }
       setSavedDatasheetUrl('')
-      setSavedDatasheetFile(null)
       setDatasheetFile(null)
       setForm((current) => ({ ...current, datasheetUrl: '' }))
     } catch (deleteError) {
@@ -367,9 +298,18 @@ export default function NewComponent() {
       return
     }
 
-    const parsedUnitPrice = form.unitPrice === '' ? 0 : Number(form.unitPrice)
-    if (Number.isNaN(parsedUnitPrice) || parsedUnitPrice < 0) {
-      setError('Đơn giá chuẩn phải là số >= 0.')
+    const minStockText = String(form.minStock ?? '').trim()
+    const parsedMinStock = minStockText === '' ? null : Number(minStockText)
+    if (parsedMinStock !== null && (!Number.isInteger(parsedMinStock) || parsedMinStock < 0)) {
+      setError('Tồn tối thiểu phải là số nguyên >= 0.')
+      setTab(0)
+      return
+    }
+
+    const specsList = parseSpecsText(form.specifications)
+    const duplicateSpecKeys = findDuplicateSpecKeys(specsList)
+    if (duplicateSpecKeys.length > 0) {
+      setError(`Thông số bị trùng tên: ${duplicateSpecKeys.join(', ')}.`)
       setTab(0)
       return
     }
@@ -382,159 +322,84 @@ export default function NewComponent() {
 
     setSaving(true)
     try {
-      const specsList = parseSpecsText(form.specifications)
-      const dsUrl = form.datasheetUrl.trim() || null
-      const shortCodeVal = (
-        form.shortCode.trim() || generateComponentShortCode(form.componentName)
-      ).toUpperCase()
+      const name = form.componentName.trim()
+      const shortCodeVal = (form.shortCode.trim() || generateComponentShortCode(name)).toUpperCase()
 
       const payload = {
-        ...form,
-        componentName: form.componentName.trim(),
-        componentCode: shortCodeVal || undefined,
-        shortCode: shortCodeVal || undefined,
-        manufacturer: form.manufacturer.trim(),
-        description: form.description.trim(),
-        specifications: form.specifications.trim(),
-        specs: specsList,
+        categoryId: form.categoryId,
+        componentName: name,
+        shortCode: shortCodeVal || null,
+        manufacturer: form.manufacturer.trim() || null,
+        description: form.description.trim() || null,
+        datasheetUrl: form.datasheetUrl.trim() || null,
         unit: form.unit.trim(),
-        unitPrice: parsedUnitPrice,
-        referencePrice: parsedUnitPrice,
-        datasheetUrl: dsUrl,
-        // PascalCase compatibility
-        ComponentName: form.componentName.trim(),
-        ComponentCode: shortCodeVal || undefined,
-        Manufacturer: form.manufacturer.trim(),
-        Description: form.description.trim(),
-        Specifications: form.specifications.trim(),
-        Specs: specsList,
-        Unit: form.unit.trim(),
-        UnitPrice: parsedUnitPrice,
-        DatasheetUrl: dsUrl,
+        minStock: parsedMinStock,
+        specs: specsList,
         isActive: form.isActive,
       }
+      if (!componentId) payload.trackingType = form.trackingType
 
       const saved = componentId
         ? await inventoryService.updateComponent(componentId, payload)
         : await inventoryService.createComponent(payload)
+      const id = componentId || saved?.componentId
 
-      const extractId = (obj) => {
-        if (!obj) return ''
-        if (typeof obj === 'string') return obj
-        return (
-          obj.componentId ||
-          obj.ComponentId ||
-          obj.id ||
-          obj.Id ||
-          obj.data?.componentId ||
-          obj.data?.ComponentId ||
-          obj.data?.id ||
-          obj.data?.Id ||
-          ''
-        )
-      }
-      const id = componentId || extractId(saved)
-      const apiCode = saved?.componentCode || saved?.ComponentCode || ''
-
+      const followUpErrors = []
       if (id) {
-        // Lưu mã viết tắt tra cứu nhanh & đơn giá chuẩn
-        saveComponentShortCode(id, shortCodeVal)
-        saveComponentReferencePrice(id, parsedUnitPrice, apiCode || shortCodeVal)
-
-        if (dsUrl) {
-          localStorage.setItem(`component_datasheet_url_${id}`, dsUrl)
-        } else {
-          localStorage.removeItem(`component_datasheet_url_${id}`)
-        }
-
-        // Upload images
-        const currentSavedImages = [...savedImages]
         for (const file of imageFiles) {
           try {
-            const imgRes = await inventoryService.uploadComponentImage(id, file)
-            currentSavedImages.push({
-              imageId: imgRes?.imageId || imgRes?.id || `${Date.now()}-${Math.random()}`,
-              imageUrl: imgRes?.imageUrl || imgRes?.url || URL.createObjectURL(file),
-              fileName: file.name,
-            })
+            await inventoryService.uploadComponentImage(id, file)
           } catch (imgErr) {
-            console.warn('Image upload error:', imgErr)
+            followUpErrors.push(extractErrorMessage(imgErr, `Không tải được ảnh ${file.name}`))
           }
         }
-        if (currentSavedImages.length > 0) {
-          localStorage.setItem(`component_images_${id}`, JSON.stringify(currentSavedImages))
-        }
 
-        // Upload datasheet file
         if (datasheetFile) {
           try {
-            const dsRes = await inventoryService.uploadDatasheet(id, datasheetFile)
-            const uploadedUrl = dsRes?.url || dsRes?.datasheetUrl || dsRes?.path || datasheetFile.name
-            localStorage.setItem(
-              `component_datasheet_file_${id}`,
-              JSON.stringify({
-                name: datasheetFile.name,
-                url: uploadedUrl,
-              })
-            )
+            await inventoryService.uploadDatasheet(id, datasheetFile)
           } catch (dsErr) {
-            console.warn('Datasheet upload error:', dsErr)
+            followUpErrors.push(extractErrorMessage(dsErr, 'Không tải được file datasheet'))
           }
         }
 
-        // Gom các link YouTube / PDF nhập nhanh + các tutorial đang chờ khi tạo mới
         const pendingTutorials = []
         if (form.youtubeUrl.trim()) {
           pendingTutorials.push({
-            type: 'youtube',
-            title: `Video hướng dẫn ${form.componentName.trim()} (YouTube)`,
+            title: `Video hướng dẫn ${name} (YouTube)`,
             url: form.youtubeUrl.trim(),
-            content: `Video YouTube hướng dẫn đấu nối và lập trình cho ${form.componentName.trim()}.`,
-            description: `Video YouTube hướng dẫn đấu nối và lập trình cho ${form.componentName.trim()}.`,
+            content: `Video YouTube hướng dẫn đấu nối và lập trình cho ${name}.`,
           })
         }
         if (form.pdfGuideUrl.trim()) {
           pendingTutorials.push({
-            type: 'pdf',
-            title: `Tài liệu PDF hướng dẫn ${form.componentName.trim()}`,
+            title: `Tài liệu PDF hướng dẫn ${name}`,
             url: form.pdfGuideUrl.trim(),
-            content: `Tài liệu PDF hướng dẫn thực hành sử dụng ${form.componentName.trim()}.`,
-            description: `Tài liệu PDF hướng dẫn thực hành sử dụng ${form.componentName.trim()}.`,
+            content: `Tài liệu PDF hướng dẫn thực hành sử dụng ${name}.`,
           })
         }
         if (!componentId) {
           tutorials.forEach((t) => {
-            if (t.url && !pendingTutorials.some((p) => p.url === t.url)) {
-              pendingTutorials.push(t)
-            }
+            if (t.url && !pendingTutorials.some((p) => p.url === t.url)) pendingTutorials.push(t)
           })
         }
 
-        const persistedTuts = componentId ? [...tutorials] : []
         for (const tut of pendingTutorials) {
           try {
-            const created = await inventoryService.createTutorial(id, {
-              title: tut.title,
-              url: tut.url,
-              content: tut.content || tut.description || tut.title,
-              description: tut.description || tut.content || tut.title,
-              Title: tut.title,
-              Url: tut.url,
-              Content: tut.content || tut.description || tut.title,
-              Description: tut.description || tut.content || tut.title,
-            })
-            persistedTuts.push({ ...tut, ...(created || {}) })
-          } catch {
-            persistedTuts.push({ ...tut, tutorialId: `local-${Date.now()}-${Math.random()}` })
+            await inventoryService.createTutorial(id, tut)
+          } catch (tutErr) {
+            followUpErrors.push(extractErrorMessage(tutErr, `Không lưu được hướng dẫn "${tut.title}"`))
           }
-        }
-        if (persistedTuts.length > 0) {
-          saveLocalTutorials(id, persistedTuts)
         }
       }
 
+      if (followUpErrors.length > 0) {
+        setError(`Đã lưu linh kiện nhưng còn lỗi: ${followUpErrors.join('; ')}`)
+        if (!componentId && id) navigate(`/class-setup/admin/components/${id}/edit`, { replace: true })
+        return
+      }
+
       navigate('/class-setup/admin/components', {
-        state: { createdComponentName: form.componentName.trim() },
+        state: { createdComponentName: name },
       })
     } catch (saveError) {
       setError(extractErrorMessage(saveError, 'Không thể lưu linh kiện.'))
@@ -548,7 +413,7 @@ export default function NewComponent() {
   return (
     <PortalLayout
       headerTitle={componentId ? 'Cập nhật linh kiện' : 'Khai báo linh kiện mới'}
-      headerSubtitle="Khai báo danh mục linh kiện chuẩn (tự sinh mã viết tắt tra cứu nhanh, đơn giá chuẩn, YouTube & PDF hướng dẫn)"
+      headerSubtitle="Khai báo danh mục linh kiện chuẩn (tự sinh mã viết tắt tra cứu nhanh, tồn tối thiểu, YouTube & PDF hướng dẫn)"
     >
       <Box sx={{ maxWidth: 1440, mx: 'auto' }}>
         <Card
@@ -703,20 +568,16 @@ export default function NewComponent() {
                   <TextField
                     fullWidth
                     type="number"
-                    label="Đơn giá chuẩn / tham khảo (VNĐ)"
-                    name="unitPrice"
-                    placeholder="VD: 115000"
-                    value={form.unitPrice}
+                    label="Tồn tối thiểu"
+                    name="minStock"
+                    placeholder="VD: 10"
+                    value={form.minStock}
                     onKeyDown={(e) => {
-                      if (['-', '+', 'e', 'E'].includes(e.key)) e.preventDefault()
+                      if (['-', '+', 'e', 'E', '.', ','].includes(e.key)) e.preventDefault()
                     }}
                     onChange={updateField}
                     slotProps={{ htmlInput: { min: 0, step: 1 } }}
-                    helperText={
-                      Number(form.unitPrice) > 0
-                        ? `Tự điền ${Number(form.unitPrice).toLocaleString('vi-VN')} ₫ khi lập phiếu nhập kho.`
-                        : 'Quy định đơn giá chuẩn cho linh kiện (tự gợi ý khi lập phiếu nhập).'
-                    }
+                    helperText="Tồn kho dưới mức này sẽ báo Sắp hết. Để trống nếu không cần cảnh báo."
                   />
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
@@ -926,7 +787,7 @@ export default function NewComponent() {
                         Tài liệu đặc tả phần cứng chính thức: sơ đồ chân (pinout), dải điện áp, dòng tiêu thụ, sơ đồ mạch chuẩn.
                       </Typography>
 
-                      {(savedDatasheetUrl || savedDatasheetFile) && (
+                      {savedDatasheetUrl && (
                         <Box
                           sx={{
                             mb: 2,
@@ -957,7 +818,7 @@ export default function NewComponent() {
                                 whiteSpace: 'nowrap',
                               }}
                             >
-                              {savedDatasheetFile?.name || savedDatasheetUrl}
+                              {savedDatasheetUrl}
                             </Typography>
                           </Box>
                           <Button size="small" color="error" onClick={deleteDatasheet} sx={{ textTransform: 'none', minWidth: 'fit-content' }}>

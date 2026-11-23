@@ -1,5 +1,5 @@
 /**
- * Helper hỗ trợ trích xuất hình ảnh, tài liệu, mã viết tắt tra cứu nhanh, đơn giá chuẩn,
+ * Helper hỗ trợ trích xuất hình ảnh, tài liệu, mã viết tắt tra cứu nhanh, giá nhập gần nhất,
  * tutorial YouTube/PDF và dữ liệu phân bổ kho theo Lab cho linh kiện.
  */
 
@@ -87,73 +87,16 @@ export function generateComponentShortCode(componentName = '', categoryName = ''
   return parts.join('-').slice(0, 24)
 }
 
-// Lưu / đọc mã viết tắt tra cứu nhanh của linh kiện (API-first + localStorage fallback)
+/** Mã viết tắt tra cứu nhanh do API trả về (để trống nếu linh kiện chưa có). */
 export function getComponentShortCode(component) {
   if (!component) return ''
-  const id = component.componentId || component.id || component.ComponentId || component.Id
-  const apiShort = component.shortCode || component.ShortCode || component.abbreviation || ''
-  if (apiShort && String(apiShort).trim()) return String(apiShort).trim()
-
-  if (id) {
-    const saved = localStorage.getItem(`component_shortcode_${id}`)
-    if (saved && saved.trim()) return saved.trim()
-  }
-
-  return generateComponentShortCode(component.componentName || component.ComponentName || '', component.categoryName || '')
+  return String(component.shortCode || component.ShortCode || '').trim()
 }
 
-export function saveComponentShortCode(id, shortCode) {
-  if (!id) return
-  const val = String(shortCode || '').trim().toUpperCase()
-  if (val) {
-    localStorage.setItem(`component_shortcode_${id}`, val)
-  } else {
-    localStorage.removeItem(`component_shortcode_${id}`)
-  }
-}
-
-// Lưu / đọc đơn giá chuẩn (quy định đơn giá từng linh kiện)
-export function getComponentReferencePrice(component) {
-  if (!component) return 0
-  const id = component.componentId || component.id || component.ComponentId || component.Id
-  const code = component.componentCode || component.ComponentCode
-  const apiPrice =
-    component.unitPrice ??
-    component.UnitPrice ??
-    component.referencePrice ??
-    component.ReferencePrice ??
-    component.defaultUnitPrice ??
-    component.DefaultUnitPrice ??
-    component.standardPrice ??
-    component.price
-
-  if (apiPrice !== undefined && apiPrice !== null && Number(apiPrice) > 0) {
-    return Number(apiPrice)
-  }
-
-  if (id) {
-    const raw = localStorage.getItem(`component_ref_price_${id}`)
-    if (raw !== null && Number(raw) > 0) return Number(raw)
-  }
-  if (code) {
-    const rawByCode = localStorage.getItem(`component_ref_price_code_${code}`)
-    if (rawByCode !== null && Number(rawByCode) > 0) return Number(rawByCode)
-  }
-
-  return 0
-}
-
-export function saveComponentReferencePrice(id, price, componentCode = '') {
-  const num = Number(price)
-  const valid = Number.isFinite(num) && num > 0
-  if (id) {
-    if (valid) localStorage.setItem(`component_ref_price_${id}`, String(Math.round(num)))
-    else localStorage.removeItem(`component_ref_price_${id}`)
-  }
-  if (componentCode) {
-    if (valid) localStorage.setItem(`component_ref_price_code_${componentCode}`, String(Math.round(num)))
-    else localStorage.removeItem(`component_ref_price_code_${componentCode}`)
-  }
+/** Đơn giá trên phiếu nhập gần nhất (API latestUnitPrice); 0 nếu linh kiện chưa nhập lần nào. */
+export function getComponentLatestPrice(component) {
+  const price = Number(component?.latestUnitPrice ?? component?.LatestUnitPrice)
+  return Number.isFinite(price) && price > 0 ? price : 0
 }
 
 /**
@@ -244,28 +187,7 @@ export function classifyTutorialType(tutorial) {
   return 'link'
 }
 
-// Fallback lưu trữ tutorial cục bộ nếu BE chưa trả hoặc đang tạo mới
-export function getLocalTutorials(id) {
-  if (!id) return []
-  try {
-    const raw = localStorage.getItem(`component_tutorials_${id}`)
-    const parsed = raw ? JSON.parse(raw) : []
-    return Array.isArray(parsed) ? parsed : []
-  } catch {
-    return []
-  }
-}
-
-export function saveLocalTutorials(id, tutorials) {
-  if (!id) return
-  try {
-    localStorage.setItem(`component_tutorials_${id}`, JSON.stringify(tutorials || []))
-  } catch {
-    // bỏ qua lỗi quota
-  }
-}
-
-// Lấy URL ảnh đại diện chính của linh kiện (hỗ trợ cả API backend lẫn localStorage đã lưu khi upload)
+// Lấy URL ảnh đại diện chính của linh kiện từ API
 export function getComponentImage(component) {
   if (!component) return ''
 
@@ -274,8 +196,6 @@ export function getComponentImage(component) {
   if (typeof primaryImageUrl === 'string' && primaryImageUrl.trim()) {
     return primaryImageUrl.trim()
   }
-
-  const id = component.componentId || component.id || component.ComponentId || component.Id
 
   // 1. Kiểm tra mảng images từ API
   const apiImages = component.images || component.Images
@@ -291,30 +211,12 @@ export function getComponentImage(component) {
     return single.trim()
   }
 
-  // 3. Kiểm tra localStorage (do NewComponent lưu khi thêm ảnh)
-  if (id) {
-    try {
-      const raw = localStorage.getItem(`component_images_${id}`)
-      if (raw) {
-        const parsed = JSON.parse(raw)
-        if (Array.isArray(parsed) && parsed.length > 0) {
-          const first = parsed[0]
-          const url = typeof first === 'string' ? first : first.imageUrl || first.url
-          if (url) return url
-        }
-      }
-    } catch {
-      // bỏ qua lỗi parse json
-    }
-  }
-
   return ''
 }
 
 // Lấy danh sách toàn bộ ảnh của linh kiện (dùng cho album ảnh / chi tiết)
 export function getComponentImages(component) {
   if (!component) return []
-  const id = component.componentId || component.id || component.ComponentId || component.Id
   const result = []
   const seenUrls = new Set()
 
@@ -336,22 +238,7 @@ export function getComponentImages(component) {
     apiImages.forEach(addImg)
   }
 
-  // 2. Thêm từ localStorage
-  if (id) {
-    try {
-      const raw = localStorage.getItem(`component_images_${id}`)
-      if (raw) {
-        const parsed = JSON.parse(raw)
-        if (Array.isArray(parsed)) {
-          parsed.forEach(addImg)
-        }
-      }
-    } catch {
-      // bỏ qua
-    }
-  }
-
-  // 3. Thêm từ single image property nếu chưa có
+  // 2. Thêm từ single image property nếu chưa có
   const single = component.imageUrl || component.ImageUrl || component.image || component.Image
   if (typeof single === 'string' && single.trim()) {
     addImg({ imageUrl: single.trim(), fileName: 'Ảnh đại diện' })
@@ -360,30 +247,18 @@ export function getComponentImages(component) {
   return result
 }
 
-// Lấy thông tin tài liệu Datasheet
+// Lấy thông tin tài liệu Datasheet từ API (link dán hoặc file đã tải lên)
 export function getDatasheetInfo(component) {
   if (!component) return { url: '', name: '' }
-  const id = component.componentId || component.id || component.ComponentId || component.Id
-
-  const url =
-    component.datasheetUrl ||
-    component.DatasheetUrl ||
-    component.datasheetLink ||
-    component.DatasheetLink ||
-    (typeof component.datasheet === 'string' ? component.datasheet : component.datasheet?.url) ||
-    (id ? localStorage.getItem(`component_datasheet_url_${id}`) : '') ||
-    ''
+  const url = component.datasheetUrl || component.DatasheetUrl || ''
 
   let fileName = 'Tài liệu kỹ thuật (Datasheet)'
-  if (id) {
+  if (url) {
     try {
-      const raw = localStorage.getItem(`component_datasheet_file_${id}`)
-      if (raw) {
-        const parsed = JSON.parse(raw)
-        if (parsed?.name) fileName = parsed.name
-      }
+      const lastSegment = decodeURIComponent(new URL(url).pathname.split('/').pop() || '')
+      if (lastSegment) fileName = lastSegment
     } catch {
-      // bỏ qua
+      fileName = 'Tài liệu kỹ thuật (Datasheet)'
     }
   }
 

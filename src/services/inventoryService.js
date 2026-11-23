@@ -179,7 +179,6 @@ export const inventoryService = {
   async uploadComponentImage(id, file) {
     const formData = new FormData()
     formData.append('file', file)
-    formData.append('image', file)
     return unwrap(await api.post(`/api/components/${id}/images`, formData, {
       headers: { 'Content-Type': 'multipart/form-data' },
     }))

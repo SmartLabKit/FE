@@ -36,11 +36,10 @@ import { useAuth } from '../../context/AuthContext'
 import {
   classifyTutorialType,
   getComponentImages,
-  getComponentReferencePrice,
+  getComponentLatestPrice,
   getComponentShortCode,
   getDatasheetInfo,
   getLabStocksForComponent,
-  getLocalTutorials,
 } from './componentHelpers'
 
 /**
@@ -103,17 +102,13 @@ export default function ComponentDetail() {
         setLoading(false)
       })
 
-    // Tải tài liệu hướng dẫn (kèm fallback localStorage cho YouTube / PDF)
     inventoryService
       .getTutorials(componentId)
       .then((tutList) => {
-        if (!active) return
-        const apiList = Array.isArray(tutList) ? tutList : []
-        const localList = getLocalTutorials(componentId)
-        setTutorials(apiList.length > 0 ? apiList : localList)
+        if (active) setTutorials(Array.isArray(tutList) ? tutList : [])
       })
       .catch(() => {
-        if (active) setTutorials(getLocalTutorials(componentId))
+        if (active) setTutorials([])
       })
 
     return () => {
@@ -149,29 +144,11 @@ export default function ComponentDetail() {
     setUploadingImage(true)
     setGalleryNotice('')
     try {
-      let newImg = null
-      try {
-        const res = await inventoryService.uploadComponentImage(componentId, file)
-        newImg = {
-          imageId: res?.imageId || res?.id || `img-${Date.now()}`,
-          imageUrl: res?.imageUrl || res?.url || URL.createObjectURL(file),
-          fileName: file.name,
-        }
-      } catch {
-        // Fallback lưu dạng local preview nếu API backend chưa mở endpoint upload
-        newImg = {
-          imageId: `img-${Date.now()}`,
-          imageUrl: URL.createObjectURL(file),
-          fileName: file.name,
-        }
-      }
-
-      const updated = [...images, newImg]
-      setImages(updated)
-      localStorage.setItem(`component_images_${componentId}`, JSON.stringify(updated))
+      const res = await inventoryService.uploadComponentImage(componentId, file)
+      setImages((current) => [...current, { imageId: res.imageId, imageUrl: res.imageUrl, fileName: file.name }])
       setGalleryNotice('Đã thêm ảnh mới thành công.')
-    } catch {
-      setGalleryNotice('Không thể tải ảnh lên. Vui lòng thử lại.')
+    } catch (uploadError) {
+      setGalleryNotice(extractErrorMessage(uploadError, 'Không thể tải ảnh lên. Vui lòng thử lại.'))
     } finally {
       setUploadingImage(false)
       if (fileInputRef.current) fileInputRef.current.value = ''
@@ -182,16 +159,15 @@ export default function ComponentDetail() {
   const handleDeleteImage = async (imgId) => {
     if (!componentId) return
     try {
-      await inventoryService.deleteComponentImage(componentId, imgId).catch(() => {})
+      await inventoryService.deleteComponentImage(componentId, imgId)
       const updated = images.filter((img) => img.imageId !== imgId)
       setImages(updated)
-      localStorage.setItem(`component_images_${componentId}`, JSON.stringify(updated))
       if (selectedImageIndex >= updated.length) {
         setSelectedImageIndex(Math.max(0, updated.length - 1))
       }
       setGalleryNotice('Đã xóa ảnh.')
-    } catch {
-      setGalleryNotice('Không thể xóa ảnh.')
+    } catch (deleteError) {
+      setGalleryNotice(extractErrorMessage(deleteError, 'Không thể xóa ảnh.'))
     }
   }
 
@@ -223,7 +199,7 @@ export default function ComponentDetail() {
   const unit = component?.unit || 'cái'
   const datasheet = getDatasheetInfo(component)
   const shortCode = getComponentShortCode(component)
-  const refPrice = getComponentReferencePrice(component)
+  const refPrice = getComponentLatestPrice(component)
 
   return (
     <PortalLayout headerTitle="Chi tiết linh kiện">
@@ -364,7 +340,7 @@ export default function ComponentDetail() {
             {shortCode && shortCode !== component?.componentCode ? ` (${shortCode})` : ''} · {component?.categoryName || 'Linh kiện'}
           </Typography>
 
-          {/* Badge tồn kho & đơn giá chuẩn */}
+          {/* Badge tồn kho & giá nhập gần nhất */}
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', mb: 2 }}>
             <Chip
               label={`Còn ${availableQty.toLocaleString('vi-VN')} ${unit}`}
@@ -381,7 +357,7 @@ export default function ComponentDetail() {
             />
             {refPrice > 0 && (
               <Chip
-                label={`Đơn giá chuẩn: ${refPrice.toLocaleString('vi-VN')} ₫`}
+                label={`Giá nhập gần nhất: ${refPrice.toLocaleString('vi-VN')} ₫`}
                 size="small"
                 sx={{
                   bgcolor: '#eff6ff',

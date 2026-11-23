@@ -33,7 +33,7 @@ import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 import {
-  getComponentReferencePrice,
+  getComponentLatestPrice,
   getComponentShortCode,
   normalizeSearchText,
 } from './componentHelpers'
@@ -179,7 +179,7 @@ export default function Components() {
       headerTitle={canManage ? 'Quản lý linh kiện' : 'Tra cứu linh kiện'}
       headerSubtitle={
         canManage
-          ? 'Danh mục linh kiện, mã viết tắt tra cứu nhanh, đơn giá chuẩn và tồn kho hiện tại'
+          ? 'Danh mục linh kiện, mã viết tắt tra cứu nhanh, giá nhập gần nhất và tồn kho hiện tại'
           : 'Tra cứu thông tin linh kiện phục vụ môn học và đồ án'
       }
     >
@@ -348,7 +348,7 @@ export default function Components() {
                 <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Mã / Mã viết tắt</TableCell>
                 <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Danh mục</TableCell>
                 <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Loại quản lý</TableCell>
-                <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Đơn giá chuẩn</TableCell>
+                <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Giá nhập gần nhất</TableCell>
                 <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Tổng tồn</TableCell>
                 <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Khả dụng</TableCell>
                 <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Trạng thái</TableCell>
@@ -376,7 +376,7 @@ export default function Components() {
               ) : (
                 paginatedRows.map((component) => {
                   const shortCode = getComponentShortCode(component)
-                  const refPrice = getComponentReferencePrice(component)
+                  const refPrice = getComponentLatestPrice(component)
                   return (
                     <TableRow key={component.componentId} hover>
                       <TableCell

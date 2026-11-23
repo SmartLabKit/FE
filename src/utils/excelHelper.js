@@ -1,7 +1,7 @@
 import * as XLSX from 'xlsx'
 import {
   generateComponentShortCode,
-  getComponentReferencePrice,
+  getComponentLatestPrice,
   normalizeSearchText,
 } from '../pages/Components/componentHelpers'
 import { getDefaultWarrantyDateVn, parseFlexibleDateToYmd } from './dateFormatting'
@@ -287,7 +287,7 @@ export function downloadStockReceiptTemplate(components = [], cabinets = []) {
       'Tên linh kiện': c.componentName || '',
       'Danh mục': c.categoryName || '',
       'Loại quản lý': c.trackingType || '',
-      'Đơn giá chuẩn (VNĐ)': getComponentReferencePrice(c) || '',
+      'Giá nhập gần nhất (VNĐ)': getComponentLatestPrice(c) || '',
     }))
     const wsRefComp = XLSX.utils.json_to_sheet(refComps)
     wsRefComp['!cols'] = [{ wch: 22 }, { wch: 40 }, { wch: 22 }, { wch: 16 }, { wch: 20 }]

@@ -52,10 +52,9 @@ import {
   parseStockReceiptExcel,
 } from '../../utils/excelHelper'
 import {
-  getComponentReferencePrice,
+  getComponentLatestPrice,
   getComponentShortCode,
   normalizeSearchText,
-  saveComponentReferencePrice,
 } from './componentHelpers'
 
 const MAX_DROPDOWN_OPTIONS = 50
@@ -289,13 +288,13 @@ export default function StockInwards() {
 
   const selectedComponent = (line) => componentMap.get(line.componentId)
 
-  // Khi chọn linh kiện trên dòng: tự động điền đơn giá chuẩn đã quy định (nếu có và không phải hàng cho tặng)
+  // Khi chọn linh kiện trên dòng: tự động điền giá nhập gần nhất (nếu có và không phải hàng cho tặng)
   const handleSelectComponent = (line, comp) => {
     if (!comp) {
       updateLine(line.key, { componentId: '' })
       return
     }
-    const refPrice = getComponentReferencePrice(comp)
+    const refPrice = getComponentLatestPrice(comp)
     const patch = { componentId: comp.componentId }
     if (roomId) {
       const autoCabinet = cabinetFor(roomCabinets, comp)
@@ -313,7 +312,7 @@ export default function StockInwards() {
       updateLine(line.key, { isGift: true, unitPrice: '0' })
     } else {
       const comp = selectedComponent(line)
-      const refPrice = comp ? getComponentReferencePrice(comp) : 0
+      const refPrice = comp ? getComponentLatestPrice(comp) : 0
       updateLine(line.key, {
         isGift: false,
         unitPrice: refPrice > 0 ? String(refPrice) : '',
@@ -374,7 +373,7 @@ export default function StockInwards() {
           unmatchedWarnings.push(`Dòng #${row.rowNumber}: tủ "${row.cabinetCode}" không thuộc lab nhận hàng, đã đổi sang tủ mặc định`)
         }
 
-        const refPrice = matchedComp ? getComponentReferencePrice(matchedComp) : 0
+        const refPrice = matchedComp ? getComponentLatestPrice(matchedComp) : 0
         const rawQty = Number(row.quantity)
         const safeQty = Number.isInteger(rawQty) && rawQty > 0 ? String(rawQty) : '1'
         const rawPrice = Number(row.unitPrice)
@@ -620,14 +619,6 @@ export default function StockInwards() {
       const receipt = await inventoryService.createStockReceipt(payload)
       const id = receipt?.receiptId || receipt?.id
       if (!id) throw new Error('Phiếu đã gửi nhưng API không trả receiptId.')
-
-      // Lưu lại đơn giá tham khảo cho linh kiện nếu chưa có để lần nhập sau tự gợi ý
-      lines.forEach((line) => {
-        const comp = selectedComponent(line)
-        if (comp && !line.isGift && Number(line.unitPrice) > 0 && getComponentReferencePrice(comp) === 0) {
-          saveComponentReferencePrice(comp.componentId, Number(line.unitPrice), comp.componentCode)
-        }
-      })
 
       if (invoiceDate) {
         localStorage.setItem(`receipt_invoice_date_${id}`, invoiceDate)
@@ -1056,7 +1047,7 @@ export default function StockInwards() {
                                 renderOption={(props, option) => {
                                   const { key, ...rest } = props
                                   const sc = getComponentShortCode(option)
-                                  const refP = getComponentReferencePrice(option)
+                                  const refP = getComponentLatestPrice(option)
                                   return (
                                     <Box component="li" key={key} {...rest} sx={{ display: 'block !important', py: 0.75 }}>
                                       <Typography sx={{ fontSize: 13, fontWeight: 700, color: '#0f172a' }}>
