@@ -1,6 +1,4 @@
-import { Box, Grid } from '@mui/material'
-import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../../context/AuthContext'
+import { Grid } from '@mui/material'
 import { useReport } from '../../hooks/useReport'
 import { reportService } from '../../services/reportService'
 import { CHART_DANGER, formatDuration, formatNumber, toLabel } from './reportFormat'
@@ -15,9 +13,6 @@ const formatIssues = (value) => `${formatNumber(value)} sự cố`
 /** Tab "Sự cố": thống kê báo cáo sự cố tạo trong kỳ (BE tự lọc theo quyền). */
 export default function IssueReportsTab({ filters }) {
   const { fromDate, toDate } = filters
-  const navigate = useNavigate()
-  const { hasRole } = useAuth()
-  const isLabStaff = hasRole?.('LabStaff')
   const issues = useReport(() => reportService.getIssueSummary({ fromDate, toDate }), [fromDate, toDate])
 
   const data = issues.data
@@ -32,17 +27,11 @@ export default function IssueReportsTab({ filters }) {
               <StatTile label="Sự cố" value={formatNumber(data.totalIssues)} valueColor="#ef6c00" />
             </Grid>
             <Grid size={{ xs: 12, sm: 4 }}>
-              <Box
-                onClick={isLabStaff ? () => navigate('/issue-reports?status=Open') : undefined}
-                sx={{ height: '100%', cursor: isLabStaff ? 'pointer' : 'default' }}
-              >
-                <StatTile
-                  label="Chưa xử lý"
-                  value={formatNumber(openCount)}
-                  valueColor={openCount > 0 ? CHART_DANGER : '#2e7d32'}
-                  hint={isLabStaff ? 'Bấm để xem các sự cố đang mở' : undefined}
-                />
-              </Box>
+              <StatTile
+                label="Chưa xử lý"
+                value={formatNumber(openCount)}
+                valueColor={openCount > 0 ? CHART_DANGER : '#2e7d32'}
+              />
             </Grid>
             <Grid size={{ xs: 12, sm: 4 }}>
               <StatTile

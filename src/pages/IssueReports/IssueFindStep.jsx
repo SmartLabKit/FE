@@ -22,7 +22,6 @@ import { formatVietnamDate } from '../../utils/dateFormatting'
  */
 export default function IssueFindStep({
   mode,
-  canUseLoans,
   onModeChange,
   code,
   onCodeChange,
@@ -37,20 +36,18 @@ export default function IssueFindStep({
 
   return (
     <>
-      {canUseLoans && (
-        <ToggleButtonGroup
-          exclusive
-          fullWidth
-          size="small"
-          color="primary"
-          value={mode}
-          disabled={busy}
-          onChange={(_, value) => value && onModeChange(value)}
-        >
-          <ToggleButton value="loan" sx={{ textTransform: 'none', fontWeight: 700 }}>Từ đơn mượn</ToggleButton>
-          <ToggleButton value="cabinet" sx={{ textTransform: 'none', fontWeight: 700 }}>Thiết bị trong tủ</ToggleButton>
-        </ToggleButtonGroup>
-      )}
+      <ToggleButtonGroup
+        exclusive
+        fullWidth
+        size="small"
+        color="primary"
+        value={mode}
+        disabled={busy}
+        onChange={(_, value) => value && onModeChange(value)}
+      >
+        <ToggleButton value="loan" sx={{ textTransform: 'none', fontWeight: 700 }}>Từ đơn mượn</ToggleButton>
+        <ToggleButton value="cabinet" sx={{ textTransform: 'none', fontWeight: 700 }}>Thiết bị trong tủ</ToggleButton>
+      </ToggleButtonGroup>
 
       <Box
         component="form"

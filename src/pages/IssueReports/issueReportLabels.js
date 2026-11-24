@@ -21,7 +21,6 @@ export const formatDateTime = (value) =>
 
 /** Câu thông báo sau khi ghi nhận sự cố (POST /api/issue-reports). */
 export function issueCreatedMessage(report, { replaceRequested }) {
-  if (report.status === 'Open') return 'Đã gửi báo cáo, chờ nhân viên lab kiểm tra.'
   if (!replaceRequested) return 'Đã ghi nhận sự cố.'
   if (report.replacementBorrowItemId) return 'Đã ghi nhận sự cố. Đơn có thêm con thay thế chờ giao.'
   return 'Đã ghi nhận sự cố, nhưng lab vừa hết con để đổi.'

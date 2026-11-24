@@ -1,5 +1,4 @@
 import { useEffect, useState } from 'react'
-import { useSearchParams } from 'react-router-dom'
 import { ReportProblem as ReportIcon, Search as SearchIcon } from '@mui/icons-material'
 import {
   Alert,
@@ -26,24 +25,21 @@ import { useAuth } from '../../context/AuthContext'
 import { issueReportService } from '../../services/issueReportService'
 import CreateIssueReportDialog from './CreateIssueReportDialog'
 import IssueReportDetailDialog from './IssueReportDetailDialog'
-import { ISSUE_STATUSES, ISSUE_TYPES, formatDateTime, issueStatusOf, issueTypeLabel } from './issueReportLabels'
+import { ISSUE_TYPES, formatDateTime, issueStatusOf, issueTypeLabel } from './issueReportLabels'
 
 const PAGE_SIZE = 20
 const headCellSx = { fontWeight: 700, color: '#334155' }
 
 /**
  * Danh sách báo cáo sự cố thiết bị theo phạm vi role (BE tự giới hạn):
- * Student thấy sự cố trong đơn mượn của nhóm mình, LabStaff thấy lab mình phụ trách, Lecturer thấy lớp mình dạy,
- * InventoryManager / Admin thấy tất cả. Student và Lecturer chỉ xem: sinh viên mang thiết bị tới lab,
- * nhân viên lab kiểm tra rồi ghi nhận sự cố.
+ * Student thấy sự cố trong đơn mượn của nhóm mình, LabStaff thấy lab mình phụ trách, InventoryManager thấy tất cả.
+ * Chỉ LabStaff ghi nhận: sinh viên mang thiết bị tới lab, nhân viên lab kiểm tra rồi ghi nhận sự cố là xong.
  */
 export default function IssueReports() {
   const { hasRole } = useAuth()
-  const canCreate = ['LabStaff', 'InventoryManager', 'Admin'].some((role) => hasRole?.(role))
-  const showFilters = ['LabStaff', 'InventoryManager', 'Admin', 'Lecturer'].some((role) => hasRole?.(role))
+  const canCreate = hasRole?.('LabStaff')
+  const showFilters = canCreate || hasRole?.('InventoryManager')
 
-  const [searchParams] = useSearchParams()
-  const [status, setStatus] = useState(() => searchParams.get('status') || '')
   const [issueType, setIssueType] = useState('')
   const [itemCodeInput, setItemCodeInput] = useState('')
   const [itemCode, setItemCode] = useState('')
@@ -64,7 +60,6 @@ export default function IssueReports() {
       setError('')
       try {
         const data = await issueReportService.getIssueReports({
-          status: status || undefined,
           issueType: issueType || undefined,
           itemCode: itemCode || undefined,
           page,
@@ -81,7 +76,7 @@ export default function IssueReports() {
       active = false
       window.clearTimeout(timer)
     }
-  }, [status, issueType, itemCode, page, reloadKey])
+  }, [issueType, itemCode, page, reloadKey])
 
   const items = Array.isArray(result) ? result : result?.items || []
   const reload = () => setReloadKey((key) => key + 1)
@@ -96,7 +91,9 @@ export default function IssueReports() {
   return (
     <PortalLayout headerTitle="Sự cố thiết bị" headerSubtitle={canCreate
         ? 'Ghi nhận và theo dõi thiết bị hư hỏng, cháy hoặc mất'
-        : 'Thiết bị hỏng hoặc mất trong đơn mượn của bạn'}>
+        : showFilters
+          ? 'Thiết bị hư hỏng, cháy hoặc mất do nhân viên lab ghi nhận'
+          : 'Thiết bị hỏng hoặc mất trong đơn mượn của bạn'}>
       <Box sx={{ maxWidth: 1440, mx: 'auto' }}>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         {hasRole?.('Student') && (
@@ -172,48 +169,6 @@ export default function IssueReports() {
               </Button>
             )}
           </Box>
-
-          {/* Dải nút lọc trạng thái sự cố 1 chạm đồng bộ Mobile */}
-          {showFilters && (
-            <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center', mt: 1.5 }}>
-              {[
-                { value: '', label: 'Tất cả' },
-                { value: 'Open', label: 'Đang mở' },
-                ...ISSUE_STATUSES.filter((s) => s.value !== 'Open').map((s) => ({ value: s.value, label: s.label })),
-              ].map((opt) => {
-                const active = status === opt.value
-                return (
-                  <Button
-                    key={opt.value || 'ALL'}
-                    size="small"
-                    variant={active ? 'contained' : 'outlined'}
-                    onClick={() => {
-                      setStatus(opt.value)
-                      setPage(1)
-                    }}
-                    sx={{
-                      textTransform: 'none',
-                      borderRadius: '999px',
-                      fontWeight: 700,
-                      fontSize: 12,
-                      px: 1.75,
-                      py: 0.35,
-                      boxShadow: 'none',
-                      bgcolor: active ? '#0058be' : '#ffffff',
-                      borderColor: active ? '#0058be' : '#cbd5e1',
-                      color: active ? '#ffffff' : '#334155',
-                      '&:hover': {
-                        bgcolor: active ? '#0049a3' : '#f1f5f9',
-                        borderColor: active ? '#0049a3' : '#94a3b8',
-                      },
-                    }}
-                  >
-                    {opt.label}
-                  </Button>
-                )
-              })}
-            </Box>
-          )}
         </Box>
 
         <Paper variant="outlined" sx={{ borderColor: '#d8dced', borderTop: 0, borderRadius: '0 0 6px 6px' }}>
