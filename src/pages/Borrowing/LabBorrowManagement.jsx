@@ -121,6 +121,13 @@ function getItemStatusInfo(item, requestStatus) {
         textColor: '#dc2626',
       }
     }
+    if (isConsum && Number(item.returnedQuantity || 0) < Number(item.quantity || 0)) {
+      return {
+        label: `Đã trả ${Number(item.returnedQuantity || 0)}/${item.quantity}, còn lại đã dùng`,
+        bgcolor: '#dcfce7',
+        textColor: '#15803d',
+      }
+    }
     return {
       label: 'Đã trả',
       bgcolor: '#dcfce7',
@@ -400,12 +407,8 @@ export default function LabBorrowManagement() {
     )
     if (success) {
       const updatedItems = updatedRequest?.items
-      const stillOutstanding = Array.isArray(updatedItems) && updatedItems.some((item) => {
-        if (String(item.trackingType || '').toLowerCase() === 'consumable') {
-          return Number(item.returnedQuantity || 0) < Number(item.quantity || 0)
-        }
-        return !item.returnedAt && String(item.status || '').toLowerCase() !== 'returned'
-      })
+      const stillOutstanding = Array.isArray(updatedItems) &&
+        updatedItems.some((item) => ['Issued', 'Pending'].includes(item.status))
       const message = !Array.isArray(updatedItems)
         ? 'Đã ghi nhận nhận trả linh kiện.'
         : stillOutstanding

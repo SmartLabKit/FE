@@ -3,12 +3,14 @@ import {
   Alert,
   Box,
   Button,
+  Checkbox,
   Chip,
   CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   MenuItem,
   Paper,
   Select,
@@ -34,15 +36,8 @@ function isConsumable(item) {
   return String(item.trackingType || '').toLowerCase() === 'consumable'
 }
 
-function remainingQuantity(item) {
-  return Math.max(0, Number(item.quantity || 0) - Number(item.returnedQuantity || 0))
-}
-
 function getOpenReturnLines(items) {
-  return (items || []).filter((item) => {
-    if (isConsumable(item)) return remainingQuantity(item) > 0
-    return String(item.status || '').toLowerCase() === 'issued' && !item.returnedAt
-  })
+  return (items || []).filter((item) => item.status === 'Issued')
 }
 
 export default function ReturnBorrowModal({ request, open, submitting, onClose, onReturn }) {
@@ -62,12 +57,7 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
   const roomId = request?.roomId
   const lines = useMemo(() => getOpenReturnLines(request?.items), [request?.items])
   const alreadyReturnedItems = useMemo(() => {
-    return (request?.items || []).filter((item) => {
-      if (isConsumable(item)) {
-        return Number(item.returnedQuantity || 0) >= Number(item.quantity || 0)
-      }
-      return Boolean(item.returnedAt) || String(item.status || '').toLowerCase() === 'returned'
-    })
+    return (request?.items || []).filter((item) => ['Returned', 'Damaged', 'Lost'].includes(item.status))
   }, [request?.items])
 
   const openConsumables = lines.filter(isConsumable)
@@ -76,14 +66,13 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
   )
   const trackedSelectionsValid = lines
     .filter((item) => !isConsumable(item))
-    .every((item) => ['Good', 'Damaged', 'Lost', 'NotReturned'].includes(conditions[item.borrowItemId] || 'Good'))
+    .every((item) => ['Good', 'Damaged', 'Lost', 'NotReturned'].includes(conditions[item.borrowItemId] || 'NotReturned'))
 
   const returningTrackedCount = lines
     .filter((item) => !isConsumable(item))
-    .filter((item) => (conditions[item.borrowItemId] || 'Good') !== 'NotReturned').length
-  const returningConsumablesCount = openConsumables
-    .filter((item) => Number(consumableQuantities[item.borrowItemId] || 0) > 0).length
-  const hasReturningItems = returningTrackedCount > 0 || returningConsumablesCount > 0
+    .filter((item) => (conditions[item.borrowItemId] || 'NotReturned') !== 'NotReturned').length
+  const returningConsumables = openConsumables.filter((item) => consumableQuantities[item.borrowItemId] !== undefined)
+  const hasReturningItems = returningTrackedCount > 0 || returningConsumables.length > 0
 
   const damagePhotosReady = lines
     .filter((item) => !isConsumable(item) && conditions[item.borrowItemId] === 'Damaged')
@@ -206,14 +195,13 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
     const returnLines = lines
       .map((item) => {
         if (isConsumable(item)) {
-          const qty = Number(consumableQuantities[item.borrowItemId] || 0)
-          if (qty <= 0) return null
+          if (consumableQuantities[item.borrowItemId] === undefined) return null
           return {
             borrowItemId: item.borrowItemId,
-            returnedQuantity: qty,
+            returnedQuantity: consumableQuantities[item.borrowItemId],
           }
         }
-        const condition = conditions[item.borrowItemId] || 'Good'
+        const condition = conditions[item.borrowItemId] || 'NotReturned'
         if (condition === 'NotReturned') {
           return null
         }
@@ -226,7 +214,7 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
       .filter(Boolean)
 
     if (!returnLines.length) {
-      setError('Vui lòng chọn tình trạng nhận trả (khác "Chưa trả") cho ít nhất một thiết bị hoặc xác nhận số lượng vật tư trả.')
+      setError('Chọn tình trạng (khác "Chưa trả") cho ít nhất một thiết bị hoặc chọn vật tư nhận đợt này.')
       return
     }
 
@@ -326,11 +314,12 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
                       <Stack spacing={1.5}>
                         <Typography fontWeight={700}>Vật tư tiêu hao</Typography>
                         <Typography variant="body2" color="text.secondary">
-                          Nhập số lượng mang trả. Phần còn lại của dòng được tính là đã sử dụng.
+                          Chọn vật tư nhận trả đợt này rồi nhập số lượng mang trả (dùng hết thì nhập 0). Phần còn lại tính là đã dùng, không trả bù được.
                         </Typography>
                         {openConsumables.map((item) => {
-                          const remaining = remainingQuantity(item)
-                          const returned = Number(consumableQuantities[item.borrowItemId] || 0)
+                          const quantity = Number(item.quantity || 0)
+                          const returned = consumableQuantities[item.borrowItemId]
+                          const selected = returned !== undefined
                           return (
                             <Stack
                               key={item.borrowItemId}
@@ -341,23 +330,44 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
                               <Box sx={{ flex: 1 }}>
                                 <Typography fontWeight={600}>{item.componentName} ({item.componentCode})</Typography>
                                 <Typography variant="caption" color="text.secondary">
-                                  Còn {remaining - returned} / {remaining} {item.unit || 'cái'} chưa trả
+                                  {selected
+                                    ? `Trả ${returned}/${quantity} ${item.unit || 'cái'}, ${quantity - returned} tính là đã dùng`
+                                    : `Đã giao ${quantity} ${item.unit || 'cái'}, chưa trả`}
                                 </Typography>
                               </Box>
+                              <FormControlLabel
+                                control={(
+                                  <Checkbox
+                                    checked={selected}
+                                    disabled={submitting}
+                                    onChange={(event) => {
+                                      const { checked } = event.target
+                                      setConsumableQuantities((current) => {
+                                        const next = { ...current }
+                                        if (checked) next[item.borrowItemId] = quantity
+                                        else delete next[item.borrowItemId]
+                                        return next
+                                      })
+                                    }}
+                                  />
+                                )}
+                                label="Nhận đợt này"
+                              />
                               <TextField
                                 type="number"
                                 size="small"
                                 label="Số lượng trả"
-                                value={consumableQuantities[item.borrowItemId] ?? 0}
+                                disabled={!selected || submitting}
+                                value={selected ? returned : ''}
                                 onChange={(event) => {
                                   const value = Number(event.target.value)
-                                  if (!Number.isInteger(value) || value < 0 || value > remaining) return
+                                  if (!Number.isInteger(value) || value < 0 || value > quantity) return
                                   setConsumableQuantities((current) => ({
                                     ...current,
                                     [item.borrowItemId]: value,
                                   }))
                                 }}
-                                inputProps={{ min: 0, max: remaining, step: 1 }}
+                                inputProps={{ min: 0, max: quantity, step: 1 }}
                                 sx={{ width: { xs: '100%', sm: 150 } }}
                               />
                             </Stack>
@@ -422,7 +432,7 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
                         <Box>
                           <Typography fontWeight={700}>Thiết bị cần kiểm tra</Typography>
                           <Typography variant="body2" color="text.secondary">
-                            Các thiết bị được ghi nhận trong đợt trả này. Bạn có thể chọn &quot;Chưa trả&quot; nếu sinh viên chưa mang trả thiết bị đó đợt này.
+                            Chọn tình trạng cho thiết bị sinh viên mang trả đợt này. Thiết bị chưa mang tới thì để &quot;Chưa trả&quot;.
                           </Typography>
                         </Box>
                         <TableContainer>
@@ -436,7 +446,7 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
                             </TableHead>
                             <TableBody>
                               {lines.filter((item) => !isConsumable(item)).map((item) => {
-                                const currentCond = conditions[item.borrowItemId] || 'Good'
+                                const currentCond = conditions[item.borrowItemId] || 'NotReturned'
                                 return (
                                   <TableRow key={item.borrowItemId}>
                                     <TableCell>
