@@ -118,7 +118,7 @@ export default function ReviewSupplementaryBorrow() {
   return (
     <PortalLayout
       headerTitle="Quản lý mượn linh kiện"
-      headerSubtitle="Mượn, gia hạn và trả linh kiện"
+      headerSubtitle="Mượn và trả linh kiện"
     >
       <Container maxWidth="xl" disableGutters sx={{ maxWidth: 1240, mx: 'auto' }}>
         {/* Navigation Breadcrumb */}

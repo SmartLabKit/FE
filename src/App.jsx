@@ -76,24 +76,24 @@ function App() {
           <Route path="/class-setup/admin/semesters" element={<RequireRole roles={['Admin']}><ClassSetup /></RequireRole>} />
           <Route path="/class-setup/admin/courses" element={<RequireRole roles={['Admin']}><ClassSetup /></RequireRole>} />
           <Route path="/class-setup/admin/roster" element={<RequireRole roles={['Admin']}><ClassSetup /></RequireRole>} />
-          <Route path="/class-setup/admin/components" element={<RequireRole roles={['Admin', 'InventoryManager', 'LabStaff']}><Components /></RequireRole>} />
-          <Route path="/class-setup/admin/components/catalog" element={<RequireRole roles={['Admin', 'InventoryManager', 'LabStaff']}><ComponentCatalog /></RequireRole>} />
-          <Route path="/class-setup/admin/components/:componentId" element={<RequireRole roles={['Admin', 'InventoryManager', 'LabStaff']}><ComponentDetail /></RequireRole>} />
-          <Route path="/components/catalog" element={<RequireRole><ComponentCatalog /></RequireRole>} />
-          <Route path="/components/:componentId" element={<RequireRole><ComponentDetail /></RequireRole>} />
-          <Route path="/class-setup/admin/components/new" element={<RequireRole roles={['Admin', 'InventoryManager']}><NewComponent /></RequireRole>} />
-          <Route path="/class-setup/admin/components/import" element={<RequireRole roles={['Admin', 'InventoryManager']}><ComponentExcelImport /></RequireRole>} />
-          <Route path="/class-setup/admin/components/:componentId/edit" element={<RequireRole roles={['Admin', 'InventoryManager']}><NewComponent /></RequireRole>} />
-          <Route path="/class-setup/admin/categories" element={<RequireRole roles={['Admin', 'InventoryManager', 'LabStaff']}><InventorySetup /></RequireRole>} />
-          <Route path="/class-setup/admin/lab-rooms" element={<RequireRole roles={['Admin', 'InventoryManager', 'LabStaff']}><InventorySetup /></RequireRole>} />
+          <Route path="/class-setup/admin/components" element={<RequireRole roles={['InventoryManager', 'LabStaff']}><Components /></RequireRole>} />
+          <Route path="/class-setup/admin/components/catalog" element={<RequireRole roles={['InventoryManager', 'LabStaff']}><ComponentCatalog /></RequireRole>} />
+          <Route path="/class-setup/admin/components/:componentId" element={<RequireRole roles={['InventoryManager', 'LabStaff']}><ComponentDetail /></RequireRole>} />
+          <Route path="/components/catalog" element={<RequireRole roles={['InventoryManager', 'LabStaff', 'Lecturer', 'Student']}><ComponentCatalog /></RequireRole>} />
+          <Route path="/components/:componentId" element={<RequireRole roles={['InventoryManager', 'LabStaff', 'Lecturer', 'Student']}><ComponentDetail /></RequireRole>} />
+          <Route path="/class-setup/admin/components/new" element={<RequireRole roles={['InventoryManager']}><NewComponent /></RequireRole>} />
+          <Route path="/class-setup/admin/components/import" element={<RequireRole roles={['InventoryManager']}><ComponentExcelImport /></RequireRole>} />
+          <Route path="/class-setup/admin/components/:componentId/edit" element={<RequireRole roles={['InventoryManager']}><NewComponent /></RequireRole>} />
+          <Route path="/class-setup/admin/categories" element={<RequireRole roles={['InventoryManager', 'LabStaff']}><InventorySetup /></RequireRole>} />
+          <Route path="/class-setup/admin/lab-rooms" element={<RequireRole roles={['InventoryManager', 'LabStaff']}><InventorySetup /></RequireRole>} />
           <Route path="/class-setup/admin/lab-room-management" element={<RequireRole roles={['Admin', 'InventoryManager']}><LabRoomManagement /></RequireRole>} />
-          <Route path="/class-setup/admin/cabinets" element={<RequireRole roles={['Admin', 'InventoryManager', 'LabStaff']}><InventorySetup /></RequireRole>} />
-          <Route path="/class-setup/admin/cabinets/:cabinetId" element={<RequireRole roles={['Admin', 'InventoryManager', 'LabStaff']}><CabinetDetail /></RequireRole>} />
-          <Route path="/class-setup/admin/stock-inwards" element={<RequireRole roles={['Admin', 'InventoryManager']}><StockInwards /></RequireRole>} />
-          <Route path="/class-setup/admin/stock-receipts" element={<RequireRole roles={['Admin', 'InventoryManager']}><StockReceipts /></RequireRole>} />
-          <Route path="/class-setup/admin/stock-receipts/:receiptId" element={<RequireRole roles={['Admin', 'InventoryManager']}><StockReceiptDetail /></RequireRole>} />
-          <Route path="/class-setup/admin/inventory-audits" element={<RequireRole roles={['Admin', 'InventoryManager', 'LabStaff']}><InventoryAudits /></RequireRole>} />
-          <Route path="/class-setup/admin/inventory-audits/:auditId" element={<RequireRole roles={['Admin', 'InventoryManager', 'LabStaff']}><InventoryAuditDetail /></RequireRole>} />
+          <Route path="/class-setup/admin/cabinets" element={<RequireRole roles={['InventoryManager', 'LabStaff']}><InventorySetup /></RequireRole>} />
+          <Route path="/class-setup/admin/cabinets/:cabinetId" element={<RequireRole roles={['InventoryManager', 'LabStaff']}><CabinetDetail /></RequireRole>} />
+          <Route path="/class-setup/admin/stock-inwards" element={<RequireRole roles={['InventoryManager']}><StockInwards /></RequireRole>} />
+          <Route path="/class-setup/admin/stock-receipts" element={<RequireRole roles={['InventoryManager']}><StockReceipts /></RequireRole>} />
+          <Route path="/class-setup/admin/stock-receipts/:receiptId" element={<RequireRole roles={['InventoryManager']}><StockReceiptDetail /></RequireRole>} />
+          <Route path="/class-setup/admin/inventory-audits" element={<RequireRole roles={['InventoryManager', 'LabStaff']}><InventoryAudits /></RequireRole>} />
+          <Route path="/class-setup/admin/inventory-audits/:auditId" element={<RequireRole roles={['InventoryManager', 'LabStaff']}><InventoryAuditDetail /></RequireRole>} />
           <Route path="/class-setup/lecturer/classes" element={<RequireRole roles={['Lecturer']}><ClassSetup /></RequireRole>} />
           <Route path="/class-setup/lecturer/final-submissions" element={<RequireRole roles={['Lecturer', 'Admin']}><FinalSubmissionReview /></RequireRole>} />
           <Route path="/class-setup/student/groups" element={<RequireRole roles={['Student']}><StudentGroupsPage /></RequireRole>} />
