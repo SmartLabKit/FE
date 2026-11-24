@@ -5,6 +5,7 @@ import {
 } from '@mui/material'
 import { Add as AddIcon, Edit as EditIcon, PersonAdd as PersonAddIcon } from '@mui/icons-material'
 import PortalLayout from '../../components/layout/PortalLayout'
+import ConfirmDialog from '../../components/common/ConfirmDialog'
 import { useAuth } from '../../context/AuthContext'
 import { extractErrorMessage } from '../../services/api'
 import { inventoryService } from '../../services/inventoryService'
@@ -67,6 +68,7 @@ export default function LabRoomManagement() {
 
   const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false)
   const [assignmentRoom, setAssignmentRoom] = useState(null)
+  const [confirmRequest, setConfirmRequest] = useState(null)
   const [assignedStaff, setAssignedStaff] = useState([])
   const [staffOptions, setStaffOptions] = useState([])
   const [staffAssignedElsewhere, setStaffAssignedElsewhere] = useState({})
@@ -252,6 +254,14 @@ export default function LabRoomManagement() {
       setSavingAssignment(false)
     }
   }
+
+  const confirmRemoveStaff = (staff) =>
+    setConfirmRequest({
+      title: 'Gỡ nhân viên khỏi lab?',
+      message: `${getStaffName(staff)} sẽ không còn giao, nhận trả, ghi nhận sự cố và kiểm kê ở lab này.`,
+      confirmText: 'Gỡ',
+      onConfirm: () => handleRemoveStaff(staff),
+    })
 
   const handleRemoveStaff = async (staff) => {
     if (!assignmentRoom) return
@@ -455,7 +465,7 @@ export default function LabRoomManagement() {
                       <Button
                         size="small"
                         color="error"
-                        onClick={() => handleRemoveStaff(staff)}
+                        onClick={() => confirmRemoveStaff(staff)}
                         disabled={savingAssignment}
                         sx={{ textTransform: 'none' }}
                       >
@@ -512,6 +522,7 @@ export default function LabRoomManagement() {
           </DialogActions>
         </Dialog>
       </Box>
+      <ConfirmDialog request={confirmRequest} onClose={() => setConfirmRequest(null)} />
     </PortalLayout>
   )
 }
