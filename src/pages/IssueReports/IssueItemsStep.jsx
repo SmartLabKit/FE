@@ -1,5 +1,6 @@
 import { Box, Button, Chip, Paper, Stack, Typography } from '@mui/material'
 import { formatVietnamDate } from '../../utils/dateFormatting'
+import { labCode } from '../../utils/labLabel'
 
 const LINE_STATUS = {
   Issued: { label: 'Đang mượn', color: 'primary' },
@@ -29,7 +30,7 @@ export default function IssueItemsStep({ order, busy, onPick }) {
           {[order.requesterName, order.studentCode, order.classCode].filter(Boolean).join(' · ')}
         </Typography>
         <Typography variant="body2" color="text.secondary">
-          {[order.projectTitle, order.roomName, `hạn trả ${formatVietnamDate(order.dueDate)}`].filter(Boolean).join(' · ')}
+          {[order.projectTitle, labCode(order, ''), `hạn trả ${formatVietnamDate(order.dueDate)}`].filter(Boolean).join(' · ')}
         </Typography>
       </Paper>
 

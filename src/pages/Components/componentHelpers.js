@@ -3,6 +3,8 @@
  * tutorial YouTube/PDF và dữ liệu phân bổ kho theo Lab cho linh kiện.
  */
 
+import { labLabel } from '../../utils/labLabel'
+
 // Bỏ dấu tiếng Việt và chuẩn hóa chuỗi để phục vụ tìm kiếm không dấu & sinh mã viết tắt
 export function stripVietnameseDiacritics(value = '') {
   return String(value || '')
@@ -273,11 +275,15 @@ export async function getLabStocksForComponent(component, inventoryService) {
   // 1. Nếu API chi tiết đã có sẵn mảng labStocks hoặc stocks
   const directStocks = component.labStocks || component.stocks || component.laboratories
   if (Array.isArray(directStocks) && directStocks.length > 0) {
-    return directStocks.map((s) => ({
-      labRoomId: s.labRoomId || s.roomId || s.id,
-      roomName: s.roomName || s.labRoomName || s.name || 'Phòng Lab',
-      quantity: Number(s.quantity ?? s.availableQuantity ?? s.stock ?? 0),
-    }))
+    // BE trả tồn theo từng tủ, màn hình hiện theo lab nên gộp các tủ cùng lab
+    const byLab = new Map()
+    directStocks.forEach((s) => {
+      const roomName = labLabel(s, s.name || 'Phòng Lab')
+      const quantity = Number(s.quantity ?? s.availableQuantity ?? s.stock ?? 0)
+      const row = byLab.get(roomName) || { labRoomId: s.labRoomId || s.roomId || s.id, roomName, quantity: 0 }
+      byLab.set(roomName, { ...row, quantity: row.quantity + quantity })
+    })
+    return [...byLab.values()].sort((a, b) => a.roomName.localeCompare(b.roomName))
   }
 
   // 2. Thử truy vấn danh sách phân bổ qua componentItems và consumableStocks
@@ -296,7 +302,7 @@ export async function getLabStocksForComponent(component, inventoryService) {
     cabinets.forEach((cab) => {
       const cId = cab.cabinetId || cab.id
       const room = labRooms.find((r) => (r.labRoomId || r.roomId || r.id) === (cab.roomId || cab.labRoomId))
-      const roomName = cab.roomName || cab.labRoomName || room?.roomName || room?.name || 'Phòng Lab'
+      const roomName = labLabel(cab, labLabel(room, 'Phòng Lab'))
       if (cId) cabinetToRoom.set(cId, roomName)
     })
 
@@ -308,7 +314,7 @@ export async function getLabStocksForComponent(component, inventoryService) {
       const itemCompId = item.componentId || item.ComponentId
       if (!itemCompId || itemCompId === id) {
         if (item.status === 'Available' || !item.status) {
-          const roomName = item.roomName || item.labRoomName || cabinetToRoom.get(item.cabinetId) || 'Lab'
+          const roomName = cabinetToRoom.get(item.cabinetId) || labLabel(item, 'Lab')
           countByRoom.set(roomName, (countByRoom.get(roomName) || 0) + 1)
         }
       }
@@ -319,7 +325,7 @@ export async function getLabStocksForComponent(component, inventoryService) {
     consList.forEach((item) => {
       const itemCompId = item.componentId || item.ComponentId
       if (!itemCompId || itemCompId === id) {
-        const roomName = item.roomName || item.labRoomName || cabinetToRoom.get(item.cabinetId) || 'Lab'
+        const roomName = cabinetToRoom.get(item.cabinetId) || labLabel(item, 'Lab')
         const qty = Number(item.quantity ?? item.availableQuantity ?? item.stock ?? 0)
         countByRoom.set(roomName, (countByRoom.get(roomName) || 0) + qty)
       }

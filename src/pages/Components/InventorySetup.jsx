@@ -13,6 +13,7 @@ import { inventoryService } from '../../services/inventoryService'
 import { userService } from '../../services/userService'
 import { extractErrorMessage } from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
+import { labCode, labLabel, labName } from '../../utils/labLabel'
 
 const CABINET_TYPES = [
   ['CONSUMABLE', 'Tiêu hao (vật tư đếm số lượng)'],
@@ -453,7 +454,7 @@ export default function InventorySetup() {
                 size="small"
                 color="primary"
                 variant="outlined"
-                label={`Phụ trách: ${getName(rooms[0], 'rooms')}`}
+                label={`Phụ trách: ${labLabel(rooms[0])}`}
               />
             )}
             {kind === 'cabinets' && !isLabStaff && (
@@ -468,7 +469,7 @@ export default function InventorySetup() {
                 <MenuItem value="">{isLabStaff ? 'Tất cả phòng được phân công' : 'Tất cả phòng lab'}</MenuItem>
                 {rooms.map((room) => (
                   <MenuItem key={getId(room, 'rooms')} value={getId(room, 'rooms')}>
-                    {getName(room, 'rooms') || room.labRoomCode || room.roomCode}
+                    {labLabel(room)}
                   </MenuItem>
                 ))}
               </TextField>
@@ -552,12 +553,7 @@ export default function InventorySetup() {
                         <TableCell>
                           {row.trackingType ? <TrackingTypeBadge type={row.trackingType} /> : 'Chưa gắn loại'}
                         </TableCell>
-                        <TableCell>
-                          {row.labRoomName ||
-                            row.roomName ||
-                            rooms.find((room) => getId(room, 'rooms') === (row.roomId || row.labRoomId))?.roomName ||
-                            '—'}
-                        </TableCell>
+                        <TableCell title={labName(row)} sx={{ whiteSpace: 'nowrap' }}>{labCode(row)}</TableCell>
                         <TableCell>
                           <Chip
                             size="small"
@@ -663,7 +659,7 @@ export default function InventorySetup() {
                       const rId = getId(room, 'rooms')
                       return (
                         <MenuItem key={rId} value={rId}>
-                          {room.roomName || room.labRoomCode || room.roomCode}
+                          {labLabel(room)}
                         </MenuItem>
                       )
                     })}

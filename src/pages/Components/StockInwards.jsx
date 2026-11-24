@@ -56,6 +56,7 @@ import {
   getComponentShortCode,
   normalizeSearchText,
 } from './componentHelpers'
+import { labLabel } from '../../utils/labLabel'
 
 const MAX_DROPDOWN_OPTIONS = 50
 
@@ -732,7 +733,7 @@ export default function StockInwards() {
                   >
                     {receivingLabs.map((room) => (
                       <MenuItem key={room.roomId} value={room.roomId}>
-                        {room.roomCode} — {room.roomName}
+                        {labLabel(room)}
                       </MenuItem>
                     ))}
                   </TextField>
