@@ -195,6 +195,7 @@ export default function InventoryAuditDetail() {
   const inProgress = audit?.status === 'InProgress'
   const submitted = audit?.status === 'Submitted'
   const canReview = hasPermission?.('INVENTORY_AUDIT_APPROVE')
+  const canRestore = hasPermission?.('COMPONENT_MANAGE')
   const isOwnCount = Boolean(audit?.auditorId && user?.userId && audit.auditorId === user.userId && !hasRole?.('Admin'))
   const consumables = useMemo(() => audit?.consumables || [], [audit])
   const items = useMemo(() => audit?.items || [], [audit])
@@ -362,7 +363,6 @@ export default function InventoryAuditDetail() {
         componentId: item.componentId,
         fromCabinetId: item.cabinetId || audit?.cabinetId,
         fromStatus: 'Lost',
-        quantity: 1,
         itemIds: [item.itemId],
         toStatus: 'Available',
         reason: 'Tìm thấy lại thiết bị và khôi phục về kho',
@@ -1045,7 +1045,9 @@ export default function InventoryAuditDetail() {
             {lostItems.length > 0 && (
               <SectionCard
                 title={`Thiết bị đang theo dõi thất lạc tại tủ này (${lostItems.length})`}
-                subtitle="Các mã thiết bị chưa tìm thấy vẫn được lưu nguyên trong hệ thống. Khi tìm thấy lại, bấm 'Đã tìm thấy — Khôi phục về kho'."
+                subtitle={canRestore
+                  ? "Các mã thiết bị chưa tìm thấy vẫn được lưu nguyên trong hệ thống. Khi tìm thấy lại, bấm 'Đã tìm thấy — Khôi phục về kho'."
+                  : 'Các mã thiết bị chưa tìm thấy vẫn được lưu nguyên trong hệ thống. Khi tìm thấy lại, báo quản lý kho khôi phục về kho.'}
               >
                 <TableContainer>
                   <Table size="small">
@@ -1070,17 +1072,19 @@ export default function InventoryAuditDetail() {
                               <Chip size="small" color={st.color} label={st.label} sx={{ fontWeight: 600, fontSize: 11 }} />
                             </TableCell>
                             <TableCell align="right">
-                              <Button
-                                size="small"
-                                variant="outlined"
-                                color="success"
-                                startIcon={<RestoreIcon />}
-                                disabled={restoringId === item.itemId}
-                                onClick={() => handleRestoreLostItem(item)}
-                                sx={{ textTransform: 'none', fontWeight: 700 }}
-                              >
-                                {restoringId === item.itemId ? 'Đang khôi phục...' : 'Đã tìm thấy — Khôi phục về kho'}
-                              </Button>
+                              {canRestore && (
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  color="success"
+                                  startIcon={<RestoreIcon />}
+                                  disabled={restoringId === item.itemId}
+                                  onClick={() => handleRestoreLostItem(item)}
+                                  sx={{ textTransform: 'none', fontWeight: 700 }}
+                                >
+                                  {restoringId === item.itemId ? 'Đang khôi phục...' : 'Đã tìm thấy — Khôi phục về kho'}
+                                </Button>
+                              )}
                             </TableCell>
                           </TableRow>
                         )

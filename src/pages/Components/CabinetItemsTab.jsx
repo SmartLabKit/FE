@@ -22,7 +22,6 @@ import {
 } from '@mui/material'
 import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
-import { useAuth } from '../../context/AuthContext'
 import CreateIssueReportDialog from '../IssueReports/CreateIssueReportDialog'
 import { cabinetLabel, formatDate, itemStatusOf, rowsOf, toDateInput } from './inventoryLabels'
 
@@ -126,7 +125,6 @@ function MoveItemDialog({ item, cabinets, onClose, onSaved }) {
         componentId: item.componentId,
         fromCabinetId: item.cabinetId,
         fromStatus: item.status,
-        quantity: 1,
         itemIds: [item.itemId],
         toCabinetId,
         reason: reason.trim() || null,
@@ -213,13 +211,11 @@ function RetireItemDialog({ item, onClose, onSaved }) {
 /**
  * Tab "Từng thiết bị" của trang Chi tiết tủ: các thiết bị quản lý theo từng chiếc (REUSABLE / HIGH_VALUE) trong tủ.
  * - canManage (COMPONENT_MANAGE): sửa thông tin, thanh lý thiết bị cũ.
- * - Thiết bị hỏng / cháy / mất đi qua báo cáo sự cố: chỉ LabStaff ghi nhận.
- * - canMove (COMPONENT_MANAGE hoặc BORROW_ISSUE): chuyển tủ; LabStaff chỉ chuyển trong cùng lab (BE kiểm tra).
+ * - canReport (LabStaff của lab chứa tủ): ghi nhận thiết bị hỏng / cháy / mất qua báo cáo sự cố.
+ * - canMove (COMPONENT_MANAGE, hoặc LabStaff của lab chứa tủ): chuyển tủ; LabStaff chỉ chuyển trong lab đó.
  * - Thiết bị bị mất (Lost) tìm lại được thì dùng "Đưa về kho" để chuyển về trạng thái Sẵn sàng.
  */
-export default function CabinetItemsTab({ cabinet, cabinets, canManage, canMove, onChanged, showToast }) {
-  const { hasRole } = useAuth()
-  const canReport = hasRole('LabStaff')
+export default function CabinetItemsTab({ cabinet, cabinets, canManage, canMove, canReport, onChanged, showToast }) {
   const [status, setStatus] = useState('')
   const [page, setPage] = useState(1)
   const [result, setResult] = useState(null)
@@ -268,7 +264,6 @@ export default function CabinetItemsTab({ cabinet, cabinets, canManage, canMove,
         componentId: item.componentId,
         fromCabinetId: item.cabinetId,
         fromStatus: 'Lost',
-        quantity: 1,
         itemIds: [item.itemId],
         toStatus: 'Available',
         reason: 'Tìm lại được thiết bị',

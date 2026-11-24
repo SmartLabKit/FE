@@ -25,6 +25,7 @@ import {
 } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 import PortalLayout from '../../components/layout/PortalLayout'
+import { useAuth } from '../../context/AuthContext'
 import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
 import { AUDIT_STATUSES, auditStatusOf, cabinetLabel, formatDateTime, rowsOf } from './inventoryLabels'
@@ -33,6 +34,8 @@ const PAGE_SIZE = 20
 const headCellSx = { fontWeight: 700, color: '#334155' }
 
 function StartAuditDialog({ onClose, onStarted }) {
+  const { hasPermission } = useAuth()
+  const everyLab = hasPermission('INVENTORY_AUDIT_APPROVE')
   const [cabinets, setCabinets] = useState([])
   const [busyCabinets, setBusyCabinets] = useState({})
   const [cabinet, setCabinet] = useState(null)
@@ -42,8 +45,12 @@ function StartAuditDialog({ onClose, onStarted }) {
 
   useEffect(() => {
     let active = true
-    inventoryService.getCabinets()
-      .then((items) => { if (active) setCabinets(items) })
+    Promise.all([inventoryService.getCabinets(), everyLab ? [] : inventoryService.getLabRooms()])
+      .then(([items, rooms]) => {
+        if (!active) return
+        const myRoomIds = new Set(rooms.filter((room) => room.isMine).map((room) => room.roomId))
+        setCabinets(everyLab ? items : items.filter((item) => myRoomIds.has(item.roomId)))
+      })
       .catch((loadError) => { if (active) setError(extractErrorMessage(loadError, 'Không thể tải danh sách tủ.')) })
     Promise.all(
       ['InProgress', 'Submitted'].map((value) =>
@@ -60,7 +67,7 @@ function StartAuditDialog({ onClose, onStarted }) {
       setBusyCabinets(busy)
     })
     return () => { active = false }
-  }, [])
+  }, [everyLab])
 
   const start = async () => {
     setSaving(true)

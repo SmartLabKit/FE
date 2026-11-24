@@ -1216,8 +1216,8 @@ export default function ImportRosterFaculty() {
 
               <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}>
                 <Autocomplete
-                  fullWidth
                   size="small"
+                  sx={{ flex: 1, minWidth: 0 }}
                   options={instructors}
                   value={instructors.find((inst) => inst.code === instructorForm.instructorCode) || null}
                   onChange={(_, selected) => {
@@ -1252,6 +1252,7 @@ export default function ImportRosterFaculty() {
                   onClick={handleOpenAddInstructorDialog}
                   sx={{
                     height: 40,
+                    flexShrink: 0,
                     textTransform: 'none',
                     fontWeight: 700,
                     fontSize: 12,

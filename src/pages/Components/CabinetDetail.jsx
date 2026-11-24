@@ -20,13 +20,18 @@ export default function CabinetDetail() {
   const [reloadKey, setReloadKey] = useState(0)
   const [tab, setTab] = useState('overview')
   const [cabinets, setCabinets] = useState([])
+  const [rooms, setRooms] = useState([])
   const [startingAudit, setStartingAudit] = useState(false)
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
 
   const isManager = hasRole('Admin') || hasRole('InventoryManager')
   const canManageItems = isManager || hasPermission('COMPONENT_MANAGE')
-  const canMove = canManageItems || hasRole('LabStaff') || hasPermission('BORROW_ISSUE')
-  const canAudit = isManager || hasPermission('INVENTORY_AUDIT')
+  const ownLab = rooms.some((room) => room.isMine && room.roomId === cabinet?.roomId)
+  const canMove = canManageItems || (ownLab && hasPermission('BORROW_ISSUE'))
+  const canAudit = isManager || (ownLab && hasPermission('INVENTORY_AUDIT'))
+  const canAdjust = isManager || hasPermission('INVENTORY_AUDIT_APPROVE')
+  const canReport = ownLab && hasRole('LabStaff')
+  const targetCabinets = canManageItems ? cabinets : cabinets.filter((item) => item.roomId === cabinet?.roomId)
 
   useEffect(() => {
     let active = true
@@ -41,6 +46,9 @@ export default function CabinetDetail() {
     inventoryService.getCabinets()
       .then((items) => { if (active) setCabinets(items) })
       .catch(() => { if (active) setCabinets([]) })
+    inventoryService.getLabRooms()
+      .then((items) => { if (active) setRooms(items) })
+      .catch(() => { if (active) setRooms([]) })
     return () => { active = false }
   }, [])
 
@@ -102,9 +110,10 @@ export default function CabinetDetail() {
             {tab === 'items' && (
               <CabinetItemsTab
                 cabinet={cabinet}
-                cabinets={cabinets}
+                cabinets={targetCabinets}
                 canManage={canManageItems}
                 canMove={canMove}
+                canReport={canReport}
                 onChanged={() => setReloadKey((key) => key + 1)}
                 showToast={showToast}
               />
@@ -112,9 +121,9 @@ export default function CabinetDetail() {
             {tab === 'consumables' && (
               <CabinetConsumablesTab
                 cabinet={cabinet}
-                cabinets={cabinets}
+                cabinets={targetCabinets}
                 canMove={canMove}
-                canAdjust={canAudit}
+                canAdjust={canAdjust}
                 onChanged={() => setReloadKey((key) => key + 1)}
                 showToast={showToast}
               />
