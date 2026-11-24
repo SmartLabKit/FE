@@ -32,7 +32,7 @@ import { borrowService } from '../../services/borrowService'
 /**
  * SupplementaryBorrowDetail Component (Actor: Sinh viên)
  * Hiển thị chi tiết phiếu mượn bổ sung:
- * - Trạng thái Chờ duyệt (Ảnh 3): Stepper 3 bước, Thông tin đang xem xét
+ * - Trạng thái Chờ GV duyệt (Ảnh 3): Stepper 3 bước, Thông tin đang xem xét
  * - Trạng thái Bị từ chối (Ảnh 5): Banner từ chối, Lý do từ chối, Nút Tạo lại yêu cầu
  */
 export default function SupplementaryBorrowDetail() {
@@ -104,24 +104,6 @@ export default function SupplementaryBorrowDetail() {
     })
   }
 
-  // Toggle nhanh giữa 2 trạng thái Chờ duyệt / Bị từ chối để tiện test & demo
-  const handleToggleStatusDemo = () => {
-    setRequestDetail((prev) => ({
-      ...prev,
-      status: prev.status === 'Rejected' ? 'PendingLecturer' : 'Rejected',
-      reviewedAt: prev.status === 'Rejected' ? null : '2026-10-22T10:00:00.000Z',
-      rejectReason:
-        prev.status === 'Rejected'
-          ? null
-          : 'Nhu cầu bổ sung chưa được giải trình rõ cho bài thực hành hiện tại.',
-    }))
-    setToast({
-      open: true,
-      message: 'Đã đổi trạng thái demo giữa Chờ duyệt và Bị từ chối!',
-      severity: 'info',
-    })
-  }
-
   return (
     <PortalLayout
       headerTitle="Quản lý mượn linh kiện"
@@ -152,15 +134,6 @@ export default function SupplementaryBorrowDetail() {
               Mượn bổ sung
             </Typography>
           </Box>
-
-          <Button
-            size="small"
-            variant="outlined"
-            onClick={handleToggleStatusDemo}
-            sx={{ textTransform: 'none', fontWeight: 700, fontSize: 12, borderRadius: 1.5, borderColor: '#dcdfe6' }}
-          >
-            Chuyển demo: {isRejected ? 'Xem Chờ duyệt (Ảnh 3)' : 'Xem Bị từ chối (Ảnh 5)'}
-          </Button>
         </Box>
 
         {loading && !requestDetail ? (

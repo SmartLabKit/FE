@@ -271,7 +271,7 @@ export default function CreateSupplementaryBorrow() {
     setWithdrawing(true)
     try {
       await borrowService.withdrawSupplementaryBorrow(selectedProject.projectId)
-      setToast({ open: true, message: 'Đã rút lại đơn mượn thêm đang chờ duyệt.', severity: 'success' })
+      setToast({ open: true, message: 'Đã rút lại đơn mượn thêm đang chờ giảng viên duyệt.', severity: 'success' })
       await loadApprovedProjects()
     } catch (err) {
       setToast({ open: true, message: err.message || 'Không thể rút lại đơn mượn thêm.', severity: 'error' })
@@ -287,7 +287,7 @@ export default function CreateSupplementaryBorrow() {
       return
     }
     if (pendingSupplementary) {
-      setToast({ open: true, message: 'Đề tài đang có 1 đơn mượn thêm chờ duyệt. Vui lòng chờ duyệt hoặc rút lại trước.', severity: 'warning' })
+      setToast({ open: true, message: 'Đề tài đang có 1 đơn mượn thêm chờ giảng viên duyệt. Vui lòng chờ duyệt hoặc rút lại trước.', severity: 'warning' })
       return
     }
     if (isFinalSubmitted) {
@@ -508,7 +508,7 @@ export default function CreateSupplementaryBorrow() {
                   onClick={handleWithdrawPending}
                   sx={{ textTransform: 'none', fontWeight: 700, boxShadow: 'none' }}
                 >
-                  {withdrawing ? 'Đang rút...' : 'Rút lại đơn chờ duyệt'}
+                  {withdrawing ? 'Đang rút...' : 'Rút lại đơn chờ GV duyệt'}
                 </Button>
               </Stack>
             }

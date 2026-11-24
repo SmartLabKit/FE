@@ -2,7 +2,7 @@ import { Box, Chip } from '@mui/material'
 
 const labels = {
   Draft: 'Bản nháp',
-  Submitted: 'Chờ duyệt',
+  Submitted: 'Chờ GV duyệt',
   Rejected: 'Bị từ chối',
   Approved: 'Đã duyệt',
   Cancelled: 'Đã hủy',

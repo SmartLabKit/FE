@@ -33,7 +33,7 @@ export function getBorrowRequestStatusMeta(status) {
     case 'đã duyệt':
     case 'Đã duyệt':
       return {
-        label: 'Đã duyệt',
+        label: 'Chờ lab xác nhận',
         color: 'warning',
         sx: { bgcolor: '#fef3c7', color: '#b45309', fontWeight: 700 },
       }
@@ -65,7 +65,7 @@ export function getBorrowRequestStatusMeta(status) {
     case 'PendingApproval':
     case 'Pending':
       return {
-        label: 'Chờ duyệt',
+        label: 'Chờ GV duyệt',
         color: 'warning',
         sx: { bgcolor: '#fffbeb', color: '#b45309', fontWeight: 700 },
       }
@@ -75,6 +75,16 @@ export function getBorrowRequestStatusMeta(status) {
         color: 'default',
         sx: { fontWeight: 700 },
       }
+  }
+}
+
+/** Quyết định của giảng viên trong lịch sử duyệt: Approved nghĩa là đã duyệt, khác trạng thái của cả đơn. */
+export function getApprovalStatusMeta(status) {
+  if (status !== 'Approved') return getBorrowRequestStatusMeta(status)
+  return {
+    label: 'Đã duyệt',
+    color: 'success',
+    sx: { bgcolor: '#dcfce7', color: '#15803d', fontWeight: 700 },
   }
 }
 
