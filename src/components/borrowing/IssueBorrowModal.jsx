@@ -49,18 +49,28 @@ function isConsumable(item) {
   return normalize(item.trackingType) === 'consumable'
 }
 
+const ITEMS_PAGE_SIZE = 100
+
 function isAvailable(item) {
   return normalize(item.status) === 'available'
 }
 
-async function getAvailableItems(line, cabinetIds, signal) {
-  const result = await inventoryService.getComponentItems({
-    componentId: line.componentId,
-    status: 'Available',
-    page: 1,
-    size: 100,
-  }, { signal })
-  return [...new Map(getRows(result)
+async function getAvailableItems(line, roomId, cabinetIds, signal) {
+  const rows = []
+  for (let page = 1, total = 1; rows.length < total; page += 1) {
+    const result = await inventoryService.getComponentItems({
+      componentId: line.componentId,
+      roomId,
+      status: 'Available',
+      page,
+      size: ITEMS_PAGE_SIZE,
+    }, { signal })
+    const batch = getRows(result)
+    if (batch.length === 0) break
+    rows.push(...batch)
+    total = Number(result?.totalCount) || rows.length
+  }
+  return [...new Map(rows
     .filter((item) =>
       item.componentId === line.componentId &&
       cabinetIds.includes(item.cabinetId) &&
@@ -223,7 +233,7 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
             lineControllersRef.current.set(lineId, controller)
             setLoadingByLine({ [lineId]: true })
             try {
-              const available = await getAvailableItems(firstLine, roomCabinetIds, controller.signal)
+              const available = await getAvailableItems(firstLine, request.roomId, roomCabinetIds, controller.signal)
               if (active) {
                 setAvailableByLine((current) => ({ ...current, [lineId]: available }))
                 setLoadedByLine((current) => ({ ...current, [lineId]: true }))
@@ -269,7 +279,7 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
     setLoadingByLine((current) => ({ ...current, [lineId]: true }))
     setError('')
     try {
-      const available = await getAvailableItems(line, cabinetIds, controller.signal)
+      const available = await getAvailableItems(line, request.roomId, cabinetIds, controller.signal)
       setAvailableByLine((current) => ({ ...current, [lineId]: available }))
       setLoadedByLine((current) => ({ ...current, [lineId]: true }))
     } catch (loadError) {

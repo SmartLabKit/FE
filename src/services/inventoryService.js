@@ -60,7 +60,7 @@ export const inventoryService = {
     return api.delete(`/api/lab-rooms/${labRoomId}/staff/${userId}`)
   },
   async getCabinets(params) {
-    return asList(unwrap(await api.get('/api/cabinets', { params })), ['items', 'cabinets'])
+    return asList(unwrap(await api.get('/api/cabinets', { params: { page: 1, size: 100, ...params } })), ['items', 'cabinets'])
   },
   async getCabinet(id) {
     return unwrap(await api.get(`/api/cabinets/${id}`))

@@ -50,5 +50,12 @@ export const rowsOf = (result) => (Array.isArray(result) ? result : result?.item
 export const cabinetAccepts = (cabinet, trackingType) =>
   !trackingType || !cabinet.trackingType || cabinet.trackingType === trackingType
 
+/** Chuyển sang tủ của lab khác thì phải ghi lý do (BE cũng chặn). */
+export const movesToOtherLab = (cabinets, fromCabinetId, toCabinetId) => {
+  const from = cabinets.find((cabinet) => cabinet.cabinetId === fromCabinetId)
+  const to = cabinets.find((cabinet) => cabinet.cabinetId === toCabinetId)
+  return Boolean(from && to && from.roomId !== to.roomId)
+}
+
 export const cabinetLabel = (cabinet) =>
   [cabinet.roomCode, cabinet.cabinetCode, cabinet.cabinetName].filter(Boolean).join(' · ')

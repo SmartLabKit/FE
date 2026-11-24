@@ -20,7 +20,7 @@ import {
 } from '@mui/material'
 import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
-import { cabinetAccepts, cabinetLabel, formatDateTime, rowsOf } from './inventoryLabels'
+import { cabinetAccepts, cabinetLabel, formatDateTime, movesToOtherLab, rowsOf } from './inventoryLabels'
 
 const headCellSx = { fontWeight: 700, color: '#334155' }
 
@@ -32,6 +32,7 @@ function MoveStockDialog({ stock, cabinets, onClose, onSaved }) {
   const [saving, setSaving] = useState(false)
 
   const targets = cabinets.filter((cabinet) => cabinet.cabinetId !== stock.cabinetId && cabinetAccepts(cabinet, 'CONSUMABLE'))
+  const needsReason = movesToOtherLab(cabinets, stock.cabinetId, toCabinetId)
   const quantityValue = Number(quantity)
   const validQuantity = Number.isInteger(quantityValue) && quantityValue >= 1 && quantityValue <= stock.quantity
 
@@ -78,12 +79,18 @@ function MoveStockDialog({ stock, cabinets, onClose, onSaved }) {
             slotProps={{ htmlInput: { min: 1, max: stock.quantity, step: 1 } }}
             fullWidth
           />
-          <TextField label="Lý do (không bắt buộc)" value={reason} onChange={(event) => setReason(event.target.value)} fullWidth />
+          <TextField
+            label={needsReason ? 'Lý do chuyển sang lab khác' : 'Lý do (không bắt buộc)'}
+            required={needsReason}
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            fullWidth
+          />
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={onClose} disabled={saving}>Đóng</Button>
-        <Button variant="contained" onClick={save} disabled={saving || !toCabinetId || !validQuantity} sx={{ bgcolor: '#0058be' }}>
+        <Button variant="contained" onClick={save} disabled={saving || !toCabinetId || !validQuantity || (needsReason && !reason.trim())} sx={{ bgcolor: '#0058be' }}>
           {saving ? 'Đang chuyển...' : 'Chuyển tủ'}
         </Button>
       </DialogActions>
