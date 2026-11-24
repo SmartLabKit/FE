@@ -30,7 +30,7 @@ function InfoRow({ label, children }) {
 
 /**
  * Chi tiết 1 báo cáo sự cố: thông tin thiết bị, đơn mượn liên quan, ảnh minh chứng.
- * Báo cáo còn Open thì:
+ * Báo cáo còn Open (do quản lý kho gửi) thì:
  * - LabStaff / Admin xác nhận hoặc từ chối (BE kiểm tra LabStaff phải phụ trách đúng lab).
  * - Người tạo hoặc Admin hủy báo cáo.
  */
@@ -104,8 +104,8 @@ export default function IssueReportDetailDialog({ issueReportId, onClose, onChan
             <Box>
               <InfoRow label="Loại sự cố">{issueTypeLabel(detail.issueType)}</InfoRow>
               <InfoRow label="Mô tả">{detail.description}</InfoRow>
-              <InfoRow label="Người báo">{detail.reportedBy?.fullName}</InfoRow>
-              <InfoRow label="Thời gian báo">{formatDateTime(detail.createdAt)}</InfoRow>
+              <InfoRow label="Người ghi nhận">{detail.reportedBy?.fullName}</InfoRow>
+              <InfoRow label="Thời gian">{formatDateTime(detail.createdAt)}</InfoRow>
               {detail.resolvedAt && (
                 <InfoRow label="Xử lý bởi">{detail.resolvedBy?.fullName} · {formatDateTime(detail.resolvedAt)}</InfoRow>
               )}
@@ -124,7 +124,7 @@ export default function IssueReportDetailDialog({ issueReportId, onClose, onChan
                   <Divider sx={{ my: 1.5 }} />
                   <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 0.5 }}>Đơn mượn liên quan</Typography>
                   <InfoRow label="Mã đơn">{borrow.borrowRequestCode}</InfoRow>
-                  <InfoRow label="Người mượn">{borrow.requesterFullName}</InfoRow>
+                  <InfoRow label="Người mượn">{[borrow.requesterFullName, borrow.requesterStudentCode].filter(Boolean).join(' · ')}</InfoRow>
                   <InfoRow label="Lớp">{borrow.classCode}</InfoRow>
                   <InfoRow label="Ngày giao">{formatDateTime(borrow.issuedAt)}</InfoRow>
                 </>

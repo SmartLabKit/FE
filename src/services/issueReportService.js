@@ -6,13 +6,28 @@ function unwrap(response) {
 
 export const issueReportService = {
   /**
-   * Báo một thiết bị REUSABLE / HIGH_VALUE bị hỏng, cháy hoặc mất
-   * POST /api/issue-reports
-   * Quyền: Student (thiết bị mình đang mượn), LabStaff (lab mình phụ trách), InventoryManager, Admin
-   * Body (multipart/form-data): { componentItemId? | itemCode?, issueType: Damaged | Burnt | Lost, description (tối đa 1000 ký tự), image? }
-   * Trả về (201): IssueReportDetailResponse
+   * Tra thiết bị theo mã hoặc serial trước khi ghi nhận sự cố
+   * GET /api/issue-reports/lookup?code=
+   * Quyền: LabStaff (lab mình phụ trách), InventoryManager (thiết bị trong tủ), Admin
+   * Trả về (200): { item, borrowContext (null khi trong tủ), confirmsImmediately, freeReplacementUnits }
    */
-  async createIssueReport({ itemCode, componentItemId, issueType, description, image }) {
+  async lookupUnit(code) {
+    try {
+      return unwrap(await api.get('/api/issue-reports/lookup', { params: { code } }))
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Không tra được thiết bị'), { cause: error })
+    }
+  },
+
+  /**
+   * Ghi nhận một thiết bị REUSABLE / HIGH_VALUE bị hỏng, cháy hoặc mất
+   * POST /api/issue-reports
+   * Quyền: LabStaff (lab mình phụ trách), Admin: Confirmed ngay; InventoryManager (thiết bị trong tủ): Open
+   * Body (multipart/form-data): { componentItemId? | itemCode?, issueType: Damaged | Burnt | Lost, description (tối đa 1000 ký tự),
+   *   image (bắt buộc trừ Lost), replace? (đổi con khác cho thiết bị đang mượn) }
+   * Trả về (201): IssueReportDetailResponse (kèm replacementBorrowItemId khi có con thay thế)
+   */
+  async createIssueReport({ itemCode, componentItemId, issueType, description, image, replace }) {
     try {
       const formData = new FormData()
       if (componentItemId) formData.append('componentItemId', componentItemId)
@@ -20,6 +35,7 @@ export const issueReportService = {
       formData.append('issueType', issueType)
       formData.append('description', description)
       if (image) formData.append('image', image)
+      if (replace) formData.append('replace', 'true')
       return unwrap(await api.post('/api/issue-reports', formData, {
         headers: { 'Content-Type': 'multipart/form-data' },
       }))
@@ -29,7 +45,7 @@ export const issueReportService = {
   },
 
   /**
-   * Danh sách báo cáo sự cố theo phạm vi role (Student: của mình, LabStaff: lab mình, Lecturer: lớp mình)
+   * Danh sách báo cáo sự cố theo phạm vi role (Student: đơn mượn của nhóm mình, LabStaff: lab mình, Lecturer: lớp mình)
    * GET /api/issue-reports
    * Query: { status?, issueType?, roomId?, componentId?, componentItemId?, itemCode?, reportedBy?, fromDate?, toDate?, mine?, page?, size? }
    * Trả về (200): PagedResult<IssueReportListItemResponse>

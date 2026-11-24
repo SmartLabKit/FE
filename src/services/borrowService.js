@@ -481,29 +481,11 @@ export const borrowService = {
   // ===================== 4. LINH KIỆN THAY THẾ & HỦY ĐƠN (REPLACEMENTS & CANCEL) =====================
 
   /**
-   * Đổi 1 con bị hỏng trong lúc mượn (đơn đang mượn), loại khỏi kho & thêm dòng món thay thế
-   * POST /api/borrow-requests/{id}/replace-damaged
-   * Quyền: BORROW_ISSUE (Admin, LabStaff)
-   * Path: id (guid)
-   * Body (JSON): ReplaceDamagedRequest
-   * Trả về (200): ReplaceDamagedResponse
-   * Lỗi có thể gặp: 400, 403, 404, 409
-   */
-  async replaceDamagedComponent(id, data) {
-    try {
-      const response = await api.post(`/api/borrow-requests/${id}/replace-damaged`, data)
-      return response.data?.data || response.data
-    } catch (error) {
-      throw new Error(extractErrorMessage(error, 'Ghi nhận linh kiện hỏng thất bại'), { cause: error })
-    }
-  },
-
-  /**
-   * Giao món thay thế đã về lab nhận đồ cho sinh viên
+   * Giao con thay thế cho sinh viên (dòng Pending của đơn đang mượn, thêm khi ghi nhận sự cố kèm đổi con khác)
    * POST /api/borrow-requests/{id}/replacements/issue
    * Quyền: BORROW_ISSUE (Admin, LabStaff)
    * Path: id (guid)
-   * Body (JSON): IssueReplacementRequest
+   * Body (JSON): IssueReplacementRequest { borrowItemId, itemId, photoId, overrideReason? }
    * Trả về (200): BorrowRequestDetailResponse
    * Lỗi có thể gặp: 400, 403, 404, 409
    */
@@ -521,7 +503,7 @@ export const borrowService = {
    * POST /api/borrow-requests/{id}/replacements/cancel
    * Quyền: BORROW_ISSUE (Admin, LabStaff)
    * Path: id (guid)
-   * Body (JSON): CancelReplacementRequest { reason: string }
+   * Body (JSON): CancelReplacementRequest { borrowItemId, reason: string }
    * Trả về (200): BorrowRequestDetailResponse
    * Lỗi có thể gặp: 400, 403, 404, 409
    */
