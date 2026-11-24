@@ -7,6 +7,7 @@ import {
 import { Add as AddIcon, Delete as DeleteIcon, PersonAdd as StaffAddIcon } from '@mui/icons-material'
 import { useLocation, useNavigate } from 'react-router-dom'
 import PortalLayout from '../../components/layout/PortalLayout'
+import ConfirmDialog from '../../components/common/ConfirmDialog'
 import { inventoryService } from '../../services/inventoryService'
 import { userService } from '../../services/userService'
 import { extractErrorMessage } from '../../services/api'
@@ -152,6 +153,7 @@ export default function InventorySetup() {
   // State Modal Phân công Staff cho phòng lab (POST /api/lab-rooms/{id}/staff)
   const [assignStaffOpen, setAssignStaffOpen] = useState(false)
   const [selectedRoomForStaff, setSelectedRoomForStaff] = useState(null)
+  const [confirmRequest, setConfirmRequest] = useState(null)
   const [staffList, setStaffList] = useState([])
   const [assignedStaff, setAssignedStaff] = useState([])
   const [staffAssignedElsewhere, setStaffAssignedElsewhere] = useState({})
@@ -350,6 +352,14 @@ export default function InventorySetup() {
       setStaffAssignedElsewhere({})
     }
   }
+
+  const confirmRemoveStaff = (staff) =>
+    setConfirmRequest({
+      title: 'Gỡ nhân viên khỏi lab?',
+      message: `${staff.fullName || staff.username || staff.name} sẽ không còn giao, nhận trả, ghi nhận sự cố và kiểm kê ở lab này.`,
+      confirmText: 'Gỡ',
+      onConfirm: () => handleRemoveStaff(staff.userId || staff.id),
+    })
 
   const handleRemoveStaff = async (staffUserId) => {
     if (!selectedRoomForStaff) return
@@ -708,7 +718,7 @@ export default function InventorySetup() {
                           size="small"
                           color="error"
                           variant="outlined"
-                          onClick={() => handleRemoveStaff(staff.userId || staff.id)}
+                          onClick={() => confirmRemoveStaff(staff)}
                           sx={{ textTransform: 'none', fontSize: 11, fontWeight: 700, py: 0.2 }}
                         >
                           Gỡ
@@ -795,6 +805,7 @@ export default function InventorySetup() {
           </DialogActions>
         </Dialog>
       </Box>
+      <ConfirmDialog request={confirmRequest} onClose={() => setConfirmRequest(null)} />
     </PortalLayout>
   )
 }
