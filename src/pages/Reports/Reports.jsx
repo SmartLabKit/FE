@@ -29,6 +29,8 @@ export default function Reports() {
   const requestedTab = searchParams.get('tab')
   const tab = tabs.some((item) => item.value === requestedTab) ? requestedTab : tabs[0].value
 
+  const usesPeriod = tab !== 'inventory'
+
   const [period, setPeriod] = useState(defaultPeriod)
   const [roomId, setRoomId] = useState('')
   const [labRooms, setLabRooms] = useState([])
@@ -37,10 +39,10 @@ export default function Reports() {
     if (!seesInventory) return undefined
     let active = true
     inventoryService.getLabRooms()
-      .then((items) => { if (active) setLabRooms(items) })
+      .then((items) => { if (active) setLabRooms(isAdminOrManager ? items : items.filter((room) => room.isMine)) })
       .catch(() => { if (active) setLabRooms([]) })
     return () => { active = false }
-  }, [seesInventory])
+  }, [seesInventory, isAdminOrManager])
 
   const filters = {
     fromDate: period.fromDate || undefined,
@@ -64,7 +66,7 @@ export default function Reports() {
             ))}
           </Tabs>
           <Box sx={{ p: 2, display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'center', borderTop: '1px solid #eef0f6' }}>
-            <ToggleButtonGroup
+            {usesPeriod && <ToggleButtonGroup
               size="small"
               exclusive
               value={period.days ?? null}
@@ -76,30 +78,31 @@ export default function Reports() {
                   {preset.label}
                 </ToggleButton>
               ))}
-            </ToggleButtonGroup>
-            <TextField
+            </ToggleButtonGroup>}
+            {usesPeriod && <TextField
               type="date"
               size="small"
               label="Từ ngày"
               value={period.fromDate}
               onChange={(event) => setPeriod((prev) => ({ ...prev, fromDate: event.target.value, days: null }))}
               slotProps={{ inputLabel: { shrink: true } }}
-            />
-            <TextField
+            />}
+            {usesPeriod && <TextField
               type="date"
               size="small"
               label="Đến ngày"
               value={period.toDate}
               onChange={(event) => setPeriod((prev) => ({ ...prev, toDate: event.target.value, days: null }))}
               slotProps={{ inputLabel: { shrink: true } }}
-            />
-            {seesInventory && (
+            />}
+            {labRooms.length > 1 && (
               <TextField
                 select
                 size="small"
                 label="Phòng Lab"
                 value={roomId}
                 onChange={(event) => setRoomId(event.target.value)}
+                slotProps={{ inputLabel: { shrink: true }, select: { displayEmpty: true } }}
                 sx={{ minWidth: 200 }}
               >
                 <MenuItem value="">Tất cả phòng Lab</MenuItem>
@@ -111,7 +114,10 @@ export default function Reports() {
               </TextField>
             )}
             <Typography sx={{ color: '#697386', fontSize: 12, width: '100%' }}>
-              {formatDayString(period.fromDate)} – {formatDayString(period.toDate)}
+              {usesPeriod
+                ? `${formatDayString(period.fromDate)} – ${formatDayString(period.toDate)}`
+                : 'Số liệu lúc này'}
+              {labRooms.length === 1 && ` · ${labRooms[0].roomCode} · ${labRooms[0].roomName}`}
             </Typography>
           </Box>
         </Paper>

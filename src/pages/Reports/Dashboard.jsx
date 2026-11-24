@@ -64,9 +64,6 @@ export default function Dashboard() {
   if (isLabStaff) borrowLink = '/borrow/lab-orders'
   let pendingLink = borrowLink
   if (isLecturer) pendingLink = '/borrow/my-requests'
-  let stockLink = '/components/catalog'
-  if (managesInventory) stockLink = '/class-setup/admin/components'
-  if (onlyWatchesInventory) stockLink = '/reports?tab=inventory'
   const receiptLink = managesInventory ? '/class-setup/admin/stock-receipts' : '/reports?tab=receipts'
 
   const actionTiles = [
@@ -107,10 +104,11 @@ export default function Dashboard() {
       key: 'outOfStockCount',
       label: 'Hết hàng',
       value: formatNumber(data.outOfStockCount),
-      hint: has('totalComponents') ? `trên ${formatNumber(data.totalComponents)} linh kiện` : undefined,
+      hint: has('stockedComponents') ? `trên ${formatNumber(data.stockedComponents)} linh kiện từng có trong kho` : undefined,
       icon: <OutOfStockIcon />,
       color: '#c62828',
-      onClick: () => navigate(stockLink),
+      valueColor: data.outOfStockCount > 0 ? '#c62828' : undefined,
+      onClick: () => navigate('/reports?tab=inventory&status=OutOfStock'),
     },
     has('belowMinStockCount') && {
       key: 'belowMinStockCount',
@@ -119,7 +117,8 @@ export default function Dashboard() {
       hint: 'vẫn còn hàng',
       icon: <WarningIcon />,
       color: '#ef6c00',
-      onClick: () => navigate('/reports?tab=inventory'),
+      valueColor: data.belowMinStockCount > 0 ? '#ef6c00' : undefined,
+      onClick: () => navigate('/reports?tab=inventory&status=LowStock'),
     },
     !has('outOfStockCount') && has('lowStockCount') && {
       key: 'lowStockCount',
@@ -164,7 +163,7 @@ export default function Dashboard() {
       <ReportTable
         rows={getRows(lowStock.data)}
         rowKey={(row) => row.componentId}
-        emptyText="Không có linh kiện dưới mức tồn tối thiểu."
+        emptyText="Không có linh kiện nào dưới mức tối thiểu."
         columns={[
           { key: 'componentName', label: 'Linh kiện', render: (row) => <><b>{row.componentName}</b><br /><Box component="span" sx={{ color: '#0058be', fontSize: 12 }}>{row.componentCode}</Box></> },
           {
@@ -176,7 +175,9 @@ export default function Dashboard() {
                 ? `${formatNumber(row.available)} ${row.unit || ''}`
                 : <Chip size="small" color="error" variant="outlined" label="Hết hàng" />,
           },
+          ...(isLabStaff ? [{ key: 'systemQuantity', label: 'Tất cả lab', align: 'right', render: (row) => formatNumber(row.systemQuantity) }] : []),
           { key: 'minStock', label: 'Tối thiểu', align: 'right', render: (row) => `${formatNumber(row.minStock)} ${row.unit || ''}` },
+          { key: 'shortage', label: 'Cần mua thêm', align: 'right', render: (row) => <Chip size="small" color="warning" label={formatNumber(row.shortage)} /> },
         ]}
       />
     </ReportSection>

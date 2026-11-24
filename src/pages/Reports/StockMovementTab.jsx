@@ -5,7 +5,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useReport } from '../../hooks/useReport'
 import { inventoryService } from '../../services/inventoryService'
 import { reportService } from '../../services/reportService'
-import { formatNumber, toLabel } from './reportFormat'
+import { formatNumber, movementLabel } from './reportFormat'
 import { ReportSection, ReportTable, StatTile } from './reportUi'
 
 const signed = (value, sign) => (Number(value) > 0 ? `${sign}${formatNumber(value)}` : '')
@@ -18,6 +18,7 @@ export default function StockMovementTab({ filters }) {
   const { fromDate, toDate, roomId } = filters
   const navigate = useNavigate()
   const { hasRole } = useAuth()
+  const limitedToLab = Boolean(roomId) || !(hasRole?.('Admin') || hasRole?.('InventoryManager'))
   const canOpenComponent = hasRole?.('InventoryManager')
   const [searchParams, setSearchParams] = useSearchParams()
   const componentId = searchParams.get('componentId') || undefined
@@ -87,16 +88,20 @@ export default function StockMovementTab({ filters }) {
         <>
           <Grid container spacing={2} sx={{ p: 2 }}>
             <Grid size={{ xs: 6, md: 3 }}><StatTile label="Tồn đầu kỳ" value={`${formatNumber(data.openingBalance)}${unit}`} /></Grid>
-            <Grid size={{ xs: 6, md: 3 }}><StatTile label="Nhập" value={`+${formatNumber(data.totalIn)}${unit}`} valueColor="#2e7d32" /></Grid>
-            <Grid size={{ xs: 6, md: 3 }}><StatTile label="Xuất" value={`−${formatNumber(data.totalOut)}${unit}`} valueColor="#c62828" /></Grid>
+            <Grid size={{ xs: 6, md: 3 }}><StatTile label="Nhập" value={`${signed(data.totalIn, '+') || 0}${unit}`} valueColor={data.totalIn > 0 ? '#2e7d32' : undefined} /></Grid>
+            <Grid size={{ xs: 6, md: 3 }}><StatTile label="Xuất" value={`${signed(data.totalOut, '−') || 0}${unit}`} valueColor={data.totalOut > 0 ? '#c62828' : undefined} /></Grid>
             <Grid size={{ xs: 6, md: 3 }}><StatTile label="Tồn cuối kỳ" value={`${formatNumber(data.closingBalance)}${unit}`} /></Grid>
           </Grid>
+          <Alert severity="info" sx={{ mx: 2, mb: 2, py: 0 }}>
+            {limitedToLab ? 'Chuyển giữa các tủ trong lab này không tính là nhập, xuất.' : 'Chuyển giữa các tủ, các lab không tính là nhập, xuất.'}
+            {' '}Phiếu nhập đã hủy cũng không tính.
+          </Alert>
           <ReportTable
             rows={data.types || []}
             rowKey={(row) => row.type}
             emptyText="Không có nhập xuất trong kỳ."
             columns={[
-              { key: 'type', label: 'Loại giao dịch', render: (row) => toLabel(row.type) },
+              { key: 'type', label: 'Loại giao dịch', render: (row) => movementLabel(row.type) },
               { key: 'quantityIn', label: 'Nhập', align: 'right', render: (row) => <Box component="span" sx={{ color: '#2e7d32', fontWeight: 600 }}>{signed(row.quantityIn, '+')}</Box> },
               { key: 'quantityOut', label: 'Xuất', align: 'right', render: (row) => <Box component="span" sx={{ color: '#c62828', fontWeight: 600 }}>{signed(row.quantityOut, '−')}</Box> },
             ]}

@@ -60,22 +60,23 @@ export default function BorrowReportsTab({ filters }) {
 
   return (
     <>
-      <ReportSection title="Thống kê đơn mượn" subtitle="Đơn tạo trong kỳ" loading={summary.loading} error={summary.error}>
+      <ReportSection title="Thống kê đơn mượn" subtitle="Đơn tính theo ngày tạo, món tính theo ngày giao và ngày trả" loading={summary.loading} error={summary.error}>
         {summary.data && (
           <>
             <Grid container spacing={2} sx={{ p: 2, pb: 0 }}>
-              <Grid size={{ xs: 6, md: 3 }}><StatTile label="Đơn mượn" value={formatNumber(summary.data.totalRequests)} /></Grid>
-              <Grid size={{ xs: 6, md: 3 }}><StatTile label="Món đã cho mượn" value={classTotal((row) => row.issuedQuantity)} /></Grid>
-              <Grid size={{ xs: 6, md: 3 }}><StatTile label="Sinh viên đang giữ" value={classTotal((row) => row.holdingQuantity)} /></Grid>
-              <Grid size={{ xs: 6, md: 3 }}>
+              <Grid size={{ xs: 6, md: 4 }}><StatTile label="Đơn tạo trong kỳ" value={formatNumber(summary.data.totalRequests)} /></Grid>
+              <Grid size={{ xs: 6, md: 4 }}><StatTile label="Món giao trong kỳ" value={classTotal((row) => row.issuedQuantity)} /></Grid>
+              <Grid size={{ xs: 6, md: 4 }}><StatTile label="Sinh viên đang giữ" value={classTotal((row) => row.holdingQuantity)} hint="lúc này" /></Grid>
+              <Grid size={{ xs: 6, md: 4 }}>
                 <StatTile
-                  label="Hư hỏng hoặc mất"
+                  label="Trả hỏng hoặc mất"
+                  hint="trong kỳ"
                   value={classTotal(brokenOf)}
                   valueColor={!byClass.data ? undefined : brokenTotal > 0 ? CHART_DANGER : '#2e7d32'}
                 />
               </Grid>
-              <Grid size={{ xs: 6, md: 3 }}><StatTile label="Tỉ lệ từ chối" value={formatPercent(summary.data.rejectionRate)} /></Grid>
-              <Grid size={{ xs: 6, md: 3 }}><StatTile label="Thời gian duyệt trung bình" value={formatDuration(summary.data.averageApprovalHours)} /></Grid>
+              <Grid size={{ xs: 6, md: 4 }}><StatTile label="Tỉ lệ từ chối" value={formatPercent(summary.data.rejectionRate)} /></Grid>
+              <Grid size={{ xs: 6, md: 4 }}><StatTile label="Thời gian duyệt trung bình" value={formatDuration(summary.data.averageApprovalHours)} /></Grid>
             </Grid>
             <Grid container>
               <Grid size={{ xs: 12, md: 4 }}>
@@ -95,18 +96,18 @@ export default function BorrowReportsTab({ filters }) {
 
       <Grid container spacing={2}>
         <Grid size={{ xs: 12, lg: 7 }}>
-          <ReportSection title="Mức mượn theo lớp" subtitle="Theo ngày giao trong kỳ" loading={byClass.loading} error={byClass.error}>
+          <ReportSection title="Mức mượn theo lớp" subtitle="Giao, trả, hỏng, mất trong kỳ; đang giữ tính lúc này" loading={byClass.loading} error={byClass.error}>
             {chartClasses.length > 0 && (
               <BarChart
                 categories={chartClasses.map((row) => row.classCode)}
                 series={[
-                  { name: 'Đã mượn', color: CHART_COLORS[0], values: chartClasses.map((row) => row.issuedQuantity) },
+                  { name: 'Đã giao', color: CHART_COLORS[0], values: chartClasses.map((row) => row.issuedQuantity) },
                   { name: 'Hư hỏng hoặc mất', color: CHART_DANGER, values: chartClasses.map(brokenOf) },
                 ]}
                 tooltip={(index, seriesIndex) => {
                   const row = chartClasses[index]
                   return seriesIndex === 0
-                    ? `${row.classCode} · ${formatNumber(row.issuedQuantity)} món đã mượn`
+                    ? `${row.classCode} · ${formatNumber(row.issuedQuantity)} món đã giao`
                     : `${row.classCode} · ${formatNumber(row.damagedUnits)} hỏng · ${formatNumber(row.lostUnits)} mất`
                 }}
                 legend
@@ -170,7 +171,7 @@ export default function BorrowReportsTab({ filters }) {
         />
       </ReportSection>
 
-      <ReportSection title="Linh kiện hư hỏng / mất khi trả" subtitle="Chỉ thống kê, không xử lý bồi thường" loading={damages.loading} error={damages.error}>
+      <ReportSection title="Linh kiện hư hỏng / mất khi trả" subtitle="Theo ngày trả trong kỳ, chỉ thống kê, không bồi thường" loading={damages.loading} error={damages.error}>
         <ReportTable
           rows={getRows(damages.data)}
           onRowClick={openBorrowRequest}

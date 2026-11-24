@@ -45,6 +45,16 @@ const LABELS = {
   Borrow: 'Cho mượn',
   Return: 'Nhận trả',
 }
+const MOVEMENT_LABELS = {
+  Adjust: 'Điều chỉnh, kiểm kê',
+  Move: 'Chuyển với lab khác',
+  Retire: 'Mất, thanh lý, tìm lại được',
+}
+export const movementLabel = (key) => MOVEMENT_LABELS[key] || toLabel(key)
+
+/** 2026-11 → 11/2026 */
+export const formatMonth = (key) => (/^\d{4}-\d{2}$/.test(key || '') ? `${key.slice(5)}/${key.slice(0, 4)}` : key)
+
 export const toLabel = (key) => LABELS[key] || key || '—'
 
 export const CHART_COLORS = ['#0058be', '#2e7d32', '#ef6c00', '#5856d6', '#30b0c7', '#8e8e93']
