@@ -41,7 +41,7 @@ function remainingQuantity(item) {
 function getOpenReturnLines(items) {
   return (items || []).filter((item) => {
     if (isConsumable(item)) return remainingQuantity(item) > 0
-    return !item.returnedAt && String(item.status || '').toLowerCase() !== 'returned'
+    return String(item.status || '').toLowerCase() === 'issued' && !item.returnedAt
   })
 }
 

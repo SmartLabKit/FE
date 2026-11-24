@@ -36,6 +36,8 @@ import PortalLayout from '../../components/layout/PortalLayout'
 import TrackingTypeBadge from '../../components/common/TrackingTypeBadge'
 import IssueBorrowModal from '../../components/borrowing/IssueBorrowModal'
 import ReturnBorrowModal from '../../components/borrowing/ReturnBorrowModal'
+import CreateIssueReportDialog from '../IssueReports/CreateIssueReportDialog'
+import { issueCreatedMessage } from '../IssueReports/issueReportLabels'
 import { useLabBorrowRequests } from '../../hooks/useLabBorrowRequests'
 import { borrowService } from '../../services/borrowService'
 import { extractErrorMessage } from '../../services/api'
@@ -90,6 +92,14 @@ function isOverdue(request) {
   return Boolean(request?.isOverdue) || request?.status === 'Overdue'
 }
 
+function isPendingReplacement(item, requestStatus) {
+  return ['Borrowing', 'Overdue'].includes(requestStatus) && item.status === 'Pending'
+}
+
+function isLentUnit(item, requestStatus) {
+  return ['Borrowing', 'Overdue'].includes(requestStatus) && item.status === 'Issued' && Boolean(item.itemCode)
+}
+
 function getItemStatusInfo(item, requestStatus) {
   const isConsum = String(item.trackingType || '').toLowerCase() === 'consumable'
   const isReturned = Boolean(item.returnedAt) ||
@@ -139,7 +149,16 @@ function getItemStatusInfo(item, requestStatus) {
     }
   }
 
-  // 3. Đơn đang mượn hoặc quá hạn mà chưa trả
+  // 3. Con thay thế thêm vào đơn đang mượn, chưa giao
+  if (isPendingReplacement(item, requestStatus)) {
+    return {
+      label: 'Con thay thế, chờ giao',
+      bgcolor: '#e0f2fe',
+      textColor: '#0369a1',
+    }
+  }
+
+  // Đơn đang mượn hoặc quá hạn mà chưa trả
   if (['Borrowing', 'Overdue'].includes(requestStatus)) {
     return {
       label: 'Chưa trả',
@@ -227,6 +246,8 @@ export default function LabBorrowManagement() {
   const cardInputRef = useRef(null)
   const [cancelOpen, setCancelOpen] = useState(false)
   const [cancelReason, setCancelReason] = useState('')
+  const [cancelLine, setCancelLine] = useState(null)
+  const [brokenItemCode, setBrokenItemCode] = useState('')
 
   const loadDetail = useCallback(async (id) => {
     if (!id) {
@@ -319,16 +340,26 @@ export default function LabBorrowManagement() {
   const detailItems = requestDetail?.items || []
   const canCancel = ['Approved', 'Ready'].includes(requestDetail?.status)
 
+  const closeCancel = () => {
+    if (actionLoading) return
+    setCancelOpen(false)
+    setCancelLine(null)
+    setCancelReason('')
+  }
+
   const submitCancel = async () => {
     const reason = cancelReason.trim()
     if (!reason) return
     const success = await runAction(
       'cancel',
-      () => borrowService.cancelBorrowRequest(selectedRequestId, { reason }),
-      'Hủy đơn thất bại.',
+      () => (cancelLine
+        ? borrowService.cancelReplacement(selectedRequestId, { borrowItemId: cancelLine.borrowItemId, reason })
+        : borrowService.cancelBorrowRequest(selectedRequestId, { reason })),
+      cancelLine ? 'Hủy con thay thế thất bại.' : 'Hủy đơn thất bại.',
     )
     if (success) {
       setCancelOpen(false)
+      setCancelLine(null)
       setCancelReason('')
     }
   }
@@ -344,7 +375,14 @@ export default function LabBorrowManagement() {
   const issueBorrow = async (payload) => {
     const success = await runAction(
       'issue',
-      () => borrowService.issueBorrowRequest(issueRequest.borrowRequestId, payload),
+      () => (issueRequest.replacementLine
+        ? borrowService.issueReplacement(issueRequest.borrowRequestId, {
+          borrowItemId: issueRequest.replacementLine.borrowItemId,
+          itemId: payload.units[0].itemIds[0],
+          photoId: payload.photoId,
+          overrideReason: payload.overrideReason,
+        })
+        : borrowService.issueBorrowRequest(issueRequest.borrowRequestId, payload)),
       'Bàn giao linh kiện thất bại.',
     )
     if (success) setIssueRequest(null)
@@ -715,13 +753,13 @@ export default function LabBorrowManagement() {
                 </Box>
                 <TableContainer>
                   <Table size="small">
-                    <TableHead><TableRow><TableCell>Linh kiện</TableCell><TableCell>Loại quản lý</TableCell><TableCell>Số lượng</TableCell><TableCell>Trạng thái dòng</TableCell></TableRow></TableHead>
+                    <TableHead><TableRow><TableCell>Linh kiện</TableCell><TableCell>Loại quản lý</TableCell><TableCell>Số lượng</TableCell><TableCell>Trạng thái dòng</TableCell><TableCell align="right">Thao tác</TableCell></TableRow></TableHead>
                     <TableBody>
                       {detailItems.map((item) => {
                         const statusInfo = getItemStatusInfo(item, requestDetail.status)
                         return (
                           <TableRow key={item.borrowItemId}>
-                            <TableCell>{item.componentName}<br /><Typography variant="caption" color="text.secondary">{item.componentCode}</Typography></TableCell>
+                            <TableCell>{item.componentName}<br /><Typography variant="caption" color="text.secondary">{item.itemCode || item.componentCode}</Typography></TableCell>
                             <TableCell><TrackingTypeBadge type={item.trackingType} /></TableCell>
                             <TableCell>{item.quantity} {item.unit || ''}</TableCell>
                             <TableCell>
@@ -736,10 +774,48 @@ export default function LabBorrowManagement() {
                                 }}
                               />
                             </TableCell>
+                            <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
+                              {isLentUnit(item, requestDetail.status) && (
+                                <Button
+                                  size="small"
+                                  color="warning"
+                                  disabled={Boolean(actionLoading)}
+                                  onClick={() => setBrokenItemCode(item.itemCode)}
+                                  sx={{ textTransform: 'none', fontWeight: 700 }}
+                                >
+                                  Ghi nhận sự cố
+                                </Button>
+                              )}
+                              {isPendingReplacement(item, requestDetail.status) && (
+                                <>
+                                  <Button
+                                    size="small"
+                                    variant="contained"
+                                    disabled={Boolean(actionLoading)}
+                                    onClick={() => setIssueRequest({ ...requestDetail, items: [item], replacementLine: item })}
+                                    sx={{ textTransform: 'none', fontWeight: 700 }}
+                                  >
+                                    Giao
+                                  </Button>
+                                  <Button
+                                    size="small"
+                                    color="error"
+                                    disabled={Boolean(actionLoading)}
+                                    onClick={() => {
+                                      setCancelLine(item)
+                                      setCancelOpen(true)
+                                    }}
+                                    sx={{ textTransform: 'none', ml: 1 }}
+                                  >
+                                    Hủy
+                                  </Button>
+                                </>
+                              )}
+                            </TableCell>
                           </TableRow>
                         )
                       })}
-                      {!detailItems.length && <TableRow><TableCell colSpan={4} align="center">Đơn không có linh kiện mượn kho.</TableCell></TableRow>}
+                      {!detailItems.length && <TableRow><TableCell colSpan={5} align="center">Đơn không có linh kiện mượn kho.</TableCell></TableRow>}
                     </TableBody>
                   </Table>
                 </TableContainer>
@@ -852,8 +928,20 @@ export default function LabBorrowManagement() {
         onReturn={returnBorrow}
       />
 
-      <Dialog open={cancelOpen} onClose={() => { if (!actionLoading) setCancelOpen(false) }} fullWidth maxWidth="sm">
-        <DialogTitle>Hủy đơn mượn</DialogTitle>
+      {brokenItemCode && (
+        <CreateIssueReportDialog
+          initialCode={brokenItemCode}
+          onClose={() => setBrokenItemCode('')}
+          onCreated={(report, options) => {
+            setBrokenItemCode('')
+            setToast({ open: true, severity: 'success', message: issueCreatedMessage(report, options) })
+            reloadData()
+          }}
+        />
+      )}
+
+      <Dialog open={cancelOpen} onClose={closeCancel} fullWidth maxWidth="sm">
+        <DialogTitle>{cancelLine ? `Hủy con thay thế: ${cancelLine.componentName}` : 'Hủy đơn mượn'}</DialogTitle>
         <DialogContent>
           <TextField
             autoFocus
@@ -867,7 +955,7 @@ export default function LabBorrowManagement() {
           />
         </DialogContent>
         <DialogActions>
-          <Button onClick={() => setCancelOpen(false)} disabled={Boolean(actionLoading)}>Đóng</Button>
+          <Button onClick={closeCancel} disabled={Boolean(actionLoading)}>Đóng</Button>
           <Button
             color="error"
             variant="contained"

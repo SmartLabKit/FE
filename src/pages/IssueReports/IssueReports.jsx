@@ -25,14 +25,14 @@ import { useAuth } from '../../context/AuthContext'
 import { issueReportService } from '../../services/issueReportService'
 import CreateIssueReportDialog from './CreateIssueReportDialog'
 import IssueReportDetailDialog from './IssueReportDetailDialog'
-import { ISSUE_STATUSES, ISSUE_TYPES, formatDateTime, issueStatusOf, issueTypeLabel } from './issueReportLabels'
+import { ISSUE_STATUSES, ISSUE_TYPES, formatDateTime, issueCreatedMessage, issueStatusOf, issueTypeLabel } from './issueReportLabels'
 
 const PAGE_SIZE = 20
 const headCellSx = { fontWeight: 700, color: '#334155' }
 
 /**
  * Danh sách báo cáo sự cố thiết bị theo phạm vi role (BE tự giới hạn):
- * Student thấy báo cáo của mình, LabStaff thấy lab mình phụ trách, Lecturer thấy lớp mình dạy,
+ * Student thấy sự cố trong đơn mượn của nhóm mình, LabStaff thấy lab mình phụ trách, Lecturer thấy lớp mình dạy,
  * InventoryManager / Admin thấy tất cả. Student và Lecturer chỉ xem: sinh viên mang thiết bị tới lab,
  * nhân viên lab kiểm tra rồi ghi nhận sự cố.
  */
@@ -93,9 +93,16 @@ export default function IssueReports() {
   }
 
   return (
-    <PortalLayout headerTitle="Sự cố thiết bị" headerSubtitle="Báo và theo dõi thiết bị hư hỏng, cháy hoặc mất">
+    <PortalLayout headerTitle="Sự cố thiết bị" headerSubtitle={canCreate
+        ? 'Ghi nhận và theo dõi thiết bị hư hỏng, cháy hoặc mất'
+        : 'Thiết bị hỏng hoặc mất trong đơn mượn của bạn'}>
       <Box sx={{ maxWidth: 1440, mx: 'auto' }}>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        {hasRole?.('Student') && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Thiết bị hỏng hoặc mất: hãy mang tới lab đã mượn (hoặc báo nhân viên nếu mất) để nhân viên kiểm tra, ghi nhận và đổi con khác nếu còn.
+          </Alert>
+        )}
 
         <Box
           sx={{
@@ -160,7 +167,7 @@ export default function IssueReports() {
                 onClick={() => setCreateOpen(true)}
                 sx={{ ml: 'auto', textTransform: 'none', fontWeight: 700, bgcolor: '#0058be' }}
               >
-                Báo sự cố
+                Ghi nhận sự cố
               </Button>
             )}
           </Box>
@@ -260,15 +267,16 @@ export default function IssueReports() {
         </Paper>
       </Box>
 
-      <CreateIssueReportDialog
-        open={createOpen}
-        onClose={() => setCreateOpen(false)}
-        onCreated={() => {
-          setCreateOpen(false)
-          showToast('Đã gửi báo cáo sự cố, chờ Lab xử lý.')
-          reload()
-        }}
-      />
+      {createOpen && (
+        <CreateIssueReportDialog
+          onClose={() => setCreateOpen(false)}
+          onCreated={(report, options) => {
+            setCreateOpen(false)
+            showToast(issueCreatedMessage(report, options))
+            reload()
+          }}
+        />
+      )}
 
       {selectedId && (
         <IssueReportDetailDialog
