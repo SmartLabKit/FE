@@ -23,7 +23,7 @@ import {
 import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
 import CreateIssueReportDialog from '../IssueReports/CreateIssueReportDialog'
-import { cabinetAccepts, cabinetLabel, formatDate, itemStatusOf, rowsOf, toDateInput } from './inventoryLabels'
+import { cabinetAccepts, cabinetLabel, formatDate, itemStatusOf, movesToOtherLab, rowsOf, toDateInput } from './inventoryLabels'
 
 const PAGE_SIZE = 20
 const headCellSx = { fontWeight: 700, color: '#334155' }
@@ -116,6 +116,7 @@ function MoveItemDialog({ item, cabinets, onClose, onSaved }) {
   const [saving, setSaving] = useState(false)
 
   const targets = cabinets.filter((cabinet) => cabinet.cabinetId !== item.cabinetId && cabinetAccepts(cabinet, item.trackingType))
+  const needsReason = movesToOtherLab(cabinets, item.cabinetId, toCabinetId)
 
   const save = async () => {
     setSaving(true)
@@ -148,12 +149,18 @@ function MoveItemDialog({ item, cabinets, onClose, onSaved }) {
               <MenuItem key={cabinet.cabinetId} value={cabinet.cabinetId}>{cabinetLabel(cabinet)}</MenuItem>
             ))}
           </TextField>
-          <TextField label="Lý do (không bắt buộc)" value={reason} onChange={(event) => setReason(event.target.value)} fullWidth />
+          <TextField
+            label={needsReason ? 'Lý do chuyển sang lab khác' : 'Lý do (không bắt buộc)'}
+            required={needsReason}
+            value={reason}
+            onChange={(event) => setReason(event.target.value)}
+            fullWidth
+          />
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={onClose} disabled={saving}>Đóng</Button>
-        <Button variant="contained" onClick={save} disabled={saving || !toCabinetId} sx={{ bgcolor: '#0058be' }}>
+        <Button variant="contained" onClick={save} disabled={saving || !toCabinetId || (needsReason && !reason.trim())} sx={{ bgcolor: '#0058be' }}>
           {saving ? 'Đang chuyển...' : 'Chuyển tủ'}
         </Button>
       </DialogActions>
