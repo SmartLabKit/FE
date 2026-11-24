@@ -20,7 +20,6 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { useAuth } from '../../context/AuthContext'
 import { borrowService } from '../../services/borrowService'
 import { issueReportService } from '../../services/issueReportService'
 import IssueFindStep from './IssueFindStep'
@@ -73,15 +72,11 @@ function UnitCard({ unit }) {
 
 /**
  * Ghi nhận sự cố: tìm đơn đang mượn → chọn món hư trong đơn → ảnh món hư → kết quả kiểm tra.
- * Thiết bị hỏng trong tủ thì nhập thẳng mã thiết bị. LabStaff / Admin ghi nhận là xong ngay (BE đóng dòng mượn);
- * InventoryManager chỉ báo thiết bị trong tủ, chờ nhân viên lab kiểm tra.
+ * Thiết bị hỏng trong tủ thì nhập thẳng mã thiết bị. Chỉ nhân viên lab ghi nhận và ghi nhận là xong ngay (BE đóng dòng mượn).
  * Ghi xong một món thì quay lại đơn để ghi món tiếp theo. Chỉ render khi mở, để mỗi lần mở là một form mới.
  */
 export default function CreateIssueReportDialog({ initialCode = '', onClose, onCreated }) {
-  const { hasRole } = useAuth()
-  const canUseLoans = ['LabStaff', 'Admin'].some((role) => hasRole?.(role))
-
-  const [mode, setMode] = useState(canUseLoans ? 'loan' : 'cabinet')
+  const [mode, setMode] = useState('loan')
   const [step, setStep] = useState('find')
   const [code, setCode] = useState(initialCode)
   const [orders, setOrders] = useState([])
@@ -331,7 +326,6 @@ export default function CreateIssueReportDialog({ initialCode = '', onClose, onC
           {step === 'find' && (
             <IssueFindStep
               mode={mode}
-              canUseLoans={canUseLoans}
               onModeChange={changeMode}
               code={code}
               onCodeChange={changeCode}
@@ -409,9 +403,7 @@ export default function CreateIssueReportDialog({ initialCode = '', onClose, onC
                   </Typography>
                 </Box>
               )}
-              {unit.confirmsImmediately
-                ? <Alert severity="warning">{consequences}</Alert>
-                : <Alert severity="info">Báo cáo sẽ chờ nhân viên lab kiểm tra và xác nhận.</Alert>}
+              <Alert severity="warning">{consequences}</Alert>
             </>
           )}
         </Stack>
@@ -429,12 +421,12 @@ export default function CreateIssueReportDialog({ initialCode = '', onClose, onC
         {step === 'result' && (
           <Button
             variant="contained"
-            color={unit?.confirmsImmediately ? 'error' : 'primary'}
+            color="error"
             onClick={submit}
             disabled={submitting || !canSubmit}
             startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />}
           >
-            {submitting ? 'Đang lưu...' : unit?.confirmsImmediately ? 'Ghi nhận' : 'Gửi báo cáo'}
+            {submitting ? 'Đang lưu...' : 'Ghi nhận'}
           </Button>
         )}
       </DialogActions>

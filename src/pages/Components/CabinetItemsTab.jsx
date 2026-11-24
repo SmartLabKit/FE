@@ -194,7 +194,7 @@ function RetireItemDialog({ item, onClose, onSaved }) {
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <Stack spacing={2} sx={{ pt: 1 }}>
           <Alert severity="info">
-            Dùng cho thiết bị cũ, hết hạn dùng hoặc nhập nhầm. Thiết bị hỏng, cháy hoặc mất thì dùng &quot;Báo hỏng / mất&quot; để có ảnh và báo cáo sự cố.
+            Dùng cho thiết bị cũ, hết hạn dùng hoặc nhập nhầm. Thiết bị hỏng, cháy hoặc mất do nhân viên lab ghi nhận ở Sự cố thiết bị.
           </Alert>
           <TextField label="Lý do (bắt buộc)" value={reason} onChange={(event) => setReason(event.target.value)} multiline minRows={2} required fullWidth />
           <Alert severity="warning">Thiết bị thanh lý sẽ ra khỏi hệ thống, muốn dùng lại phải nhập phiếu mới.</Alert>
@@ -213,13 +213,13 @@ function RetireItemDialog({ item, onClose, onSaved }) {
 /**
  * Tab "Từng thiết bị" của trang Chi tiết tủ: các thiết bị quản lý theo từng chiếc (REUSABLE / HIGH_VALUE) trong tủ.
  * - canManage (COMPONENT_MANAGE): sửa thông tin, thanh lý thiết bị cũ.
- * - Thiết bị hỏng / cháy / mất đi qua báo cáo sự cố: LabStaff ghi nhận là xong, InventoryManager báo rồi chờ lab kiểm tra.
+ * - Thiết bị hỏng / cháy / mất đi qua báo cáo sự cố: chỉ LabStaff ghi nhận.
  * - canMove (COMPONENT_MANAGE hoặc BORROW_ISSUE): chuyển tủ; LabStaff chỉ chuyển trong cùng lab (BE kiểm tra).
  * - Thiết bị bị mất (Lost) tìm lại được thì dùng "Đưa về kho" để chuyển về trạng thái Sẵn sàng.
  */
 export default function CabinetItemsTab({ cabinet, cabinets, canManage, canMove, onChanged, showToast }) {
   const { hasRole } = useAuth()
-  const canReport = hasRole('LabStaff') || hasRole('InventoryManager')
+  const canReport = hasRole('LabStaff')
   const [status, setStatus] = useState('')
   const [page, setPage] = useState(1)
   const [result, setResult] = useState(null)

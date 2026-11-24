@@ -8,7 +8,7 @@ export const issueReportService = {
   /**
    * Tra thiết bị theo mã hoặc serial trước khi ghi nhận sự cố
    * GET /api/issue-reports/lookup?code=
-   * Quyền: LabStaff (lab mình phụ trách), InventoryManager (thiết bị trong tủ), Admin
+   * Quyền: LabStaff (lab mình phụ trách), Admin
    * Trả về (200): { item, borrowContext (null khi trong tủ), confirmsImmediately, freeReplacementUnits }
    */
   async lookupUnit(code) {
@@ -22,7 +22,7 @@ export const issueReportService = {
   /**
    * Ghi nhận một thiết bị REUSABLE / HIGH_VALUE bị hỏng, cháy hoặc mất
    * POST /api/issue-reports
-   * Quyền: LabStaff (lab mình phụ trách), Admin: Confirmed ngay; InventoryManager (thiết bị trong tủ): Open
+   * Quyền: LabStaff (lab mình phụ trách), Admin; ghi nhận là Confirmed ngay
    * Body (multipart/form-data): { componentItemId? | itemCode?, issueType: Damaged | Burnt | Lost, description (tối đa 1000 ký tự),
    *   image (bắt buộc trừ Lost), replace? (đổi con khác cho thiết bị đang mượn) }
    * Trả về (201): IssueReportDetailResponse (kèm replacementBorrowItemId khi có con thay thế)

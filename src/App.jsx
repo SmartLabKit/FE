@@ -69,7 +69,7 @@ function App() {
           {/* Tổng quan & Báo cáo thống kê (Admin / InventoryManager / LabStaff / Lecturer) */}
           <Route path="/dashboard" element={<RequireRole roles={['Admin', 'InventoryManager', 'LabStaff', 'Lecturer']}><Dashboard /></RequireRole>} />
           <Route path="/reports" element={<RequireRole roles={['Admin', 'InventoryManager', 'LabStaff', 'Lecturer']}><Reports /></RequireRole>} />
-          <Route path="/issue-reports" element={<RequireRole><IssueReports /></RequireRole>} />
+          <Route path="/issue-reports" element={<RequireRole roles={['LabStaff', 'InventoryManager', 'Student']}><IssueReports /></RequireRole>} />
 
           {/* Class Setup Flow Routes */}
           <Route path="/class-setup" element={<RequireRole><ClassSetup /></RequireRole>} />
