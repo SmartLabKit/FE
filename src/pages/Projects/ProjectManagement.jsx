@@ -975,7 +975,7 @@ export default function ProjectManagement() {
     try {
       const result = await borrowService.withdrawSupplementaryBorrow(project.projectId)
       setProject(result)
-      showToast('Đã rút lại đơn mượn thêm đang chờ duyệt.')
+      showToast('Đã rút lại đơn mượn thêm đang chờ giảng viên duyệt.')
     } catch (error) {
       showToast(error.message || 'Không thể rút lại đơn mượn thêm.', 'error')
     } finally {

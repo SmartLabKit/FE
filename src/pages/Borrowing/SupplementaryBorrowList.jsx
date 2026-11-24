@@ -330,7 +330,7 @@ export default function SupplementaryBorrowList() {
                     },
                   }}
                 >
-                  Chờ duyệt ({pendingCount})
+                  Chờ GV duyệt ({pendingCount})
                 </Button>
                 <Button
                   size="small"
@@ -464,7 +464,7 @@ export default function SupplementaryBorrowList() {
                                 {getProjectStatusChip(project.status)}
                                 {isSupplementaryPending && (
                                   <Chip
-                                    label="Mượn thêm · Chờ duyệt"
+                                    label="Mượn thêm · Chờ GV duyệt"
                                     size="small"
                                     sx={{ bgcolor: '#fef3c7', color: '#b45309', fontWeight: 800, fontSize: 10.5 }}
                                   />

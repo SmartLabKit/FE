@@ -17,7 +17,7 @@ export default function ProjectStatusChip({ status, size = 'small' }) {
       return (
         <Chip
           icon={<HourglassEmptyIcon sx={{ fontSize: iconFontSize }} />}
-          label="Chờ duyệt"
+          label="Chờ GV duyệt"
           size={size}
           sx={{ bgcolor: '#fef3c7', color: '#b45309', fontWeight: 800, fontSize: 11, ...sizeStyles }}
         />
@@ -51,7 +51,7 @@ export default function ProjectStatusChip({ status, size = 'small' }) {
     default:
       return (
         <Chip
-          label={status || 'Chờ duyệt'}
+          label={status || 'Chờ GV duyệt'}
           size={size}
           sx={{ bgcolor: '#eff6ff', color: '#0058be', fontWeight: 700, fontSize: 11, ...sizeStyles }}
         />

@@ -207,7 +207,7 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
           <Stack direction="row" spacing={1} alignItems="center">
             {isSupplementaryPending && (
               <Chip
-                label="Mượn thêm · Chờ duyệt"
+                label="Mượn thêm · Chờ GV duyệt"
                 size="small"
                 sx={{ bgcolor: '#fef3c7', color: '#b45309', fontWeight: 800, fontSize: 11.5 }}
               />
@@ -241,7 +241,7 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
                   >
                     <Stack direction="row" justifyContent="space-between" alignItems="center" flexWrap="wrap" gap={1} sx={{ mb: 1 }}>
                       <Typography variant="subtitle2" sx={{ fontWeight: 800, color: '#92400e' }}>
-                        Đơn mượn thêm đang chờ duyệt:{' '}
+                        Đơn mượn thêm đang chờ giảng viên duyệt:{' '}
                         {pendingBorrowRequest?.requestCode || project?.pendingRequestCode || '—'}
                       </Typography>
                       <Typography variant="caption" sx={{ color: '#92400e', fontWeight: 700 }}>

@@ -37,6 +37,12 @@ function getItemStatusChip(item, requestStatus) {
   if (['Borrowing', 'Overdue'].includes(requestStatus)) {
     return <Chip size="small" label="Chưa trả" sx={{ bgcolor: '#fffbeb', color: '#b45309', fontWeight: 700, fontSize: 11 }} />
   }
+  if (item.status === 'Pending' && ['Approved', 'Ready'].includes(requestStatus)) {
+    return <Chip size="small" label="Chờ giao" sx={{ bgcolor: '#f1f5f9', color: '#475569', fontWeight: 700, fontSize: 11 }} />
+  }
+  if (item.status === 'Pending' && ['Cancelled', 'Rejected'].includes(requestStatus)) {
+    return <Chip size="small" label="Không giao" sx={{ bgcolor: '#f1f5f9', color: '#64748b', fontWeight: 700, fontSize: 11 }} />
+  }
   const meta = getBorrowRequestStatusMeta(item.status)
   return <Chip size="small" label={meta.label} sx={meta.sx} />
 }

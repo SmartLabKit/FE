@@ -41,14 +41,14 @@ import { useLabBorrowRequests } from '../../hooks/useLabBorrowRequests'
 import { borrowService } from '../../services/borrowService'
 import { extractErrorMessage } from '../../services/api'
 import { formatVietnamDate, formatVietnamDateTime } from '../../utils/dateFormatting'
-import { getBorrowRequestStatusMeta } from './borrowHelpers'
+import { getApprovalStatusMeta, getBorrowRequestStatusMeta } from './borrowHelpers'
 
 const PAGE_SIZE = 20
 
 const ORDER_STATUS_FILTERS = [
   { key: 'ALL', label: 'Tất cả', status: '', overdue: false },
-  { key: 'Pending', label: 'Chờ duyệt', status: 'Pending', overdue: false },
-  { key: 'Approved', label: 'Chờ lab nhận', status: 'Approved', overdue: false },
+  { key: 'Pending', label: 'Chờ GV duyệt', status: 'Pending', overdue: false },
+  { key: 'Approved', label: 'Chờ lab xác nhận', status: 'Approved', overdue: false },
   { key: 'Ready', label: 'Sẵn sàng', status: 'Ready', overdue: false },
   { key: 'Borrowing', label: 'Đang mượn', status: 'Borrowing', overdue: false },
   { key: 'Overdue', label: 'Quá hạn', status: '', overdue: true },
@@ -194,9 +194,9 @@ function getItemStatusInfo(item, requestStatus) {
   // 6. Đơn đã duyệt nhưng chưa giao
   if (requestStatus === 'Approved') {
     return {
-      label: 'Sẵn sàng',
-      bgcolor: '#dcfce7',
-      textColor: '#15803d',
+      label: 'Chờ giao',
+      bgcolor: '#f1f5f9',
+      textColor: '#475569',
     }
   }
 
@@ -840,7 +840,7 @@ export default function LabBorrowManagement() {
                     </Typography>
                     <Stack spacing={1}>
                       {requestDetail.approvals.map((app, idx) => {
-                        const appMeta = getBorrowRequestStatusMeta(app.status)
+                        const appMeta = getApprovalStatusMeta(app.status)
                         return (
                           <Paper
                             key={`${app.approverId || idx}-${app.stepNo || idx}`}

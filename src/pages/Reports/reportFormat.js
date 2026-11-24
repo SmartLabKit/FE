@@ -20,8 +20,8 @@ export const formatPercent = (value) =>
   value == null ? '—' : `${Number(value).toLocaleString('vi-VN', { maximumFractionDigits: 1 })}%`
 
 const LABELS = {
-  Pending: 'Đang chờ duyệt',
-  Approved: 'Đã duyệt, đang chuẩn bị',
+  Pending: 'Chờ GV duyệt',
+  Approved: 'Chờ lab xác nhận',
   Ready: 'Sẵn sàng nhận đồ',
   Rejected: 'Từ chối',
   Borrowing: 'Đang mượn',

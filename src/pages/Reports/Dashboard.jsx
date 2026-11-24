@@ -72,7 +72,7 @@ export default function Dashboard() {
   const actionTiles = [
     has('pendingApprovals') && {
       key: 'pendingApprovals',
-      label: 'Đơn chờ duyệt',
+      label: 'Đơn chờ GV duyệt',
       value: formatNumber(data.pendingApprovals),
       icon: <ApprovalIcon />,
       onClick: () => navigate(pendingLink),

@@ -308,7 +308,7 @@ export default function ReviewSupplementaryBorrow() {
                     Quyết định của giảng viên
                   </Typography>
                   <Chip
-                    label="Chờ duyệt"
+                    label="Chờ GV duyệt"
                     size="small"
                     sx={{
                       bgcolor: '#fef3c7',
