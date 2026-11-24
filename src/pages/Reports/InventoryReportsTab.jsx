@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { Box, Chip, Grid, MenuItem, TextField } from '@mui/material'
+import TrackingTypeBadge from '../../components/common/TrackingTypeBadge'
 import { useReport } from '../../hooks/useReport'
 import { reportService } from '../../services/reportService'
 import { formatDate, formatMoney, formatNumber, getRows, stockCardPath, toLabel } from './reportFormat'
@@ -9,6 +10,21 @@ import { ShareDonut } from './reportCharts'
 
 const PAGE_SIZE = 10
 const MAX_ROOMS = 10
+
+const STOCK_FILTERS = [
+  { value: 'Stocked', label: 'Từng có trong kho' },
+  { value: 'OutOfStock', label: 'Hết hàng' },
+  { value: 'LowStock', label: 'Sắp hết' },
+  { value: 'All', label: 'Mọi linh kiện' },
+]
+
+function stockChip(row) {
+  if (!row.isStocked) return <Chip size="small" variant="outlined" label="Chưa nhập" />
+  if (row.available === 0 && row.borrowed > 0) return <Chip size="small" color="info" label="Cho mượn hết" />
+  if (row.available === 0) return <Chip size="small" color="error" label="Hết hàng" />
+  if (row.isLowStock) return <Chip size="small" color="warning" label="Sắp hết" />
+  return <Chip size="small" color="success" label="Còn hàng" />
+}
 
 function warrantyChip(daysLeft) {
   const label = daysLeft <= 0 ? 'hôm nay' : `${daysLeft} ngày`
@@ -30,11 +46,13 @@ export default function InventoryReportsTab({ filters, canSeeMoney }) {
   const navigate = useNavigate()
   const openStockCard = (row) => navigate(stockCardPath(row.componentId))
 
+  const [searchParams, setSearchParams] = useSearchParams()
+  const status = STOCK_FILTERS.some((item) => item.value === searchParams.get('status')) ? searchParams.get('status') : 'Stocked'
   const [search, setSearch] = useState('')
   const [summaryPage, setSummaryPage] = useState(1)
   const summary = useReport(
-    () => reportService.getStockSummary({ roomId, search: search.trim() || undefined, page: summaryPage, size: PAGE_SIZE }),
-    [roomId, search, summaryPage],
+    () => reportService.getStockSummary({ roomId, search: search.trim() || undefined, status: status === 'All' ? undefined : status, page: summaryPage, size: PAGE_SIZE }),
+    [roomId, search, status, summaryPage],
   )
 
   const [lowSearch, setLowSearch] = useState('')
@@ -51,7 +69,7 @@ export default function InventoryReportsTab({ filters, canSeeMoney }) {
     [warrantyDays, roomId, warrantyPage],
   )
 
-  const stockValue = useReport(() => reportService.getStockValue(), [], canSeeMoney)
+  const stockValue = useReport(() => reportService.getStockValue({ roomId }), [roomId], canSeeMoney)
   const roomValues = [...(stockValue.data?.byRoom || [])]
     .sort((a, b) => Number(b.value || 0) - Number(a.value || 0))
     .slice(0, MAX_ROOMS)
@@ -72,8 +90,14 @@ export default function InventoryReportsTab({ filters, canSeeMoney }) {
             <>
               <Grid container spacing={2} sx={{ p: 2, pb: 0 }}>
                 <Grid size={{ xs: 12, sm: 4 }}><StatTile label="Tổng giá trị" value={formatMoney(stockValue.data.totalValue)} /></Grid>
-                <Grid size={{ xs: 12, sm: 4 }}><StatTile label="Thiết bị (theo con)" value={formatMoney(stockValue.data.unitValue)} /></Grid>
-                <Grid size={{ xs: 12, sm: 4 }}><StatTile label="Vật tư tiêu hao" value={formatMoney(stockValue.data.consumableValue)} /></Grid>
+                <Grid size={{ xs: 12, sm: 4 }}><StatTile label="Thiết bị (trong kho và đang mượn)" value={formatMoney(stockValue.data.unitValue)} /></Grid>
+                <Grid size={{ xs: 12, sm: 4 }}>
+                  <StatTile
+                    label="Vật tư tiêu hao"
+                    value={formatMoney(stockValue.data.consumableValue)}
+                    hint={stockValue.data.unpricedComponents > 0 ? `${stockValue.data.unpricedComponents} vật tư chưa có giá nhập, chưa tính` : undefined}
+                  />
+                </Grid>
               </Grid>
               <Grid container>
                 <Grid size={{ xs: 12, md: 6 }}>
@@ -84,14 +108,14 @@ export default function InventoryReportsTab({ filters, canSeeMoney }) {
                     emptyText="Kho chưa có giá trị."
                   />
                 </Grid>
-                <Grid size={{ xs: 12, md: 6 }}>
+                {!roomId && <Grid size={{ xs: 12, md: 6 }}>
                   <ReportBar
                     title="Giá trị tại từng lab"
                     format={formatMoney}
                     emptyText="Không lab nào có hàng."
                     items={roomValues.map((group) => ({ key: group.key, label: group.key, value: Number(group.value || 0) }))}
                   />
-                </Grid>
+                </Grid>}
               </Grid>
             </>
           )}
@@ -104,30 +128,46 @@ export default function InventoryReportsTab({ filters, canSeeMoney }) {
         loading={summary.loading}
         error={summary.error}
         action={
-          <TextField
-            size="small"
-            placeholder="Tìm tên, mã linh kiện..."
-            value={search}
-            onChange={(event) => {
-              setSearch(event.target.value)
-              setSummaryPage(1)
-            }}
-            sx={{ minWidth: 220 }}
-          />
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            <TextField
+              select
+              size="small"
+              label="Hiện"
+              value={status}
+              onChange={(event) => {
+                setSearchParams({ tab: 'inventory', status: event.target.value }, { replace: true })
+                setSummaryPage(1)
+              }}
+              sx={{ minWidth: 180 }}
+            >
+              {STOCK_FILTERS.map((item) => <MenuItem key={item.value} value={item.value}>{item.label}</MenuItem>)}
+            </TextField>
+            <TextField
+              size="small"
+              placeholder="Tìm tên, mã linh kiện..."
+              value={search}
+              onChange={(event) => {
+                setSearch(event.target.value)
+                setSummaryPage(1)
+              }}
+              sx={{ minWidth: 220 }}
+            />
+          </Box>
         }
       >
         <ReportTable
           rows={getRows(summary.data)}
           rowKey={(row) => row.componentId}
           onRowClick={openStockCard}
+          emptyText="Không có linh kiện nào."
           columns={[
             { key: 'componentName', label: 'Linh kiện', render: componentCell },
             { key: 'categoryName', label: 'Danh mục' },
-            { key: 'trackingType', label: 'Loại quản lý', render: (row) => <Chip size="small" variant="outlined" label={row.trackingType} sx={{ fontSize: 11 }} /> },
+            { key: 'trackingType', label: 'Loại quản lý', render: (row) => <TrackingTypeBadge type={row.trackingType} /> },
             { key: 'available', label: 'Sẵn sàng', align: 'right', render: (row) => `${formatNumber(row.available)} ${row.unit || ''}` },
             { key: 'borrowed', label: 'Đang mượn', align: 'right', render: (row) => formatNumber(row.borrowed) },
             { key: 'lostOrRetired', label: 'Mất / thanh lý', align: 'right', render: (row) => formatNumber(row.lostOrRetired) },
-            { key: 'isLowStock', label: 'Trạng thái', render: (row) => (row.isLowStock ? <Chip size="small" color="warning" label="Sắp hết" /> : <Chip size="small" color="success" label="Đủ hàng" />) },
+            { key: 'isLowStock', label: 'Trạng thái', render: stockChip },
           ]}
           pagination={{ page: summaryPage, size: PAGE_SIZE, totalCount: summary.data?.totalCount, onPageChange: setSummaryPage }}
         />
@@ -135,7 +175,7 @@ export default function InventoryReportsTab({ filters, canSeeMoney }) {
 
       <ReportSection
         title="Linh kiện sắp hết"
-        subtitle="Dưới mức tồn tối thiểu, thiếu nhiều nhất trước"
+        subtitle="Tồn và đang mượn ở mọi lab cộng lại thấp hơn mức tối thiểu, thiếu nhiều nhất trước"
         loading={lowStock.loading}
         error={lowStock.error}
         action={
@@ -155,13 +195,14 @@ export default function InventoryReportsTab({ filters, canSeeMoney }) {
           rows={getRows(lowStock.data)}
           rowKey={(row) => row.componentId}
           onRowClick={openStockCard}
-          emptyText="Không có linh kiện dưới mức tồn tối thiểu."
+          emptyText="Không có linh kiện nào dưới mức tối thiểu."
           columns={[
             { key: 'componentName', label: 'Linh kiện', render: componentCell },
             { key: 'categoryName', label: 'Danh mục' },
-            { key: 'available', label: 'Còn', align: 'right', render: (row) => `${formatNumber(row.available)} ${row.unit || ''}` },
+            { key: 'available', label: roomId || !canSeeMoney ? 'Còn tại lab' : 'Còn trong tủ', align: 'right', render: (row) => `${formatNumber(row.available)} ${row.unit || ''}` },
+            { key: 'systemQuantity', label: 'Mọi lab (cả đang mượn)', align: 'right', render: (row) => formatNumber(row.systemQuantity) },
             { key: 'minStock', label: 'Tối thiểu', align: 'right', render: (row) => formatNumber(row.minStock) },
-            { key: 'shortage', label: 'Thiếu', align: 'right', render: (row) => <Chip size="small" color="warning" label={formatNumber(row.shortage)} /> },
+            { key: 'shortage', label: 'Cần mua thêm', align: 'right', render: (row) => <Chip size="small" color="warning" label={formatNumber(row.shortage)} /> },
             ...(canSeeMoney ? [{ key: 'lastUnitPrice', label: 'Giá nhập gần nhất', align: 'right', render: (row) => (row.lastUnitPrice == null ? '—' : formatMoney(row.lastUnitPrice)) }] : []),
           ]}
           pagination={{ page: lowPage, size: PAGE_SIZE, totalCount: lowStock.data?.totalCount, onPageChange: setLowPage }}

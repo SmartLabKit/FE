@@ -19,7 +19,7 @@ export const reportService = {
   /**
    * Các ô số liệu trang tổng quan theo role (ô nào role không được xem thì null)
    * GET /api/reports/dashboard
-   * Trả về (200): DashboardResponse { totalComponents, lowStockCount, stockValue, receiptsThisMonth,
+   * Trả về (200): DashboardResponse { totalComponents, stockedComponents, outOfStockCount, belowMinStockCount, lowStockCount, stockValue, receiptsThisMonth,
    *   receiptAmountThisMonth, pendingApprovals, readyToIssue, borrowingCount, overdueCount }
    */
   async getDashboard() {
@@ -30,7 +30,7 @@ export const reportService = {
   /**
    * Tồn kho theo linh kiện: sẵn sàng, đang mượn, mất/thanh lý
    * GET /api/reports/inventory/stock-summary
-   * Query: { roomId?, categoryId?, trackingType?, search?, page?, size? }
+   * Query: { roomId?, categoryId?, trackingType?, search?, status?: 'Stocked' | 'OutOfStock' | 'LowStock', page?, size? }
    * Trả về (200): PagedResult<StockSummaryResponse>
    */
   async getStockSummary(params) {
@@ -61,17 +61,18 @@ export const reportService = {
    * Giá trị kho hiện tại, gom theo danh mục và theo lab
    * GET /api/reports/inventory/stock-value
    * Quyền: Admin, InventoryManager
-   * Trả về (200): StockValueResponse { totalValue, unitValue, consumableValue, byCategory[], byRoom[] }
+   * Query: { roomId? }
+   * Trả về (200): StockValueResponse { totalValue, unitValue, consumableValue, unpricedComponents, byCategory[], byRoom[] }
    */
-  async getStockValue() {
-    return getReport('/api/reports/inventory/stock-value', undefined, 'Không thể tải giá trị kho')
+  async getStockValue(params) {
+    return getReport('/api/reports/inventory/stock-value', params, 'Không thể tải giá trị kho')
   },
 
   /**
    * Nhập kho theo kỳ (phiếu Completed)
    * GET /api/reports/inventory/receipts
    * Quyền: Admin, InventoryManager
-   * Query: { fromDate?, toDate?, groupBy?: 'month' | 'supplier' | 'category' }
+   * Query: { fromDate?, toDate?, roomId?, groupBy?: 'month' | 'supplier' | 'category' }
    * Trả về (200): ReceiptReportResponse { receiptCount, totalAmount, groups[] }
    */
   async getReceiptReport(params) {
@@ -82,7 +83,7 @@ export const reportService = {
    * Hao hụt trong kỳ: mất, thanh lý, điều chỉnh giảm
    * GET /api/reports/inventory/losses
    * Quyền: Admin, InventoryManager
-   * Query: { fromDate?, toDate? }
+   * Query: { fromDate?, toDate?, roomId? }
    * Trả về (200): LossReportResponse { lostUnits, retiredUnits, adjustedOutQuantity, totalValue, items[] }
    */
   async getLosses(params) {
@@ -154,8 +155,8 @@ export const reportService = {
   /**
    * Thống kê sự cố tạo trong kỳ
    * GET /api/reports/issues
-   * Query: { fromDate?, toDate? }
-   * Trả về (200): IssueSummaryResponse { totalIssues, byStatus[], byType[], topComponents[], averageResolveHours }
+   * Query: { fromDate?, toDate?, roomId? }
+   * Trả về (200): IssueSummaryResponse { totalIssues, byStatus[], byType[], topComponents[{ key, name, count }], averageResolveHours }
    */
   async getIssueSummary(params) {
     return getReport('/api/reports/issues', params, 'Không thể tải thống kê sự cố')
