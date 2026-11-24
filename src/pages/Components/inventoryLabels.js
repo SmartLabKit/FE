@@ -46,5 +46,9 @@ export const toDateInput = (value) => getVietnamDateInputValue(value)
 
 export const rowsOf = (result) => (Array.isArray(result) ? result : result?.items || [])
 
+/** Tủ có loại chỉ cất linh kiện cùng loại; tủ chưa gắn loại cất được mọi loại (BE cũng chặn). */
+export const cabinetAccepts = (cabinet, trackingType) =>
+  !trackingType || !cabinet.trackingType || cabinet.trackingType === trackingType
+
 export const cabinetLabel = (cabinet) =>
   [cabinet.roomCode, cabinet.cabinetCode, cabinet.cabinetName].filter(Boolean).join(' · ')

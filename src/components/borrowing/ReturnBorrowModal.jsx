@@ -29,6 +29,7 @@ import { alpha } from '@mui/material/styles'
 import { extractErrorMessage } from '../../services/api'
 import { borrowService } from '../../services/borrowService'
 import { inventoryService } from '../../services/inventoryService'
+import { cabinetAccepts } from '../../pages/Components/inventoryLabels'
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024
 
@@ -110,7 +111,10 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
           size: 100,
         })
         if (active) {
-          setCabinets(roomCabinets.filter((cabinet) => cabinet.roomId === roomId))
+          const usable = roomCabinets.filter((cabinet) => cabinet.roomId === roomId && cabinet.status === 'Active' && cabinetAccepts(cabinet, 'CONSUMABLE'))
+          const typed = usable.filter((cabinet) => cabinet.trackingType)
+          setCabinets(usable)
+          if (typed.length === 1) setCabinetId(typed[0].cabinetId)
         }
       } catch (loadError) {
         if (active) setError(extractErrorMessage(loadError, 'Không thể tải danh sách tủ của lab.'))
