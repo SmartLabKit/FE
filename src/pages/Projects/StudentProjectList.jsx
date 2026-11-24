@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { ArrowForward as ArrowForwardIcon, Search as SearchIcon } from '@mui/icons-material'
 import {
   Alert,
@@ -42,32 +42,159 @@ function compareSemesters(first, second) {
   return getSemesterWeight(second) - getSemesterWeight(first) || second.localeCompare(first, 'vi', { numeric: true })
 }
 
-async function loadStudentTeams() {
-  const response = await academicService.getMyClasses()
-  const classes = Array.isArray(response) ? response : response?.items || []
-  const results = await Promise.allSettled(classes.map(async (classItem) => {
-    const team = await teamService.getMyTeam(classItem.classId)
-    if (!team?.teamId) return null
+function getClassSemesterCode(classItem) {
+  return (
+    classItem?.semesterCode ||
+    classItem?.semester?.semesterCode ||
+    classItem?.semester?.code ||
+    ''
+  )
+}
+
+function buildInactiveSemesterSets(semesterList = []) {
+  const inactiveIds = new Set()
+  const inactiveCodes = new Set()
+  semesterList.forEach((semester) => {
+    if (semester && semester.isActive === false) {
+      if (semester.semesterId) inactiveIds.add(String(semester.semesterId))
+      if (semester.semesterCode) inactiveCodes.add(String(semester.semesterCode).trim().toUpperCase())
+    }
+  })
+  return { inactiveIds, inactiveCodes }
+}
+
+function isClassInInactiveSemester(classItem, { inactiveIds, inactiveCodes }) {
+  if (!classItem) return false
+  if (classItem.semester?.isActive === false || classItem.semesterIsActive === false) return true
+  const semId = classItem.semesterId ?? classItem.semester?.semesterId
+  if (semId && inactiveIds.has(String(semId))) return true
+  const semCode = getClassSemesterCode(classItem).trim().toUpperCase()
+  if (semCode && inactiveCodes.has(semCode)) return true
+  return false
+}
+
+/**
+ * Tải thông tin nhóm cho các lớp đang hoạt động của sinh viên:
+ * - Bỏ qua lớp trùng classId và lớp đã biết thuộc học kỳ không còn hoạt động (tránh gọi dư API).
+ * - 404 (chưa thuộc nhóm) và 409 (học kỳ không còn hoạt động) không tính là lỗi tải dữ liệu.
+ * - Chỉ đánh dấu incomplete khi gặp lỗi thực sự (mạng, 401/403, 500, 400 hoặc 409 khác).
+ */
+async function loadStudentTeams(rawClasses, inactiveSemesterSets) {
+  const uniqueClasses = []
+  const seenClassIds = new Set()
+  for (const classItem of rawClasses) {
+    const id = classItem?.classId
+    if (!id || seenClassIds.has(String(id))) continue
+    seenClassIds.add(String(id))
+    uniqueClasses.push(classItem)
+  }
+
+  const inactiveClassIds = new Set()
+  const activeClasses = []
+  for (const classItem of uniqueClasses) {
+    if (isClassInInactiveSemester(classItem, inactiveSemesterSets)) {
+      inactiveClassIds.add(String(classItem.classId))
+    } else {
+      activeClasses.push(classItem)
+    }
+  }
+
+  const results = await Promise.allSettled(activeClasses.map(async (classItem) => {
+    const result = await teamService.getMyTeamWithStatus(classItem.classId)
+    if (result.status === 'inactive_semester') {
+      inactiveClassIds.add(String(classItem.classId))
+      return null
+    }
+    if (result.status !== 'ok' || !result.team?.teamId) return null
+
+    const team = result.team
     return {
       ...team,
+      classId: team.classId || classItem.classId,
       classCode: team.classCode || classItem.classCode,
       courseName: classItem.courseName,
-      semesterCode: team.semesterCode || classItem.semesterCode ||
-        classItem.semester?.semesterCode || classItem.semester?.code || 'Chưa phân kỳ',
+      semesterCode: team.semesterCode || getClassSemesterCode(classItem) || 'Chưa phân kỳ',
+      isSemesterInactive: false,
     }
   }))
+
+  const failedMessages = [
+    ...new Set(
+      results
+        .filter((result) => result.status === 'rejected')
+        .map((result) => result.reason?.message)
+        .filter(Boolean)
+    ),
+  ]
+
   return {
-    teams: results.flatMap((result) => result.status === 'fulfilled' && result.value ? [result.value] : []),
+    teams: results.flatMap((result) => (result.status === 'fulfilled' && result.value ? [result.value] : [])),
     incomplete: results.some((result) => result.status === 'rejected'),
+    teamErrorMessage: failedMessages[0] || '',
+    inactiveClassIds,
+    uniqueClasses,
   }
+}
+
+/**
+ * Bổ sung các dự án đã có từ GET /api/projects nếu nhóm của dự án đó không nằm trong danh sách lớp đang hoạt động
+ * (ví dụ lớp thuộc học kỳ đã ngưng hoạt động trả 409 hoặc đã được bỏ qua), giúp danh sách dự án vẫn hiển thị đủ.
+ */
+function mergeProjectsIntoTeams(teams, projectsList, classes, inactiveClassIds, inactiveSemesterSets) {
+  const merged = [...teams]
+  const existingTeamIds = new Set(teams.map((team) => String(team.teamId)))
+  const classById = new Map(classes.map((item) => [String(item.classId), item]))
+  const classByCode = new Map(
+    classes
+      .filter((item) => item.classCode)
+      .map((item) => [String(item.classCode).trim().toUpperCase(), item])
+  )
+
+  for (const project of projectsList) {
+    if (!project?.teamId || !project?.projectId) continue
+    const teamKey = String(project.teamId)
+    if (existingTeamIds.has(teamKey)) continue
+    existingTeamIds.add(teamKey)
+
+    const matchedClass =
+      (project.classId && classById.get(String(project.classId))) ||
+      (project.classCode && classByCode.get(String(project.classCode).trim().toUpperCase())) ||
+      null
+    const semesterCode = project.semesterCode || getClassSemesterCode(matchedClass) || 'Chưa phân kỳ'
+    const isSemesterInactive = Boolean(
+      (matchedClass?.classId && inactiveClassIds.has(String(matchedClass.classId))) ||
+      isClassInInactiveSemester(matchedClass, inactiveSemesterSets) ||
+      (semesterCode !== 'Chưa phân kỳ' &&
+        inactiveSemesterSets.inactiveCodes.has(String(semesterCode).trim().toUpperCase()))
+    )
+
+    merged.push({
+      teamId: project.teamId,
+      teamName: project.teamName || 'Nhóm dự án',
+      classId: project.classId || matchedClass?.classId || null,
+      classCode: project.classCode || matchedClass?.classCode || '',
+      courseName: project.courseName || matchedClass?.courseName || '',
+      semesterCode,
+      isSemesterInactive,
+      isReadyForProject: false,
+      fromProjectFallback: true,
+    })
+  }
+
+  return merged
 }
 
 function StudentProjectRow({ team, project, isLeader, action, hasProjectData }) {
   const projectTitle = project?.title?.trim()
   const title = projectTitle || team.teamName || 'Nhóm dự án'
   const context = [team.courseName, team.classCode, team.semesterCode].filter(Boolean).join(' · ')
-  const role = isLeader ? 'Trưởng nhóm' : 'Thành viên'
-  const teamAndRole = projectTitle && team.teamName ? team.teamName + ' · ' + role : role
+  const role = team.fromProjectFallback
+    ? (team.isSemesterInactive ? 'Học kỳ không còn hoạt động' : '')
+    : (isLeader ? 'Trưởng nhóm' : 'Thành viên')
+  const teamAndRole = [
+    projectTitle && team.teamName ? team.teamName : '',
+    role,
+  ].filter(Boolean).join(' · ')
   const statusLabel = hasProjectData ? 'Chưa có dự án' : 'Chưa tải được'
 
   return (
@@ -89,7 +216,9 @@ function StudentProjectRow({ team, project, isLeader, action, hasProjectData }) 
       <Box sx={{ minWidth: 0, gridColumn: { xs: '1 / -1', sm: 'auto' }, overflowWrap: 'anywhere' }}>
         <Typography component="h2" variant="subtitle1" sx={{ fontWeight: 700 }}>{title}</Typography>
         <Typography variant="body2" color="text.secondary">{context}</Typography>
-        <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>{teamAndRole}</Typography>
+        {teamAndRole && (
+          <Typography variant="body2" color="text.secondary" sx={{ mt: 0.25 }}>{teamAndRole}</Typography>
+        )}
       </Box>
 
       <Box>
@@ -126,37 +255,96 @@ export default function StudentProjectList() {
   const [loadError, setLoadError] = useState('')
   const [search, setSearch] = useState('')
   const [selectedSemester, setSelectedSemester] = useState(null)
+  const requestSeqRef = useRef(0)
 
   const loadOverview = useCallback(async () => {
+    const requestId = ++requestSeqRef.current
     setLoading(true)
     setLoadError('')
 
-    // Tách lỗi tải dự án khỏi lỗi tải nhóm để nhóm vẫn hiện khi chưa biết trạng thái dự án.
-    const [teamsResult, projectsResult, semestersResult] = await Promise.allSettled([
-      loadStudentTeams(),
+    // Tải song song danh sách lớp, dự án và học kỳ trước để lọc bỏ lớp thuộc học kỳ đã ngưng hoạt động
+    // trước khi gọi GET /api/classes/{classId}/team, tránh spam request và tránh 409 không cần thiết.
+    const [classesResult, projectsResult, semestersResult] = await Promise.allSettled([
+      academicService.getMyClasses(),
       projectService.getMyProjects(),
       academicService.getSemesters(),
     ])
-    if (teamsResult.status === 'rejected') {
-      setLoadError(teamsResult.reason?.message || 'Không thể tải danh sách nhóm của bạn.')
-    } else {
-      const projectsByTeam = projectsResult.status === 'fulfilled'
-        ? new Map(projectsResult.value.filter((project) => project?.teamId && project.projectId).map((project) => [project.teamId, project]))
-        : null
-      const semesterList = semestersResult.status === 'fulfilled' && Array.isArray(semestersResult.value) ? semestersResult.value : []
-      const teamSemesterCodes = new Set(teamsResult.value.teams.map((team) => team.semesterCode))
-      setOverview({
-        ...teamsResult.value,
-        projectsByTeam,
-        currentSemesterCode: findCurrentSemesterCode(semesterList, teamSemesterCodes),
-      })
+    if (requestId !== requestSeqRef.current) return
+
+    const semesterList =
+      semestersResult.status === 'fulfilled' && Array.isArray(semestersResult.value)
+        ? semestersResult.value
+        : []
+    const inactiveSemesterSets = buildInactiveSemesterSets(semesterList)
+
+    const projectsList =
+      projectsResult.status === 'fulfilled' && Array.isArray(projectsResult.value)
+        ? projectsResult.value
+        : []
+    const projectsByTeam = projectsResult.status === 'fulfilled'
+      ? new Map(
+          projectsList
+            .filter((project) => project?.teamId && project.projectId)
+            .map((project) => [project.teamId, project])
+        )
+      : null
+    const projectsError =
+      projectsResult.status === 'rejected'
+        ? (projectsResult.reason?.message || 'Không thể tải trạng thái dự án.')
+        : ''
+
+    if (classesResult.status === 'rejected') {
+      const classErrMsg = classesResult.reason?.message || 'Không thể tải danh sách nhóm của bạn.'
+      // Nếu vẫn tải được danh sách dự án từ getMyProjects(), vẫn hiển thị dự án kèm cảnh báo.
+      if (projectsList.length > 0) {
+        const fallbackTeams = mergeProjectsIntoTeams([], projectsList, [], new Set(), inactiveSemesterSets)
+        const teamSemesterCodes = new Set(fallbackTeams.map((team) => team.semesterCode))
+        setOverview({
+          teams: fallbackTeams,
+          incomplete: true,
+          teamErrorMessage: classErrMsg,
+          projectsByTeam,
+          projectsError,
+          currentSemesterCode: findCurrentSemesterCode(semesterList, teamSemesterCodes),
+        })
+      } else {
+        setLoadError(classErrMsg)
+      }
+      setLoading(false)
+      return
     }
+
+    const rawClasses = Array.isArray(classesResult.value)
+      ? classesResult.value
+      : classesResult.value?.items || []
+    const teamsData = await loadStudentTeams(rawClasses, inactiveSemesterSets)
+    if (requestId !== requestSeqRef.current) return
+
+    const mergedTeams = mergeProjectsIntoTeams(
+      teamsData.teams,
+      projectsList,
+      teamsData.uniqueClasses,
+      teamsData.inactiveClassIds,
+      inactiveSemesterSets
+    )
+    const teamSemesterCodes = new Set(mergedTeams.map((team) => team.semesterCode))
+    setOverview({
+      teams: mergedTeams,
+      incomplete: teamsData.incomplete,
+      teamErrorMessage: teamsData.teamErrorMessage,
+      projectsByTeam,
+      projectsError,
+      currentSemesterCode: findCurrentSemesterCode(semesterList, teamSemesterCodes),
+    })
     setLoading(false)
   }, [])
 
   useEffect(() => {
     const timer = window.setTimeout(loadOverview, 0)
-    return () => window.clearTimeout(timer)
+    return () => {
+      window.clearTimeout(timer)
+      requestSeqRef.current += 1
+    }
   }, [loadOverview])
 
   const semesters = useMemo(() => (
@@ -208,12 +396,14 @@ export default function StudentProjectList() {
           <Stack spacing={2}>
             {overview.incomplete && (
               <Alert severity="warning" action={<Button onClick={loadOverview}>Thử lại</Button>}>
-                Một số lớp chưa tải được thông tin nhóm.
+                {overview.teamErrorMessage
+                  ? `Một số lớp chưa tải được thông tin nhóm: ${overview.teamErrorMessage}`
+                  : 'Một số lớp chưa tải được thông tin nhóm.'}
               </Alert>
             )}
             {overview.teams.length > 0 && !overview.projectsByTeam && (
               <Alert severity="warning" action={<Button onClick={loadOverview}>Thử lại</Button>}>
-                Không thể tải trạng thái dự án.
+                {overview.projectsError || 'Không thể tải trạng thái dự án.'}
               </Alert>
             )}
 

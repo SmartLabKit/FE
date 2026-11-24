@@ -1,4 +1,4 @@
-import api, { extractErrorMessage } from './api'
+import api, { extractErrorMessage, unwrapApiResponse } from './api'
 import type {
   ApiResponse,
   TeamFormationOverviewResponse,
@@ -11,14 +11,35 @@ import type {
   TeamInvitationDto,
 } from '../types/team-formation'
 
+const inFlightMyTeamRequests = new Map<string, Promise<MyTeamResponse | null>>()
+
+function normalizeVietnamese(text = ''): string {
+  return String(text)
+    .toLocaleLowerCase('vi')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .replace(/đ/g, 'd')
+    .trim()
+}
+
+function isInactiveSemesterTeamError(error: any): boolean {
+  const status = error?.response?.status ?? error?.cause?.response?.status
+  if (status !== 409) return false
+  const message = extractErrorMessage(error, '')
+  const normalized = normalizeVietnamese(message)
+  return (
+    normalized.includes('hoc ky') &&
+    (normalized.includes('khong con hoat dong') ||
+      normalized.includes('ngung hoat dong') ||
+      normalized.includes('khong hoat dong'))
+  )
+}
+
 /**
- * Hàm tiện ích bóc tách payload dữ liệu từ ApiResponse<T>
+ * Hàm tiện ích bóc tách payload dữ liệu từ ApiResponse<T> dạng { success, message, data, errors }
  */
-function unwrapResponse<T>(response: any): T {
-  if (response?.data?.data !== undefined) {
-    return response.data.data
-  }
-  return response?.data
+function unwrapResponse<T>(response: any, defaultErrorMsg?: string): T {
+  return unwrapApiResponse(response, defaultErrorMsg) as T
 }
 
 // ============================================================================
@@ -178,21 +199,40 @@ export async function changeTeamLeader(
 export async function getMyTeam(
   classId: string
 ): Promise<MyTeamResponse | null> {
-  try {
-    const response = await api.get<ApiResponse<MyTeamResponse>>(
-      `/api/classes/${classId}/team`
-    )
-    return unwrapResponse<MyTeamResponse>(response)
-  } catch (error: any) {
-    // 404 / 409 biểu thị sinh viên chưa tham gia hoặc lớp chưa có thông tin nhóm khả dụng
-    if (error?.response?.status === 404 || error?.response?.status === 409) {
-      return null
+  if (!classId) return null
+  const key = String(classId)
+  const existing = inFlightMyTeamRequests.get(key)
+  if (existing) return existing
+
+  const request = (async (): Promise<MyTeamResponse | null> => {
+    try {
+      const response = await api.get<ApiResponse<MyTeamResponse>>(
+        `/api/classes/${classId}/team`
+      )
+      return unwrapResponse<MyTeamResponse | null>(
+        response,
+        'Không thể tải thông tin nhóm của bạn'
+      )
+    } catch (error: any) {
+      // 404: sinh viên chưa thuộc nhóm nào trong lớp này -> trạng thái hợp lệ (team = null)
+      if (error?.response?.status === 404) {
+        return null
+      }
+      // 409 do học kỳ của lớp không còn hoạt động -> không coi là lỗi tải thông tin nhóm
+      if (isInactiveSemesterTeamError(error)) {
+        return null
+      }
+      throw new Error(
+        extractErrorMessage(error, 'Không thể tải thông tin nhóm của bạn'),
+        { cause: error }
+      )
+    } finally {
+      inFlightMyTeamRequests.delete(key)
     }
-    throw new Error(
-      extractErrorMessage(error, 'Không thể tải thông tin nhóm của bạn'),
-      { cause: error }
-    )
-  }
+  })()
+
+  inFlightMyTeamRequests.set(key, request)
+  return request
 }
 
 /**

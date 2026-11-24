@@ -29,11 +29,13 @@ export function normalizeProjectSearch(value) {
 
 export function getProjectListAction(team, project, isLeader) {
   if (project) {
+    if (team?.isSemesterInactive) return { label: 'Xem dự án', variant: 'outlined' }
     if (isLeader && project.status === 'Draft') return { label: 'Tiếp tục', variant: 'contained' }
     if (isLeader && project.status === 'Rejected') return { label: 'Chỉnh sửa', variant: 'contained' }
     return { label: 'Xem dự án', variant: 'outlined' }
   }
 
+  if (team?.isSemesterInactive) return { message: 'Học kỳ không còn hoạt động' }
   if (!isLeader) return { message: 'Chờ trưởng nhóm' }
   if (!team.isReadyForProject) return { message: 'Nhóm chưa đủ điều kiện' }
   return { label: 'Tạo dự án', variant: 'contained' }

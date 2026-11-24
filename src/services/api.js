@@ -62,16 +62,20 @@ export function extractErrorMessage(error, defaultMsg = 'Đã có lỗi xảy ra
     // Nếu backend trả về errors dạng object { field: [messages] } hoặc array
     if (data.errors) {
       if (Array.isArray(data.errors) && data.errors.length > 0) {
-        return typeof data.errors[0] === 'string' ? data.errors[0] : JSON.stringify(data.errors[0])
-      }
-      if (typeof data.errors === 'object') {
+        const firstErr = data.errors[0]
+        if (typeof firstErr === 'string' && firstErr.trim()) return firstErr
+        if (firstErr && typeof firstErr === 'object') {
+          const nestedMsg = firstErr.message || firstErr.errorMessage || firstErr.description
+          if (typeof nestedMsg === 'string' && nestedMsg.trim()) return nestedMsg
+        }
+      } else if (typeof data.errors === 'object' && !Array.isArray(data.errors)) {
         const firstKey = Object.keys(data.errors)[0]
         if (firstKey) {
           const val = data.errors[firstKey]
-          if (Array.isArray(val) && val.length > 0) {
+          if (Array.isArray(val) && val.length > 0 && typeof val[0] === 'string' && val[0].trim()) {
             return val[0]
           }
-          if (typeof val === 'string') {
+          if (typeof val === 'string' && val.trim()) {
             return val
           }
         }
@@ -79,7 +83,7 @@ export function extractErrorMessage(error, defaultMsg = 'Đã có lỗi xảy ra
     }
 
     // Nếu backend trả về message
-    if (data.message && typeof data.message === 'string') {
+    if (data.message && typeof data.message === 'string' && data.message.trim()) {
       return data.message
     }
 
@@ -102,6 +106,23 @@ export function extractErrorMessage(error, defaultMsg = 'Đã có lỗi xảy ra
   }
 
   return defaultMsg
+}
+
+/**
+ * Chuẩn hóa bóc tách dữ liệu từ ApiResponse dạng { success, message, data, errors }.
+ * Nếu backend trả success === false thì ném Error kèm message từ backend.
+ */
+export function unwrapApiResponse(response, defaultErrorMsg = 'Đã có lỗi xảy ra. Vui lòng thử lại.') {
+  const payload = response?.data
+  if (payload && typeof payload === 'object' && !Array.isArray(payload)) {
+    if (payload.success === false) {
+      throw new Error(extractErrorMessage({ response: { data: payload } }, defaultErrorMsg))
+    }
+    if ('data' in payload) {
+      return payload.data
+    }
+  }
+  return payload
 }
 
 export default api

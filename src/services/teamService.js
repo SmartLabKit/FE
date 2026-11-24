@@ -1,4 +1,32 @@
-import api, { extractErrorMessage } from './api'
+import api, { extractErrorMessage, unwrapApiResponse } from './api'
+
+const inFlightMyTeamRequests = new Map()
+
+function normalizeVietnamese(text = '') {
+  return String(text)
+    .toLocaleLowerCase('vi')
+    .normalize('NFD')
+    .replace(/\p{Diacritic}/gu, '')
+    .replace(/đ/g, 'd')
+    .trim()
+}
+
+/**
+ * Nhận diện lỗi 409 đặc thù khi lớp thuộc học kỳ không còn hoạt động
+ * (phân biệt với các lỗi 409 nghiệp vụ khác).
+ */
+export function isInactiveSemesterTeamError(error) {
+  const status = error?.response?.status ?? error?.cause?.response?.status
+  if (status !== 409) return false
+  const message = extractErrorMessage(error, '')
+  const normalized = normalizeVietnamese(message)
+  return (
+    normalized.includes('hoc ky') &&
+    (normalized.includes('khong con hoat dong') ||
+      normalized.includes('ngung hoat dong') ||
+      normalized.includes('khong hoat dong'))
+  )
+}
 
 export const teamService = {
   /**
@@ -10,7 +38,7 @@ export const teamService = {
   async getMyInvitations() {
     try {
       const response = await api.get('/api/team-invitations/me')
-      return response.data?.data || response.data
+      return unwrapApiResponse(response, 'Không thể tải danh sách lời mời nhóm')
     } catch (error) {
       throw new Error(extractErrorMessage(error, 'Không thể tải danh sách lời mời nhóm'), { cause: error })
     }
@@ -39,10 +67,55 @@ export const teamService = {
         decision: normalizedDecision,
         Decision: normalizedDecision,
       })
-      return response.data?.data || response.data
+      return unwrapApiResponse(response, 'Phản hồi lời mời thất bại')
     } catch (error) {
       throw new Error(extractErrorMessage(error, 'Phản hồi lời mời thất bại'), { cause: error })
     }
+  },
+
+  /**
+   * Lấy nhóm đã tham gia của sinh viên hiện tại trong lớp kèm trạng thái phân loại rõ ràng:
+   * - 'ok': đã có nhóm (team != null)
+   * - 'no_team': 404 (chưa thuộc nhóm nào trong lớp này - trạng thái hợp lệ)
+   * - 'inactive_semester': 409 do học kỳ của lớp không còn hoạt động
+   * - Các lỗi thực sự khác (mạng, 401/403, 500, 400, 409 khác) sẽ ném Error kèm message từ backend.
+   * Gộp các request trùng classId đang chạy song song để tránh gọi lặp API.
+   */
+  async getMyTeamWithStatus(classId) {
+    if (!classId) return { status: 'no_team', team: null }
+    const key = String(classId)
+    const existingRequest = inFlightMyTeamRequests.get(key)
+    if (existingRequest) return existingRequest
+
+    const request = (async () => {
+      try {
+        const response = await api.get(`/api/classes/${classId}/team`)
+        const team = unwrapApiResponse(response, 'Không thể tải thông tin nhóm trong lớp')
+        if (!team?.teamId) {
+          return { status: 'no_team', team: null }
+        }
+        return { status: 'ok', team }
+      } catch (error) {
+        // 404: sinh viên chưa thuộc nhóm nào trong lớp này -> trạng thái hợp lệ, không phải lỗi
+        if (error?.response?.status === 404) {
+          return { status: 'no_team', team: null }
+        }
+        // 409 do học kỳ không còn hoạt động -> bỏ qua thao tác nhóm, không tính là lỗi tải dữ liệu
+        if (isInactiveSemesterTeamError(error)) {
+          return {
+            status: 'inactive_semester',
+            team: null,
+            message: extractErrorMessage(error, 'Học kỳ của lớp không còn hoạt động'),
+          }
+        }
+        throw new Error(extractErrorMessage(error, 'Không thể tải thông tin nhóm trong lớp'), { cause: error })
+      } finally {
+        inFlightMyTeamRequests.delete(key)
+      }
+    })()
+
+    inFlightMyTeamRequests.set(key, request)
+    return request
   },
 
   /**
@@ -50,19 +123,11 @@ export const teamService = {
    * GET /api/classes/{classId}/team
    * Quyền: Chỉ role Student
    * Path: classId (guid)
-   * Trả về (200): TeamResponse
+   * Trả về (200): TeamResponse | null (nếu 404 chưa có nhóm hoặc 409 học kỳ không còn hoạt động)
    */
   async getMyTeam(classId) {
-    try {
-      const response = await api.get(`/api/classes/${classId}/team`)
-      return response.data?.data || response.data
-    } catch (error) {
-      // 404 có nghĩa là sinh viên chưa có nhóm trong lớp này (bình thường trong luồng C2)
-      if (error.response?.status === 404) {
-        return null
-      }
-      throw new Error(extractErrorMessage(error, 'Không thể tải thông tin nhóm trong lớp'), { cause: error })
-    }
+    const result = await teamService.getMyTeamWithStatus(classId)
+    return result.team
   },
 
   /**

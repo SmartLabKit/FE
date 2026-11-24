@@ -1,11 +1,14 @@
-import api, { extractErrorMessage } from './api'
+import api, { extractErrorMessage, unwrapApiResponse } from './api'
 
-function unwrap(response) {
-  return response.data?.data ?? response.data
+function unwrap(response, defaultErrorMsg) {
+  return unwrapApiResponse(response, defaultErrorMsg)
 }
 
 async function getProjectPage(params) {
-  return unwrap(await api.get('/api/projects', { params }))
+  return unwrap(
+    await api.get('/api/projects', { params }),
+    'Không thể tải danh sách dự án của bạn.'
+  )
 }
 
 export const projectService = {
@@ -35,11 +38,12 @@ export const projectService = {
       // API lọc dự án theo tài khoản đăng nhập. Đọc hết phân trang trước khi kết luận nhóm chưa có dự án.
       for (let page = 1; ; page++) {
         const result = await getProjectPage({ page, size })
+        if (result == null) return projects
         const items = Array.isArray(result) ? result : result?.items
         if (!Array.isArray(items)) throw new Error('Không nhận được danh sách dự án hợp lệ.')
         projects.push(...items)
 
-        if (Array.isArray(result)) return projects
+        if (Array.isArray(result) || items.length === 0) return projects
         const totalPages = result.totalPages ?? Math.ceil((result.totalCount ?? items.length) / (result.pageSize || size))
         if (page >= totalPages) return projects
       }
