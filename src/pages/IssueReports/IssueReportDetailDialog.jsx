@@ -35,7 +35,7 @@ function InfoRow({ label, children }) {
  * - Người tạo hoặc Admin hủy báo cáo.
  */
 export default function IssueReportDetailDialog({ issueReportId, onClose, onChanged }) {
-  const { user, hasRole } = useAuth()
+  const { user, hasRole, hasPermission } = useAuth()
   const [detail, setDetail] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -66,7 +66,7 @@ export default function IssueReportDetailDialog({ issueReportId, onClose, onChan
 
   const isAdmin = hasRole?.('Admin')
   const isOpen = detail?.status === 'Open'
-  const canResolve = isOpen && (isAdmin || hasRole?.('LabStaff'))
+  const canResolve = isOpen && (isAdmin || (hasRole?.('LabStaff') && hasPermission('ISSUE_RESOLVE')))
   const canCancel = isOpen && (isAdmin || String(detail?.reportedById) === String(user?.userId))
   const status = issueStatusOf(detail?.status)
   const item = detail?.item

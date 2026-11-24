@@ -44,13 +44,21 @@ function getItemStatusChip(item, requestStatus) {
 export default function BorrowRequestDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
-  const { user } = useAuth()
+  const { user, hasRole } = useAuth()
   const [request, setRequest] = useState(null)
   const [loading, setLoading] = useState(true)
   const [cancelling, setCancelling] = useState(false)
   const [error, setError] = useState('')
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
   const isStudent = user?.roleLabel === 'STUDENT' || user?.roles?.some((role) => role.toLowerCase() === 'student')
+  const isStaff = hasRole?.('LabStaff')
+  const hasMyRequests = isStudent || hasRole?.('Lecturer')
+  const backLabel = isStaff ? 'Đơn mượn tại Lab' : isStudent ? 'Đơn mượn của tôi' : 'Quay lại'
+  const goBack = () => {
+    if (isStaff) navigate('/borrow/lab-orders')
+    else if (hasMyRequests) navigate('/borrow/my-requests')
+    else navigate(-1)
+  }
   const canCancel = isStudent && ['Approved', 'Ready'].includes(request?.status)
 
   useEffect(() => {
@@ -89,10 +97,10 @@ export default function BorrowRequestDetail() {
       <Container maxWidth="md" disableGutters sx={{ py: 3 }}>
         <Button
           startIcon={<ArrowBackIcon />}
-          onClick={() => navigate('/borrow/my-requests')}
+          onClick={goBack}
           sx={{ mb: 2, textTransform: 'none', fontWeight: 700 }}
         >
-          Đơn mượn của tôi
+          {backLabel}
         </Button>
         {loading ? (
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}><CircularProgress /></Box>
