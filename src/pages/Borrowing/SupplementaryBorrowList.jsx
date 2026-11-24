@@ -27,6 +27,7 @@ import PortalLayout from '../../components/layout/PortalLayout'
 import ProjectApprovalDialog from './ProjectApprovalDialog'
 import ProjectStatusChip from '../../components/borrowing/ProjectStatusChip'
 import { borrowService } from '../../services/borrowService'
+import { useEntityChanged } from '../../hooks/useEntityChanged'
 import { projectService } from '../../services/projectService'
 import { useAuth } from '../../context/AuthContext'
 import { formatVietnamDate } from '../../utils/dateFormatting'
@@ -66,9 +67,9 @@ export default function SupplementaryBorrowList() {
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
 
   // Hàm tải toàn bộ dữ liệu theo vai trò (Sinh viên vs Giảng viên)
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async ({ silent = false } = {}) => {
     if (isLecturer) {
-      setLoadingLecturerProjects(true)
+      if (!silent) setLoadingLecturerProjects(true)
       try {
         const projects = await projectService.getLecturerProjects()
         setLecturerProjects(Array.isArray(projects) ? projects : [])
@@ -81,7 +82,7 @@ export default function SupplementaryBorrowList() {
       return
     }
 
-    setLoadingStudentData(true)
+    if (!silent) setLoadingStudentData(true)
     setStudentDataError('')
     try {
       const overview = await borrowService.getStudentBorrowOverview({ includeExtensions: false })
@@ -112,6 +113,12 @@ export default function SupplementaryBorrowList() {
   const refreshData = useCallback(async () => {
     await loadData()
   }, [loadData])
+
+  // BE báo dữ liệu đổi (đề tài mới, đơn đổi trạng thái...) thì tải lại, không hiện vòng xoay
+  const refreshSilently = useCallback(() => {
+    loadData({ silent: true })
+  }, [loadData])
+  useEntityChanged(refreshSilently)
 
   // Thống kê số lượng project theo trạng thái cho Giảng viên (bao gồm cả đề tài đã Approved nhưng có đơn mượn thêm Pending)
   const pendingCount = useMemo(
