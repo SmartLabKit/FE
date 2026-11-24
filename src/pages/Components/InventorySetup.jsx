@@ -9,7 +9,6 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import PortalLayout from '../../components/layout/PortalLayout'
 import { inventoryService } from '../../services/inventoryService'
 import { userService } from '../../services/userService'
-import { borrowService } from '../../services/borrowService'
 import { extractErrorMessage } from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 
@@ -101,54 +100,10 @@ const sanitizeRows = (items, targetKind) => {
   })
 }
 
-const getPagedRows = (result) => {
-  if (Array.isArray(result)) return result
-  const rows = result?.items || result?.Items || result?.data || result?.Data
-  if (Array.isArray(rows)) return rows
-  if (Array.isArray(result?.data?.items)) return result.data.items
-  if (Array.isArray(result?.data?.Items)) return result.data.Items
-  return []
-}
-
-const getRoomHint = (value) => {
-  if (!value) return null
-  if (typeof value === 'string') return { id: value, code: value }
-  return {
-    id: value.roomId || value.labRoomId || value.pickupRoomId || value.RoomId || value.LabRoomId || value.PickupRoomId || value.id || '',
-    code: value.roomCode || value.labRoomCode || value.pickupRoomCode || value.RoomCode || value.LabRoomCode || value.PickupRoomCode || value.code || '',
-  }
-}
-
-const getDirectAssignedRoom = (currentUser) => {
-  if (!currentUser) return null
-
-  const directValues = [
-    currentUser.assignedRoom,
-    currentUser.labRoomId,
-    currentUser.roomId,
-    currentUser.room,
-    currentUser.labRoom,
-  ]
-
-  for (const value of directValues) {
-    const hint = getRoomHint(value)
-    if (hint && (hint.id || hint.code)) return hint
-  }
-
-  for (const key of ['labRooms', 'assignedRooms', 'assignedLabRooms']) {
-    const value = currentUser[key]
-    if (Array.isArray(value) && value.length > 0) {
-      const hint = getRoomHint(value[0])
-      if (hint && (hint.id || hint.code)) return hint
-    }
-  }
-  return null
-}
-
 export default function InventorySetup() {
   const location = useLocation()
   const navigate = useNavigate()
-  const { user: currentUser, hasRole, hasPermission } = useAuth()
+  const { hasRole, hasPermission } = useAuth()
 
   // Phân quyền theo vai trò
   const isLabStaff = hasRole('LabStaff') && !hasRole('Admin') && !hasRole('InventoryManager')
@@ -228,63 +183,15 @@ export default function InventorySetup() {
         result = { rows: sanitizeRows(await inventoryService.getLabRooms(), 'rooms') }
       } else {
         const allRooms = sanitizeRows(await inventoryService.getLabRooms(), 'rooms')
-        let visibleRooms = allRooms
-        let assignedRoom = null
-
-        if (isLabStaff) {
-          const directHint = getDirectAssignedRoom(currentUser)
-          let roomHint = directHint
-
-          if (!roomHint) {
-            const borrowResult = await borrowService
-              .getLabBorrowRequests({ page: 1, size: 100 })
-              .catch(() => null)
-            const requestRows = getPagedRows(borrowResult)
-            if (requestRows.length > 0) {
-              roomHint = getRoomHint(requestRows[0])
-            }
-          }
-
-          if (roomHint) {
-            assignedRoom = allRooms.find((room) => {
-              const roomId = getId(room, 'rooms')
-              const roomCode = String(
-                room.labRoomCode || room.roomCode || room.code || ''
-              ).trim().toLowerCase()
-              const hintedId = String(roomHint.id || '').trim()
-              const hintedCode = String(roomHint.code || '').trim().toLowerCase()
-              return (
-                hintedId !== '' && String(roomId).trim() === hintedId
-              ) || (
-                hintedCode !== '' && roomCode !== '' && roomCode === hintedCode
-              )
-            }) || null
-          }
-
-          visibleRooms = assignedRoom ? [assignedRoom] : []
-        }
-
-        let cabinets = []
-        if (!isLabStaff) {
-          cabinets = await inventoryService.getCabinets(
-            roomFilter ? { roomId: roomFilter, labRoomId: roomFilter } : undefined
-          )
-        } else if (assignedRoom) {
-          const assignedRoomId = getId(assignedRoom, 'rooms')
-          cabinets = await inventoryService.getCabinets({
-            roomId: assignedRoomId,
-            labRoomId: assignedRoomId,
-          })
-        }
-
-        const assignedRoomId = assignedRoom ? getId(assignedRoom, 'rooms') : ''
-        const visibleRoomIds = new Set(assignedRoomId ? [String(assignedRoomId)] : [])
+        const visibleRooms = isLabStaff ? allRooms.filter((room) => room.isMine) : allRooms
+        const visibleRoomIds = new Set(visibleRooms.map((room) => String(getId(room, 'rooms'))))
+        const cabinets = await inventoryService.getCabinets(
+          roomFilter ? { roomId: roomFilter, labRoomId: roomFilter } : undefined
+        )
         result = {
-          rows: sanitizeRows(cabinets, 'cabinets').filter((cabinet) => {
-            if (!isLabStaff) return true
-            const cabinetRoomId = cabinet.roomId || cabinet.labRoomId || cabinet.RoomId || cabinet.LabRoomId
-            return cabinetRoomId != null && visibleRoomIds.has(String(cabinetRoomId))
-          }),
+          rows: sanitizeRows(cabinets, 'cabinets').filter(
+            (cabinet) => !isLabStaff || visibleRoomIds.has(String(cabinet.roomId || cabinet.labRoomId))
+          ),
           rooms: visibleRooms,
         }
       }
@@ -302,7 +209,7 @@ export default function InventorySetup() {
         setLoading(false)
       }
     }
-  }, [canManageCategories, currentUser, isLabStaff, kind, roomFilter])
+  }, [canManageCategories, isLabStaff, kind, roomFilter])
 
   // Reset state và tải dữ liệu mới khi chuyển tab hoặc đổi bộ lọc
   useEffect(() => {

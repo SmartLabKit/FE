@@ -159,8 +159,8 @@ function AdjustStockDialog({ stock, onClose, onSaved }) {
 
 /**
  * Tab "Vật tư tiêu hao" của trang Chi tiết tủ: tồn vật tư CONSUMABLE trong tủ.
- * - canMove (COMPONENT_MANAGE hoặc BORROW_ISSUE): chuyển sang tủ khác.
- * - canAdjust (INVENTORY_AUDIT): đặt lại tồn bằng số đếm thực tế, bắt buộc ghi lý do.
+ * - canMove (COMPONENT_MANAGE, hoặc LabStaff của lab chứa tủ): chuyển sang tủ khác; LabStaff chỉ chuyển trong lab đó.
+ * - canAdjust (INVENTORY_AUDIT_APPROVE, quản lý kho): đặt lại tồn bằng số đếm thực tế, bắt buộc ghi lý do.
  */
 export default function CabinetConsumablesTab({ cabinet, cabinets, canMove, canAdjust, onChanged, showToast }) {
   const [stocks, setStocks] = useState([])
