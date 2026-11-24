@@ -114,7 +114,7 @@ export default function PortalLayout({
       label: 'Sự cố thiết bị',
       icon: <IssueIcon fontSize="small" />,
       path: '/issue-reports',
-      roles: ['InventoryManager', 'LabStaff', 'Student'],
+      roles: ['InventoryManager', 'LabStaff'],
       excludeRoles: ['Admin'],
     },
 
