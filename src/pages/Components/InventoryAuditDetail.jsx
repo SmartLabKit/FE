@@ -309,6 +309,7 @@ export default function InventoryAuditDetail() {
       const parsed = await parseInventoryAuditExcel(file)
       let matchedCons = 0
       let matchedItems = 0
+      const unclearCodes = parsed.items.filter((row) => !row.auditState).map((row) => row.itemCode)
 
       if (parsed.consumables.length > 0) {
         setCounts((current) => {
@@ -337,7 +338,7 @@ export default function InventoryAuditDetail() {
           parsed.items.forEach((row) => {
             const normCode = normalizeSearchText(row.itemCode)
             const target = items.find((it) => normalizeSearchText(it.itemCode) === normCode)
-            if (target) {
+            if (target && row.auditState) {
               next[target.itemId] = row.auditState
               matchedItems += 1
             }
@@ -349,6 +350,11 @@ export default function InventoryAuditDetail() {
       setNotice(
         `Đã đọc kết quả kiểm kê từ "${file.name}": cập nhật ${matchedCons} dòng vật tư và ${matchedItems} thiết bị cá biệt.`
       )
+      if (unclearCodes.length > 0) {
+        setError(
+          `${unclearCodes.length} thiết bị chưa rõ trạng thái nên được giữ nguyên: ${unclearCodes.slice(0, 10).join(', ')}${unclearCodes.length > 10 ? '...' : ''}. Chỉ ghi "Có mặt", "Chờ xác minh" hoặc "Thất lạc".`
+        )
+      }
     } catch (parseErr) {
       setError(`Không thể đọc file Excel kiểm kê: ${parseErr.message || 'Định dạng không hợp lệ.'}`)
     }

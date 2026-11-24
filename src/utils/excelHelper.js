@@ -51,6 +51,30 @@ function parseNumberStrict(value, fallback = '') {
   return Number.isFinite(num) ? num : fallback
 }
 
+/**
+ * Loại quản lý ghi trong Excel (mã hoặc tiếng Việt). Không nhận ra thì trả '' để dòng báo lỗi, không tự đoán.
+ */
+export function parseTrackingType(value) {
+  const text = normalizeSearchText(value)
+  if (text.includes('high') || text.includes('gia thanh cao') || text.includes('gia tri cao')) return 'HIGH_VALUE'
+  if (text.includes('reus') || text.includes('tai su dung')) return 'REUSABLE'
+  if (text.includes('consum') || text.includes('tieu hao')) return 'CONSUMABLE'
+  return ''
+}
+
+/**
+ * Trạng thái kiểm kê của thiết bị ghi trong Excel: 'present' | 'pending' | 'lost', không nhận ra thì trả ''.
+ * Phải xét "Có mặt" trước chữ "mất" đứng riêng: bỏ dấu thì "mặt" và "mất" đều thành "mat".
+ */
+export function parseAuditState(value) {
+  const text = normalizeSearchText(value)
+  if (/that lac|khong thay|khong co|bi mat|lost|missing/.test(text)) return 'lost'
+  if (/xac minh|kiem tra|pending|chua/.test(text) || text === 'cho') return 'pending'
+  if (/co mat|present/.test(text) || ['co', 'du', 'ok', 'x'].includes(text)) return 'present'
+  if (text === 'mat') return 'lost'
+  return ''
+}
+
 // ============================================================================
 // 1. TEMPLATE & PARSER: NHẬP HÀNG LOẠT LINH KIỆN KHO (100% DỮ LIỆU THAM CHIẾU TỪ API)
 // ============================================================================
@@ -203,17 +227,7 @@ export async function parseComponentsExcel(file) {
       const rawTracking = String(
         pickCell(row, ['Loại quản lý', 'trackingType', 'loai quan ly', 'type'])
       )
-        .trim()
-        .toUpperCase()
-      const trackingType = ['CONSUMABLE', 'REUSABLE', 'HIGH_VALUE'].includes(rawTracking)
-        ? rawTracking
-        : rawTracking.includes('HIGH') || rawTracking.includes('CAO')
-          ? 'HIGH_VALUE'
-          : rawTracking.includes('REUS') || rawTracking.includes('TAI SU DUNG')
-            ? 'REUSABLE'
-            : rawTracking.includes('CONS') || rawTracking.includes('TIEU HAO')
-              ? 'CONSUMABLE'
-              : 'CONSUMABLE'
+      const trackingType = parseTrackingType(rawTracking)
 
       const minStockRaw = pickCell(row, ['Tồn tối thiểu', 'minStock', 'ton toi thieu'])
       const minStock = parseNumberStrict(minStockRaw, '')
@@ -231,6 +245,7 @@ export async function parseComponentsExcel(file) {
         categoryName,
         unit,
         trackingType,
+        rawTracking: rawTracking.trim(),
         minStock: minStock === '' ? '' : String(minStock),
         manufacturer,
         description,
@@ -438,15 +453,9 @@ export async function parseInventoryAuditExcel(file) {
   const items = itemRows
     .map((row) => {
       const itemCode = String(pickCell(row, ['Mã thiết bị', 'itemCode', 'ma thiet bi'])).trim()
-      const statusRaw = normalizeSearchText(
-        String(pickCell(row, ['Trạng thái kiểm kê', 'Trạng thái', 'status', 'trang thai']))
+      const auditState = parseAuditState(
+        pickCell(row, ['Trạng thái kiểm kê', 'Trạng thái', 'status', 'trang thai'])
       )
-      let auditState = 'present'
-      if (statusRaw.includes('that lac') || statusRaw.includes('mat') || statusRaw.includes('lost') || statusRaw.includes('khong thay')) {
-        auditState = 'lost'
-      } else if (statusRaw.includes('xac minh') || statusRaw.includes('cho') || statusRaw.includes('pending') || statusRaw.includes('kiem tra')) {
-        auditState = 'pending'
-      }
       return { itemCode, auditState }
     })
     .filter((r) => r.itemCode)

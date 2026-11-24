@@ -149,7 +149,7 @@ export default function ComponentExcelImport() {
     if (!row.componentName?.trim()) errors.push('Thiếu tên linh kiện')
     if (!row.categoryId) errors.push(`Không khớp danh mục "${row.categoryName || 'trống'}"`)
     if (!row.unit?.trim()) errors.push('Thiếu đơn vị tính')
-    if (!TRACKING_TYPES.includes(row.trackingType)) errors.push('Loại quản lý không hợp lệ')
+    if (!TRACKING_TYPES.includes(row.trackingType)) errors.push(`Loại quản lý không hợp lệ: "${row.rawTracking || 'trống'}"`)
     if (String(row.minStock ?? '').trim() !== '') {
       const minStock = Number(row.minStock)
       if (!Number.isInteger(minStock) || minStock < 0) errors.push('Tồn tối thiểu phải là số nguyên >= 0')

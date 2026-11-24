@@ -45,8 +45,7 @@ import {
 import { receiptStatusOf } from './inventoryLabels'
 
 const getLines = (receipt) => receipt?.items || receipt?.lines || receipt?.receiptLines || []
-const getSerials = (line) =>
-  Array.isArray(line.serialNumbers || line.serials) ? line.serialNumbers || line.serials : []
+const getUnits = (line) => (Array.isArray(line.units) ? line.units : [])
 const money = (value) => Number(value || 0).toLocaleString('vi-VN')
 const formatDateTime = (value) => formatVietnamDateTime(value)
 const formatDate = (value) => formatVietnamDate(value)
@@ -360,7 +359,7 @@ export default function StockReceiptDetail() {
                 </TableHead>
                 <TableBody>
                   {lines.map((line, idx) => {
-                    const serials = getSerials(line)
+                    const units = getUnits(line)
                     const lineTotal = Number(line.quantity || 0) * Number(line.unitPrice || 0)
                     return (
                       <TableRow key={line.receiptItemId || line.id || idx} hover>
@@ -376,14 +375,18 @@ export default function StockReceiptDetail() {
                         <TableCell sx={{ fontWeight: 600 }}>{money(lineTotal)} ₫</TableCell>
                         <TableCell>{line.cabinetName || line.cabinetCode || '—'}</TableCell>
                         <TableCell>
-                          {serials.length > 0 ? (
+                          {units.length > 0 ? (
                             <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
-                              {serials.map((s, i) => (
-                                <Chip key={i} size="small" label={typeof s === 'string' ? s : s.serialNumber} />
+                              {units.map((unit) => (
+                                <Chip
+                                  key={unit.itemId}
+                                  size="small"
+                                  label={[unit.itemCode, unit.serialNumber, unit.hardwareVersion].filter(Boolean).join(' · ')}
+                                />
                               ))}
                             </Box>
                           ) : (
-                            line.version ? `Version: ${line.version}` : '—'
+                            '—'
                           )}
                         </TableCell>
                       </TableRow>
