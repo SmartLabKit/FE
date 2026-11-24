@@ -19,13 +19,14 @@ import {
   TablePagination,
   TableRow,
   TextField,
+  Typography,
 } from '@mui/material'
 import PortalLayout from '../../components/layout/PortalLayout'
 import { useAuth } from '../../context/AuthContext'
 import { issueReportService } from '../../services/issueReportService'
 import CreateIssueReportDialog from './CreateIssueReportDialog'
 import IssueReportDetailDialog from './IssueReportDetailDialog'
-import { ISSUE_STATUSES, ISSUE_TYPES, formatDateTime, issueCreatedMessage, issueStatusOf, issueTypeLabel } from './issueReportLabels'
+import { ISSUE_STATUSES, ISSUE_TYPES, formatDateTime, issueStatusOf, issueTypeLabel } from './issueReportLabels'
 
 const PAGE_SIZE = 20
 const headCellSx = { fontWeight: 700, color: '#334155' }
@@ -220,7 +221,7 @@ export default function IssueReports() {
             <Table size="small">
               <TableHead>
                 <TableRow sx={{ bgcolor: '#faf9ff' }}>
-                  {['Thời gian', 'Mã thiết bị', 'Linh kiện', 'Lab', 'Loại', 'Mô tả', 'Người báo', 'Trạng thái'].map((head) => (
+                  {['Thời gian', 'Mã thiết bị', 'Linh kiện', 'Đơn mượn', 'Lab', 'Loại', 'Mô tả', 'Người ghi nhận', 'Trạng thái'].map((head) => (
                     <TableCell key={head} sx={headCellSx}>{head}</TableCell>
                   ))}
                 </TableRow>
@@ -228,7 +229,7 @@ export default function IssueReports() {
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={8} align="center" sx={{ py: 5 }}><CircularProgress size={26} /></TableCell>
+                    <TableCell colSpan={9} align="center" sx={{ py: 5 }}><CircularProgress size={26} /></TableCell>
                   </TableRow>
                 ) : items.map((report) => {
                   const reportStatus = issueStatusOf(report.status)
@@ -237,6 +238,16 @@ export default function IssueReports() {
                       <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDateTime(report.createdAt)}</TableCell>
                       <TableCell sx={{ color: '#0058be', fontWeight: 600 }}>{report.itemCode || '—'}</TableCell>
                       <TableCell>{report.componentName || '—'}</TableCell>
+                      <TableCell>
+                        {report.borrowRequestCode ? (
+                          <>
+                            {report.borrowRequestCode}
+                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
+                              {[report.requesterFullName, report.requesterStudentCode].filter(Boolean).join(' · ')}
+                            </Typography>
+                          </>
+                        ) : 'Trong tủ'}
+                      </TableCell>
                       <TableCell>{report.roomCode || '—'}</TableCell>
                       <TableCell>{issueTypeLabel(report.issueType)}</TableCell>
                       <TableCell sx={{ maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{report.description}</TableCell>
@@ -249,7 +260,7 @@ export default function IssueReports() {
                 })}
                 {!loading && items.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={8} align="center" sx={{ py: 4, color: 'text.secondary' }}>Không có báo cáo sự cố nào.</TableCell>
+                    <TableCell colSpan={9} align="center" sx={{ py: 4, color: 'text.secondary' }}>Không có báo cáo sự cố nào.</TableCell>
                   </TableRow>
                 )}
               </TableBody>
@@ -270,11 +281,7 @@ export default function IssueReports() {
       {createOpen && (
         <CreateIssueReportDialog
           onClose={() => setCreateOpen(false)}
-          onCreated={(report, options) => {
-            setCreateOpen(false)
-            showToast(issueCreatedMessage(report, options))
-            reload()
-          }}
+          onCreated={reload}
         />
       )}
 
