@@ -10,6 +10,7 @@ import TrackingTypeBadge from '../../components/common/TrackingTypeBadge'
 import CabinetItemsTab from './CabinetItemsTab'
 import CabinetConsumablesTab from './CabinetConsumablesTab'
 import { rowsOf } from './inventoryLabels'
+import { labLabel } from '../../utils/labLabel'
 
 export default function CabinetDetail() {
   const { cabinetId } = useParams()
@@ -82,7 +83,7 @@ export default function CabinetDetail() {
               <Box>
                 <Typography variant="h6" fontWeight={800}>{cabinet.cabinetCode || cabinet.code}</Typography>
                 <Typography>{cabinet.cabinetName || cabinet.name || 'Tủ lưu trữ'}</Typography>
-                <Typography color="text.secondary">{cabinet.roomName || cabinet.labRoomName || cabinet.labRoomCode || cabinet.roomCode}</Typography>
+                <Typography color="text.secondary">{labLabel(cabinet)}</Typography>
               </Box>
               <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
                 <Chip label={isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'} color={isActive ? 'success' : 'default'} />

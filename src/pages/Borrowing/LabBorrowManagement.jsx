@@ -42,6 +42,7 @@ import { borrowService } from '../../services/borrowService'
 import { extractErrorMessage } from '../../services/api'
 import { formatVietnamDate, formatVietnamDateTime } from '../../utils/dateFormatting'
 import { getApprovalStatusMeta, getBorrowRequestStatusMeta } from './borrowHelpers'
+import { labCode, labLabel, labName } from '../../utils/labLabel'
 
 const PAGE_SIZE = 20
 
@@ -628,7 +629,7 @@ export default function LabBorrowManagement() {
                           <Typography variant="caption" color="text.secondary">{request.itemCount} món</Typography>
                         )}
                       </TableCell>
-                      <TableCell>{request.roomName || request.roomCode || '—'}</TableCell>
+                      <TableCell title={labName(request)} sx={{ whiteSpace: 'nowrap' }}>{labCode(request)}</TableCell>
                       <TableCell sx={{ whiteSpace: 'nowrap', fontWeight: 600, color: isOverdue(request) ? '#dc2626' : 'inherit' }}>
                         {formatVietnamDate(request.dueDate)}
                       </TableCell>
@@ -711,7 +712,7 @@ export default function LabBorrowManagement() {
                   </Grid>
                   <Grid size={{ xs: 12, sm: 3 }}>
                     <Typography variant="caption" color="text.secondary">Lab nhận đồ</Typography>
-                    <Typography fontWeight={600}>{requestDetail.roomName || requestDetail.roomCode || '—'}</Typography>
+                    <Typography fontWeight={600}>{labLabel(requestDetail)}</Typography>
                   </Grid>
                   <Grid size={{ xs: 12, sm: 3 }}>
                     <Typography variant="caption" color="text.secondary">Ngày gửi đơn</Typography>

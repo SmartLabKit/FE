@@ -19,6 +19,7 @@ import { useAuth } from '../../context/AuthContext'
 import { borrowService } from '../../services/borrowService'
 import { formatVietnamDate, formatVietnamDateTime } from '../../utils/dateFormatting'
 import { getBorrowRequestStatusMeta } from './borrowHelpers'
+import { labLabel } from '../../utils/labLabel'
 
 function getItemStatusChip(item, requestStatus) {
   if (item.status === 'Damaged') {
@@ -131,7 +132,7 @@ export default function BorrowRequestDetail() {
               <Divider sx={{ mb: 2 }} />
               <Stack spacing={1}>
                 <Typography variant="body2"><strong>Người yêu cầu:</strong> {request.requesterName} ({request.studentCode})</Typography>
-                <Typography variant="body2"><strong>Phòng nhận:</strong> {request.roomName || request.roomCode || '—'}</Typography>
+                <Typography variant="body2"><strong>Phòng nhận:</strong> {labLabel(request)}</Typography>
                 <Typography variant="body2"><strong>Ngày gửi:</strong> {formatVietnamDateTime(request.requestDate)}</Typography>
                 <Typography variant="body2"><strong>Ngày mượn:</strong> {formatVietnamDate(request.borrowDate)}</Typography>
                 <Typography variant="body2"><strong>Ngày trả:</strong> {formatVietnamDate(request.dueDate)}</Typography>

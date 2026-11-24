@@ -45,6 +45,7 @@ import { getBorrowRequestStatusMeta } from '../Borrowing/borrowHelpers'
 import FinalSubmissionPanel from './FinalSubmissionPanel'
 import ProjectStatus from './ProjectStatus'
 import { isTeamLeader } from './projectHelpers'
+import { labCode, labName } from '../../utils/labLabel'
 
 const emptyForm = () => ({ title: '', description: '', components: [], selfSuppliedItems: [] })
 const suggestionCacheKey = (projectId) => `smartlabkit:project-suggestions:${projectId}`
@@ -1711,9 +1712,9 @@ export default function ProjectManagement() {
                                   #{br.requestCode || '—'}
                                 </Typography>
                                 <Chip label={meta.label} size="small" sx={meta.sx} />
-                                {br.roomName && (
-                                  <Typography variant="caption" sx={{ color: '#64748b' }}>
-                                    · {br.roomName}
+                                {labCode(br, '') && (
+                                  <Typography variant="caption" title={labName(br)} sx={{ color: '#64748b' }}>
+                                    · {labCode(br)}
                                   </Typography>
                                 )}
                               </Stack>

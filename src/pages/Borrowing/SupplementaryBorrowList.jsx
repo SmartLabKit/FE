@@ -32,6 +32,7 @@ import { projectService } from '../../services/projectService'
 import { useAuth } from '../../context/AuthContext'
 import { formatVietnamDate } from '../../utils/dateFormatting'
 import { getBorrowRequestStatusMeta } from './borrowHelpers'
+import { labCode, labLabel, labName } from '../../utils/labLabel'
 
 const ACTIVE_BORROW_STATUSES = ['Pending', 'PendingApproval', 'PendingLecturer', 'Submitted', 'Approved', 'Ready', 'Borrowing']
 const HISTORY_BORROW_STATUSES = ['Returned', 'Cancelled', 'Rejected']
@@ -205,7 +206,7 @@ export default function SupplementaryBorrowList() {
         const matchCode = b.requestCode?.toLowerCase().includes(q)
         const matchTitle = b.projectTitle?.toLowerCase().includes(q)
         const matchClass = b.classCode?.toLowerCase().includes(q)
-        const matchRoom = (b.roomName || b.roomCode || '').toLowerCase().includes(q)
+        const matchRoom = labLabel(b, '').toLowerCase().includes(q)
         if (!matchCode && !matchTitle && !matchClass && !matchRoom) return false
       }
 
@@ -671,8 +672,8 @@ export default function SupplementaryBorrowList() {
                             <Typography variant="body2" sx={{ fontWeight: 700, fontSize: 12.5, color: '#131b2e' }}>
                               {b.projectTitle || '—'}
                             </Typography>
-                            <Typography variant="caption" sx={{ color: '#64748b', fontSize: 11 }}>
-                              {b.roomName || b.roomCode || 'Phòng Lab'}
+                            <Typography variant="caption" title={labName(b)} sx={{ color: '#64748b', fontSize: 11 }}>
+                              {labCode(b, 'Phòng Lab')}
                               {typeof b.itemCount === 'number' && b.itemCount > 0 ? ` · ${b.itemCount} món` : ''}
                             </Typography>
                           </TableCell>
@@ -788,8 +789,8 @@ export default function SupplementaryBorrowList() {
                             {req.classCode || '—'}{req.teamName ? ` · ${req.teamName}` : ''}
                           </Typography>
                         </TableCell>
-                        <TableCell sx={{ fontSize: 12, color: '#424754' }}>
-                          {req.roomName || req.roomCode || '—'}
+                        <TableCell title={labName(req)} sx={{ fontSize: 12, color: '#424754' }}>
+                          {labCode(req)}
                           {typeof req.itemCount === 'number' && req.itemCount > 0 ? ` · ${req.itemCount} món` : ''}
                         </TableCell>
                         <TableCell sx={{ fontSize: 12, color: '#131b2e', fontWeight: 600, whiteSpace: 'nowrap' }}>

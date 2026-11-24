@@ -406,7 +406,7 @@ export default function ComponentDetail() {
               mb: 1,
             }}
           >
-            QUẢN LÝ
+            {canManage ? 'QUẢN LÝ' : 'HÌNH ẢNH'}
           </Typography>
 
           <Box
@@ -448,7 +448,7 @@ export default function ComponentDetail() {
                 Ảnh
               </Typography>
               <Typography sx={{ fontSize: 12.5, color: '#64748b' }}>
-                {images.length} ảnh (thêm, xem hoặc xoá)
+                {images.length} ảnh{canManage ? ' (thêm, xem hoặc xoá)' : ''}
               </Typography>
             </Box>
 

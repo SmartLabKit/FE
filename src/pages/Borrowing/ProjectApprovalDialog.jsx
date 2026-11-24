@@ -25,6 +25,7 @@ import { issueReportService } from '../../services/issueReportService'
 import { formatDateTime, issueStatusOf, issueTypeLabel } from '../IssueReports/issueReportLabels'
 import { formatVietnamDate } from '../../utils/dateFormatting'
 import { getBorrowRequestStatusMeta } from './borrowHelpers'
+import { labCode, labName } from '../../utils/labLabel'
 
 const COMMENT_MAX_LENGTH = 255
 
@@ -405,9 +406,9 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
                                   #{br.requestCode || '—'}
                                 </Typography>
                                 <Chip label={meta.label} size="small" sx={meta.sx} />
-                                {br.roomName && (
-                                  <Typography variant="caption" sx={{ color: '#64748b' }}>
-                                    · {br.roomName}
+                                {labCode(br, '') && (
+                                  <Typography variant="caption" title={labName(br)} sx={{ color: '#64748b' }}>
+                                    · {labCode(br)}
                                   </Typography>
                                 )}
                               </Stack>
