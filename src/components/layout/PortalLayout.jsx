@@ -184,18 +184,18 @@ export default function PortalLayout({
       roles: ['Admin'],
     },
 
-    // 4. Phân hệ QUẢN LÝ KHO & LINH KIỆN (InventoryManager / LabStaff / Admin)
+    // 4. Phân hệ QUẢN LÝ KHO & LINH KIỆN (InventoryManager / LabStaff); Admin chỉ quản lý phòng lab
     {
       label: 'Linh kiện kho',
       icon: <CategoryIcon fontSize="small" />,
       path: '/class-setup/admin/components',
-      roles: ['Admin', 'InventoryManager', 'LabStaff'],
+      roles: ['InventoryManager', 'LabStaff'],
     },
     {
       label: 'Tra cứu linh kiện',
       icon: <CategoryIcon fontSize="small" />,
       path: '/components/catalog',
-      roles: ['Admin', 'InventoryManager', 'LabStaff', 'Lecturer', 'Student'],
+      roles: ['InventoryManager', 'LabStaff', 'Lecturer', 'Student'],
     },
     {
       label: 'Tủ lưu trữ',
@@ -213,7 +213,7 @@ export default function PortalLayout({
       label: 'Lập phiếu nhập',
       icon: <ApprovalsIcon fontSize="small" />,
       path: '/class-setup/admin/stock-inwards',
-      roles: ['Admin', 'InventoryManager'],
+      roles: ['InventoryManager'],
     },
     {
       label: 'Phiếu nhập kho',
@@ -225,7 +225,7 @@ export default function PortalLayout({
       label: 'Kiểm kê kho',
       icon: <AuditIcon fontSize="small" />,
       path: '/class-setup/admin/inventory-audits',
-      roles: ['Admin', 'InventoryManager', 'LabStaff'],
+      roles: ['InventoryManager', 'LabStaff'],
     },
 
     // 5. Phân hệ BÀN GIAO & TRẢ ĐỒ (LabStaff)

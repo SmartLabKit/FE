@@ -221,36 +221,40 @@ export default function IssueReports() {
             <Table size="small">
               <TableHead>
                 <TableRow sx={{ bgcolor: '#faf9ff' }}>
-                  {['Thời gian', 'Mã thiết bị', 'Linh kiện', 'Đơn mượn', 'Lab', 'Loại', 'Mô tả', 'Người ghi nhận', 'Trạng thái'].map((head) => (
-                    <TableCell key={head} sx={headCellSx}>{head}</TableCell>
+                  {['Thời gian', 'Thiết bị', 'Đơn mượn', 'Lab', 'Loại', 'Mô tả', 'Người ghi nhận', 'Trạng thái'].map((head) => (
+                    <TableCell key={head} sx={{ ...headCellSx, whiteSpace: 'nowrap' }}>{head}</TableCell>
                   ))}
                 </TableRow>
               </TableHead>
               <TableBody>
                 {loading ? (
                   <TableRow>
-                    <TableCell colSpan={9} align="center" sx={{ py: 5 }}><CircularProgress size={26} /></TableCell>
+                    <TableCell colSpan={8} align="center" sx={{ py: 5 }}><CircularProgress size={26} /></TableCell>
                   </TableRow>
                 ) : items.map((report) => {
                   const reportStatus = issueStatusOf(report.status)
                   return (
                     <TableRow key={report.issueReportId} hover onClick={() => setSelectedId(report.issueReportId)} sx={{ cursor: 'pointer' }}>
                       <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDateTime(report.createdAt)}</TableCell>
-                      <TableCell sx={{ color: '#0058be', fontWeight: 600 }}>{report.itemCode || '—'}</TableCell>
-                      <TableCell>{report.componentName || '—'}</TableCell>
+                      <TableCell>
+                        <Typography variant="body2" sx={{ color: '#0058be', fontWeight: 600, whiteSpace: 'nowrap' }}>
+                          {report.itemCode || '—'}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary">{report.componentName}</Typography>
+                      </TableCell>
                       <TableCell>
                         {report.borrowRequestCode ? (
                           <>
-                            {report.borrowRequestCode}
+                            <Box component="span" sx={{ whiteSpace: 'nowrap' }}>{report.borrowRequestCode}</Box>
                             <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
                               {[report.requesterFullName, report.requesterStudentCode].filter(Boolean).join(' · ')}
                             </Typography>
                           </>
                         ) : 'Trong tủ'}
                       </TableCell>
-                      <TableCell>{report.roomCode || '—'}</TableCell>
-                      <TableCell>{issueTypeLabel(report.issueType)}</TableCell>
-                      <TableCell sx={{ maxWidth: 280, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{report.description}</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>{report.roomCode || '—'}</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>{issueTypeLabel(report.issueType)}</TableCell>
+                      <TableCell sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{report.description}</TableCell>
                       <TableCell>{report.reportedBy?.fullName || '—'}</TableCell>
                       <TableCell>
                         <Chip size="small" color={reportStatus.color} label={reportStatus.label} sx={{ fontWeight: 600, fontSize: 11 }} />
@@ -260,7 +264,7 @@ export default function IssueReports() {
                 })}
                 {!loading && items.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={9} align="center" sx={{ py: 4, color: 'text.secondary' }}>Không có báo cáo sự cố nào.</TableCell>
+                    <TableCell colSpan={8} align="center" sx={{ py: 4, color: 'text.secondary' }}>Không có báo cáo sự cố nào.</TableCell>
                   </TableRow>
                 )}
               </TableBody>

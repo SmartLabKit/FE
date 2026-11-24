@@ -6,11 +6,6 @@ import {
   Chip,
   CircularProgress,
   Container,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogContentText,
-  DialogTitle,
   InputAdornment,
   Paper,
   Snackbar,
@@ -25,10 +20,6 @@ import {
 } from '@mui/material'
 import {
   Add as AddIcon,
-  CheckCircle as CheckCircleIcon,
-  HourglassEmpty as HourglassIcon,
-  Cancel as CancelIcon,
-  Update as UpdateIcon,
   Search as SearchIcon,
 } from '@mui/icons-material'
 import { useNavigate } from 'react-router-dom'
@@ -50,28 +41,9 @@ function isRequestOverdue(borrow) {
   return Boolean(borrow.isOverdue) && !HISTORY_BORROW_STATUSES.includes(borrow.status)
 }
 
-function addDaysToIso(dateValue, days) {
-  const base = dateValue ? new Date(dateValue) : new Date()
-  if (Number.isNaN(base.getTime())) return ''
-  const next = new Date(base.getTime() + Number(days || 0) * 86400000)
-  return next.toISOString()
-}
-
-function getExtensionDays(oldDueDate, newDueDate, fallbackDays) {
-  if (oldDueDate && newDueDate) {
-    const start = new Date(oldDueDate)
-    const end = new Date(newDueDate)
-    if (!Number.isNaN(start.getTime()) && !Number.isNaN(end.getTime())) {
-      const diff = Math.round((end.getTime() - start.getTime()) / 86400000)
-      if (diff > 0) return diff
-    }
-  }
-  return fallbackDays || null
-}
-
 /**
  * SupplementaryBorrowList Component
- * Danh sách Đơn mượn, Mượn bổ sung (MF5.1) & Quản lý Gia hạn (Extensions)
+ * Danh sách Đơn mượn & Mượn bổ sung (MF5.1). Không có gia hạn: linh kiện được mượn theo học kỳ của lớp.
  */
 export default function SupplementaryBorrowList() {
   const navigate = useNavigate()
@@ -85,7 +57,6 @@ export default function SupplementaryBorrowList() {
   const [studentDataError, setStudentDataError] = useState('')
   const [borrowStatusFilter, setBorrowStatusFilter] = useState('all') // 'all' | 'active' | 'overdue' | 'history'
   const [borrowSearch, setBorrowSearch] = useState('')
-  const [extensions, setExtensions] = useState([])
   const [lecturerProjects, setLecturerProjects] = useState([])
   const [loadingLecturerProjects, setLoadingLecturerProjects] = useState(false)
   const [lecturerProjectsError, setLecturerProjectsError] = useState('')
@@ -94,32 +65,14 @@ export default function SupplementaryBorrowList() {
   const [selectedProject, setSelectedProject] = useState(null)
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
 
-  // State Modal xin gia hạn (POST /api/borrow-requests/{id}/extensions)
-  const [extDialogOpen, setExtDialogOpen] = useState(false)
-  const [selectedBorrow, setSelectedBorrow] = useState(null)
-  const [requestedDays, setRequestedDays] = useState(7)
-  const [extReason, setExtReason] = useState('')
-  const [extSubmitting, setExtSubmitting] = useState(false)
-
-  // State Modal từ chối gia hạn (POST /api/borrow-extensions/{extensionId}/reject)
-  const [rejectExtDialogOpen, setRejectExtDialogOpen] = useState(false)
-  const [selectedExt, setSelectedExt] = useState(null)
-  const [rejectReason, setRejectReason] = useState('')
-  const [rejectSubmitting, setRejectSubmitting] = useState(false)
-
   // Hàm tải toàn bộ dữ liệu theo vai trò (Sinh viên vs Giảng viên)
   const loadData = useCallback(async () => {
     if (isLecturer) {
       setLoadingLecturerProjects(true)
       try {
-        const [projects, extData] = await Promise.all([
-          projectService.getLecturerProjects(),
-          borrowService.getBorrowExtensions({ page: 1, size: 100 }).catch(() => ({ items: [] })),
-        ])
+        const projects = await projectService.getLecturerProjects()
         setLecturerProjects(Array.isArray(projects) ? projects : [])
         setLecturerProjectsError('')
-        const extItems = Array.isArray(extData) ? extData : extData?.items || extData?.data?.items || []
-        setExtensions(extItems)
       } catch (err) {
         setLecturerProjectsError(err.message || 'Không thể tải danh sách project của sinh viên.')
       } finally {
@@ -131,10 +84,9 @@ export default function SupplementaryBorrowList() {
     setLoadingStudentData(true)
     setStudentDataError('')
     try {
-      const overview = await borrowService.getStudentBorrowOverview({ includeExtensions: true })
+      const overview = await borrowService.getStudentBorrowOverview({ includeExtensions: false })
       setBorrowRequests(overview.borrowRequests || [])
       setSupplementaryRequests(overview.supplementaryRequests || [])
-      setExtensions(overview.extensions || [])
       if (overview.error) {
         setStudentDataError(overview.error)
       }
@@ -256,89 +208,6 @@ export default function SupplementaryBorrowList() {
 
   const getProjectStatusChip = (status) => <ProjectStatusChip status={status} />
 
-  const getExtensionStatusChip = (status) => {
-    switch (status) {
-      case 'Pending':
-        return (
-          <Chip
-            icon={<HourglassIcon sx={{ fontSize: '14px !important' }} />}
-            label="Chờ duyệt gia hạn"
-            size="small"
-            sx={{ bgcolor: '#fef3c7', color: '#b45309', fontWeight: 800, fontSize: 11 }}
-          />
-        )
-      case 'Approved':
-        return (
-          <Chip
-            icon={<CheckCircleIcon sx={{ fontSize: '14px !important' }} />}
-            label="Đã duyệt gia hạn"
-            size="small"
-            sx={{ bgcolor: '#dcfce7', color: '#15803d', fontWeight: 800, fontSize: 11 }}
-          />
-        )
-      case 'Rejected':
-        return (
-          <Chip
-            icon={<CancelIcon sx={{ fontSize: '14px !important' }} />}
-            label="Từ chối gia hạn"
-            size="small"
-            sx={{ bgcolor: '#fee2e2', color: '#dc2626', fontWeight: 800, fontSize: 11 }}
-          />
-        )
-      default:
-        return <Chip label={status || '—'} size="small" />
-    }
-  }
-
-  // Mở modal xin gia hạn
-  const handleOpenExtModal = (borrow) => {
-    setSelectedBorrow(borrow)
-    setRequestedDays(7)
-    setExtReason('')
-    setExtDialogOpen(true)
-  }
-
-  // Gửi xin gia hạn (POST /api/borrow-requests/{id}/extensions)
-  const handleSubmitExtension = async () => {
-    if (!selectedBorrow) return
-    if (!extReason.trim()) {
-      setToast({ open: true, message: 'Vui lòng nhập lý do xin gia hạn', severity: 'warning' })
-      return
-    }
-
-    const newDueDate = addDaysToIso(selectedBorrow.dueDate, requestedDays)
-    if (!newDueDate) {
-      setToast({ open: true, message: 'Không xác định được hạn trả mới hợp lệ', severity: 'error' })
-      return
-    }
-
-    setExtSubmitting(true)
-    try {
-      await borrowService.requestExtension(selectedBorrow.borrowRequestId, {
-        newDueDate,
-        reason: extReason.trim(),
-      })
-      setToast({ open: true, message: 'Đã gửi yêu cầu gia hạn đến giảng viên thành công!', severity: 'success' })
-      setExtDialogOpen(false)
-      await refreshData()
-    } catch (err) {
-      setToast({ open: true, message: err.message || 'Xin gia hạn thất bại', severity: 'error' })
-    } finally {
-      setExtSubmitting(false)
-    }
-  }
-
-  // Giảng viên duyệt gia hạn (POST /api/borrow-extensions/{extensionId}/approve)
-  const handleApproveExtension = async (ext) => {
-    try {
-      await borrowService.approveExtension(ext.extensionId, { comment: 'Đã chấp thuận gia hạn đồ án' })
-      setToast({ open: true, message: `Đã duyệt gia hạn cho đơn ${ext.requestCode}!`, severity: 'success' })
-      await refreshData()
-    } catch (err) {
-      setToast({ open: true, message: err.message || 'Duyệt gia hạn thất bại', severity: 'error' })
-    }
-  }
-
   // Sinh viên rút lại đơn mượn bổ sung đang chờ giảng viên duyệt
   const handleWithdrawSupplementary = async (req) => {
     if (!req?.projectId) return
@@ -351,41 +220,13 @@ export default function SupplementaryBorrowList() {
     }
   }
 
-  // Giảng viên mở modal từ chối gia hạn (POST /api/borrow-extensions/{extensionId}/reject)
-  const handleOpenRejectExt = (ext) => {
-    setSelectedExt(ext)
-    setRejectReason('')
-    setRejectExtDialogOpen(true)
-  }
-
-  // Gửi từ chối gia hạn
-  const handleConfirmRejectExt = async () => {
-    if (!selectedExt) return
-    if (!rejectReason.trim()) {
-      setToast({ open: true, message: 'Vui lòng nhập lý do từ chối', severity: 'warning' })
-      return
-    }
-
-    setRejectSubmitting(true)
-    try {
-      await borrowService.rejectExtension(selectedExt.extensionId, { reason: rejectReason.trim() })
-      setToast({ open: true, message: `Đã từ chối gia hạn đơn ${selectedExt.requestCode}`, severity: 'info' })
-      setRejectExtDialogOpen(false)
-      await refreshData()
-    } catch (err) {
-      setToast({ open: true, message: err.message || 'Từ chối thất bại', severity: 'error' })
-    } finally {
-      setRejectSubmitting(false)
-    }
-  }
-
   return (
     <PortalLayout
       headerTitle={isLecturer ? 'Duyệt yêu cầu mượn' : 'Mượn / Trả linh kiện'}
       headerSubtitle={
         isLecturer
-          ? 'Duyệt đề tài, mượn bổ sung và xin gia hạn của sinh viên'
-          : 'Theo dõi đơn mượn, mượn bổ sung và xin gia hạn'
+          ? 'Duyệt đề tài và mượn bổ sung của sinh viên'
+          : 'Theo dõi đơn mượn và mượn bổ sung'
       }
     >
       <Container maxWidth="xl" disableGutters sx={{ maxWidth: 1240, mx: 'auto', py: 3 }}>
@@ -696,7 +537,7 @@ export default function SupplementaryBorrowList() {
                   Quản lý đơn mượn linh kiện của tôi
                 </Typography>
                 <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                  Theo dõi tiến trình đơn mượn, đơn quá hạn, xin gia hạn và xem lại lịch sử các đơn trước đây
+                  Theo dõi tiến trình đơn mượn, đơn quá hạn và xem lại lịch sử các đơn trước đây
                 </Typography>
               </Box>
               <Chip
@@ -846,28 +687,6 @@ export default function SupplementaryBorrowList() {
                           </TableCell>
                           <TableCell sx={{ textAlign: 'right' }}>
                             <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end', flexWrap: 'wrap' }}>
-                              {/* Nút Xin gia hạn (chỉ cho đơn đang mượn và chưa quá hạn) */}
-                              {b.status === 'Borrowing' && !overdue && (
-                                <Button
-                                  size="small"
-                                  variant="outlined"
-                                  startIcon={<UpdateIcon sx={{ fontSize: 13 }} />}
-                                  onClick={() => handleOpenExtModal(b)}
-                                  sx={{
-                                    textTransform: 'none',
-                                    fontWeight: 700,
-                                    fontSize: 11,
-                                    borderRadius: 1,
-                                    borderColor: '#b45309',
-                                    color: '#b45309',
-                                    bgcolor: '#fffbeb',
-                                    '&:hover': { bgcolor: '#fef3c7' },
-                                  }}
-                                >
-                                  Xin gia hạn
-                                </Button>
-                              )}
-
                               <Button
                                 size="small"
                                 variant="outlined"
@@ -903,131 +722,7 @@ export default function SupplementaryBorrowList() {
           </Paper>
         )}
 
-        {/* ===================== BẢNG 2: DANH SÁCH YÊU CẦU GIA HẠN ===================== */}
-        <Paper
-          elevation={0}
-          sx={{
-            p: 3,
-            mb: 4,
-            borderRadius: 2,
-            border: '1px solid #e4e6ef',
-            bgcolor: '#ffffff',
-          }}
-        >
-          <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
-            <Box>
-              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 16 }}>
-                Yêu cầu gia hạn đơn mượn
-              </Typography>
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                Sinh viên xin gia hạn thời gian mượn trước khi quá hạn, giảng viên duyệt hoặc từ chối
-              </Typography>
-            </Box>
-            <Chip
-              label={`${extensions.length} yêu cầu`}
-              size="small"
-              sx={{ bgcolor: '#fef3c7', color: '#b45309', fontWeight: 800, fontSize: 11 }}
-            />
-          </Box>
-
-          <TableContainer sx={{ border: '1px solid #f0f2f5', borderRadius: 1.5 }}>
-            <Table size="small">
-              <TableHead sx={{ bgcolor: '#fafbff' }}>
-                <TableRow>
-                  <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280', py: 1.2 }}>MÃ ĐƠN</TableCell>
-                  <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>NGƯỜI XIN / DỰ ÁN</TableCell>
-                  <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>HẠN CŨ</TableCell>
-                  <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>HẠN MỚI XIN</TableCell>
-                  <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>LÝ DO GIA HẠN</TableCell>
-                  <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>TRẠNG THÁI</TableCell>
-                  <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280', textAlign: 'right' }}>THAO TÁC</TableCell>
-                </TableRow>
-              </TableHead>
-              <TableBody>
-                {extensions.map((ext) => {
-                  const oldDate = ext.oldDueDate || ext.currentDueDate
-                  const extraDays = getExtensionDays(oldDate, ext.newDueDate, ext.requestedDays)
-                  return (
-                    <TableRow key={ext.extensionId} hover>
-                      <TableCell sx={{ fontWeight: 800, fontSize: 13, color: '#0058be', whiteSpace: 'nowrap' }}>
-                        {ext.requestCode || '—'}
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" sx={{ fontWeight: 800, fontSize: 12, color: '#131b2e' }}>
-                          {ext.requesterName || ext.studentName || '—'}
-                        </Typography>
-                        <Typography variant="caption" sx={{ color: '#81899a', fontSize: 11 }}>
-                          {ext.projectTitle || '—'}
-                        </Typography>
-                      </TableCell>
-                      <TableCell sx={{ fontSize: 12, color: '#64748b', whiteSpace: 'nowrap' }}>
-                        {oldDate ? formatVietnamDate(oldDate) : '—'}
-                      </TableCell>
-                      <TableCell sx={{ fontSize: 12, color: '#15803d', fontWeight: 700, whiteSpace: 'nowrap' }}>
-                        {extraDays ? `+${extraDays} ngày ` : ''}
-                        {ext.newDueDate ? `(${formatVietnamDate(ext.newDueDate)})` : '—'}
-                      </TableCell>
-                      <TableCell sx={{ fontSize: 12, color: '#424754', maxWidth: 280 }}>
-                        {ext.reason || '—'}
-                      </TableCell>
-                      <TableCell>
-                        {getExtensionStatusChip(ext.status)}
-                      </TableCell>
-                      <TableCell sx={{ textAlign: 'right' }}>
-                        {isLecturer && ext.status === 'Pending' ? (
-                          <Box sx={{ display: 'flex', gap: 1, justifyContent: 'flex-end' }}>
-                            <Button
-                              size="small"
-                              variant="contained"
-                              color="success"
-                              onClick={() => handleApproveExtension(ext)}
-                              sx={{
-                                textTransform: 'none',
-                                fontWeight: 700,
-                                fontSize: 11,
-                                borderRadius: 1,
-                                boxShadow: 'none',
-                              }}
-                            >
-                              Duyệt
-                            </Button>
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              color="error"
-                              onClick={() => handleOpenRejectExt(ext)}
-                              sx={{
-                                textTransform: 'none',
-                                fontWeight: 700,
-                                fontSize: 11,
-                                borderRadius: 1,
-                              }}
-                            >
-                              Từ chối
-                            </Button>
-                          </Box>
-                        ) : (
-                          <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                            {ext.status === 'Approved' ? 'Đã duyệt' : ext.status === 'Rejected' ? 'Đã từ chối' : 'Chờ giảng viên'}
-                          </Typography>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  )
-                })}
-                {extensions.length === 0 && (
-                  <TableRow>
-                    <TableCell colSpan={7} align="center" sx={{ py: 3, color: 'text.secondary' }}>
-                      Chưa có yêu cầu gia hạn nào.
-                    </TableCell>
-                  </TableRow>
-                )}
-              </TableBody>
-            </Table>
-          </TableContainer>
-        </Paper>
-
-        {/* ===================== BẢNG 3: PHIẾU MƯỢN BỔ SUNG (MF5.1) ===================== */}
+        {/* ===================== BẢNG 2: PHIẾU MƯỢN BỔ SUNG (MF5.1) ===================== */}
         {!isLecturer && (
           <Paper
             elevation={0}
@@ -1145,104 +840,6 @@ export default function SupplementaryBorrowList() {
             </TableContainer>
           </Paper>
         )}
-
-        {/* ===================== MODAL XIN GIA HẠN ĐƠN MƯỢN ===================== */}
-        <Dialog open={extDialogOpen} onClose={() => setExtDialogOpen(false)} maxWidth="sm" fullWidth>
-          <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>
-            Xin gia hạn đơn mượn: {selectedBorrow?.requestCode}
-          </DialogTitle>
-          <DialogContent dividers>
-            <DialogContentText sx={{ mb: 2, fontSize: 13 }}>
-              Gửi yêu cầu gia hạn thời gian mượn linh kiện đến Giảng viên phụ trách lớp. Yêu cầu chỉ được chấp nhận trước khi đơn bị quá hạn.
-            </DialogContentText>
-
-            <TextField
-              label="Hạn trả hiện tại"
-              value={selectedBorrow?.dueDate ? formatVietnamDate(selectedBorrow.dueDate) : '—'}
-              fullWidth
-              disabled
-              size="small"
-              sx={{ mb: 2 }}
-            />
-
-            <TextField
-              label="Số ngày muốn gia hạn thêm (Tối đa 14 ngày)"
-              type="number"
-              value={requestedDays}
-              onChange={(e) => setRequestedDays(Math.max(1, Math.min(14, Number(e.target.value) || 1)))}
-              fullWidth
-              size="small"
-              helperText={
-                selectedBorrow?.dueDate
-                  ? `Hạn trả mới dự kiến: ${formatVietnamDate(addDaysToIso(selectedBorrow.dueDate, requestedDays))}`
-                  : ''
-              }
-              slotProps={{ htmlInput: { min: 1, max: 14 } }}
-              sx={{ mb: 2 }}
-            />
-
-            <TextField
-              label="Lý do xin gia hạn (bắt buộc)"
-              value={extReason}
-              onChange={(e) => setExtReason(e.target.value)}
-              fullWidth
-              multiline
-              rows={3}
-              size="small"
-              placeholder="Ví dụ: Nhóm cần thêm 1 tuần để hoàn thiện mạch đo cảm biến..."
-            />
-          </DialogContent>
-          <DialogActions sx={{ px: 3, py: 2 }}>
-            <Button onClick={() => setExtDialogOpen(false)} disabled={extSubmitting} sx={{ textTransform: 'none' }}>
-              Hủy
-            </Button>
-            <Button
-              variant="contained"
-              onClick={handleSubmitExtension}
-              disabled={extSubmitting}
-              sx={{ bgcolor: '#0058be', textTransform: 'none', fontWeight: 700 }}
-            >
-              {extSubmitting ? 'Đang gửi...' : 'Gửi yêu cầu gia hạn'}
-            </Button>
-          </DialogActions>
-        </Dialog>
-
-        {/* ===================== MODAL TỪ CHỐI GIA HẠN ===================== */}
-        <Dialog open={rejectExtDialogOpen} onClose={() => setRejectExtDialogOpen(false)} maxWidth="sm" fullWidth>
-          <DialogTitle sx={{ fontWeight: 800, pb: 1 }}>
-            Từ chối gia hạn đơn {selectedExt?.requestCode}
-          </DialogTitle>
-          <DialogContent dividers>
-            <DialogContentText sx={{ mb: 2, fontSize: 13 }}>
-              Vui lòng nhập lý do từ chối gia hạn. Lý do này sẽ được gửi email thông báo cho sinh viên.
-            </DialogContentText>
-
-            <TextField
-              label="Lý do từ chối (bắt buộc)"
-              value={rejectReason}
-              onChange={(e) => setRejectReason(e.target.value)}
-              fullWidth
-              multiline
-              rows={3}
-              size="small"
-              placeholder="Nhập lý do từ chối cụ thể..."
-            />
-          </DialogContent>
-          <DialogActions sx={{ px: 3, py: 2 }}>
-            <Button onClick={() => setRejectExtDialogOpen(false)} disabled={rejectSubmitting} sx={{ textTransform: 'none' }}>
-              Hủy
-            </Button>
-            <Button
-              variant="contained"
-              color="error"
-              onClick={handleConfirmRejectExt}
-              disabled={rejectSubmitting}
-              sx={{ textTransform: 'none', fontWeight: 700 }}
-            >
-              {rejectSubmitting ? 'Đang xử lý...' : 'Xác nhận từ chối'}
-            </Button>
-          </DialogActions>
-        </Dialog>
 
         {/* Snackbar Toast */}
         <Snackbar

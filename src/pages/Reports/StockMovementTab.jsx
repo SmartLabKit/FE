@@ -18,7 +18,7 @@ export default function StockMovementTab({ filters }) {
   const { fromDate, toDate, roomId } = filters
   const navigate = useNavigate()
   const { hasRole } = useAuth()
-  const canOpenComponent = hasRole?.('Admin') || hasRole?.('InventoryManager')
+  const canOpenComponent = hasRole?.('InventoryManager')
   const [searchParams, setSearchParams] = useSearchParams()
   const componentId = searchParams.get('componentId') || undefined
 

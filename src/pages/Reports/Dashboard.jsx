@@ -48,8 +48,9 @@ export default function Dashboard() {
   const { hasRole } = useAuth()
   const isLabStaff = hasRole?.('LabStaff')
   const isLecturer = hasRole?.('Lecturer')
-  const managesInventory = hasRole?.('Admin') || hasRole?.('InventoryManager')
-  const seesInventory = managesInventory || isLabStaff
+  const managesInventory = hasRole?.('InventoryManager')
+  const onlyWatchesInventory = hasRole?.('Admin') && !managesInventory
+  const seesInventory = managesInventory || onlyWatchesInventory || isLabStaff
 
   const dashboard = useReport(() => reportService.getDashboard(), [])
   const lowStock = useReport(() => reportService.getLowStock({ page: 1, size: 5 }), [], seesInventory)
@@ -65,6 +66,8 @@ export default function Dashboard() {
   if (isLecturer) pendingLink = '/borrow/my-requests'
   let stockLink = '/components/catalog'
   if (managesInventory) stockLink = '/class-setup/admin/components'
+  if (onlyWatchesInventory) stockLink = '/reports?tab=inventory'
+  const receiptLink = managesInventory ? '/class-setup/admin/stock-receipts' : '/reports?tab=receipts'
 
   const actionTiles = [
     has('pendingApprovals') && {
@@ -139,7 +142,7 @@ export default function Dashboard() {
       value: formatMoney(data.receiptAmountThisMonth),
       hint: has('receiptsThisMonth') ? `${formatNumber(data.receiptsThisMonth)} phiếu nhập` : undefined,
       icon: <ReceiptIcon />,
-      onClick: () => navigate('/class-setup/admin/stock-receipts'),
+      onClick: () => navigate(receiptLink),
     },
   ].filter(Boolean)
 
