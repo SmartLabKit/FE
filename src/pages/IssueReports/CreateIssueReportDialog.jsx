@@ -1,9 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import {
-  AddPhotoAlternate as PhotoIcon,
-  QrCodeScanner as ScanIcon,
-  Save as SaveIcon,
-} from '@mui/icons-material'
+import { Save as SaveIcon } from '@mui/icons-material'
 import {
   Alert,
   Box,
@@ -18,114 +14,219 @@ import {
   FormControlLabel,
   Paper,
   Stack,
+  Step,
+  StepLabel,
+  Stepper,
   TextField,
-  ToggleButton,
-  ToggleButtonGroup,
   Typography,
 } from '@mui/material'
+import { useAuth } from '../../context/AuthContext'
+import { borrowService } from '../../services/borrowService'
 import { issueReportService } from '../../services/issueReportService'
-import { ISSUE_TYPES, formatDateTime } from './issueReportLabels'
+import IssueFindStep from './IssueFindStep'
+import IssueItemsStep from './IssueItemsStep'
+import IssuePhotoStep from './IssuePhotoStep'
+import { issueCreatedMessage, issueTypeLabel } from './issueReportLabels'
 
 const MAX_DESCRIPTION = 1000
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024
 const IMAGE_TYPES = ['image/jpeg', 'image/png', 'image/webp']
 const emptyForm = { issueType: 'Damaged', description: '', image: null, replace: false }
 
+const LOAN_STEPS = ['find', 'items', 'photo', 'result']
+const CABINET_STEPS = ['find', 'photo', 'result']
+const STEP_LABELS = { items: 'Chọn món hư', photo: 'Ảnh món hư', result: 'Kết quả' }
+
+function rowsOf(result) {
+  return Array.isArray(result) ? result : result?.items || []
+}
+
 function UnitCard({ unit }) {
   const { item, borrowContext: borrow } = unit
   return (
-    <Paper variant="outlined" sx={{ p: 1.75, bgcolor: '#f8fafc', borderColor: '#d8dced' }}>
+    <Paper variant="outlined" sx={{ p: 1.5, bgcolor: '#f8fafc', borderColor: '#d8dced' }}>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
         <Box>
           <Typography sx={{ fontWeight: 800 }}>{item.componentName}</Typography>
           <Typography variant="body2" color="text.secondary">
-            {[item.itemCode, item.serialNumber && `Serial ${item.serialNumber}`].filter(Boolean).join(' · ')}
+            {[item.itemCode, item.serialNumber && `Serial ${item.serialNumber}`, item.roomCode, item.cabinetCode]
+              .filter(Boolean)
+              .join(' · ')}
           </Typography>
-          <Typography variant="body2" color="text.secondary">
-            {[item.roomCode, item.cabinetCode].filter(Boolean).join(' · ')}
-          </Typography>
+          {borrow && (
+            <Typography variant="body2">
+              Người mượn: <strong>{borrow.requesterFullName}</strong>
+              {borrow.requesterStudentCode ? ` (${borrow.requesterStudentCode})` : ''}
+            </Typography>
+          )}
         </Box>
         <Chip
           size="small"
           color={borrow ? 'primary' : 'success'}
-          label={borrow ? 'Đang mượn' : 'Trong tủ'}
+          label={borrow ? `Đơn ${borrow.borrowRequestCode}` : 'Trong tủ'}
           sx={{ fontWeight: 700 }}
         />
       </Box>
-      {borrow && (
-        <Typography variant="body2" sx={{ mt: 1 }}>
-          Người mượn: <strong>{borrow.requesterFullName}</strong>
-          {borrow.requesterStudentCode ? ` (${borrow.requesterStudentCode})` : ''}
-          {borrow.classCode ? ` · ${borrow.classCode}` : ''}
-          <br />
-          Đơn <strong>{borrow.borrowRequestCode}</strong> · giao {formatDateTime(borrow.issuedAt)}
-        </Typography>
-      )}
     </Paper>
   )
 }
 
 /**
- * Ghi nhận sự cố của một thiết bị: quét mã để thấy thiết bị và người đang mượn, rồi mới nhập tình trạng.
- * LabStaff / Admin đã cầm thiết bị để kiểm tra nên ghi nhận là xong ngay (kèm tùy chọn đổi con khác cho sinh viên);
+ * Ghi nhận sự cố: tìm đơn đang mượn → chọn món hư trong đơn → ảnh món hư → kết quả kiểm tra.
+ * Thiết bị hỏng trong tủ thì nhập thẳng mã thiết bị. LabStaff / Admin ghi nhận là xong ngay (BE đóng dòng mượn);
  * InventoryManager chỉ báo thiết bị trong tủ, chờ nhân viên lab kiểm tra.
- * Chỉ render khi mở, để mỗi lần mở là một form mới.
+ * Ghi xong một món thì quay lại đơn để ghi món tiếp theo. Chỉ render khi mở, để mỗi lần mở là một form mới.
  */
 export default function CreateIssueReportDialog({ initialCode = '', onClose, onCreated }) {
+  const { hasRole } = useAuth()
+  const canUseLoans = ['LabStaff', 'Admin'].some((role) => hasRole?.(role))
+
+  const [mode, setMode] = useState(canUseLoans ? 'loan' : 'cabinet')
+  const [step, setStep] = useState('find')
   const [code, setCode] = useState(initialCode)
+  const [orders, setOrders] = useState([])
+  const [order, setOrder] = useState(null)
   const [unit, setUnit] = useState(null)
-  const [looking, setLooking] = useState(false)
   const [form, setForm] = useState(emptyForm)
   const [previewUrl, setPreviewUrl] = useState('')
-  const [confirming, setConfirming] = useState(false)
+  const [busy, setBusy] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
-  const lookupId = useRef(0)
-  // Ảnh và mô tả thuộc về thiết bị này; tra sang thiết bị khác thì nhập lại từ đầu.
-  const notedItemId = useRef(null)
+  const [notice, setNotice] = useState('')
+  const taskId = useRef(0)
 
   const updateForm = (key, value) => setForm((current) => ({ ...current, [key]: value }))
 
-  const lookup = useCallback(async (value) => {
-    const trimmed = value.trim()
-    if (!trimmed) return
-    const id = ++lookupId.current
-    setLooking(true)
+  /** Chạy một lần tải; lần tải cũ hơn (người dùng đã gõ tiếp hoặc tìm lại) bị bỏ qua. */
+  const runTask = useCallback(async (work) => {
+    taskId.current += 1
+    const id = taskId.current
+    const isCurrent = () => id === taskId.current
+    setBusy(true)
     setError('')
-    setUnit(null)
-    setForm((current) => ({ ...current, replace: false }))
+    setNotice('')
     try {
-      const found = await issueReportService.lookupUnit(trimmed)
-      if (id !== lookupId.current) return
-      if (notedItemId.current !== found.item.componentItemId) {
-        setForm(emptyForm)
-        setPreviewUrl('')
-      }
-      notedItemId.current = found.item.componentItemId
-      setUnit(found)
-    } catch (lookupError) {
-      if (id === lookupId.current) setError(lookupError.message)
+      await work(isCurrent)
+    } catch (taskError) {
+      if (isCurrent()) setError(taskError.message)
     } finally {
-      if (id === lookupId.current) setLooking(false)
+      if (isCurrent()) setBusy(false)
     }
   }, [])
 
+  /** Mở form cho một thiết bị; ảnh và mô tả của thiết bị trước bị xóa. */
+  const startUnit = useCallback((found) => {
+    setForm(emptyForm)
+    setPreviewUrl('')
+    setUnit(found)
+    setStep('photo')
+  }, [])
+
+  const openOrder = useCallback(async (borrowRequestId, isCurrent) => {
+    const detail = await borrowService.getBorrowRequestById(borrowRequestId)
+    if (!isCurrent()) return
+    setOrder(detail)
+    setStep('items')
+  }, [])
+
+  const openUnitOnLoan = useCallback(async (found, isCurrent) => {
+    const detail = await borrowService.getBorrowRequestById(found.borrowContext.borrowRequestId)
+    if (!isCurrent()) return
+    setMode('loan')
+    setOrder(detail)
+    startUnit(found)
+  }, [startUnit])
+
+  const findLoans = useCallback(async (keyword, isCurrent) => {
+    setOrders([])
+    const pages = await Promise.all(['Borrowing', 'Overdue'].map((status) =>
+      borrowService.getLabBorrowRequests({ status, search: keyword, page: 1, size: 50 })))
+    if (!isCurrent()) return
+    const found = pages.flatMap(rowsOf)
+    if (found.length > 1) {
+      setOrders(found)
+      return
+    }
+    if (found.length === 1) {
+      await openOrder(found[0].borrowRequestId, isCurrent)
+      return
+    }
+
+    let byItem
+    try {
+      byItem = await issueReportService.lookupUnit(keyword)
+    } catch (lookupError) {
+      if (lookupError.cause?.response?.status !== 404) throw lookupError
+      throw new Error('Không có đơn đang mượn hay thiết bị nào khớp.', { cause: lookupError })
+    }
+    if (!isCurrent()) return
+    if (byItem.borrowContext) await openUnitOnLoan(byItem, isCurrent)
+    else throw new Error(`${byItem.item.itemCode} đang nằm trong tủ, không có ai mượn. Chọn "Thiết bị trong tủ" để ghi nhận.`)
+  }, [openOrder, openUnitOnLoan])
+
+  const findUnit = useCallback(async (keyword, isCurrent) => {
+    const found = await issueReportService.lookupUnit(keyword)
+    if (!isCurrent()) return
+    if (found.borrowContext) {
+      await openUnitOnLoan(found, isCurrent)
+      return
+    }
+    setOrder(null)
+    startUnit(found)
+  }, [openUnitOnLoan, startUnit])
+
+  const search = (value) => {
+    const keyword = value.trim()
+    if (!keyword) return
+    const find = mode === 'loan' ? findLoans : findUnit
+    runTask((isCurrent) => find(keyword, isCurrent))
+  }
+
+  const scanCard = (file) => runTask(async (isCurrent) => {
+    if (!file.type.startsWith('image/')) throw new Error('Vui lòng chọn ảnh thẻ sinh viên.')
+    if (file.size > MAX_IMAGE_SIZE) throw new Error('Ảnh thẻ tối đa 5 MB.')
+    const reading = await borrowService.readStudentCard(file)
+    if (!isCurrent()) return
+    if (!reading.studentCode) {
+      throw new Error(reading.aiAvailable
+        ? 'Không đọc được MSSV trên ảnh, hãy nhập MSSV.'
+        : 'AI đọc thẻ đang lỗi, hãy nhập MSSV.')
+    }
+    setCode(reading.studentCode)
+    await findLoans(reading.studentCode, isCurrent)
+  })
+
+  const pickOrder = (borrowRequestId) => runTask((isCurrent) => openOrder(borrowRequestId, isCurrent))
+
+  const pickItem = (item) => runTask(async (isCurrent) => {
+    const found = await issueReportService.lookupUnit(item.itemCode)
+    if (isCurrent()) startUnit(found)
+  })
+
   useEffect(() => {
     if (!initialCode) return undefined
-    const timer = window.setTimeout(() => lookup(initialCode), 0)
+    const timer = window.setTimeout(() => runTask((isCurrent) => findUnit(initialCode, isCurrent)), 0)
     return () => window.clearTimeout(timer)
-  }, [initialCode, lookup])
+  }, [initialCode, findUnit, runTask])
 
   useEffect(() => () => {
     if (previewUrl) URL.revokeObjectURL(previewUrl)
   }, [previewUrl])
 
   const changeCode = (value) => {
-    lookupId.current += 1
-    setLooking(false)
+    taskId.current += 1
+    setBusy(false)
     setCode(value)
-    setUnit(null)
+    setOrders([])
     setError('')
+    setNotice('')
+  }
+
+  const changeMode = (value) => {
+    changeCode('')
+    setMode(value)
+    setOrder(null)
+    setUnit(null)
   }
 
   const pickImage = (file) => {
@@ -143,110 +244,138 @@ export default function CreateIssueReportDialog({ initialCode = '', onClose, onC
     setPreviewUrl(URL.createObjectURL(file))
   }
 
+  const steps = mode === 'loan' ? LOAN_STEPS : CABINET_STEPS
+  const stepIndex = steps.indexOf(step)
   const isLost = form.issueType === 'Lost'
-  const onLoan = Boolean(unit?.borrowContext)
-  const canReplace = onLoan && !isLost
+  const canReplace = Boolean(unit?.borrowContext) && !isLost
   const replace = canReplace && form.replace
-  const photoMissing = !isLost && !form.image
+  const photoReady = isLost || Boolean(form.image)
   const description = form.description.trim()
-  const canSubmit = Boolean(unit && description && form.description.length <= MAX_DESCRIPTION && !photoMissing)
+  const canSubmit = Boolean(unit && photoReady && description && form.description.length <= MAX_DESCRIPTION)
+
+  const goBack = () => {
+    taskId.current += 1
+    setBusy(false)
+    setError('')
+    setNotice('')
+    setStep(steps[stepIndex - 1])
+  }
 
   const submit = async () => {
-    setConfirming(false)
     setSubmitting(true)
     setError('')
+    let created
     try {
-      const created = await issueReportService.createIssueReport({
+      created = await issueReportService.createIssueReport({
         componentItemId: unit.item.componentItemId,
         issueType: form.issueType,
         description,
         image: form.image,
         replace,
       })
-      onCreated(created, { replaceRequested: replace })
     } catch (submitError) {
       setError(submitError.message)
       setSubmitting(false)
+      return
     }
+
+    const message = `${unit.item.itemCode}: ${issueCreatedMessage(created, { replaceRequested: replace })}`
+    onCreated(created)
+    setForm(emptyForm)
+    setPreviewUrl('')
+    setUnit(null)
+    if (mode === 'loan') {
+      try {
+        setOrder(await borrowService.getBorrowRequestById(order.borrowRequestId))
+        setStep('items')
+      } catch {
+        setOrder(null)
+        setCode('')
+        setStep('find')
+      }
+    } else {
+      setCode('')
+      setStep('find')
+    }
+    setSubmitting(false)
+    setNotice(message)
   }
 
   const close = () => {
     if (!submitting) onClose()
   }
 
-  const confirmLines = unit && [
-    `${unit.item.itemCode} sẽ chuyển sang ${isLost ? 'Thất lạc' : 'Thanh lý'} và không cho mượn được nữa.`,
-    onLoan && `Dòng mượn trong đơn ${unit.borrowContext.borrowRequestCode} được đóng và sinh viên nhận email.`,
+  const consequences = unit && [
+    `${unit.item.itemCode} sẽ chuyển sang ${isLost ? 'Thất lạc' : 'Thanh lý'}, không cho mượn được nữa.`,
+    unit.borrowContext && `Dòng mượn trong đơn ${unit.borrowContext.borrowRequestCode} được đóng, sinh viên nhận email.`,
     replace && 'Đơn có thêm một con thay thế chờ giao.',
     'Không hoàn tác được.',
-  ].filter(Boolean)
+  ].filter(Boolean).join(' ')
 
   return (
     <Dialog open onClose={close} fullWidth maxWidth="sm">
       <DialogTitle sx={{ fontWeight: 800 }}>Ghi nhận sự cố thiết bị</DialogTitle>
       <DialogContent>
-        <Stack spacing={2} sx={{ pt: 1 }}>
-          <Box
-            component="form"
-            onSubmit={(event) => {
-              event.preventDefault()
-              lookup(code)
-            }}
-            sx={{ display: 'flex', gap: 1, alignItems: 'flex-start' }}
-          >
-            <TextField
-              label="Mã thiết bị hoặc serial"
-              placeholder="Quét mã vạch hoặc nhập rồi Enter"
-              value={code}
-              onChange={(event) => changeCode(event.target.value)}
-              disabled={submitting}
-              autoFocus
-              fullWidth
-            />
-            <Button
-              type="submit"
-              variant="outlined"
-              disabled={!code.trim() || looking || submitting}
-              startIcon={looking ? <CircularProgress size={16} color="inherit" /> : <ScanIcon />}
-              sx={{ textTransform: 'none', fontWeight: 700, height: 56, flexShrink: 0 }}
-            >
-              Kiểm tra
-            </Button>
-          </Box>
+        <Stepper activeStep={stepIndex} alternativeLabel sx={{ mb: 2.5, mt: 0.5 }}>
+          {steps.map((key) => (
+            <Step key={key}>
+              <StepLabel>{STEP_LABELS[key] || (mode === 'loan' ? 'Tìm đơn mượn' : 'Tìm thiết bị')}</StepLabel>
+            </Step>
+          ))}
+        </Stepper>
 
+        <Stack spacing={2}>
+          {notice && <Alert severity="success" onClose={() => setNotice('')}>{notice}</Alert>}
           {error && <Alert severity="error">{error}</Alert>}
-          {!unit && !looking && !error && (
-            <Typography variant="body2" color="text.secondary">
-              Quét mã thiết bị sinh viên mang tới để xem thông tin và người đang mượn. Vật tư tiêu hao không ghi nhận ở đây.
-            </Typography>
+
+          {step === 'find' && (
+            <IssueFindStep
+              mode={mode}
+              canUseLoans={canUseLoans}
+              onModeChange={changeMode}
+              code={code}
+              onCodeChange={changeCode}
+              onSearch={search}
+              onScanCard={scanCard}
+              orders={orders}
+              onPickOrder={pickOrder}
+              busy={busy}
+            />
           )}
 
-          {unit && (
+          {step === 'items' && order && <IssueItemsStep order={order} busy={busy} onPick={pickItem} />}
+
+          {step === 'photo' && unit && (
             <>
               <UnitCard unit={unit} />
-              {!unit.confirmsImmediately && (
-                <Alert severity="info">Báo cáo sẽ chờ nhân viên lab kiểm tra và xác nhận.</Alert>
-              )}
+              <IssuePhotoStep
+                issueType={form.issueType}
+                onTypeChange={(value) => updateForm('issueType', value)}
+                previewUrl={previewUrl}
+                onPickImage={pickImage}
+                onClearImage={() => {
+                  updateForm('image', null)
+                  setPreviewUrl('')
+                }}
+                accept={IMAGE_TYPES.join(',')}
+              />
+            </>
+          )}
 
-              <Box>
-                <Typography variant="body2" sx={{ fontWeight: 700, mb: 0.75 }}>Tình trạng</Typography>
-                <ToggleButtonGroup
-                  exclusive
-                  fullWidth
-                  size="small"
-                  color="primary"
-                  value={form.issueType}
-                  disabled={submitting}
-                  onChange={(_, value) => value && updateForm('issueType', value)}
-                >
-                  {ISSUE_TYPES.map((type) => (
-                    <ToggleButton key={type.value} value={type.value} sx={{ textTransform: 'none', fontWeight: 700 }}>
-                      {type.label}
-                    </ToggleButton>
-                  ))}
-                </ToggleButtonGroup>
+          {step === 'result' && unit && (
+            <>
+              <UnitCard unit={unit} />
+              <Box sx={{ display: 'flex', gap: 1.5, alignItems: 'center' }}>
+                {previewUrl && (
+                  <Box
+                    component="img"
+                    src={previewUrl}
+                    alt="Ảnh linh kiện bị hư"
+                    sx={{ width: 96, height: 96, objectFit: 'cover', borderRadius: 1.5, border: '1px solid #e2e8f0' }}
+                  />
+                )}
+                <Typography variant="body2">Tình trạng: <strong>{issueTypeLabel(form.issueType)}</strong></Typography>
               </Box>
-
               <TextField
                 label={isLost ? 'Lý do / hoàn cảnh mất' : 'Kết quả kiểm tra'}
                 placeholder={isLost ? 'VD: Sinh viên báo mất khi di chuyển' : 'VD: Không nạp được code, chân D7 gãy'}
@@ -256,60 +385,11 @@ export default function CreateIssueReportDialog({ initialCode = '', onClose, onC
                 multiline
                 minRows={3}
                 required
+                autoFocus
                 fullWidth
                 error={form.description.length > MAX_DESCRIPTION}
                 helperText={`${form.description.length}/${MAX_DESCRIPTION} ký tự`}
               />
-
-              <Box>
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
-                  <Button
-                    component="label"
-                    variant="outlined"
-                    disabled={submitting}
-                    startIcon={<PhotoIcon />}
-                    sx={{ textTransform: 'none', fontWeight: 700 }}
-                  >
-                    {form.image ? 'Đổi ảnh' : 'Chụp / chọn ảnh'}
-                    <input
-                      hidden
-                      type="file"
-                      accept={IMAGE_TYPES.join(',')}
-                      onChange={(event) => {
-                        pickImage(event.target.files?.[0])
-                        event.target.value = ''
-                      }}
-                    />
-                  </Button>
-                  {form.image ? (
-                    <Button
-                      size="small"
-                      color="error"
-                      disabled={submitting}
-                      onClick={() => {
-                        updateForm('image', null)
-                        setPreviewUrl('')
-                      }}
-                      sx={{ textTransform: 'none' }}
-                    >
-                      Bỏ ảnh
-                    </Button>
-                  ) : (
-                    <Typography variant="caption" color={photoMissing ? 'error.main' : 'text.secondary'}>
-                      {isLost ? 'Không bắt buộc khi báo mất.' : 'Bắt buộc chụp thiết bị, tối đa 5 MB.'}
-                    </Typography>
-                  )}
-                </Box>
-                {previewUrl && (
-                  <Box
-                    component="img"
-                    src={previewUrl}
-                    alt="Ảnh thiết bị"
-                    sx={{ mt: 1.5, maxHeight: 180, maxWidth: '100%', borderRadius: 1.5, border: '1px solid #e2e8f0' }}
-                  />
-                )}
-              </Box>
-
               {canReplace && (
                 <Box>
                   <FormControlLabel
@@ -329,37 +409,35 @@ export default function CreateIssueReportDialog({ initialCode = '', onClose, onC
                   </Typography>
                 </Box>
               )}
+              {unit.confirmsImmediately
+                ? <Alert severity="warning">{consequences}</Alert>
+                : <Alert severity="info">Báo cáo sẽ chờ nhân viên lab kiểm tra và xác nhận.</Alert>}
             </>
           )}
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
+        {stepIndex > 0 && (
+          <Button onClick={goBack} disabled={submitting} sx={{ mr: 'auto' }}>Quay lại</Button>
+        )}
         <Button onClick={close} disabled={submitting}>Đóng</Button>
-        <Button
-          variant="contained"
-          onClick={() => (unit.confirmsImmediately ? setConfirming(true) : submit())}
-          disabled={submitting || !canSubmit}
-          startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />}
-          sx={{ bgcolor: '#0058be' }}
-        >
-          {submitting ? 'Đang lưu...' : unit && !unit.confirmsImmediately ? 'Gửi báo cáo' : 'Ghi nhận'}
-        </Button>
+        {step === 'photo' && (
+          <Button variant="contained" onClick={() => setStep('result')} disabled={!photoReady} sx={{ bgcolor: '#0058be' }}>
+            Tiếp tục
+          </Button>
+        )}
+        {step === 'result' && (
+          <Button
+            variant="contained"
+            color={unit?.confirmsImmediately ? 'error' : 'primary'}
+            onClick={submit}
+            disabled={submitting || !canSubmit}
+            startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />}
+          >
+            {submitting ? 'Đang lưu...' : unit?.confirmsImmediately ? 'Ghi nhận' : 'Gửi báo cáo'}
+          </Button>
+        )}
       </DialogActions>
-
-      <Dialog open={confirming} onClose={() => setConfirming(false)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 800 }}>Ghi nhận sự cố?</DialogTitle>
-        <DialogContent>
-          <Stack spacing={0.75}>
-            {(confirmLines || []).map((line) => (
-              <Typography key={line} variant="body2" sx={{ lineHeight: 1.6 }}>{line}</Typography>
-            ))}
-          </Stack>
-        </DialogContent>
-        <DialogActions sx={{ px: 3, pb: 2 }}>
-          <Button onClick={() => setConfirming(false)}>Quay lại</Button>
-          <Button variant="contained" color="error" onClick={submit}>Ghi nhận</Button>
-        </DialogActions>
-      </Dialog>
     </Dialog>
   )
 }

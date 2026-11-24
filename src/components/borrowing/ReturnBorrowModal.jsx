@@ -54,6 +54,8 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
   const [consumableQuantities, setConsumableQuantities] = useState({})
   const [loadingData, setLoadingData] = useState(false)
   const [uploading, setUploading] = useState(false)
+  const [damagePhotos, setDamagePhotos] = useState({})
+  const [uploadingLineId, setUploadingLineId] = useState('')
   const [error, setError] = useState('')
 
   const requestId = request?.borrowRequestId
@@ -83,8 +85,14 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
     .filter((item) => Number(consumableQuantities[item.borrowItemId] || 0) > 0).length
   const hasReturningItems = returningTrackedCount > 0 || returningConsumablesCount > 0
 
+  const damagePhotosReady = lines
+    .filter((item) => !isConsumable(item) && conditions[item.borrowItemId] === 'Damaged')
+    .every((item) => damagePhotos[item.borrowItemId]?.photoId)
+
   const canSubmit = Boolean(
     photo?.photoId &&
+    damagePhotosReady &&
+    !uploadingLineId &&
     trackedSelectionsValid &&
     hasReturningItems &&
     (!hasReturnedConsumables || cabinetId) &&
@@ -104,6 +112,7 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
       setCabinetId('')
       setConditions({})
       setConsumableQuantities({})
+      setDamagePhotos({})
       setError('')
       try {
         const roomCabinets = await inventoryService.getCabinets({
@@ -160,6 +169,30 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
     if (photoPreviewUrl) URL.revokeObjectURL(photoPreviewUrl)
   }, [photoPreviewUrl])
 
+  const handleDamagePhotoSelected = async (item, file) => {
+    if (!file) return
+    if (!file.type.startsWith('image/')) {
+      setError('Vui lòng chọn ảnh thiết bị bị hỏng.')
+      return
+    }
+    if (file.size > MAX_IMAGE_SIZE) {
+      setError('Ảnh không được vượt quá 5 MB.')
+      return
+    }
+
+    setUploadingLineId(item.borrowItemId)
+    setError('')
+    try {
+      const result = await borrowService.uploadHandoverPhoto(request.borrowRequestId, file, 'Return')
+      if (!result?.photoId) throw new Error('Phản hồi ảnh thiết bị hỏng không có photoId.')
+      setDamagePhotos((current) => ({ ...current, [item.borrowItemId]: result }))
+    } catch (uploadError) {
+      setError(extractErrorMessage(uploadError, 'Không thể tải ảnh thiết bị hỏng.'))
+    } finally {
+      setUploadingLineId('')
+    }
+  }
+
   const submitReturn = async () => {
     if (!photo?.photoId) {
       setError('Cần chụp ảnh đồ trả trước khi xác nhận.')
@@ -187,6 +220,7 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
         return {
           borrowItemId: item.borrowItemId,
           condition,
+          damagePhotoId: condition === 'Damaged' ? damagePhotos[item.borrowItemId]?.photoId : null,
         }
       })
       .filter(Boolean)
@@ -207,7 +241,7 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
   return (
     <Dialog
       open={open}
-      onClose={() => { if (!submitting && !uploading) onClose() }}
+      onClose={() => { if (!submitting && !uploading && !uploadingLineId) onClose() }}
       fullWidth
       maxWidth="md"
       scroll="paper"
@@ -434,6 +468,41 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
                                           Chưa trả
                                         </MenuItem>
                                       </Select>
+                                      {currentCond === 'Damaged' && (
+                                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mt: 1, flexWrap: 'wrap' }}>
+                                          {damagePhotos[item.borrowItemId] && (
+                                            <Box
+                                              component="img"
+                                              src={damagePhotos[item.borrowItemId].photoUrl}
+                                              alt={`Ảnh hỏng ${item.itemCode || ''}`}
+                                              sx={{ width: 64, height: 64, objectFit: 'cover', borderRadius: 1, border: '1px solid #e2e8f0' }}
+                                            />
+                                          )}
+                                          <Button
+                                            component="label"
+                                            size="small"
+                                            variant="outlined"
+                                            color="error"
+                                            disabled={Boolean(uploadingLineId) || uploading || submitting}
+                                            sx={{ textTransform: 'none', fontWeight: 700 }}
+                                          >
+                                            {uploadingLineId === item.borrowItemId
+                                              ? <CircularProgress size={18} />
+                                              : damagePhotos[item.borrowItemId] ? 'Chụp lại' : 'Chụp ảnh hỏng (bắt buộc)'}
+                                            <input
+                                              hidden
+                                              type="file"
+                                              accept="image/*"
+                                              capture="environment"
+                                              onChange={(event) => {
+                                                const file = event.target.files?.[0]
+                                                event.target.value = ''
+                                                handleDamagePhotoSelected(item, file)
+                                              }}
+                                            />
+                                          </Button>
+                                        </Box>
+                                      )}
                                     </TableCell>
                                   </TableRow>
                                 )

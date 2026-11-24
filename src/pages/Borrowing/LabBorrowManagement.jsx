@@ -37,7 +37,6 @@ import TrackingTypeBadge from '../../components/common/TrackingTypeBadge'
 import IssueBorrowModal from '../../components/borrowing/IssueBorrowModal'
 import ReturnBorrowModal from '../../components/borrowing/ReturnBorrowModal'
 import CreateIssueReportDialog from '../IssueReports/CreateIssueReportDialog'
-import { issueCreatedMessage } from '../IssueReports/issueReportLabels'
 import { useLabBorrowRequests } from '../../hooks/useLabBorrowRequests'
 import { borrowService } from '../../services/borrowService'
 import { extractErrorMessage } from '../../services/api'
@@ -932,11 +931,7 @@ export default function LabBorrowManagement() {
         <CreateIssueReportDialog
           initialCode={brokenItemCode}
           onClose={() => setBrokenItemCode('')}
-          onCreated={(report, options) => {
-            setBrokenItemCode('')
-            setToast({ open: true, severity: 'success', message: issueCreatedMessage(report, options) })
-            reloadData()
-          }}
+          onCreated={reloadData}
         />
       )}
 
