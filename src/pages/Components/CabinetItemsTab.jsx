@@ -23,7 +23,7 @@ import {
 import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
 import CreateIssueReportDialog from '../IssueReports/CreateIssueReportDialog'
-import { cabinetLabel, formatDate, itemStatusOf, rowsOf, toDateInput } from './inventoryLabels'
+import { cabinetAccepts, cabinetLabel, formatDate, itemStatusOf, rowsOf, toDateInput } from './inventoryLabels'
 
 const PAGE_SIZE = 20
 const headCellSx = { fontWeight: 700, color: '#334155' }
@@ -115,7 +115,7 @@ function MoveItemDialog({ item, cabinets, onClose, onSaved }) {
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
-  const targets = cabinets.filter((cabinet) => cabinet.cabinetId !== item.cabinetId)
+  const targets = cabinets.filter((cabinet) => cabinet.cabinetId !== item.cabinetId && cabinetAccepts(cabinet, item.trackingType))
 
   const save = async () => {
     setSaving(true)

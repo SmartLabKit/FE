@@ -20,7 +20,7 @@ import {
 } from '@mui/material'
 import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
-import { cabinetLabel, formatDateTime, rowsOf } from './inventoryLabels'
+import { cabinetAccepts, cabinetLabel, formatDateTime, rowsOf } from './inventoryLabels'
 
 const headCellSx = { fontWeight: 700, color: '#334155' }
 
@@ -31,7 +31,7 @@ function MoveStockDialog({ stock, cabinets, onClose, onSaved }) {
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
-  const targets = cabinets.filter((cabinet) => cabinet.cabinetId !== stock.cabinetId)
+  const targets = cabinets.filter((cabinet) => cabinet.cabinetId !== stock.cabinetId && cabinetAccepts(cabinet, 'CONSUMABLE'))
   const quantityValue = Number(quantity)
   const validQuantity = Number.isInteger(quantityValue) && quantityValue >= 1 && quantityValue <= stock.quantity
 
