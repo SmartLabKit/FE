@@ -7,7 +7,6 @@ import {
   Divider,
   Drawer,
   IconButton,
-  InputAdornment,
   List,
   ListItem,
   ListItemButton,
@@ -16,14 +15,12 @@ import {
   Menu,
   MenuItem,
   Paper,
-  TextField,
   Typography,
 } from '@mui/material'
 import {
   Category as CategoryIcon,
   CompareArrows as BorrowReturnIcon,
   AssignmentTurnedIn as ApprovalsIcon,
-  Search as SearchIcon,
   Menu as MenuIcon,
   Logout as LogoutIcon,
   People as PeopleIcon,
@@ -54,8 +51,6 @@ export default function PortalLayout({
   children,
   headerTitle,
   headerSubtitle,
-  headerSearchPlaceholder,
-  onHeaderSearchChange,
   currentRole,
   currentUser: propUser,
   activeMenuKey,
@@ -567,38 +562,6 @@ export default function PortalLayout({
     </Box>
   )
 
-  const searchField = (
-    <TextField
-      placeholder={
-        headerSearchPlaceholder ||
-        (headerTitle ? 'Tìm kiếm chức năng, mã...' : 'Tìm kiếm yêu cầu, linh kiện...')
-      }
-      onChange={onHeaderSearchChange}
-      size="small"
-      sx={{
-        width: { xs: 180, sm: 280, md: headerTitle ? 280 : 340 },
-        '& .MuiOutlinedInput-root': {
-          height: 36,
-          borderRadius: 1.5,
-          bgcolor: '#f4f6fa',
-          fontSize: 12,
-          '& fieldset': { borderColor: 'transparent' },
-          '&:hover fieldset': { borderColor: '#c2c6d6' },
-          '&.Mui-focused fieldset': { borderColor: '#0058be' },
-        },
-      }}
-      slotProps={{
-        input: {
-          startAdornment: (
-            <InputAdornment position="start">
-              <SearchIcon sx={{ color: '#81899a', fontSize: 18 }} />
-            </InputAdornment>
-          ),
-        },
-      }}
-    />
-  )
-
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: '#f8fafc' }}>
       {/* Mobile Drawer */}
@@ -673,7 +636,7 @@ export default function PortalLayout({
               <MenuIcon />
             </IconButton>
 
-            {headerTitle ? (
+            {headerTitle && (
               <Box sx={{ minWidth: 0 }}>
                 <Typography noWrap sx={{ color: '#182238', fontWeight: 800, fontSize: 16, lineHeight: 1.3 }}>
                   {headerTitle}
@@ -684,14 +647,11 @@ export default function PortalLayout({
                   </Typography>
                 )}
               </Box>
-            ) : (
-              searchField
             )}
           </Box>
 
           {/* Right Controls */}
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexShrink: 0, pl: 1 }}>
-            {headerTitle && <Box sx={{ display: { xs: 'none', sm: 'block' } }}>{searchField}</Box>}
             {/* Notifications: số chưa đọc realtime + danh sách thông báo */}
             <NotificationMenu />
 
