@@ -8,10 +8,17 @@ import { Add as AddIcon, Delete as DeleteIcon, PersonAdd as StaffAddIcon } from 
 import { useLocation, useNavigate } from 'react-router-dom'
 import PortalLayout from '../../components/layout/PortalLayout'
 import ConfirmDialog from '../../components/common/ConfirmDialog'
+import TrackingTypeBadge from '../../components/common/TrackingTypeBadge'
 import { inventoryService } from '../../services/inventoryService'
 import { userService } from '../../services/userService'
 import { extractErrorMessage } from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
+
+const CABINET_TYPES = [
+  ['CONSUMABLE', 'Tiêu hao (vật tư đếm số lượng)'],
+  ['REUSABLE', 'Tái sử dụng (từng thiết bị có mã)'],
+  ['HIGH_VALUE', 'Giá trị cao (có serial)'],
+]
 
 const fields = {
   categories: {
@@ -33,7 +40,7 @@ const fields = {
     singular: 'tủ',
     name: 'cabinetName',
     id: 'cabinetId',
-    columns: ['Mã tủ', 'Tên tủ', 'Phòng lab', 'Trạng thái'],
+    columns: ['Mã tủ', 'Tên tủ', 'Loại tủ', 'Phòng lab', 'Trạng thái'],
   },
 }
 
@@ -145,6 +152,7 @@ export default function InventorySetup() {
   const [editing, setEditing] = useState(null)
   const [name, setName] = useState('')
   const [selectedRoom, setSelectedRoom] = useState('')
+  const [trackingType, setTrackingType] = useState('')
   const [active, setActive] = useState(true)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -230,6 +238,7 @@ export default function InventorySetup() {
     setEditing(null)
     setName('')
     setSelectedRoom('')
+    setTrackingType('')
     setActive(true)
     setError('')
     setDialogOpen(true)
@@ -239,6 +248,7 @@ export default function InventorySetup() {
     setEditing(row)
     setName(getName(row, kind))
     setSelectedRoom(row.roomId || row.labRoomId || '')
+    setTrackingType(row.trackingType || '')
     setActive(getActive(row))
     setError('')
     setDialogOpen(true)
@@ -259,6 +269,11 @@ export default function InventorySetup() {
       return
     }
 
+    if (kind === 'cabinets' && !editing && !trackingType) {
+      setError('Vui lòng chọn loại tủ.')
+      return
+    }
+
     const id = editing && getId(editing, kind)
 
     try {
@@ -274,6 +289,8 @@ export default function InventorySetup() {
               cabinetName: trimmedName,
               roomId: selectedRoom,
               labRoomId: selectedRoom,
+              trackingType: trackingType || null,
+              location: editing?.location ?? null,
               status: active ? 'Active' : 'Inactive',
               isActive: active,
             }
@@ -533,6 +550,9 @@ export default function InventorySetup() {
                         </TableCell>
                         <TableCell sx={{ fontWeight: 600 }}>{getName(row, kind) || '—'}</TableCell>
                         <TableCell>
+                          {row.trackingType ? <TrackingTypeBadge type={row.trackingType} /> : 'Chưa gắn loại'}
+                        </TableCell>
+                        <TableCell>
                           {row.labRoomName ||
                             row.roomName ||
                             rooms.find((room) => getId(room, 'rooms') === (row.roomId || row.labRoomId))?.roomName ||
@@ -647,6 +667,21 @@ export default function InventorySetup() {
                         </MenuItem>
                       )
                     })}
+                </TextField>
+              )}
+              {kind === 'cabinets' && (
+                <TextField
+                  required={!editing}
+                  select
+                  label="Loại tủ"
+                  value={trackingType}
+                  onChange={(event) => setTrackingType(event.target.value)}
+                  helperText="Phiếu nhập tự chọn tủ cùng loại với linh kiện"
+                >
+                  {editing && !editing.trackingType && <MenuItem value="">Chưa gắn loại</MenuItem>}
+                  {CABINET_TYPES.map(([value, label]) => (
+                    <MenuItem key={value} value={value}>{label}</MenuItem>
+                  ))}
                 </TextField>
               )}
               {kind !== 'categories' && (
