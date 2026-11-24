@@ -55,6 +55,9 @@ import { formatVietnamDate, getVietnamDateInputValue } from '../../utils/dateFor
  * - PUT /api/classes/{id}
  * - DELETE /api/classes/{id}
  */
+/** Giống BE: kỳ học dài tối đa 6 tháng. */
+const MAX_SEMESTER_DAYS = 184
+
 /** Giống BE: tháng 1–4 Spring, 5–8 Summer, 9–12 Fall; năm theo ngày bắt đầu. */
 function getSemesterTerm(startDate) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(startDate || '')) return null
@@ -221,6 +224,11 @@ export default function SemesterClassManager({ onNext }) {
     }
     if (semesterForm.endDate <= semesterForm.startDate) {
       showToast('Ngày kết thúc phải sau ngày bắt đầu', 'warning')
+      return
+    }
+    const semesterDays = (Date.parse(semesterForm.endDate) - Date.parse(semesterForm.startDate)) / 86400000
+    if (semesterDays > MAX_SEMESTER_DAYS) {
+      showToast('Kỳ học dài tối đa 6 tháng, hãy kiểm tra lại ngày kết thúc', 'warning')
       return
     }
     const todayVn = getVietnamDateInputValue()
@@ -802,7 +810,7 @@ export default function SemesterClassManager({ onNext }) {
                   slotProps={{
                     htmlInput: semesterModalMode === 'create' ? { min: semesterForm.startDate || getVietnamDateInputValue() } : {},
                   }}
-                  helperText={semesterModalMode === 'create' ? 'Sau ngày bắt đầu' : ''}
+                  helperText="Sau ngày bắt đầu, tối đa 6 tháng"
                 />
               </Box>
               <Typography sx={{ fontSize: 13, color: '#475569' }}>
