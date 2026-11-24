@@ -314,6 +314,8 @@ export default function Profile() {
           <Tabs
             value={activeTab}
             onChange={(e, v) => setActiveTab(v)}
+            variant="scrollable"
+            allowScrollButtonsMobile
             sx={{
               minHeight: 46,
               '& .MuiTab-root': {

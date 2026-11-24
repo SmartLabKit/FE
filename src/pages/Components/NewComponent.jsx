@@ -481,6 +481,8 @@ export default function NewComponent() {
             <Tabs
               value={tab}
               onChange={(_, value) => setTab(value)}
+              variant="scrollable"
+              allowScrollButtonsMobile
               sx={{ mb: 3, borderBottom: '1px solid #e2e8f0' }}
             >
               <Tab label="Thông tin cơ bản" sx={{ fontWeight: 700, textTransform: 'none', fontSize: 14 }} />

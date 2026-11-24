@@ -663,7 +663,7 @@ export default function PortalLayout({
             zIndex: 10,
           }}
         >
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minWidth: 0, flex: { xs: 1, md: 'initial' } }}>
             <IconButton
               color="inherit"
               edge="start"
@@ -674,12 +674,12 @@ export default function PortalLayout({
             </IconButton>
 
             {headerTitle ? (
-              <Box>
-                <Typography sx={{ color: '#182238', fontWeight: 800, fontSize: 16, lineHeight: 1.3 }}>
+              <Box sx={{ minWidth: 0 }}>
+                <Typography noWrap sx={{ color: '#182238', fontWeight: 800, fontSize: 16, lineHeight: 1.3 }}>
                   {headerTitle}
                 </Typography>
                 {headerSubtitle && (
-                  <Typography sx={{ color: '#697386', fontSize: 10, lineHeight: 1.3 }}>
+                  <Typography noWrap sx={{ color: '#697386', fontSize: 10, lineHeight: 1.3 }}>
                     {headerSubtitle}
                   </Typography>
                 )}
@@ -690,8 +690,8 @@ export default function PortalLayout({
           </Box>
 
           {/* Right Controls */}
-          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            {headerTitle && searchField}
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexShrink: 0, pl: 1 }}>
+            {headerTitle && <Box sx={{ display: { xs: 'none', sm: 'block' } }}>{searchField}</Box>}
             {/* Notifications: số chưa đọc realtime + danh sách thông báo */}
             <NotificationMenu />
 
@@ -700,6 +700,7 @@ export default function PortalLayout({
                 label={currentRole}
                 size="small"
                 sx={{
+                  display: { xs: 'none', sm: 'inline-flex' },
                   bgcolor: '#eff6ff',
                   color: '#0058be',
                   fontWeight: 700,

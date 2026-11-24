@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
-import { Alert, Box, Button, Card, CardContent, Chip, Snackbar, Tab, Table, TableBody, TableCell, TableHead, TableRow, Tabs, Typography } from '@mui/material'
+import { Alert, Box, Button, Card, CardContent, Chip, Snackbar, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tabs, Typography } from '@mui/material'
 import { ArrowBack as BackIcon, FactCheck as AuditIcon } from '@mui/icons-material'
 import PortalLayout from '../../components/layout/PortalLayout'
 import { useAuth } from '../../context/AuthContext'
@@ -131,49 +131,51 @@ export default function CabinetDetail() {
             {tab === 'overview' && (
             <CardContent>
               <Typography sx={{ mb: 1.5, fontWeight: 800 }}>Hàng trong tủ ({contents.length} loại linh kiện)</Typography>
-              <Table size="small">
-                <TableHead>
-                  <TableRow sx={{ bgcolor: '#faf9ff' }}>
-                    <TableCell sx={{ fontWeight: 700 }}>Linh kiện</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Mã</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Tồn trong tủ</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Khả dụng</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Loại quản lý</TableCell>
-                  </TableRow>
-                </TableHead>
-                <TableBody>
-                  {contents.map((item, index) => {
-                    const totalQty = item.totalQuantity ?? item.quantity ?? 0
-                    const availQty = item.availableQuantity ?? totalQty
-                    return (
-                      <TableRow key={item.componentId || item.stockId || index} hover>
-                        <TableCell sx={{ fontWeight: 600 }}>{item.componentName || item.name || '—'}</TableCell>
-                        <TableCell>{item.componentCode || '—'}</TableCell>
-                        <TableCell>
-                          <strong>{totalQty}</strong> {item.unit || ''}
-                        </TableCell>
-                        <TableCell>
-                          <Chip
-                            size="small"
-                            label={`${availQty} khả dụng`}
-                            color={availQty > 0 ? 'success' : 'default'}
-                            variant="outlined"
-                            sx={{ height: 22, fontSize: 11 }}
-                          />
-                        </TableCell>
-                        <TableCell><TrackingTypeBadge type={item.trackingType} /></TableCell>
-                      </TableRow>
-                    )
-                  })}
-                  {contents.length === 0 && (
-                    <TableRow>
-                      <TableCell colSpan={5} align="center" sx={{ py: 3, color: '#6b7280' }}>
-                        Tủ hiện chưa có hàng.
-                      </TableCell>
+              <TableContainer>
+                <Table size="small">
+                  <TableHead>
+                    <TableRow sx={{ bgcolor: '#faf9ff' }}>
+                      <TableCell sx={{ fontWeight: 700 }}>Linh kiện</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Mã</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Tồn trong tủ</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Khả dụng</TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>Loại quản lý</TableCell>
                     </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                  </TableHead>
+                  <TableBody>
+                    {contents.map((item, index) => {
+                      const totalQty = item.totalQuantity ?? item.quantity ?? 0
+                      const availQty = item.availableQuantity ?? totalQty
+                      return (
+                        <TableRow key={item.componentId || item.stockId || index} hover>
+                          <TableCell sx={{ fontWeight: 600 }}>{item.componentName || item.name || '—'}</TableCell>
+                          <TableCell>{item.componentCode || '—'}</TableCell>
+                          <TableCell>
+                            <strong>{totalQty}</strong> {item.unit || ''}
+                          </TableCell>
+                          <TableCell>
+                            <Chip
+                              size="small"
+                              label={`${availQty} khả dụng`}
+                              color={availQty > 0 ? 'success' : 'default'}
+                              variant="outlined"
+                              sx={{ height: 22, fontSize: 11 }}
+                            />
+                          </TableCell>
+                          <TableCell><TrackingTypeBadge type={item.trackingType} /></TableCell>
+                        </TableRow>
+                      )
+                    })}
+                    {contents.length === 0 && (
+                      <TableRow>
+                        <TableCell colSpan={5} align="center" sx={{ py: 3, color: '#6b7280' }}>
+                          Tủ hiện chưa có hàng.
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </TableContainer>
             </CardContent>
             )}
           </Card>
