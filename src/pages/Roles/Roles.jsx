@@ -25,9 +25,6 @@ import {
 import PortalLayout from '../../components/layout/PortalLayout'
 import { rolePermissionService } from '../../services/rolePermissionService'
 
-// Các quyền ép hiển thị tắt cố định trên UI khi xem vai trò Admin (không gọi API thay đổi backend)
-const ADMIN_FORCE_DISABLED_PERMISSIONS = ['ISSUE_RESOLVE']
-
 // Màu nhận diện cho các vai trò
 const ROLE_COLORS = {
   Admin: '#0058be',
@@ -176,17 +173,12 @@ export default function Roles() {
   }, [filteredPermissions])
 
   const selectedRole = roles.find((r) => r.roleId === selectedRoleId) || roleDetail
-  const isAdminRole = selectedRole?.roleName === 'Admin'
 
-  // Tập hợp mã quyền đã gán cho role hiện tại (ép tắt một số quyền trên UI đối với Admin)
+  // Tập hợp mã quyền đã gán cho role hiện tại, đúng như backend trả về
   const assignedCodes = useMemo(() => {
     if (!roleDetail || !roleDetail.permissions) return new Set()
-    const codes = new Set(roleDetail.permissions.map((p) => p.permissionCode))
-    if (isAdminRole) {
-      ADMIN_FORCE_DISABLED_PERMISSIONS.forEach((code) => codes.delete(code))
-    }
-    return codes
-  }, [roleDetail, isAdminRole])
+    return new Set(roleDetail.permissions.map((p) => p.permissionCode))
+  }, [roleDetail])
 
   const activeColor = selectedRole ? ROLE_COLORS[selectedRole.roleName] || '#0058be' : '#0058be'
 
@@ -231,10 +223,7 @@ export default function Roles() {
                     const isSelected = role.roleId === selectedRoleId
                     const color = ROLE_COLORS[role.roleName] || '#0058be'
                     const rawCount = role.permissionCount ?? (role.permissions ? role.permissions.length : 0)
-                    const displayCount =
-                      role.roleName === 'Admin'
-                        ? Math.max(0, rawCount - ADMIN_FORCE_DISABLED_PERMISSIONS.length)
-                        : rawCount
+                    const displayCount = rawCount
 
                     return (
                       <Paper

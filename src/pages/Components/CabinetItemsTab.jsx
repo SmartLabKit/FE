@@ -22,15 +22,12 @@ import {
 } from '@mui/material'
 import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
+import { useAuth } from '../../context/AuthContext'
+import CreateIssueReportDialog from '../IssueReports/CreateIssueReportDialog'
 import { cabinetLabel, formatDate, itemStatusOf, rowsOf, toDateInput } from './inventoryLabels'
 
 const PAGE_SIZE = 20
 const headCellSx = { fontWeight: 700, color: '#334155' }
-
-const RETIRE_OPTIONS = [
-  { value: 'Lost', label: 'Báo thất lạc (vẫn lưu trong hệ thống, có thể khôi phục khi tìm lại)' },
-  { value: 'Retired', label: 'Thanh lý (loại vĩnh viễn khỏi kho)' },
-]
 
 function EditItemDialog({ itemId, onClose, onSaved }) {
   const [form, setForm] = useState(null)
@@ -167,7 +164,6 @@ function MoveItemDialog({ item, cabinets, onClose, onSaved }) {
 }
 
 function RetireItemDialog({ item, onClose, onSaved }) {
-  const [status, setStatus] = useState('Lost')
   const [reason, setReason] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
@@ -176,12 +172,12 @@ function RetireItemDialog({ item, onClose, onSaved }) {
     setSaving(true)
     setError('')
     try {
-      const result = await inventoryService.retireComponentItem(item.itemId, { status, reason: reason.trim() })
+      const result = await inventoryService.retireComponentItem(item.itemId, { status: 'Retired', reason: reason.trim() })
       const shortages = result?.reservationShortages || []
       onSaved(
         shortages.length
           ? `Đã ghi nhận. Lưu ý: lab đang thiếu hàng cho các đơn ${shortages.flatMap((line) => line.requestCodes || []).join(', ')}.`
-          : `Đã ghi nhận ${status === 'Lost' ? 'mất' : 'thanh lý'} ${item.itemCode}.`,
+          : `Đã thanh lý ${item.itemCode}.`,
         shortages.length ? 'warning' : 'success',
       )
     } catch (saveError) {
@@ -193,17 +189,15 @@ function RetireItemDialog({ item, onClose, onSaved }) {
 
   return (
     <Dialog open onClose={() => !saving && onClose()} fullWidth maxWidth="sm">
-      <DialogTitle sx={{ fontWeight: 800 }}>Báo mất / thanh lý · {item.itemCode}</DialogTitle>
+      <DialogTitle sx={{ fontWeight: 800 }}>Thanh lý · {item.itemCode}</DialogTitle>
       <DialogContent>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <Stack spacing={2} sx={{ pt: 1 }}>
-          <TextField select label="Loại" value={status} onChange={(event) => setStatus(event.target.value)} fullWidth>
-            {RETIRE_OPTIONS.map((option) => <MenuItem key={option.value} value={option.value}>{option.label}</MenuItem>)}
-          </TextField>
+          <Alert severity="info">
+            Dùng cho thiết bị cũ, hết hạn dùng hoặc nhập nhầm. Thiết bị hỏng, cháy hoặc mất thì dùng &quot;Báo hỏng / mất&quot; để có ảnh và báo cáo sự cố.
+          </Alert>
           <TextField label="Lý do (bắt buộc)" value={reason} onChange={(event) => setReason(event.target.value)} multiline minRows={2} required fullWidth />
-          {status === 'Retired' && (
-            <Alert severity="warning">Thiết bị thanh lý sẽ ra khỏi hệ thống, muốn dùng lại phải nhập phiếu mới.</Alert>
-          )}
+          <Alert severity="warning">Thiết bị thanh lý sẽ ra khỏi hệ thống, muốn dùng lại phải nhập phiếu mới.</Alert>
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
@@ -218,11 +212,14 @@ function RetireItemDialog({ item, onClose, onSaved }) {
 
 /**
  * Tab "Từng thiết bị" của trang Chi tiết tủ: các thiết bị quản lý theo từng chiếc (REUSABLE / HIGH_VALUE) trong tủ.
- * - canManage (COMPONENT_MANAGE): sửa thông tin, báo mất / thanh lý.
+ * - canManage (COMPONENT_MANAGE): sửa thông tin, thanh lý thiết bị cũ.
+ * - Thiết bị hỏng / cháy / mất đi qua báo cáo sự cố: LabStaff ghi nhận là xong, InventoryManager báo rồi chờ lab kiểm tra.
  * - canMove (COMPONENT_MANAGE hoặc BORROW_ISSUE): chuyển tủ; LabStaff chỉ chuyển trong cùng lab (BE kiểm tra).
  * - Thiết bị bị mất (Lost) tìm lại được thì dùng "Đưa về kho" để chuyển về trạng thái Sẵn sàng.
  */
 export default function CabinetItemsTab({ cabinet, cabinets, canManage, canMove, onChanged, showToast }) {
+  const { hasRole } = useAuth()
+  const canReport = hasRole('LabStaff') || hasRole('InventoryManager')
   const [status, setStatus] = useState('')
   const [page, setPage] = useState(1)
   const [result, setResult] = useState(null)
@@ -333,9 +330,14 @@ export default function CabinetItemsTab({ cabinet, cabinets, canManage, canMove,
                     {canManage && item.status === 'Lost' && (
                       <Button size="small" onClick={() => restoreLostItem(item)} sx={{ textTransform: 'none' }}>Đưa về kho</Button>
                     )}
+                    {canReport && item.status === 'Available' && (
+                      <Button size="small" color="warning" onClick={() => setDialog({ type: 'issue', item })} sx={{ textTransform: 'none' }}>
+                        Báo hỏng / mất
+                      </Button>
+                    )}
                     {canManage && item.status === 'Available' && (
                       <Button size="small" color="error" onClick={() => setDialog({ type: 'retire', item })} sx={{ textTransform: 'none' }}>
-                        Báo mất / thanh lý
+                        Thanh lý
                       </Button>
                     )}
                   </TableCell>
@@ -362,6 +364,16 @@ export default function CabinetItemsTab({ cabinet, cabinets, canManage, canMove,
 
       {dialog?.type === 'edit' && <EditItemDialog itemId={dialog.item.itemId} onClose={() => setDialog(null)} onSaved={handleSaved} />}
       {dialog?.type === 'move' && <MoveItemDialog item={dialog.item} cabinets={cabinets} onClose={() => setDialog(null)} onSaved={handleSaved} />}
+      {dialog?.type === 'issue' && (
+        <CreateIssueReportDialog
+          initialCode={dialog.item.itemCode}
+          onClose={() => setDialog(null)}
+          onCreated={() => {
+            setReloadKey((key) => key + 1)
+            onChanged()
+          }}
+        />
+      )}
       {dialog?.type === 'retire' && <RetireItemDialog item={dialog.item} onClose={() => setDialog(null)} onSaved={handleSaved} />}
     </>
   )
