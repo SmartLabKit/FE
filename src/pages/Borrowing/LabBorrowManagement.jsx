@@ -45,6 +45,7 @@ import { formatVietnamDate, formatVietnamDateTime } from '../../utils/dateFormat
 import { getApprovalStatusMeta, getBorrowRequestStatusMeta } from './borrowHelpers'
 import { labCode, labLabel, labName } from '../../utils/labLabel'
 import LabReturnSlips from './LabReturnSlips'
+import PickupDateDialog from './PickupDateDialog'
 
 const PAGE_SIZE = 20
 
@@ -249,6 +250,7 @@ export default function LabBorrowManagement() {
   const [actionError, setActionError] = useState('')
   const [actionLoading, setActionLoading] = useState('')
   const [issueRequest, setIssueRequest] = useState(null)
+  const [pickupRequest, setPickupRequest] = useState(null)
   const [returnRequest, setReturnRequest] = useState(null)
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
   const [cardLoading, setCardLoading] = useState(false)
@@ -374,12 +376,17 @@ export default function LabBorrowManagement() {
     }
   }
 
-  const acceptRequest = async () => {
-    await runAction(
-      'accept',
-      () => borrowService.labAcceptBorrowRequest(selectedRequestId),
-      'Chấp nhận đơn thất bại.',
-    )
+  // Xác nhận sẵn sàng (chọn ngày hẹn) hoặc đổi ngày hẹn; trả về lỗi để hộp thoại hiện
+  const savePickupDate = async (date) => {
+    try {
+      if (pickupRequest.status === 'Ready') await borrowService.changePickupDate(pickupRequest.borrowRequestId, date)
+      else await borrowService.labAcceptBorrowRequest(pickupRequest.borrowRequestId, date)
+    } catch (pickupError) {
+      return pickupError.message
+    }
+    setPickupRequest(null)
+    await reloadData()
+    return ''
   }
 
   const issueBorrow = async (payload) => {
@@ -727,9 +734,11 @@ export default function LabBorrowManagement() {
                     <Typography fontWeight={600}>{formatVietnamDate(requestDetail.requestDate)}</Typography>
                   </Grid>
                   <Grid size={{ xs: 12, sm: 3 }}>
-                    <Typography variant="caption" color="text.secondary">Ngày nhận đồ</Typography>
+                    <Typography variant="caption" color="text.secondary">Ngày hẹn nhận</Typography>
                     <Typography fontWeight={600}>
-                      {requestDetail.borrowDate ? formatVietnamDate(requestDetail.borrowDate) : '—'}
+                      {requestDetail.borrowDate && !['Pending', 'Approved'].includes(requestDetail.status)
+                        ? formatVietnamDate(requestDetail.borrowDate)
+                        : '—'}
                     </Typography>
                   </Grid>
                   <Grid size={{ xs: 12, sm: 3 }}>
@@ -885,9 +894,14 @@ export default function LabBorrowManagement() {
                     <Button
                       variant="contained"
                       disabled={Boolean(actionLoading)}
-                      onClick={acceptRequest}
+                      onClick={() => setPickupRequest(requestDetail)}
                     >
                       Xác nhận sẵn sàng
+                    </Button>
+                  )}
+                  {requestDetail.status === 'Ready' && (
+                    <Button variant="outlined" disabled={Boolean(actionLoading)} onClick={() => setPickupRequest(requestDetail)}>
+                      Đổi ngày hẹn
                     </Button>
                   )}
                   {requestDetail.status === 'Ready' && (
@@ -920,6 +934,10 @@ export default function LabBorrowManagement() {
           </Paper>
         )}
       </Container>
+
+      {pickupRequest && (
+        <PickupDateDialog request={pickupRequest} onClose={() => setPickupRequest(null)} onSave={savePickupDate} />
+      )}
 
       <IssueBorrowModal
         key={issueRequest?.borrowRequestId || 'issue-modal'}

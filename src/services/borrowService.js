@@ -389,15 +389,28 @@ export const borrowService = {
   // ===================== 3. BÀN GIAO & ẢNH AI (ISSUE, PHOTOS) =====================
 
   /**
-   * Lab nhận xác nhận đã đủ điều kiện giao đơn cho sinh viên
+   * Lab nhận xác nhận đã đủ đồ và hẹn ngày sinh viên đến nhận (yyyy-mm-dd)
    * POST /api/borrow-requests/{id}/lab-accept
    */
-  async labAcceptBorrowRequest(id) {
+  async labAcceptBorrowRequest(id, pickupDate) {
     try {
-      const response = await api.post(`/api/borrow-requests/${id}/lab-accept`, {})
+      const response = await api.post(`/api/borrow-requests/${id}/lab-accept`, { pickupDate })
       return response.data?.data || response.data
     } catch (error) {
       throw new Error(extractErrorMessage(error, 'Chấp nhận đơn mượn thất bại'), { cause: error })
+    }
+  },
+
+  /**
+   * Lab đổi ngày hẹn nhận khi đơn chưa giao
+   * PUT /api/borrow-requests/{id}/pickup-date
+   */
+  async changePickupDate(id, pickupDate) {
+    try {
+      const response = await api.put(`/api/borrow-requests/${id}/pickup-date`, { pickupDate })
+      return response.data?.data || response.data
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Đổi ngày hẹn nhận thất bại'), { cause: error })
     }
   },
 

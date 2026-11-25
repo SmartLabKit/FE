@@ -132,8 +132,13 @@ export default function BorrowRequestDetail() {
               <Typography sx={{ fontSize: 14, color: COLORS.grey }}>
                 {[request.projectTitle, labLabel(request)].filter(Boolean).join(' · ')}
               </Typography>
-              {request.dueDate && (
+              {request.status === 'Ready' && request.borrowDate && (
                 <Typography sx={{ mt: 1.5 }}>
+                  Đến nhận ngày <b>{formatVietnamDate(request.borrowDate)}</b>, nhớ mang thẻ sinh viên
+                </Typography>
+              )}
+              {request.dueDate && (
+                <Typography sx={{ mt: request.status === 'Ready' ? 0.5 : 1.5 }}>
                   Hạn trả <b>{formatVietnamDate(request.dueDate)}</b>
                   {borrowed && <span style={{ color: due.color }}> ({due.text})</span>}
                 </Typography>
@@ -197,7 +202,7 @@ export default function BorrowRequestDetail() {
               <Typography sx={{ mt: 3, fontSize: 13, color: COLORS.grey, lineHeight: 1.7 }}>
                 {request.requesterName} ({request.studentCode}) · {request.classCode}
                 <br />
-                Gửi {formatVietnamDateTime(request.requestDate)} · Mượn {formatVietnamDate(request.borrowDate)}
+                Gửi {formatVietnamDateTime(request.requestDate)}
                 <br />
                 {request.purpose}
               </Typography>
