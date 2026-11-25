@@ -9,7 +9,6 @@ import {
   Download as DownloadIcon,
   FilterList as FilterIcon,
   InfoOutlined as InfoIcon,
-  TableChart as ExcelIcon,
 } from '@mui/icons-material'
 import {
   Alert,
@@ -57,6 +56,7 @@ import {
   normalizeSearchText,
 } from './componentHelpers'
 import DeclareComponentDialog from './DeclareComponentDialog'
+import { INVOICE_ACCEPT, invoiceFileError } from './invoiceFile'
 import { findReceiptComponent, hasDifferentName } from './receiptCheck'
 import { labLabel } from '../../utils/labLabel'
 
@@ -128,6 +128,8 @@ export default function StockInwards() {
   const [receivedAt, setReceivedAt] = useState(() => getVietnamDateInputValue())
   const [invoiceDate, setInvoiceDate] = useState('')
   const [note, setNote] = useState('')
+  const [invoiceFile, setInvoiceFile] = useState(null)
+  const [invoiceError, setInvoiceError] = useState('')
   const [lines, setLines] = useState([newLine()])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
@@ -293,6 +295,15 @@ export default function StockInwards() {
       active = false
     }
   }, [editId])
+
+  const chooseInvoice = (event) => {
+    const file = event.target.files?.[0]
+    event.target.value = ''
+    if (!file) return
+    const invalid = invoiceFileError(file)
+    setInvoiceError(invalid)
+    if (!invalid) setInvoiceFile(file)
+  }
 
   const updateLine = (key, patch) =>
     setLines((current) =>
@@ -647,7 +658,16 @@ export default function StockInwards() {
       const receipt = await inventoryService.createStockReceipt(payload)
       const id = receipt?.receiptId || receipt?.id
       if (!id) throw new Error('Phiếu đã gửi nhưng API không trả receiptId.')
-      navigate(`/class-setup/admin/stock-receipts/${id}`)
+      // Phiếu đã lưu: tải tệp hóa đơn lỗi thì vẫn sang chi tiết phiếu, ở đó báo lỗi để tải lại
+      let uploadMessage = ''
+      if (invoiceFile) {
+        try {
+          await inventoryService.uploadReceiptInvoice(id, invoiceFile)
+        } catch (uploadError) {
+          uploadMessage = extractErrorMessage(uploadError, 'Không thể tải lên hóa đơn.')
+        }
+      }
+      navigate(`/class-setup/admin/stock-receipts/${id}`, { state: { invoiceError: uploadMessage } })
     } catch (saveError) {
       setError(extractErrorMessage(saveError, 'Không thể lưu phiếu nhập.'))
     } finally {
@@ -679,7 +699,7 @@ export default function StockInwards() {
       }
     >
       <Box sx={{ maxWidth: 1440, mx: 'auto' }}>
-        <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
+        <Box sx={{ mb: 2 }}>
           <Button
             startIcon={<BackIcon />}
             onClick={() =>
@@ -689,27 +709,6 @@ export default function StockInwards() {
           >
             {editId ? 'Chi tiết phiếu nhập' : 'Danh sách phiếu nhập'}
           </Button>
-          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
-            {!editId && (
-              <Button
-                variant="outlined"
-                startIcon={<ExcelIcon />}
-                onClick={() => navigate('/class-setup/admin/components/import')}
-                sx={{
-                  textTransform: 'none',
-                  fontWeight: 700,
-                  borderColor: '#16a34a',
-                  color: '#15803d',
-                  '&:hover': { bgcolor: '#f0fdf4', borderColor: '#15803d' },
-                }}
-              >
-                Khai báo linh kiện mới từ Excel
-              </Button>
-            )}
-            <Button onClick={() => navigate('/class-setup/admin/components')} sx={{ textTransform: 'none', fontWeight: 600 }}>
-              Danh sách linh kiện
-            </Button>
-          </Box>
         </Box>
 
         <Card
@@ -855,6 +854,32 @@ export default function StockInwards() {
                   }}
                 />
               </Grid>
+              {!editId && (
+                <Grid size={{ xs: 12, md: 6 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, minHeight: 56 }}>
+                    <Button
+                      component="label"
+                      variant="outlined"
+                      startIcon={<UploadIcon />}
+                      sx={{ textTransform: 'none', fontWeight: 700, flexShrink: 0 }}
+                    >
+                      {invoiceFile ? 'Đổi tệp hóa đơn' : 'Ảnh / PDF hóa đơn NCC'}
+                      <input hidden type="file" accept={INVOICE_ACCEPT} onChange={chooseInvoice} />
+                    </Button>
+                    {invoiceFile && (
+                      <Chip
+                        label={invoiceFile.name}
+                        title={invoiceFile.name}
+                        onDelete={() => setInvoiceFile(null)}
+                        sx={{ minWidth: 0 }}
+                      />
+                    )}
+                  </Box>
+                  <Typography sx={{ mt: 0.5, ml: 1.75, fontSize: 12, color: invoiceError ? 'error.main' : 'text.secondary' }}>
+                    {invoiceError || 'Không bắt buộc. JPG, PNG, WEBP hoặc PDF, tối đa 10 MB; tải lên khi lưu phiếu.'}
+                  </Typography>
+                </Grid>
+              )}
               <Grid size={{ xs: 12 }}>
                 <TextField
                   fullWidth
