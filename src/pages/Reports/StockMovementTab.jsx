@@ -5,6 +5,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useReport } from '../../hooks/useReport'
 import { inventoryService } from '../../services/inventoryService'
 import { reportService } from '../../services/reportService'
+import { getDisplayCode } from '../Components/componentHelpers'
 import { formatNumber, movementLabel } from './reportFormat'
 import { ReportSection, ReportTable, StatTile } from './reportUi'
 
@@ -53,8 +54,8 @@ export default function StockMovementTab({ filters }) {
   return (
     <ReportSection
       title={data?.componentName || component?.componentName || 'Thẻ kho'}
-      subtitle={data?.componentCode || component?.componentCode
-        ? `${data?.componentCode || component?.componentCode} · tối đa 366 ngày`
+      subtitle={data?.componentCode || component
+        ? `${data?.componentCode || getDisplayCode(component)} · tối đa 366 ngày`
         : 'Tối đa 366 ngày, mặc định 30 ngày gần nhất'}
       loading={movements.loading}
       error={movements.error}
@@ -65,7 +66,7 @@ export default function StockMovementTab({ filters }) {
             options={components}
             value={component}
             onChange={(_, value) => selectComponent(value)}
-            getOptionLabel={(option) => `${option.componentCode} · ${option.componentName}`}
+            getOptionLabel={(option) => `${getDisplayCode(option)} · ${option.componentName}`}
             isOptionEqualToValue={(option, value) => option.componentId === value.componentId}
             renderInput={(params) => <TextField {...params} label="Chọn linh kiện" />}
             sx={{ minWidth: { xs: '100%', sm: 320 } }}

@@ -34,6 +34,7 @@ import { extractErrorMessage } from '../../services/api'
 import {
   getComponentImage,
   getComponentShortCode,
+  getDisplayCode,
   normalizeSearchText,
 } from './componentHelpers'
 
@@ -319,8 +320,7 @@ export default function ComponentCatalog() {
                       <TableCell>
                         <Typography sx={{ fontWeight: 700, fontSize: 13.5, color: '#1e293b' }}>{component.componentName}</Typography>
                         <Typography sx={{ fontSize: 12, color: '#64748b' }}>
-                          {component.componentCode}
-                          {getComponentShortCode(component) ? ` · ${getComponentShortCode(component)}` : ''}
+                          {getDisplayCode(component)}
                         </Typography>
                       </TableCell>
                       <TableCell sx={{ fontSize: 13, color: '#475569' }}>{component.categoryName || '—'}</TableCell>

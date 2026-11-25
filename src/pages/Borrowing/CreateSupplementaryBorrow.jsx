@@ -41,6 +41,7 @@ import PortalLayout from '../../components/layout/PortalLayout'
 import { borrowService } from '../../services/borrowService'
 import { projectService } from '../../services/projectService'
 import { useAuth } from '../../context/AuthContext'
+import { getDisplayCode } from '../Components/componentHelpers'
 import { formatVietnamDate } from '../../utils/dateFormatting'
 
 const REASON_MAX_LENGTH = 250
@@ -223,7 +224,7 @@ export default function CreateSupplementaryBorrow() {
       ...prev,
       {
         componentId: comp.componentId,
-        componentCode: comp.componentCode,
+        componentCode: getDisplayCode(comp),
         componentName: comp.componentName,
         unit: comp.unit || 'cái',
         trackingType: comp.trackingType,
@@ -647,7 +648,7 @@ export default function CreateSupplementaryBorrow() {
                               {comp.componentName}
                             </Typography>
                             <Typography variant="caption" sx={{ color: '#81899a', fontSize: 11 }}>
-                              {comp.componentCode}
+                              {getDisplayCode(comp)}
                               {comp.trackingType ? ` · ${comp.trackingType}` : ''}
                             </Typography>
                           </Box>

@@ -163,14 +163,14 @@ export default function DeclareComponentDialog({ row, categories, onClose, onDec
       <DialogContent dividers>
         {created ? (
           <Alert severity="warning">
-            Đã khai báo {created.componentCode} – {created.componentName}, nhưng chưa lưu được: {extraErrors.join('; ')}. Bạn bổ
+            Đã khai báo {created.componentName}, nhưng chưa lưu được: {extraErrors.join('; ')}. Bạn bổ
             sung sau ở trang sửa linh kiện.
           </Alert>
         ) : (
           <Box sx={{ display: 'grid', gap: 2 }}>
             <Alert severity="info">
-              Dòng #{row.rowNumber} trong file{row.componentCode ? ` (mã "${row.componentCode}")` : ''} chưa có trong hệ thống. Hệ
-              thống tự cấp mã LK-xxxx. Chỉ ô có dấu * là bắt buộc.
+              Dòng #{row.rowNumber} trong file{row.componentCode ? ` (mã "${row.componentCode}")` : ''} chưa có trong hệ
+              thống. Chỉ ô có dấu * là bắt buộc.
             </Alert>
             <Box sx={TWO_COLUMNS}>
               {field('componentName', 'Tên linh kiện', { required: true, slotProps: { htmlInput: { maxLength: 150 } } })}

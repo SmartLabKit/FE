@@ -38,6 +38,7 @@ import { extractErrorMessage } from '../../services/api'
 import { downloadComponentsTemplate, parseComponentsExcel } from '../../utils/excelHelper'
 import {
   findDuplicateSpecKeys,
+  getDisplayCode,
   generateComponentShortCode,
   normalizeSearchText,
   parseSpecsText,
@@ -67,7 +68,7 @@ function getDuplicateMessages(rows, existingByName) {
 
     const existing = existingByName.get(name)
     if (existing) {
-      messages.set(row.key, `Đã có trong hệ thống (${existing.componentCode || existing.componentName})`)
+      messages.set(row.key, `Đã có trong hệ thống (${getDisplayCode(existing) || existing.componentName})`)
       continue
     }
 
@@ -277,7 +278,7 @@ export default function ComponentExcelImport() {
       try {
         const saved = await inventoryService.createComponent(payload)
         const id = saved?.componentId || ''
-        const apiCode = saved?.componentCode || ''
+        const apiCode = getDisplayCode(saved)
 
         const tutorialsToSave = []
         if (row.youtubeUrl?.trim()) {

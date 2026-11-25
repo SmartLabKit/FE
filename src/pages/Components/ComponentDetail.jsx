@@ -37,7 +37,7 @@ import {
   classifyTutorialType,
   getComponentImages,
   getComponentLatestPrice,
-  getComponentShortCode,
+  getDisplayCode,
   getDatasheetInfo,
   getLabStocksForComponent,
 } from './componentHelpers'
@@ -199,7 +199,6 @@ export default function ComponentDetail() {
   const availableQty = Number(component?.availableQuantity ?? component?.stock ?? 0)
   const unit = component?.unit || 'cái'
   const datasheet = getDatasheetInfo(component)
-  const shortCode = getComponentShortCode(component)
   const refPrice = getComponentLatestPrice(component)
 
   return (
@@ -337,8 +336,7 @@ export default function ComponentDetail() {
               mb: 1.5,
             }}
           >
-            {component?.componentCode}
-            {shortCode && shortCode !== component?.componentCode ? ` (${shortCode})` : ''} · {component?.categoryName || 'Linh kiện'}
+            {getDisplayCode(component)} · {component?.categoryName || 'Linh kiện'}
           </Typography>
 
           {/* Badge tồn kho & giá nhập gần nhất */}
