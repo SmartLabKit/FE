@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { Fragment, useEffect, useMemo, useState } from 'react'
 import {
   Add as AddIcon,
   ArrowBack as BackIcon,
@@ -60,14 +60,13 @@ import { labLabel } from '../../utils/labLabel'
 
 const MAX_DROPDOWN_OPTIONS = 50
 
-// Bảng dòng hàng: cột có bề rộng cố định để vừa màn hình, cột nào không ghi width thì chia phần còn lại
+// Bảng dòng hàng: chia bề rộng theo phần trăm để vừa mọi màn hình; serial, version, bảo hành nằm ở dòng dưới
 const LINE_COLUMNS = [
-  { head: 'Linh kiện' },
-  { head: 'Số lượng', width: 88 },
-  { head: 'Đơn giá (VNĐ)', width: 138 },
-  { head: 'Thành tiền', width: 104 },
-  { head: 'Tủ cất', width: 142 },
-  { head: 'Serial / Version / Bảo hành', width: 236 },
+  { head: 'Linh kiện', width: '28%' },
+  { head: 'Số lượng', width: '12%' },
+  { head: 'Đơn giá (VNĐ)', width: '18%' },
+  { head: 'Thành tiền', width: '15%' },
+  { head: 'Tủ cất', width: '21%' },
 ]
 // Nút xóa dòng luôn ghim bên phải, kể cả khi màn hình nhỏ phải cuộn ngang
 const DELETE_CELL = { position: 'sticky', right: 0, zIndex: 1, width: 48, px: 0.5, textAlign: 'center' }
@@ -976,7 +975,7 @@ export default function StockInwards() {
                     size="small"
                     sx={{
                       tableLayout: 'fixed',
-                      minWidth: 940,
+                      minWidth: 680,
                       '& .MuiTableCell-root': { px: 0.75 },
                       '& .MuiInputBase-input': { fontSize: 14 },
                       '& .MuiOutlinedInput-input:not([type="date"], textarea)': { pl: 1.25 },
@@ -1014,7 +1013,8 @@ export default function StockInwards() {
                             : filteredComponentsByCategory
 
                         return (
-                          <TableRow key={line.key} sx={{ verticalAlign: 'top' }}>
+                          <Fragment key={line.key}>
+                          <TableRow sx={{ verticalAlign: 'top', '& > td:not(:last-of-type)': isHighValue ? { borderBottom: 0 } : {} }}>
                             <TableCell>
                               <Autocomplete
                                 size="small"
@@ -1049,7 +1049,7 @@ export default function StockInwards() {
                                   <TextField
                                     {...params}
                                     required
-                                    label="Tìm & chọn linh kiện"
+                                    label="Linh kiện"
                                     placeholder="Gõ tên hoặc mã viết tắt..."
                                     title={component?.componentName}
                                     error={Boolean(line.importError)}
@@ -1090,7 +1090,7 @@ export default function StockInwards() {
                                 type="number"
                                 size="small"
                                 fullWidth
-                                label={line.isGift ? 'Đơn giá (Cho tặng)' : 'Đơn giá (VNĐ)'}
+                                label="Đơn giá"
                                 placeholder="VD: 115000"
                                 value={line.isGift ? '0' : line.unitPrice}
                                 error={showPriceError}
@@ -1153,60 +1153,7 @@ export default function StockInwards() {
                                 ))}
                               </TextField>
                             </TableCell>
-                            <TableCell>
-                              {isHighValue ? (
-                                <Box sx={{ display: 'grid', gap: 1 }}>
-                                  <TextField
-                                    required
-                                    size="small"
-                                    label={
-                                      Number(line.quantity) > 1
-                                        ? `Serial (${line.quantity} máy, mỗi dòng 1 serial) *`
-                                        : 'Số Serial *'
-                                    }
-                                    placeholder={
-                                      Number(line.quantity) > 1
-                                        ? 'RIGOL-DS1054Z-001\nRIGOL-DS1054Z-002'
-                                        : 'VD: RIGOL-DS1054Z-001'
-                                    }
-                                    multiline={Number(line.quantity) > 1}
-                                    minRows={Number(line.quantity) > 1 ? 2 : 1}
-                                    value={line.serialsText}
-                                    onChange={(event) => updateLine(line.key, { serialsText: event.target.value })}
-                                  />
-                                  <Box sx={{ display: 'grid', gridTemplateColumns: '84px 1fr', gap: 0.5 }}>
-                                    <TextField
-                                      required
-                                      size="small"
-                                      label="Version"
-                                      value={line.version}
-                                      onChange={(event) => updateLine(line.key, { version: event.target.value })}
-                                    />
-                                    <TextField
-                                      required
-                                      type="date"
-                                      size="small"
-                                      label="Bảo hành đến"
-                                      value={line.warrantyExpiresAt}
-                                      error={warrantyInvalid}
-                                      helperText={warrantyInvalid ? 'Phải ≥ ngày nhập' : ''}
-                                      onChange={(event) =>
-                                        updateLine(line.key, { warrantyExpiresAt: event.target.value })
-                                      }
-                                      slotProps={{
-                                        inputLabel: { shrink: true },
-                                        htmlInput: { min: receivedAt || undefined },
-                                      }}
-                                    />
-                                  </Box>
-                                </Box>
-                              ) : (
-                                <Typography sx={{ pt: 1, fontSize: 12, color: 'text.secondary' }}>
-                                  {component ? component.trackingType : 'Chọn linh kiện'}
-                                </Typography>
-                              )}
-                            </TableCell>
-                            <TableCell sx={{ ...DELETE_CELL, bgcolor: '#fff' }}>
+                            <TableCell rowSpan={isHighValue ? 2 : 1} sx={{ ...DELETE_CELL, bgcolor: '#fff' }}>
                               <Button
                                 aria-label="Xóa dòng"
                                 color="error"
@@ -1218,6 +1165,56 @@ export default function StockInwards() {
                               </Button>
                             </TableCell>
                           </TableRow>
+                          {isHighValue && (
+                            <TableRow>
+                              <TableCell colSpan={LINE_COLUMNS.length} sx={{ pt: 0.5 }}>
+                                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 96px 170px', gap: 1, alignItems: 'start' }}>
+                                  <TextField
+                                    required
+                                    size="small"
+                                    label={
+                                      Number(line.quantity) > 1
+                                        ? `Serial (${line.quantity} máy, mỗi dòng 1 serial)`
+                                        : 'Số Serial'
+                                    }
+                                    placeholder={
+                                      Number(line.quantity) > 1
+                                        ? 'RIGOL-DS1054Z-001\nRIGOL-DS1054Z-002'
+                                        : 'VD: RIGOL-DS1054Z-001'
+                                    }
+                                    multiline={Number(line.quantity) > 1}
+                                    minRows={Number(line.quantity) > 1 ? 2 : 1}
+                                    value={line.serialsText}
+                                    onChange={(event) => updateLine(line.key, { serialsText: event.target.value })}
+                                  />
+                                  <TextField
+                                    required
+                                    size="small"
+                                    label="Version"
+                                    value={line.version}
+                                    onChange={(event) => updateLine(line.key, { version: event.target.value })}
+                                  />
+                                  <TextField
+                                    required
+                                    type="date"
+                                    size="small"
+                                    label="Bảo hành đến"
+                                    value={line.warrantyExpiresAt}
+                                    error={warrantyInvalid}
+                                    helperText={warrantyInvalid ? 'Phải ≥ ngày nhập' : ''}
+                                    onChange={(event) =>
+                                      updateLine(line.key, { warrantyExpiresAt: event.target.value })
+                                    }
+                                    slotProps={{
+                                      inputLabel: { shrink: true },
+                                      htmlInput: { min: receivedAt || undefined },
+                                    }}
+                                  />
+                                </Box>
+                              </TableCell>
+                            </TableRow>
+                          )}
+                          </Fragment>
                         )
                       })}
                     </TableBody>
