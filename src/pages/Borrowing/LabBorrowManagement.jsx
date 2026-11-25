@@ -1,4 +1,5 @@
 import { useCallback, useRef, useState } from 'react'
+import { useLocation } from 'react-router-dom'
 import {
   Alert,
   Box,
@@ -43,6 +44,7 @@ import { extractErrorMessage } from '../../services/api'
 import { formatVietnamDate, formatVietnamDateTime } from '../../utils/dateFormatting'
 import { getApprovalStatusMeta, getBorrowRequestStatusMeta } from './borrowHelpers'
 import { labCode, labLabel, labName } from '../../utils/labLabel'
+import LabReturnSlips from './LabReturnSlips'
 
 const PAGE_SIZE = 20
 
@@ -229,7 +231,8 @@ export default function LabBorrowManagement() {
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
-  const [tab, setTab] = useState(0)
+  const location = useLocation()
+  const [tab, setTab] = useState(location.state?.tab ?? 0)
   const {
     requests,
     requestResult,
@@ -462,9 +465,12 @@ export default function LabBorrowManagement() {
             <Tab value={0} label="Đơn mượn" />
             <Tab value={2} label="Quầy giao đồ" />
             <Tab value={3} label="Quầy nhận trả" />
+            <Tab value={5} label="Phiếu trả" />
             <Tab value={4} label="Lịch sử đã trả" />
           </Tabs>
 
+          {tab === 5 ? <LabReturnSlips /> : (
+          <>
           {/* Thanh tìm kiếm & bộ lọc trạng thái đơn mượn */}
           <Box component="form" onSubmit={handleSearch} sx={{ p: 2 }}>
             <Grid container spacing={1.5} alignItems="center">
@@ -679,6 +685,8 @@ export default function LabBorrowManagement() {
             rowsPerPageOptions={[PAGE_SIZE]}
             labelDisplayedRows={({ from, to, count }) => `${from}–${to} / ${count}`}
           />
+          </>
+          )}
         </Paper>
 
         {(tab === 0 || tab === 2 || tab === 3 || tab === 4) && (

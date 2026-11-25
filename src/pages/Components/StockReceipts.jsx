@@ -349,7 +349,7 @@ export default function StockReceipts() {
           <Table size="small">
             <TableHead>
               <TableRow sx={{ bgcolor: '#faf9ff' }}>
-                {['Mã phiếu', 'Nhà cung cấp', 'Ngày nhập kho', 'Ngày hóa đơn', 'Tổng tiền', 'Trạng thái', 'Số dòng', ''].map((head) => (
+                {['Mã phiếu', 'Nhà cung cấp', 'Ngày nhập kho', 'Ngày xuất hóa đơn', 'Tổng tiền', 'Trạng thái', 'Số dòng', ''].map((head) => (
                   <TableCell key={head} sx={{ fontWeight: 600, color: '#334155' }}>
                     {head}
                   </TableCell>
