@@ -56,6 +56,7 @@ import {
   getComponentShortCode,
   normalizeSearchText,
 } from './componentHelpers'
+import DeclareComponentDialog from './DeclareComponentDialog'
 import { findReceiptComponent, hasDifferentName } from './receiptCheck'
 import { labLabel } from '../../utils/labLabel'
 
@@ -83,7 +84,22 @@ const newLine = () => ({
   version: '1.0',
   warrantyExpiresAt: getDefaultWarrantyDateVn(1),
   importError: '',
+  importRow: null,
 })
+
+const sameImportRow = (a, b) =>
+  normalizeSearchText(a.componentCode) === normalizeSearchText(b.componentCode) &&
+  normalizeSearchText(a.componentName) === normalizeSearchText(b.componentName)
+
+const missingMachineInfo = (row) => {
+  const warnings = []
+  if (!row.warrantyExpiresAt) warnings.push(`Dòng #${row.rowNumber}: thiếu ngày "Bảo hành đến" cho thiết bị giá trị cao`)
+  if (!row.version) warnings.push(`Dòng #${row.rowNumber}: thiếu Version cho thiết bị giá trị cao`)
+  return warnings
+}
+
+const notFoundWarning = (row) =>
+  `Dòng #${row.rowNumber}: không tìm thấy linh kiện "${row.componentCode || row.componentName}"`
 
 const lineArray = (receipt) => receipt?.items || receipt?.lines || receipt?.receiptLines || []
 const serialList = (value) => (Array.isArray(value) ? value : [])
@@ -116,6 +132,7 @@ export default function StockInwards() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [excelNotice, setExcelNotice] = useState(null)
+  const [declareRow, setDeclareRow] = useState(null)
   const [submitAttempted, setSubmitAttempted] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
 
@@ -362,9 +379,9 @@ export default function StockInwards() {
 
         const importError = matchedComp
           ? ''
-          : `Dòng #${row.rowNumber} trong file: không tìm thấy "${row.componentCode || row.componentName}", chọn lại linh kiện`
+          : `Dòng #${row.rowNumber} trong file: không tìm thấy "${row.componentCode || row.componentName}", chọn lại linh kiện hoặc khai báo mới`
         if (!matchedComp) {
-          unmatchedWarnings.push(`Dòng #${row.rowNumber}: không tìm thấy linh kiện "${row.componentCode || row.componentName}"`)
+          unmatchedWarnings.push(notFoundWarning(row))
         } else if (hasDifferentName(matchedComp, row)) {
           unmatchedWarnings.push(
             `Dòng #${row.rowNumber}: file ghi tên "${row.componentName}" nhưng mã ${matchedComp.componentCode} là "${matchedComp.componentName}"`
@@ -386,15 +403,9 @@ export default function StockInwards() {
         else if (row.unitPrice !== '' && !Number.isNaN(rawPrice) && rawPrice > 0) unitPrice = String(rawPrice)
         else unmatchedWarnings.push(`${label}: chưa có đơn giá hợp lệ (> 0), hãy nhập lại`)
 
-        const isHighValue = matchedComp?.trackingType === 'HIGH_VALUE'
-        if (isHighValue && !row.warrantyExpiresAt) {
-          unmatchedWarnings.push(`${label}: thiếu ngày "Bảo hành đến" cho thiết bị giá trị cao`)
-        }
-        if (isHighValue && !row.version) {
-          unmatchedWarnings.push(`${label}: thiếu Version cho thiết bị giá trị cao`)
-        }
+        if (matchedComp?.trackingType === 'HIGH_VALUE') unmatchedWarnings.push(...missingMachineInfo(row))
 
-        const cabinetFits = matchedCab && (!matchedCab.trackingType || matchedCab.trackingType === matchedComp?.trackingType)
+        const cabinetFits = matchedCab && (!matchedComp || !matchedCab.trackingType || matchedCab.trackingType === matchedComp.trackingType)
         if (matchedCab && matchedComp && !cabinetFits) {
           unmatchedWarnings.push(`${label}: tủ "${row.cabinetCode}" không dành cho loại ${matchedComp.trackingType}, đã đổi sang tủ đúng loại`)
         }
@@ -412,21 +423,47 @@ export default function StockInwards() {
           version: row.version,
           warrantyExpiresAt: row.warrantyExpiresAt,
           importError,
+          importRow: matchedComp ? null : row,
         }
       })
 
       setLines(importedLines)
       setExcelNotice({
-        severity: unmatchedWarnings.length > 0 ? 'warning' : 'success',
-        message:
-          `Đã đọc ${importedLines.length} dòng hàng từ file "${file.name}".` +
-          (unmatchedWarnings.length > 0
-            ? ` Cần sửa trước khi lưu: ${unmatchedWarnings.slice(0, 6).join('; ')}${unmatchedWarnings.length > 6 ? ` (+${unmatchedWarnings.length - 6} lỗi khác)` : ''}.`
-            : ' Vui lòng kiểm tra thông tin phiếu và bấm "Lưu phiếu và nhập kho".'),
+        intro: `Đã đọc ${importedLines.length} dòng hàng từ file "${file.name}".`,
+        warnings: unmatchedWarnings,
       })
     } catch (parseErr) {
       setError(`Không thể đọc file Excel: ${parseErr.message || 'Định dạng không hợp lệ.'}`)
     }
+  }
+
+  // Vừa khai báo linh kiện mới từ một dòng của file: điền vào mọi dòng cùng linh kiện đó, giữ nguyên phần còn lại của phiếu
+  const handleDeclared = (component) => {
+    const isSameRow = (line) => !line.componentId && line.importRow && sameImportRow(line.importRow, declareRow)
+    const rows = lines.filter(isSameRow).map((line) => line.importRow)
+    setComponents((current) => [...current, component])
+    setLines((current) =>
+      current.map((line) => {
+        if (!isSameRow(line)) return line
+        const cabinet = roomCabinets.find((item) => item.cabinetId === line.cabinetId)
+        const keepsCabinet =
+          line.importRow.cabinetCode && cabinet && (!cabinet.trackingType || cabinet.trackingType === component.trackingType)
+        return {
+          ...line,
+          componentId: component.componentId,
+          cabinetId: keepsCabinet ? line.cabinetId : cabinetFor(roomCabinets, component),
+          importError: '',
+        }
+      })
+    )
+    setExcelNotice((current) => ({
+      intro: `Đã khai báo ${component.componentCode} – ${component.componentName}.`,
+      warnings: [
+        ...(current?.warnings || []).filter((warning) => !rows.some((row) => warning === notFoundWarning(row))),
+        ...(component.trackingType === 'HIGH_VALUE' ? rows.flatMap(missingMachineInfo) : []),
+      ],
+    }))
+    setDeclareRow(null)
   }
 
   // Tổng số lượng và tổng tiền dự kiến của phiếu nhập
@@ -715,8 +752,15 @@ export default function StockInwards() {
             )}
 
             {excelNotice && (
-              <Alert severity={excelNotice.severity} sx={{ mb: 2 }} onClose={() => setExcelNotice(null)}>
-                {excelNotice.message}
+              <Alert
+                severity={excelNotice.warnings.length > 0 ? 'warning' : 'success'}
+                sx={{ mb: 2 }}
+                onClose={() => setExcelNotice(null)}
+              >
+                {excelNotice.intro}
+                {excelNotice.warnings.length > 0
+                  ? ` Cần sửa trước khi lưu: ${excelNotice.warnings.slice(0, 6).join('; ')}${excelNotice.warnings.length > 6 ? ` (+${excelNotice.warnings.length - 6} lỗi khác)` : ''}.`
+                  : ' Vui lòng kiểm tra thông tin phiếu và bấm "Lưu phiếu và nhập kho".'}
               </Alert>
             )}
 
@@ -1062,6 +1106,17 @@ export default function StockInwards() {
                                   />
                                 )}
                               />
+                              {!component && line.importRow && (
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  startIcon={<AddIcon />}
+                                  onClick={() => setDeclareRow(line.importRow)}
+                                  sx={{ mt: 0.75, textTransform: 'none', fontWeight: 700, fontSize: 12 }}
+                                >
+                                  Khai báo món này
+                                </Button>
+                              )}
                             </TableCell>
                             <TableCell>
                               <TextField
@@ -1300,6 +1355,14 @@ export default function StockInwards() {
           </CardContent>
         </Card>
       </Box>
+      {declareRow && (
+        <DeclareComponentDialog
+          row={declareRow}
+          categories={categoryOptions}
+          onClose={() => setDeclareRow(null)}
+          onDeclared={handleDeclared}
+        />
+      )}
       <ConfirmDialog request={confirmRequest} onClose={() => setConfirmRequest(null)} />
     </PortalLayout>
   )
