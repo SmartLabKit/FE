@@ -20,7 +20,7 @@ import {
 } from '@mui/material'
 import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
-import { cabinetAccepts, cabinetLabel, formatDateTime, movesToOtherLab, rowsOf } from './inventoryLabels'
+import { cabinetAccepts, cabinetLabel, formatDateTime, rowsOf } from './inventoryLabels'
 
 const headCellSx = { fontWeight: 700, color: '#334155' }
 
@@ -32,7 +32,6 @@ function MoveStockDialog({ stock, cabinets, onClose, onSaved }) {
   const [saving, setSaving] = useState(false)
 
   const targets = cabinets.filter((cabinet) => cabinet.cabinetId !== stock.cabinetId && cabinetAccepts(cabinet, 'CONSUMABLE'))
-  const needsReason = movesToOtherLab(cabinets, stock.cabinetId, toCabinetId)
   const quantityValue = Number(quantity)
   const validQuantity = Number.isInteger(quantityValue) && quantityValue >= 1 && quantityValue <= stock.quantity
 
@@ -80,8 +79,7 @@ function MoveStockDialog({ stock, cabinets, onClose, onSaved }) {
             fullWidth
           />
           <TextField
-            label={needsReason ? 'Lý do chuyển sang lab khác' : 'Lý do (không bắt buộc)'}
-            required={needsReason}
+            label="Lý do (không bắt buộc)"
             value={reason}
             onChange={(event) => setReason(event.target.value)}
             fullWidth
@@ -90,7 +88,7 @@ function MoveStockDialog({ stock, cabinets, onClose, onSaved }) {
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={onClose} disabled={saving}>Đóng</Button>
-        <Button variant="contained" onClick={save} disabled={saving || !toCabinetId || !validQuantity || (needsReason && !reason.trim())} sx={{ bgcolor: '#0058be' }}>
+        <Button variant="contained" onClick={save} disabled={saving || !toCabinetId || !validQuantity} sx={{ bgcolor: '#0058be' }}>
           {saving ? 'Đang chuyển...' : 'Chuyển tủ'}
         </Button>
       </DialogActions>
@@ -166,7 +164,7 @@ function AdjustStockDialog({ stock, onClose, onSaved }) {
 
 /**
  * Tab "Vật tư tiêu hao" của trang Chi tiết tủ: tồn vật tư CONSUMABLE trong tủ.
- * - canMove (COMPONENT_MANAGE, hoặc LabStaff của lab chứa tủ): chuyển sang tủ khác; LabStaff chỉ chuyển trong lab đó.
+ * - canMove (COMPONENT_MANAGE, hoặc LabStaff của lab chứa tủ): chuyển sang tủ khác; chỉ chuyển giữa các tủ cùng lab.
  * - canAdjust (INVENTORY_AUDIT_APPROVE, quản lý kho): đặt lại tồn bằng số đếm thực tế, bắt buộc ghi lý do.
  */
 export default function CabinetConsumablesTab({ cabinet, cabinets, canMove, canAdjust, onChanged, showToast }) {

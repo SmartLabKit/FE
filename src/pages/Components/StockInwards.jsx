@@ -691,7 +691,7 @@ export default function StockInwards() {
 
   return (
     <PortalLayout
-      headerTitle={editId ? 'Sửa thông tin phiếu nhập' : 'Lập phiếu nhập kho'}
+      headerTitle={editId ? 'Sửa thông tin phiếu nhập' : 'Nhập hàng mới'}
       headerSubtitle={
         editId
           ? 'Chỉ được sửa Nhà cung cấp, Số hóa đơn, Ngày nhập kho, Ngày xuất hóa đơn và Ghi chú. Không được sửa mặt hàng.'
@@ -707,7 +707,7 @@ export default function StockInwards() {
             }
             sx={{ textTransform: 'none', fontWeight: 600 }}
           >
-            {editId ? 'Chi tiết phiếu nhập' : 'Danh sách phiếu nhập'}
+            {editId ? 'Chi tiết phiếu nhập' : 'Nhập kho'}
           </Button>
         </Box>
 
@@ -759,7 +759,7 @@ export default function StockInwards() {
                 {excelNotice.intro}
                 {excelNotice.warnings.length > 0
                   ? ` Cần sửa trước khi lưu: ${excelNotice.warnings.slice(0, 6).join('; ')}${excelNotice.warnings.length > 6 ? ` (+${excelNotice.warnings.length - 6} lỗi khác)` : ''}.`
-                  : ' Vui lòng kiểm tra thông tin phiếu và bấm "Lưu phiếu và nhập kho".'}
+                  : ' Vui lòng kiểm tra thông tin phiếu và bấm "Lưu và nhập kho".'}
               </Alert>
             )}
 
@@ -1374,7 +1374,7 @@ export default function StockInwards() {
                 disabled={loading || initialLoading}
                 sx={{ textTransform: 'none', fontWeight: 600, bgcolor: '#0058be' }}
               >
-                {loading ? 'Đang lưu…' : editId ? 'Lưu thay đổi' : 'Lưu phiếu và nhập kho'}
+                {loading ? 'Đang lưu…' : editId ? 'Lưu thay đổi' : 'Lưu và nhập kho'}
               </Button>
             </Box>
           </CardContent>

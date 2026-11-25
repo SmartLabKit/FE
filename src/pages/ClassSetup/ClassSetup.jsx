@@ -12,7 +12,7 @@ import { useAuth, DEMO_ACCOUNTS } from '../../context/AuthContext'
 /**
  * ClassSetup Component: Giao diện quản lý Học kỳ, Môn học, Lớp & Nhóm (MF2)
  * Phân quyền rõ ràng cho từng vai trò (Actor):
- * - ADMIN: Quản lý Kỳ học & Lớp, Danh mục Môn học, Nhập Roster & Phân công
+ * - ADMIN: Quản lý Kỳ học & Lớp, Danh mục Môn học, Nhập danh sách lớp & phân công
  * - LECTURER: Lớp giảng dạy & nhóm
  * - STUDENT: Tạo nhóm & Mời thành viên, Phản hồi lời mời
  */
@@ -24,7 +24,7 @@ export default function ClassSetup() {
 
   const currentUser = user || DEMO_ACCOUNTS.ADMIN
 
-  // Xác định sub-tab cho Admin (0: Kỳ học & Lớp, 1: Môn học, 2: Nhập roster & phân công)
+  // Xác định sub-tab cho Admin (0: Kỳ học & Lớp, 1: Môn học, 2: Nhập danh sách lớp & phân công)
   const getAdminTab = (path) => {
     if (path.includes('/admin/roster')) return 2
     if (path.includes('/admin/courses')) return 1
@@ -34,7 +34,7 @@ export default function ClassSetup() {
   const adminTab = getAdminTab(location.pathname)
 
   const getHeader = (path) => {
-    if (path.includes('/admin/roster')) return ['Nhập Roster & Phân công', 'Nhập danh sách sinh viên và phân công giảng viên cho lớp']
+    if (path.includes('/admin/roster')) return ['Nhập danh sách lớp & phân công', 'Nhập danh sách sinh viên và phân công giảng viên cho lớp']
     if (path.includes('/admin/courses')) return ['Danh mục Môn học', 'Quản lý môn học, số tín chỉ và trạng thái mở môn']
     if (path.includes('/admin/semesters')) return ['Kỳ học & Lớp môn', 'Quản lý học kỳ và lớp học phần']
     if (path.includes('/lecturer')) return ['Lớp giảng dạy & nhóm', 'Lớp bạn phụ trách, nhóm và sinh viên']
@@ -52,7 +52,7 @@ export default function ClassSetup() {
       } else if (currentUser.roleLabel === 'LECTURER') {
         navigate('/class-setup/lecturer/classes', { replace: true })
       } else if (currentUser.roleLabel === 'INVENTORYMANAGER') {
-        navigate('/class-setup/admin/stock-inwards', { replace: true })
+        navigate('/class-setup/admin/stock-receipts', { replace: true })
       } else if (currentUser.roleLabel === 'LABSTAFF') {
         navigate('/class-setup/admin/lab-rooms', { replace: true })
       } else {

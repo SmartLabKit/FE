@@ -197,7 +197,7 @@ export default function StockReceipts() {
   }
 
   return (
-    <PortalLayout headerTitle="Phiếu nhập kho" headerSubtitle="Lịch sử nhập kho và trạng thái các phiếu">
+    <PortalLayout headerTitle="Nhập kho" headerSubtitle="Các lần nhập hàng và trạng thái phiếu">
       <Box sx={{ maxWidth: 1440, mx: 'auto' }}>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
 
@@ -216,11 +216,11 @@ export default function StockReceipts() {
             onClick={() => navigate('/class-setup/admin/stock-inwards')}
             sx={{ textTransform: 'none', borderRadius: 1.5, px: 2 }}
           >
-            Lập phiếu nhập
+            Nhập hàng mới
           </Button>
         </Box>
 
-        {/* Khung tìm kiếm và bộ lọc (Thiết kế đồng bộ theo "Thông tin phiếu" bên Lập phiếu nhập) */}
+        {/* Khung tìm kiếm và bộ lọc (Thiết kế đồng bộ theo "Thông tin phiếu" bên Nhập hàng mới) */}
         <Card
           component="form"
           onSubmit={(e) => {

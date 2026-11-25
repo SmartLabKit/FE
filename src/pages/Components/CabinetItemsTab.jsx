@@ -23,7 +23,7 @@ import {
 import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
 import CreateIssueReportDialog from '../IssueReports/CreateIssueReportDialog'
-import { cabinetAccepts, cabinetLabel, formatDate, itemStatusOf, movesToOtherLab, rowsOf, toDateInput } from './inventoryLabels'
+import { cabinetAccepts, cabinetLabel, formatDate, itemStatusOf, rowsOf, toDateInput } from './inventoryLabels'
 
 const PAGE_SIZE = 20
 const headCellSx = { fontWeight: 700, color: '#334155' }
@@ -116,7 +116,6 @@ function MoveItemDialog({ item, cabinets, onClose, onSaved }) {
   const [saving, setSaving] = useState(false)
 
   const targets = cabinets.filter((cabinet) => cabinet.cabinetId !== item.cabinetId && cabinetAccepts(cabinet, item.trackingType))
-  const needsReason = movesToOtherLab(cabinets, item.cabinetId, toCabinetId)
 
   const save = async () => {
     setSaving(true)
@@ -150,8 +149,7 @@ function MoveItemDialog({ item, cabinets, onClose, onSaved }) {
             ))}
           </TextField>
           <TextField
-            label={needsReason ? 'Lý do chuyển sang lab khác' : 'Lý do (không bắt buộc)'}
-            required={needsReason}
+            label="Lý do (không bắt buộc)"
             value={reason}
             onChange={(event) => setReason(event.target.value)}
             fullWidth
@@ -160,7 +158,7 @@ function MoveItemDialog({ item, cabinets, onClose, onSaved }) {
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={onClose} disabled={saving}>Đóng</Button>
-        <Button variant="contained" onClick={save} disabled={saving || !toCabinetId || (needsReason && !reason.trim())} sx={{ bgcolor: '#0058be' }}>
+        <Button variant="contained" onClick={save} disabled={saving || !toCabinetId} sx={{ bgcolor: '#0058be' }}>
           {saving ? 'Đang chuyển...' : 'Chuyển tủ'}
         </Button>
       </DialogActions>
@@ -219,7 +217,7 @@ function RetireItemDialog({ item, onClose, onSaved }) {
  * Tab "Từng thiết bị" của trang Chi tiết tủ: các thiết bị quản lý theo từng chiếc (REUSABLE / HIGH_VALUE) trong tủ.
  * - canManage (COMPONENT_MANAGE): sửa thông tin, thanh lý thiết bị cũ.
  * - canReport (LabStaff của lab chứa tủ): ghi nhận thiết bị hỏng / cháy / mất qua báo cáo sự cố.
- * - canMove (COMPONENT_MANAGE, hoặc LabStaff của lab chứa tủ): chuyển tủ; LabStaff chỉ chuyển trong lab đó.
+ * - canMove (COMPONENT_MANAGE, hoặc LabStaff của lab chứa tủ): chuyển tủ; chỉ chuyển giữa các tủ cùng lab.
  * - Thiết bị bị mất (Lost) tìm lại được thì dùng "Đưa về kho" để chuyển về trạng thái Sẵn sàng.
  */
 export default function CabinetItemsTab({ cabinet, cabinets, canManage, canMove, canReport, onChanged, showToast }) {
