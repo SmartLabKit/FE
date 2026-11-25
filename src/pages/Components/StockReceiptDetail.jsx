@@ -28,7 +28,9 @@ import {
   ChevronRight as ChevronRightIcon,
   Close as CloseIcon,
   Edit as EditIcon,
+  FactCheckOutlined as CheckIcon,
   InfoOutlined as InfoIcon,
+  Inventory2Outlined as ComponentsIcon,
 } from '@mui/icons-material'
 import PortalLayout from '../../components/layout/PortalLayout'
 import ConfirmDialog from '../../components/common/ConfirmDialog'
@@ -42,6 +44,7 @@ import {
   toReceiptReceivedAtIso,
   toSafeInvoiceDateIso,
 } from '../../utils/dateFormatting'
+import ReceiptExcelCheckDialog from './ReceiptExcelCheckDialog'
 import { receiptStatusOf } from './inventoryLabels'
 
 const getLines = (receipt) => receipt?.items || receipt?.lines || receipt?.receiptLines || []
@@ -61,6 +64,7 @@ export default function StockReceiptDetail() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [busy, setBusy] = useState(false)
+  const [checkOpen, setCheckOpen] = useState(false)
 
   // Edit dialog state (Thiết kế đúng theo hình 2: Nhà cung cấp, Số hóa đơn, Ngày nhận, Ngày hóa đơn, Ghi chú)
   const [editOpen, setEditOpen] = useState(false)
@@ -239,7 +243,28 @@ export default function StockReceiptDetail() {
           <Button startIcon={<BackIcon />} onClick={() => navigate('/class-setup/admin/stock-receipts')} sx={{ textTransform: 'none' }}>
             Danh sách phiếu
           </Button>
-          <Box sx={{ display: 'flex', gap: 1 }}>
+          <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+            {receipt && !isCancelled && (
+              <>
+                <Button
+                  variant="outlined"
+                  startIcon={<ComponentsIcon />}
+                  onClick={() => navigate(`/class-setup/admin/components?received=receipt&receipt=${receiptId}`)}
+                  sx={{ textTransform: 'none', fontWeight: 600 }}
+                >
+                  Xem linh kiện của phiếu
+                </Button>
+                <Button
+                  variant="outlined"
+                  color="success"
+                  startIcon={<CheckIcon />}
+                  onClick={() => setCheckOpen(true)}
+                  sx={{ textTransform: 'none', fontWeight: 600 }}
+                >
+                  Đối chiếu với Excel
+                </Button>
+              </>
+            )}
             <Button
               disabled={!receipt || isCancelled || receipt.status === 'Cancelled'}
               variant="outlined"
@@ -363,7 +388,10 @@ export default function StockReceiptDetail() {
                     const lineTotal = Number(line.quantity || 0) * Number(line.unitPrice || 0)
                     return (
                       <TableRow key={line.receiptItemId || line.id || idx} hover>
-                        <TableCell sx={{ fontWeight: 600 }}>{line.componentName || line.componentCode || '—'}</TableCell>
+                        <TableCell sx={{ fontWeight: 600 }}>
+                          {line.componentName || '—'}
+                          <Typography sx={{ color: '#0058be', fontWeight: 700, fontSize: 12 }}>{line.componentCode}</Typography>
+                        </TableCell>
                         <TableCell>{Number(line.quantity || 0).toLocaleString('vi-VN')}</TableCell>
                         <TableCell>
                           {Number(line.unitPrice || 0) === 0 ? (
@@ -682,6 +710,9 @@ export default function StockReceiptDetail() {
           </DialogContent>
         </Dialog>
       </Box>
+      {checkOpen && (
+        <ReceiptExcelCheckDialog receiptCode={receipt.receiptCode} lines={lines} onClose={() => setCheckOpen(false)} />
+      )}
       <ConfirmDialog request={confirmRequest} onClose={() => setConfirmRequest(null)} />
     </PortalLayout>
   )

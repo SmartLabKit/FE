@@ -96,6 +96,7 @@ export default function ComponentExcelImport() {
   const [importing, setImporting] = useState(false)
   const [progress, setProgress] = useState({ current: 0, total: 0 })
   const [importSummary, setImportSummary] = useState(null)
+  const createdIds = rows.map((row) => row.componentId).filter(Boolean)
 
   const existingByName = useMemo(() => {
     const map = new Map()
@@ -312,7 +313,7 @@ export default function ComponentExcelImport() {
           message += `. Lỗi hướng dẫn: ${tutorialErrors.join('; ')}`
         }
         setRows((current) =>
-          current.map((r) => (r.key === row.key ? { ...r, status: 'success', statusMessage: message } : r))
+          current.map((r) => (r.key === row.key ? { ...r, status: 'success', statusMessage: message, componentId: id } : r))
         )
       } catch (saveErr) {
         failedCount += 1
@@ -371,7 +372,7 @@ export default function ComponentExcelImport() {
             severity={importSummary.failedCount === 0 ? 'success' : 'warning'}
             sx={{ mb: 2 }}
             action={
-              <Stack direction="row" spacing={1}>
+              <Stack direction="row" spacing={1} useFlexGap sx={{ flexWrap: 'wrap' }}>
                 <Button
                   size="small"
                   color="inherit"
@@ -381,6 +382,17 @@ export default function ComponentExcelImport() {
                 >
                   Lập phiếu nhập ngay
                 </Button>
+                {createdIds.length > 0 && (
+                  <Button
+                    size="small"
+                    color="inherit"
+                    variant="outlined"
+                    onClick={() => navigate('/class-setup/admin/components?received=created', { state: { createdIds } })}
+                    sx={{ textTransform: 'none', fontWeight: 700 }}
+                  >
+                    Xem linh kiện vừa tạo
+                  </Button>
+                )}
                 <Button
                   size="small"
                   color="inherit"
