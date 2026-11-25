@@ -26,7 +26,7 @@ const TWO_COLUMNS = { display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1f
 
 const isHttpUrl = (url) => /^https?:\/\/\S+\.\S+/i.test(url)
 
-/** Lỗi đầu tiên của biểu mẫu, hợp lệ thì trả ''. Chỉ tên, danh mục, loại quản lý và đơn vị là bắt buộc. */
+/** Lỗi đầu tiên của biểu mẫu, hợp lệ thì trả ''. Chỉ tên, danh mục, loại quản lý, đơn vị và tồn tối thiểu là bắt buộc. */
 function validate(form) {
   const minStock = form.minStock.trim()
   const duplicates = findDuplicateSpecKeys(parseSpecsText(form.specifications))
@@ -34,7 +34,8 @@ function validate(form) {
   if (!form.categoryId) return 'Chọn danh mục.'
   if (!form.trackingType) return 'Chọn loại quản lý.'
   if (!form.unit.trim()) return 'Nhập đơn vị tính.'
-  if (minStock && !/^\d+$/.test(minStock)) return 'Tồn tối thiểu phải là số nguyên từ 0.'
+  if (!minStock) return 'Nhập tồn tối thiểu (0 nếu không cần giữ sẵn).'
+  if (!/^\d+$/.test(minStock)) return 'Tồn tối thiểu phải là số nguyên từ 0.'
   if (!/^[A-Za-z0-9.-]*$/.test(form.shortCode.trim())) return 'Mã viết tắt chỉ gồm chữ không dấu, số, dấu chấm và gạch ngang.'
   if (duplicates.length > 0) return `Thông số bị trùng tên: ${duplicates.join(', ')}.`
   if (form.datasheetUrl.trim() && !isHttpUrl(form.datasheetUrl.trim())) return 'Link datasheet phải bắt đầu bằng http:// hoặc https://.'
@@ -133,7 +134,7 @@ export default function DeclareComponentDialog({ row, categories, onClose, onDec
         datasheetUrl: form.datasheetUrl.trim() || null,
         trackingType: form.trackingType,
         unit: form.unit.trim(),
-        minStock: form.minStock.trim() ? Number(form.minStock) : null,
+        minStock: Number(form.minStock),
         specs: parseSpecsText(form.specifications),
       })
       const failed = await saveExtras(saved.componentId, name, form, images, datasheet)
@@ -193,6 +194,7 @@ export default function DeclareComponentDialog({ row, categories, onClose, onDec
                 )),
               })}
               {field('unit', 'Đơn vị tính', { required: true, slotProps: { htmlInput: { maxLength: 20 } } })}
+              {field('minStock', 'Tồn tối thiểu', { required: true, helperText: 'Dưới mức này sẽ báo Sắp hết. Nhập 0 nếu không cần giữ sẵn.' })}
             </Box>
 
             <Typography sx={{ fontWeight: 700, color: '#334155' }}>Thông tin thêm (không bắt buộc)</Typography>
@@ -201,7 +203,6 @@ export default function DeclareComponentDialog({ row, categories, onClose, onDec
                 helperText: 'Tự sinh từ tên, sửa được.',
                 slotProps: { htmlInput: { maxLength: 30 } },
               })}
-              {field('minStock', 'Tồn tối thiểu', { helperText: 'Dưới mức này sẽ báo Sắp hết.' })}
               {field('manufacturer', 'Hãng sản xuất', { slotProps: { htmlInput: { maxLength: 100 } } })}
               {field('datasheetUrl', 'Link datasheet', { placeholder: 'https://...' })}
               {field('description', 'Mô tả', { multiline: true, minRows: 2, slotProps: { htmlInput: { maxLength: 2000 } } })}

@@ -91,7 +91,7 @@ export function downloadComponentsTemplate(categories = [], existingComponents =
     'Danh mục (*)',
     'Đơn vị (*)',
     'Loại quản lý (*)',
-    'Tồn tối thiểu',
+    'Tồn tối thiểu (*)',
     'Hãng sản xuất',
     'Mô tả',
     'Thông số kỹ thuật',
@@ -130,10 +130,10 @@ export function downloadComponentsTemplate(categories = [], existingComponents =
       'Ghi chú / Quy định': 'Một trong 3 giá trị: CONSUMABLE (Tiêu hao), REUSABLE (Tái sử dụng), HIGH_VALUE (Giá thành cao - có Serial).',
     },
     {
-      'Cột dữ liệu': 'Tồn tối thiểu',
-      'Bắt buộc': 'Không',
+      'Cột dữ liệu': 'Tồn tối thiểu (*)',
+      'Bắt buộc': 'Có',
       'Ghi chú / Quy định':
-        'Số nguyên >= 0. Tồn kho dưới mức này sẽ báo "Sắp hết". Đơn giá không khai báo ở đây: giá lấy theo phiếu nhập kho.',
+        'Số nguyên >= 0. Tồn kho dưới mức này sẽ báo "Sắp hết", nhập 0 nếu không cần giữ sẵn. Đơn giá không khai báo ở đây: giá lấy theo phiếu nhập kho.',
     },
     {
       'Cột dữ liệu': 'Thông số kỹ thuật',

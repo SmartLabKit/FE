@@ -300,6 +300,11 @@ export default function NewComponent() {
 
     const minStockText = String(form.minStock ?? '').trim()
     const parsedMinStock = minStockText === '' ? null : Number(minStockText)
+    if (!componentId && parsedMinStock === null) {
+      setError('Vui lòng nhập tồn tối thiểu (0 nếu không cần giữ sẵn).')
+      setTab(0)
+      return
+    }
     if (parsedMinStock !== null && (!Number.isInteger(parsedMinStock) || parsedMinStock < 0)) {
       setError('Tồn tối thiểu phải là số nguyên >= 0.')
       setTab(0)
@@ -569,6 +574,7 @@ export default function NewComponent() {
                 <Grid size={{ xs: 12, md: 4 }}>
                   <TextField
                     fullWidth
+                    required={!componentId}
                     type="number"
                     label="Tồn tối thiểu"
                     name="minStock"
@@ -579,7 +585,7 @@ export default function NewComponent() {
                     }}
                     onChange={updateField}
                     slotProps={{ htmlInput: { min: 0, step: 1 } }}
-                    helperText="Tồn kho dưới mức này sẽ báo Sắp hết. Để trống nếu không cần cảnh báo."
+                    helperText="Tồn kho dưới mức này sẽ báo Sắp hết. Nhập 0 nếu không cần giữ sẵn."
                   />
                 </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>

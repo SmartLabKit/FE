@@ -151,10 +151,10 @@ export default function ComponentExcelImport() {
     if (!row.categoryId) errors.push(`Không khớp danh mục "${row.categoryName || 'trống'}"`)
     if (!row.unit?.trim()) errors.push('Thiếu đơn vị tính')
     if (!TRACKING_TYPES.includes(row.trackingType)) errors.push(`Loại quản lý không hợp lệ: "${row.rawTracking || 'trống'}"`)
-    if (String(row.minStock ?? '').trim() !== '') {
-      const minStock = Number(row.minStock)
-      if (!Number.isInteger(minStock) || minStock < 0) errors.push('Tồn tối thiểu phải là số nguyên >= 0')
-    }
+    const minStockText = String(row.minStock ?? '').trim()
+    const minStock = Number(minStockText)
+    if (minStockText === '') errors.push('Thiếu tồn tối thiểu (0 nếu không cần giữ sẵn)')
+    else if (!Number.isInteger(minStock) || minStock < 0) errors.push('Tồn tối thiểu phải là số nguyên >= 0')
     const specs = parseSpecsText(row.specifications)
     if (specs.some((s) => s.specKey.length > 100)) errors.push('Tên thông số tối đa 100 ký tự')
     if (specs.some((s) => s.specValue.length > 255)) errors.push('Giá trị thông số tối đa 255 ký tự')
@@ -564,7 +564,7 @@ export default function ComponentExcelImport() {
                       <TableCell sx={{ fontWeight: 700, minWidth: 170 }}>Danh mục (*)</TableCell>
                       <TableCell sx={{ fontWeight: 700, minWidth: 145 }}>Loại quản lý</TableCell>
                       <TableCell sx={{ fontWeight: 700, minWidth: 90 }}>Đơn vị</TableCell>
-                      <TableCell sx={{ fontWeight: 700, minWidth: 110 }}>Tồn tối thiểu</TableCell>
+                      <TableCell sx={{ fontWeight: 700, minWidth: 110 }}>Tồn tối thiểu (*)</TableCell>
                       <TableCell sx={{ fontWeight: 700, minWidth: 105 }}>Tài liệu</TableCell>
                       <TableCell sx={{ fontWeight: 700, minWidth: 170 }}>Trạng thái</TableCell>
                       <TableCell />
