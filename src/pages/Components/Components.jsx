@@ -566,14 +566,7 @@ export default function Components() {
                               />
                             )
                           }
-                          const isLow =
-                            component.isLowStock === true ||
-                            (component.minStock != null &&
-                              (totalQty <= Number(component.minStock) || availQty <= Number(component.minStock))) ||
-                            (component.borrowableQuantity != null &&
-                              component.minStock != null &&
-                              Number(component.borrowableQuantity) <= Number(component.minStock))
-                          if (isLow) {
+                          if (component.isLowStock) {
                             return (
                               <Chip
                                 size="small"
