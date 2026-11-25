@@ -119,6 +119,20 @@ export const authService = {
   },
 
   /**
+   * Kích hoạt tài khoản mới bằng mã trong link của email
+   * POST /api/auth/activate
+   * Trả về (200): { username, fullName }
+   */
+  async activate(token) {
+    try {
+      const response = await api.post('/api/auth/activate', { token })
+      return response.data?.data
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Không thể kích hoạt tài khoản'), { cause: error })
+    }
+  },
+
+  /**
    * Gửi mã đặt lại mật khẩu tới email
    * POST /api/auth/forgot-password
    * Body: ForgotPasswordRequest { email }

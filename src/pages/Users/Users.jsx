@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   Box,
   Button,
@@ -48,6 +48,8 @@ import {
   ContentCopy as ContentCopyIcon,
 } from '@mui/icons-material'
 import PortalLayout from '../../components/layout/PortalLayout'
+import AccountStatusChip from '../../components/common/AccountStatusChip'
+import { useEntityChanged } from '../../hooks/useEntityChanged'
 import { userService } from '../../services/userService'
 import { PASSWORD_HINT, passwordError } from '../../utils/passwordRules'
 
@@ -176,6 +178,26 @@ export default function Users() {
       ignore = true
     }
   }, [search, selectedRole, selectedStatus, page, pageSize])
+
+  // Tài khoản vừa được kích hoạt thì cập nhật ngay, không cần tải lại trang
+  const reloadQuietly = useCallback(() => {
+    userService
+      .getUsers({
+        search,
+        role: selectedRole,
+        isActive: selectedStatus === '' ? undefined : selectedStatus === 'active',
+        page: page + 1,
+        size: pageSize,
+      })
+      .then((data) => {
+        if (data) {
+          setUsers(data.items || [])
+          setTotalItems(data.totalCount ?? data.totalItems ?? 0)
+        }
+      })
+      .catch(() => {})
+  }, [search, selectedRole, selectedStatus, page, pageSize])
+  useEntityChanged(reloadQuietly)
 
   // Xử lý thay đổi trang
   const handleChangePage = (event, newPage) => {
@@ -632,7 +654,9 @@ export default function Users() {
 
                       {/* Cột Trạng thái */}
                       <TableCell>
-                        {item.isActive ? (
+                        {item.activationPending ? (
+                          <AccountStatusChip account={item} />
+                        ) : item.isActive ? (
                           <Chip
                             icon={<ActiveIcon sx={{ '&&': { color: '#059669', fontSize: 14 } }} />}
                             label="Hoạt động"

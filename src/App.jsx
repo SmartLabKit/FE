@@ -3,6 +3,7 @@ import HomePage from './pages/HomePage'
 import Login from './pages/Login/Login.jsx'
 import ForgotPassword from './pages/Auth/ForgotPassword.jsx'
 import ResetPassword from './pages/Auth/ResetPassword.jsx'
+import ActivateAccount from './pages/Auth/ActivateAccount.jsx'
 import Users from './pages/Users/Users.jsx'
 import Roles from './pages/Roles/Roles.jsx'
 import SystemSettings from './pages/Admin/SystemSettings.jsx'
@@ -57,6 +58,7 @@ function App() {
           <Route path="/login" element={<Login />} />
           <Route path="/forgot-password" element={<ForgotPassword />} />
           <Route path="/reset-password" element={<ResetPassword />} />
+          <Route path="/activate" element={<ActivateAccount />} />
 
           {/* Hồ sơ cá nhân & Bảo mật (Đăng nhập) */}
           <Route path="/profile" element={<RequireRole><Profile /></RequireRole>} />
