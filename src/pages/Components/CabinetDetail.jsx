@@ -32,7 +32,7 @@ export default function CabinetDetail() {
   const canAudit = isManager || (ownLab && hasPermission('INVENTORY_AUDIT'))
   const canAdjust = isManager || hasPermission('INVENTORY_AUDIT_APPROVE')
   const canReport = ownLab && hasRole('LabStaff')
-  const targetCabinets = canManageItems ? cabinets : cabinets.filter((item) => item.roomId === cabinet?.roomId)
+  const targetCabinets = cabinets.filter((item) => item.roomId === cabinet?.roomId)
 
   useEffect(() => {
     let active = true

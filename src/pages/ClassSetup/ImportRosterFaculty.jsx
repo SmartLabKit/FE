@@ -42,7 +42,8 @@ import {
 } from '@mui/icons-material'
 import { academicService } from '../../services/academicService'
 import { userService } from '../../services/userService'
-import { authService } from '../../services/authService'
+import AccountStatusChip from '../../components/common/AccountStatusChip'
+import { useEntityChanged } from '../../hooks/useEntityChanged'
 
 /**
  * ImportRosterFaculty Component (Actor: ADMIN / LAB STAFF)
@@ -161,12 +162,12 @@ function downloadRosterTemplate() {
     ['Hướng dẫn'],
     ['Điền sinh viên vào sheet đầu tiên, từ dòng 2. Giữ nguyên thứ tự cột.'],
     ['Bắt buộc: Mã SV và Email. Dòng trùng MSSV hoặc email trong file sẽ bị bỏ qua.'],
-    ['Sinh viên chưa có tài khoản sẽ được tạo tài khoản và gửi email.'],
+    ['Sinh viên chưa có tài khoản sẽ được tạo tài khoản và gửi email kích hoạt.'],
   ])
   guide['!cols'] = [{ wch: 90 }]
   XLSX.utils.book_append_sheet(wb, data, 'DanhSachSinhVien')
   XLSX.utils.book_append_sheet(wb, guide, 'HuongDan')
-  XLSX.writeFile(wb, 'Mau_Roster_SinhVien.xlsx')
+  XLSX.writeFile(wb, 'Mau_DanhSach_SinhVien.xlsx')
 }
 
 export default function ImportRosterFaculty() {
@@ -212,10 +213,10 @@ export default function ImportRosterFaculty() {
     fullName: '',
     email: '',
     academicTitle: 'Tiến sĩ',
-    phoneNumber: '',
   })
   const [newInstructorErrors, setNewInstructorErrors] = useState({})
   const [creatingInstructor, setCreatingInstructor] = useState(false)
+  const [resendingId, setResendingId] = useState('')
 
   // Toast alert
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
@@ -291,6 +292,43 @@ export default function ImportRosterFaculty() {
       setLoadingStudents(false)
     }
   }, [])
+
+  // Sinh viên vừa kích hoạt tài khoản thì trạng thái tự đổi, không cần tải lại trang
+  const reloadStudents = useCallback(() => {
+    if (!selectedClassId) return
+    academicService
+      .getClassStudents(selectedClassId)
+      .then((data) => setStudents(Array.isArray(data) ? data : []))
+      .catch(() => {})
+  }, [selectedClassId])
+  useEntityChanged(reloadStudents)
+
+  // Trạng thái mới nhất của tài khoản trong kết quả import, lấy theo danh sách lớp
+  const studentOf = (row) => students.find((student) => student.userId === row.userId) || row
+
+  const handleResend = async (userId) => {
+    setResendingId(userId)
+    try {
+      await userService.resendActivation(userId)
+      setToast({ open: true, message: 'Đã gửi lại email kích hoạt.', severity: 'success' })
+    } catch (err) {
+      setToast({ open: true, message: err.message, severity: 'error' })
+    } finally {
+      setResendingId('')
+    }
+  }
+
+  const resendButton = (account) =>
+    account.activationPending && (
+      <Button
+        size="small"
+        disabled={resendingId === account.userId}
+        onClick={() => handleResend(account.userId)}
+        sx={{ textTransform: 'none', fontSize: 12, py: 0, whiteSpace: 'nowrap' }}
+      >
+        Gửi lại mail
+      </Button>
+    )
 
   const handleSemesterChange = (e) => {
     const sem = e.target.value
@@ -550,6 +588,7 @@ export default function ImportRosterFaculty() {
       severity: 'success',
     })
     fetchClasses()
+    return res
   }
 
   const handleConfirmReplace = async () => {
@@ -584,7 +623,6 @@ export default function ImportRosterFaculty() {
       fullName: '',
       email: '',
       academicTitle: 'Tiến sĩ',
-      phoneNumber: '',
     })
     setNewInstructorErrors({})
     setOpenAssignDialog(true)
@@ -595,6 +633,7 @@ export default function ImportRosterFaculty() {
     if (e && e.preventDefault) e.preventDefault()
 
     const errors = {}
+    if (!selectedClassId) errors.submit = 'Vui lòng chọn một lớp học'
     if (!newInstructorForm.instructorCode.trim()) {
       errors.instructorCode = 'Mã giảng viên không được để trống'
     }
@@ -622,79 +661,26 @@ export default function ImportRosterFaculty() {
       title: newInstructorForm.academicTitle?.trim() || 'Giảng viên',
     }
 
-    let isNewAccount
+    // BE tạo tài khoản (nếu chưa có), gửi email kích hoạt và phân công luôn vào lớp đang chọn
+    const payload = {
+      classId: selectedClassId,
+      instructorCode: newInst.code,
+      fullName: newInst.name,
+      email: newInst.email,
+      academicTitle: newInst.title,
+    }
+    let assigned
     try {
-      const username = newInst.email.split('@')[0].replace(/[^a-zA-Z0-9]/g, '') || newInst.code.toLowerCase().replace(/[^a-zA-Z0-9]/g, '')
-      await userService.createUser({
-        username,
-        email: newInst.email,
-        password: 'Lecturer@123',
-        fullName: newInst.name,
-        phoneNumber: newInstructorForm.phoneNumber || '0901234567',
-        role: 'Lecturer',
-        instructorCode: newInst.code,
-        academicTitle: newInst.title,
-      })
-      isNewAccount = true
+      assigned = await submitAssignment(payload)
     } catch (err) {
-      const errMsg = err.message || ''
-      if (
-        errMsg.toLowerCase().includes('đã tồn tại') ||
-        errMsg.toLowerCase().includes('already exists') ||
-        errMsg.toLowerCase().includes('duplicate') ||
-        errMsg.toLowerCase().includes('đã được sử dụng')
-      ) {
-        isNewAccount = false
+      if (err.cause?.response?.status === 409) {
+        setOpenAssignDialog(false)
+        setReplaceConfirm({ message: err.message, payload })
       } else {
-        setNewInstructorErrors({ submit: errMsg || 'Không thể tạo tài khoản giảng viên trên hệ thống.' })
-        setCreatingInstructor(false)
-        return
+        setNewInstructorErrors({ submit: err.message || 'Không thể phân công giảng viên.' })
       }
-    }
-
-    // Tự động kích hoạt gửi email thông báo / đặt lại mật khẩu cho giảng viên
-    let emailSent = false
-    try {
-      await authService.forgotPassword({ email: newInst.email })
-      emailSent = true
-    } catch (emailErr) {
-      console.warn('Gửi email thông báo cho giảng viên:', emailErr.message)
-    }
-
-    // Nếu lớp học đang được chọn, tự động phân công giảng viên cho lớp luôn
-    if (selectedClassId) {
-      try {
-        const assignPayload = {
-          classId: selectedClassId,
-          instructorCode: newInst.code,
-          fullName: newInst.name,
-          email: newInst.email,
-          academicTitle: newInst.title,
-        }
-        const assignRes = await academicService.assignInstructor(assignPayload)
-        setAssignedResult({
-          ...(assignRes || {}),
-          fullName: assignRes?.fullName || newInst.name,
-          email: assignRes?.email || newInst.email,
-          academicTitle: assignRes?.academicTitle || newInst.title,
-        })
-        fetchClasses()
-      } catch (assignErr) {
-        if (assignErr.cause?.response?.status === 409) {
-          setReplaceConfirm({
-            message: assignErr.message,
-            payload: {
-              classId: selectedClassId,
-              instructorCode: newInst.code,
-              fullName: newInst.name,
-              email: newInst.email,
-              academicTitle: newInst.title,
-            },
-          })
-        } else {
-          console.warn('Tự động phân công giảng viên vào lớp:', assignErr.message)
-        }
-      }
+      setCreatingInstructor(false)
+      return
     }
 
     setCreatingInstructor(false)
@@ -720,18 +706,13 @@ export default function ImportRosterFaculty() {
       academicTitle: newInst.title,
     })
 
-    setOpenAssignDialog(false)
-    setToast({
-      open: true,
-      message: `Đã lưu giảng viên ${newInst.name}! ${
-        emailSent
-          ? `Hệ thống đã gửi email kích hoạt tới ${newInst.email}.`
-          : isNewAccount
-            ? `Tài khoản đã tạo thành công với mật khẩu mặc định: Lecturer@123.`
-            : `Đã chọn giảng viên để phân công.`
-      }`,
-      severity: 'success',
-    })
+    if (assigned?.accountCreated) {
+      setToast({
+        open: true,
+        message: `Đã phân công ${newInst.name}. Email kích hoạt đã gửi tới ${newInst.email}.`,
+        severity: 'success',
+      })
+    }
   }
 
   return (
@@ -877,7 +858,7 @@ export default function ImportRosterFaculty() {
               <input type="file" accept=".xlsx, .xls, .csv" hidden onChange={handleFileChange} />
               <CloudUploadIcon sx={{ fontSize: 26, color: '#0058be', mb: 0.5 }} />
               <Typography variant="body2" sx={{ fontWeight: 700, color: '#0058be', mb: 0.5 }}>
-                {selectedFile ? selectedFile.name : 'Click để chọn file hoặc kéo thả file Excel vào đây'}
+                {selectedFile ? selectedFile.name : 'Bấm để chọn file hoặc kéo thả file Excel vào đây'}
               </Typography>
               <Typography variant="caption" sx={{ color: '#81899a', fontSize: 11 }}>
                 Cột: Mã SV, Họ tên, Email (Ngành, Khóa không bắt buộc) · .xlsx, .xls, .csv · tối đa 10MB
@@ -933,9 +914,8 @@ export default function ImportRosterFaculty() {
                     sx={{ borderRadius: 1.5, fontSize: 13, fontWeight: 600 }}
                   >
                     Kết quả import: Đã xử lý <strong>{importResult.totalRows ?? 0}</strong> dòng, ghi danh{' '}
-                    <strong>{importResult.enrolledStudents ?? 0}</strong> sinh viên: đã có tài khoản{' '}
-                    <strong>{importResult.existingAccounts ?? 0}</strong>, tài khoản mới (đã gửi email){' '}
-                    <strong>{importResult.createdUsers ?? 0}</strong>.
+                    <strong>{importResult.enrolledStudents ?? 0}</strong> sinh viên, gửi email kích hoạt cho{' '}
+                    <strong>{importResult.createdUsers ?? 0}</strong> tài khoản mới.
                     {importResult.skippedRows > 0 && ` Lỗi / bỏ qua: ${importResult.skippedRows} dòng.`}
                   </Alert>
 
@@ -953,11 +933,7 @@ export default function ImportRosterFaculty() {
                         </TableHead>
                         <TableBody>
                           {importResult.rows.map((row) => {
-                            const status = {
-                              ExistingAccount: { label: 'Đã có tài khoản', color: 'info' },
-                              NewAccount: { label: 'Mới · đã gửi email', color: 'success' },
-                              Failed: { label: 'Lỗi', color: 'error' },
-                            }[row.outcome] || { label: row.outcome || '—', color: 'default' }
+                            const account = studentOf(row)
                             return (
                               <TableRow key={row.rowNumber}>
                                 <TableCell sx={{ fontSize: 12 }}>{row.rowNumber}</TableCell>
@@ -965,9 +941,15 @@ export default function ImportRosterFaculty() {
                                 <TableCell sx={{ fontSize: 12 }}>{row.fullName || '—'}</TableCell>
                                 <TableCell sx={{ fontSize: 12 }}>{row.email || '—'}</TableCell>
                                 <TableCell>
-                                  <Chip size="small" color={status.color} label={status.label} sx={{ fontSize: 11, fontWeight: 600 }} />
+                                  {row.outcome === 'Failed' ? (
+                                    <Chip size="small" label="Lỗi" sx={{ fontSize: 11, fontWeight: 700, height: 22, bgcolor: '#fef2f2', color: '#ef4444' }} />
+                                  ) : (
+                                    <AccountStatusChip account={account} />
+                                  )}
                                 </TableCell>
-                                <TableCell sx={{ fontSize: 12, color: '#64748b' }}>{row.message || ''}</TableCell>
+                                <TableCell sx={{ fontSize: 12, color: '#64748b' }}>
+                                  {row.outcome === 'Failed' ? row.message : resendButton(account)}
+                                </TableCell>
                               </TableRow>
                             )
                           })}
@@ -1077,19 +1059,20 @@ export default function ImportRosterFaculty() {
                       overflowY: 'auto',
                     }}
                   >
-                    <Table size="small" stickyHeader>
+                    <Table size="small" stickyHeader sx={{ '& .MuiTableCell-root': { px: 1 } }}>
                       <TableHead>
                         <TableRow sx={{ '& th': { bgcolor: '#f8fafc', fontWeight: 800, fontSize: 11, color: '#475569' } }}>
-                          <TableCell align="center" sx={{ width: 50 }}>STT</TableCell>
-                          <TableCell sx={{ minWidth: 110 }}>MÃ SINH VIÊN</TableCell>
-                          <TableCell sx={{ minWidth: 160 }}>HỌ VÀ TÊN</TableCell>
-                          <TableCell sx={{ minWidth: 180 }}>EMAIL</TableCell>
+                          <TableCell align="center" sx={{ width: 40 }}>STT</TableCell>
+                          <TableCell>MÃ SV</TableCell>
+                          <TableCell>HỌ VÀ TÊN</TableCell>
+                          <TableCell>EMAIL</TableCell>
+                          <TableCell sx={{ width: 110 }}>TÀI KHOẢN</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
                         {filteredStudents.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={4} align="center" sx={{ py: 3, color: '#9ca3af', fontSize: 12 }}>
+                            <TableCell colSpan={5} align="center" sx={{ py: 3, color: '#9ca3af', fontSize: 12 }}>
                               Không tìm thấy sinh viên nào khớp với từ khóa &quot;{studentSearch}&quot;
                             </TableCell>
                           </TableRow>
@@ -1121,8 +1104,12 @@ export default function ImportRosterFaculty() {
                                 <TableCell sx={{ fontWeight: 600, fontSize: 12, color: '#1e293b' }}>
                                   {name}
                                 </TableCell>
-                                <TableCell sx={{ fontSize: 12, color: '#475569' }}>
+                                <TableCell sx={{ fontSize: 12, color: '#475569', wordBreak: 'break-all' }}>
                                   {email}
+                                </TableCell>
+                                <TableCell>
+                                  <AccountStatusChip account={s} />
+                                  {resendButton(s)}
                                 </TableCell>
                               </TableRow>
                             )
@@ -1339,13 +1326,13 @@ export default function ImportRosterFaculty() {
 
             <Box sx={{ p: 1.5, bgcolor: '#f0f9ff', borderRadius: 1.5, border: '1px solid #bae6fd' }}>
               <Typography variant="caption" sx={{ color: '#0369a1', display: 'block', lineHeight: 1.5 }}>
-                Tài khoản giảng viên sẽ được tạo trên hệ thống với mật khẩu khởi tạo (<strong>Lecturer@123</strong>) và hệ thống sẽ tự động gửi email kích hoạt/đặt lại mật khẩu tới hộp thư của giảng viên.
+                Giảng viên chưa có tài khoản sẽ nhận email gồm tên đăng nhập, mật khẩu và link kích hoạt. Kích hoạt xong mới đăng nhập được.
               </Typography>
             </Box>
 
             <Box>
               <Typography variant="caption" sx={{ fontWeight: 700, color: '#6b7280', display: 'block', mb: 0.5 }}>
-                MÃ GIẢNG VIÊN (INSTRUCTOR CODE) *
+                MÃ GIẢNG VIÊN *
               </Typography>
               <TextField
                 fullWidth
@@ -1399,19 +1386,6 @@ export default function ImportRosterFaculty() {
                 value={newInstructorForm.academicTitle}
                 onChange={(e) => setNewInstructorForm({ ...newInstructorForm, academicTitle: e.target.value })}
                 placeholder="Ví dụ: Tiến sĩ, Thạc sĩ, Giảng viên chính"
-              />
-            </Box>
-
-            <Box>
-              <Typography variant="caption" sx={{ fontWeight: 700, color: '#6b7280', display: 'block', mb: 0.5 }}>
-                SỐ ĐIỆN THOẠI (TÙY CHỌN)
-              </Typography>
-              <TextField
-                fullWidth
-                size="small"
-                value={newInstructorForm.phoneNumber}
-                onChange={(e) => setNewInstructorForm({ ...newInstructorForm, phoneNumber: e.target.value })}
-                placeholder="Ví dụ: 0912345678"
               />
             </Box>
           </Box>

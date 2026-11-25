@@ -80,7 +80,7 @@ export function normalizeUser(rawUser) {
     avatarBg = '#7c3aed'
     badgeColor = '#7c3aed'
   } else if (roleUpper === 'INVENTORYMANAGER') {
-    defaultRoute = '/class-setup/admin/stock-inwards'
+    defaultRoute = '/class-setup/admin/stock-receipts'
     avatarBg = '#0d9488'
     badgeColor = '#0d9488'
   }

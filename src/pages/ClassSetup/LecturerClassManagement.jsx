@@ -174,7 +174,7 @@ export default function LecturerClassManagement() {
       const details = getErrorDetails(error)
       if (requestSequence === studentRequestSequence.current) {
         setStudentError(details.status === 403
-          ? 'Bạn không phụ trách lớp này hoặc không có quyền xem roster.'
+          ? 'Bạn không phụ trách lớp này hoặc không có quyền xem danh sách lớp.'
           : details.message)
         setStudents([])
       }

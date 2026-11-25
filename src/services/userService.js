@@ -87,6 +87,18 @@ export const userService = {
   },
 
   /**
+   * Gửi lại email kích hoạt cho tài khoản đang chờ kích hoạt
+   * POST /api/users/{id}/resend-activation
+   */
+  async resendActivation(id) {
+    try {
+      await api.post(`/api/users/${id}/resend-activation`)
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Không thể gửi lại email kích hoạt'), { cause: error })
+    }
+  },
+
+  /**
    * Đặt lại mật khẩu người dùng (trả về mật khẩu tạm một lần duy nhất)
    * POST /api/users/{id}/reset-password
    * Quyền: USER_MANAGE (Admin)

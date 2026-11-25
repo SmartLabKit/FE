@@ -109,6 +109,8 @@ const sanitizeRows = (items, targetKind) => {
   })
 }
 
+const cabinetHasGoods = (cabinet) => (cabinet.unitCount || 0) + (cabinet.consumableQuantity || 0) > 0
+
 export default function InventorySetup() {
   const location = useLocation()
   const navigate = useNavigate()
@@ -652,6 +654,8 @@ export default function InventorySetup() {
                   label="Phòng lab chứa tủ"
                   value={selectedRoom}
                   onChange={(event) => setSelectedRoom(event.target.value)}
+                  disabled={Boolean(editing && cabinetHasGoods(editing))}
+                  helperText={editing && cabinetHasGoods(editing) ? 'Tủ còn linh kiện nên không đổi sang lab khác được.' : ''}
                 >
                   {rooms
                     .filter((room) => getActive(room) || getId(room, 'rooms') === selectedRoom)

@@ -245,7 +245,7 @@ export default function StockReceiptDetail() {
       <Box sx={{ maxWidth: 1440, mx: 'auto' }}>
         <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1 }}>
           <Button startIcon={<BackIcon />} onClick={() => navigate('/class-setup/admin/stock-receipts')} sx={{ textTransform: 'none' }}>
-            Danh sách phiếu
+            Nhập kho
           </Button>
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>
             {receipt && !isCancelled && (

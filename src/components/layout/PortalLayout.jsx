@@ -173,7 +173,7 @@ export default function PortalLayout({
       roles: ['Admin'],
     },
     {
-      label: 'Nhập Roster & Phân công',
+      label: 'Nhập danh sách lớp & phân công',
       icon: <ApprovalsIcon fontSize="small" />,
       path: '/class-setup/admin/roster',
       roles: ['Admin'],
@@ -205,13 +205,7 @@ export default function PortalLayout({
       permissionCodes: ['COMPONENT_MANAGE', 'USER_MANAGE'],
     },
     {
-      label: 'Lập phiếu nhập',
-      icon: <ApprovalsIcon fontSize="small" />,
-      path: '/class-setup/admin/stock-inwards',
-      roles: ['InventoryManager'],
-    },
-    {
-      label: 'Phiếu nhập kho',
+      label: 'Nhập kho',
       icon: <ApprovalsIcon fontSize="small" />,
       path: '/class-setup/admin/stock-receipts',
       roles: [ 'InventoryManager'],
@@ -377,8 +371,9 @@ export default function PortalLayout({
           const isComponentsRoute =
             location.pathname.startsWith('/class-setup/admin/components') &&
             !location.pathname.includes('/catalog')
-          const isStockInwardsRoute = location.pathname.startsWith('/class-setup/admin/stock-inwards')
-          const isStockReceiptsRoute = location.pathname.startsWith('/class-setup/admin/stock-receipts')
+          const isStockReceiptsRoute =
+            location.pathname.startsWith('/class-setup/admin/stock-receipts') ||
+            location.pathname.startsWith('/class-setup/admin/stock-inwards')
           const isCategoriesRoute = location.pathname.startsWith('/class-setup/admin/categories')
           const isLabRoomsRoute = location.pathname.startsWith('/class-setup/admin/lab-rooms')
           const isCabinetsRoute = location.pathname.startsWith('/class-setup/admin/cabinets')
@@ -404,8 +399,6 @@ export default function PortalLayout({
               ? isCatalogRoute
               : item.path === '/class-setup/admin/components'
               ? isComponentsRoute
-              : item.path === '/class-setup/admin/stock-inwards'
-              ? isStockInwardsRoute
               : item.path === '/class-setup/admin/cabinets' || item.path === '/class-setup/admin/lab-rooms'
               ? isCategoriesRoute || isLabRoomsRoute || isCabinetsRoute
               : item.path === '/class-setup/admin/stock-receipts'

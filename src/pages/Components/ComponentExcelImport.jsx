@@ -356,7 +356,7 @@ export default function ComponentExcelImport() {
               onClick={() => navigate('/class-setup/admin/stock-inwards')}
               sx={{ textTransform: 'none', fontWeight: 600 }}
             >
-              Sang Lập phiếu nhập kho
+              Nhập hàng mới
             </Button>
           </Box>
         </Box>
@@ -380,7 +380,7 @@ export default function ComponentExcelImport() {
                   onClick={() => navigate('/class-setup/admin/stock-inwards')}
                   sx={{ textTransform: 'none', fontWeight: 700 }}
                 >
-                  Lập phiếu nhập ngay
+                  Nhập hàng ngay
                 </Button>
                 {createdIds.length > 0 && (
                   <Button
@@ -405,7 +405,7 @@ export default function ComponentExcelImport() {
             }
           >
             Hoàn tất đẩy danh sách: <strong>{importSummary.successCount} linh kiện thành công</strong>
-            {importSummary.failedCount > 0 ? `, ${importSummary.failedCount} dòng lỗi.` : '.'} (Tồn kho sẽ tăng sau khi lập phiếu nhập.)
+            {importSummary.failedCount > 0 ? `, ${importSummary.failedCount} dòng lỗi.` : '.'} (Tồn kho sẽ tăng sau khi nhập hàng.)
           </Alert>
         )}
 

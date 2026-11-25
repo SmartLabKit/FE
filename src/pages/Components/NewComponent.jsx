@@ -443,7 +443,7 @@ export default function NewComponent() {
                   {componentId ? 'Cập nhật linh kiện' : 'Thông tin linh kiện'}
                 </Typography>
                 <Typography sx={{ color: '#697386', fontSize: 13 }}>
-                  Khai báo thông tin chi tiết linh kiện. Tồn kho chỉ tăng sau khi lập phiếu nhập kho.
+                  Khai báo thông tin chi tiết linh kiện. Tồn kho chỉ tăng sau khi nhập hàng.
                 </Typography>
               </Box>
               <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap' }}>

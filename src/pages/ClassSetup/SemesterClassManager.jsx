@@ -708,7 +708,7 @@ export default function SemesterClassManager({ onNext }) {
                         </TableCell>
                         <TableCell align="right">
                           {onNext && (
-                            <Tooltip title="Nhập roster & phân công cho lớp này">
+                            <Tooltip title="Nhập danh sách lớp & phân công cho lớp này">
                               <IconButton
                                 size="small"
                                 onClick={() => onNext({ semesterCode: currentSemester?.semesterCode, classId: cls.classId })}
@@ -761,7 +761,7 @@ export default function SemesterClassManager({ onNext }) {
                     '&:hover': { bgcolor: '#eaedff' },
                   }}
                 >
-                  Sang Nhập Roster{currentSemester ? ` (${currentSemester.semesterCode})` : ''}
+                  Sang nhập danh sách lớp{currentSemester ? ` (${currentSemester.semesterCode})` : ''}
                 </Button>
               </Box>
             )}
