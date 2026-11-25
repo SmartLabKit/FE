@@ -110,6 +110,13 @@ export interface AutoAssignNewTeam {
 export interface AutoAssignPreviewResponse {
   existingTeams: AutoAssignExistingTeam[]
   newTeams: AutoAssignNewTeam[]
+  merges: {
+    sourceTeamId: string
+    sourceTeamName: string
+    targetTeamId: string
+    targetTeamName: string
+    members: UnassignedStudentDto[]
+  }[]
   warnings: string[]
   requiresExceedMax: boolean
 }
@@ -137,6 +144,7 @@ export interface AssignNewTeamItem {
 export interface AssignTeamsRequest {
   existingTeams: AssignExistingTeamItem[]
   newTeams: AssignNewTeamItem[]
+  merges?: { sourceTeamId: string; targetTeamId: string }[]
   allowExceedMax: boolean
 }
 

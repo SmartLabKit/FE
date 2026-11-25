@@ -93,6 +93,34 @@ export async function updateTeamSettings(
 }
 
 /**
+ * Kết thúc sớm thời gian sinh viên chọn nhóm
+ * POST /api/classes/{classId}/team-formation/close
+ */
+export async function closeTeamFormation(classId: string): Promise<any> {
+  try {
+    const response = await api.post<ApiResponse<any>>(`/api/classes/${classId}/team-formation/close`)
+    return unwrapResponse<any>(response)
+  } catch (error) {
+    throw new Error(extractErrorMessage(error, 'Không thể kết thúc chọn nhóm'), { cause: error })
+  }
+}
+
+/**
+ * Đưa một sinh viên (không phải trưởng nhóm) ra khỏi nhóm
+ * DELETE /api/classes/{classId}/team-formation/members/{studentProfileId}
+ */
+export async function removeTeamMember(classId: string, studentProfileId: string): Promise<any> {
+  try {
+    const response = await api.delete<ApiResponse<any>>(
+      `/api/classes/${classId}/team-formation/members/${studentProfileId}`
+    )
+    return unwrapResponse<any>(response)
+  } catch (error) {
+    throw new Error(extractErrorMessage(error, 'Không thể đưa sinh viên ra khỏi nhóm'), { cause: error })
+  }
+}
+
+/**
  * Xem trước thuật toán tự động chia các sinh viên còn lại vào các nhóm
  * GET /api/classes/{classId}/team-formation/auto-assign/preview
  * @param classId ID lớp học

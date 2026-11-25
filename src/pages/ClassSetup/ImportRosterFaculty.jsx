@@ -105,11 +105,6 @@ function getRealErrors(result) {
         }
       }
 
-      // Bỏ qua nếu nội dung thông báo chứa các từ khóa trùng lặp / đã tồn tại / đã có trong lớp
-      if (/trùng|tồn tại|already exist|duplicate|đã có|bỏ qua|skipped/i.test(err.message)) {
-        return false
-      }
-
       // Bỏ qua nếu không có thông báo chi tiết mà hệ thống đã ghi nhận số dòng bỏ qua
       if (!err.message && (result.skippedRows ?? 0) > 0) {
         return false
@@ -217,6 +212,7 @@ export default function ImportRosterFaculty() {
   const [newInstructorErrors, setNewInstructorErrors] = useState({})
   const [creatingInstructor, setCreatingInstructor] = useState(false)
   const [resendingId, setResendingId] = useState('')
+  const [importError, setImportError] = useState('')
 
   // Toast alert
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
@@ -464,6 +460,7 @@ export default function ImportRosterFaculty() {
     const newClassId = e.target.value
     setSelectedClassId(newClassId)
     setImportResult(null)
+    setImportError('')
     setStudentSearch('')
     setAssignedResult(null)
     fetchClassStudents(newClassId)
@@ -487,6 +484,7 @@ export default function ImportRosterFaculty() {
     if (file) {
       setSelectedFile(file)
       setImportResult(null)
+      setImportError('')
     }
   }
 
@@ -503,16 +501,16 @@ export default function ImportRosterFaculty() {
 
     setUploading(true)
     try {
+      setImportError('')
       const res = await academicService.importRoster(selectedClassId, selectedFile)
       setImportResult(res)
       const realErrors = getRealErrors(res)
       const hasErrors = realErrors.length > 0
-      const skippedNote = res?.skippedRows > 0 ? ` (Bỏ qua ${res.skippedRows} dòng trùng lặp)` : ''
       setToast({
         open: true,
         message: hasErrors
           ? `Đã xử lý file: ghi danh ${res?.enrolledStudents ?? 0} sinh viên, phát hiện ${realErrors.length} lỗi dòng.`
-          : `Import thành công! Đã ghi danh ${res?.enrolledStudents ?? 0} sinh viên vào lớp.${skippedNote}`,
+          : `Import thành công! Đã ghi danh ${res?.enrolledStudents ?? 0} sinh viên vào lớp.`,
         severity: hasErrors ? 'warning' : 'success',
       })
       // Cập nhật lại số sinh viên trong danh sách lớp và tải lại danh sách sinh viên thực tế
@@ -521,11 +519,8 @@ export default function ImportRosterFaculty() {
         fetchClassStudents(selectedClassId),
       ])
     } catch (err) {
-      setToast({
-        open: true,
-        message: err.message || 'Lỗi khi import danh sách sinh viên',
-        severity: 'error',
-      })
+      setImportResult(null)
+      setImportError(err.message || 'Lỗi khi import danh sách sinh viên')
     } finally {
       setUploading(false)
     }
@@ -895,6 +890,12 @@ export default function ImportRosterFaculty() {
                 {uploading ? 'Đang nạp file...' : 'Tải lên & Ghi danh'}
               </Button>
             </Box>
+
+            {importError && (
+              <Alert severity="error" sx={{ mt: 3 }} onClose={() => setImportError('')}>
+                {importError}
+              </Alert>
+            )}
 
             {/* Import Result Notification */}
             {importResult && (() => {

@@ -66,7 +66,7 @@ import {
 
 // ─── Constants & Helpers ──────────────────────────────────────────────────────
 
-const LOCKED_REASON = 'Đã quá hạn chót chia nhóm. Bạn không thể thay đổi nhóm hoặc phản hồi lời mời.'
+const LOCKED_REASON = 'Chưa mở hoặc đã hết hạn chọn nhóm, bạn không thể thay đổi nhóm hoặc phản hồi lời mời.'
 const PROJECT_LOCKED_REASON = 'Nhóm đã đăng ký đề tài, không thể thay đổi thành viên hoặc trưởng nhóm'
 
 const BLUE_TOOLTIP_SLOT_PROPS = {
@@ -142,6 +142,7 @@ function TeamFormationStatusCard({ overview }) {
 
   const isOpen = overview.studentsCanChangeTeams === true
   const { deadline, minTeamSize, maxTeamSize } = overview
+  const isConfigured = minTeamSize != null && maxTeamSize != null
 
   return (
     <Paper
@@ -174,7 +175,7 @@ function TeamFormationStatusCard({ overview }) {
                 <LockIcon sx={{ fontSize: '14px !important' }} />
               )
             }
-            label={isOpen ? 'Đang mở chia nhóm' : 'Đã quá hạn chia nhóm'}
+            label={isOpen ? 'Đang chọn nhóm' : isConfigured ? 'Đã hết hạn chọn nhóm' : 'Chưa mở chọn nhóm'}
             size="small"
             sx={{
               fontWeight: 800,
@@ -197,7 +198,9 @@ function TeamFormationStatusCard({ overview }) {
           >
             {isOpen
               ? 'Sinh viên có thể tạo nhóm, mời thành viên, chuyển trưởng nhóm, rời nhóm và phản hồi lời mời.'
-              : 'Thời gian tự chia nhóm đã kết thúc; thao tác đổi nhóm và phản hồi lời mời đã khóa. Nhóm đạt điều kiện vẫn vào Thiết lập dự án được.'}
+              : isConfigured
+                ? 'Giảng viên sẽ chia nhóm cho các bạn chưa có nhóm. Nhóm đủ người vẫn thiết lập dự án được.'
+                : 'Giảng viên chưa đặt số thành viên và hạn chót, bạn chưa tạo nhóm được.'}
           </Typography>
         </Box>
 
@@ -713,6 +716,7 @@ export default function StudentGroupsPage() {
 
   // Trưởng nhóm phải chuyển quyền trước khi rời nếu còn thành viên Accepted khác
   const leaderMustTransferBeforeLeave = isLeader && acceptedMembers.length > 1
+  const leaderIsAlone = isLeader && acceptedMembers.length <= 1
 
   const filteredCandidates = useMemo(
     () =>
@@ -834,7 +838,7 @@ export default function StudentGroupsPage() {
         showToast(`Đã hủy lời mời sinh viên ${member.fullName}.`, 'info')
       } else if (type === 'leave') {
         await leaveTeam(currentTeam.teamId)
-        showToast('Bạn đã rời nhóm thành công.', 'info')
+        showToast(leaderIsAlone ? 'Đã giải tán nhóm.' : 'Bạn đã rời nhóm thành công.', 'info')
         setCandidates([])
       }
       setPendingConfirm(null)
@@ -1032,7 +1036,7 @@ export default function StudentGroupsPage() {
                       Hãy đặt tên nhóm và tạo nhóm ngay. Sau khi tạo, bạn sẽ là <strong>Trưởng nhóm</strong> và có quyền mời các bạn cùng lớp tham gia.
                     </>
                   ) : (
-                    'Thời hạn tự tạo nhóm đã kết thúc. Vui lòng liên hệ giảng viên phụ trách lớp để được hỗ trợ phân nhóm.'
+                    'Bạn chưa tạo nhóm được lúc này. Giảng viên sẽ mở chọn nhóm hoặc xếp nhóm cho bạn.'
                   )}
                 </Typography>
 
@@ -1342,7 +1346,7 @@ export default function StudentGroupsPage() {
                                   whiteSpace: 'nowrap',
                                 }}
                               >
-                                Rời nhóm
+                                {leaderIsAlone ? 'Giải tán nhóm' : 'Rời nhóm'}
                               </Button>
                             </span>
                           </Tooltip>
@@ -1427,7 +1431,7 @@ export default function StudentGroupsPage() {
                             </>
                           ) : (
                             <>
-                              Xác nhận rời khỏi nhóm <strong>{currentTeam.teamName}</strong>?
+                              {leaderIsAlone ? 'Xác nhận giải tán nhóm' : 'Xác nhận rời khỏi nhóm'} <strong>{currentTeam.teamName}</strong>?
                             </>
                           )}
                         </Typography>
