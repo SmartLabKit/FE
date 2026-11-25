@@ -1,8 +1,9 @@
-import { Fragment, useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Add as AddIcon,
   ArrowBack as BackIcon,
   CancelOutlined as CancelIcon,
+  CardGiftcard as GiftIcon,
   CloudUpload as UploadIcon,
   Delete as DeleteIcon,
   Download as DownloadIcon,
@@ -60,16 +61,16 @@ import { labLabel } from '../../utils/labLabel'
 
 const MAX_DROPDOWN_OPTIONS = 50
 
-// Bảng dòng hàng: chia bề rộng theo phần trăm để vừa mọi màn hình; serial, version, bảo hành nằm ở dòng dưới
+// Bề rộng cột của bảng dòng hàng, chia theo phần trăm để thấy đủ tới nút xóa
 const LINE_COLUMNS = [
-  { head: 'Linh kiện', width: '28%' },
-  { head: 'Số lượng', width: '12%' },
-  { head: 'Đơn giá (VNĐ)', width: '18%' },
-  { head: 'Thành tiền', width: '15%' },
-  { head: 'Tủ cất', width: '21%' },
+  { head: 'Linh kiện', width: '19%' },
+  { head: 'Số lượng', width: '9%' },
+  { head: 'Đơn giá (VNĐ) & Cho tặng', width: '16%' },
+  { head: 'Thành tiền', width: '12%' },
+  { head: 'Tủ cất', width: '16%' },
+  { head: 'Thông tin máy (Serial / Version / Bảo hành)', width: '23%' },
+  { head: '', width: '5%' },
 ]
-// Nút xóa dòng luôn ghim bên phải, kể cả khi màn hình nhỏ phải cuộn ngang
-const DELETE_CELL = { position: 'sticky', right: 0, zIndex: 1, width: 48, px: 0.5, textAlign: 'center' }
 
 const newLine = () => ({
   key: `${Date.now()}-${Math.random()}`,
@@ -975,11 +976,11 @@ export default function StockInwards() {
                     size="small"
                     sx={{
                       tableLayout: 'fixed',
-                      minWidth: 680,
+                      minWidth: 880,
                       '& .MuiTableCell-root': { px: 0.75 },
                       '& .MuiInputBase-input': { fontSize: 14 },
-                      '& .MuiOutlinedInput-input:not([type="date"], textarea)': { pl: 1.25 },
                       '& .MuiFormHelperText-root': { mx: 0.5 },
+                      '& input[type="number"], & input[type="date"]': { px: 1 },
                     }}
                   >
                     <TableHead>
@@ -989,7 +990,6 @@ export default function StockInwards() {
                             {column.head}
                           </TableCell>
                         ))}
-                        <TableCell sx={{ ...DELETE_CELL, fontWeight: 700, color: '#334155', bgcolor: '#faf9ff' }}>Xóa</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -1013,8 +1013,7 @@ export default function StockInwards() {
                             : filteredComponentsByCategory
 
                         return (
-                          <Fragment key={line.key}>
-                          <TableRow sx={{ verticalAlign: 'top', '& > td:not(:last-of-type)': isHighValue ? { borderBottom: 0 } : {} }}>
+                          <TableRow key={line.key} sx={{ verticalAlign: 'top' }}>
                             <TableCell>
                               <Autocomplete
                                 size="small"
@@ -1080,7 +1079,7 @@ export default function StockInwards() {
                                     updateLine(line.key, { quantity: raw })
                                   }
                                 }}
-                                slotProps={{ htmlInput: { min: 1, step: 1, style: { paddingRight: 2 } } }}
+                                slotProps={{ htmlInput: { min: 1, step: 1 } }}
                               />
                             </TableCell>
                             <TableCell>
@@ -1090,7 +1089,7 @@ export default function StockInwards() {
                                 type="number"
                                 size="small"
                                 fullWidth
-                                label="Đơn giá"
+                                label={line.isGift ? 'Đơn giá (Cho tặng)' : 'Đơn giá (VNĐ)'}
                                 placeholder="VD: 115000"
                                 value={line.isGift ? '0' : line.unitPrice}
                                 error={showPriceError}
@@ -1115,7 +1114,7 @@ export default function StockInwards() {
                                 }
                                 label={
                                   <Typography sx={{ fontSize: 11.5, color: line.isGift ? '#0284c7' : '#64748b', fontWeight: line.isGift ? 700 : 500, display: 'flex', alignItems: 'center', gap: 0.4 }}>
-                                    Cho tặng (0₫)
+                                    <GiftIcon sx={{ fontSize: 13 }} /> Cho tặng / Tài trợ (0₫)
                                   </Typography>
                                 }
                               />
@@ -1142,7 +1141,7 @@ export default function StockInwards() {
                                   !roomId
                                     ? 'Chọn lab nhận hàng trước'
                                     : line.cabinetId && line.cabinetId === cabinetFor(roomCabinets, selectedComponent(line))
-                                      ? 'Tự chọn theo loại'
+                                      ? 'Tự chọn theo loại linh kiện'
                                       : ''
                                 }
                               >
@@ -1153,29 +1152,16 @@ export default function StockInwards() {
                                 ))}
                               </TextField>
                             </TableCell>
-                            <TableCell rowSpan={isHighValue ? 2 : 1} sx={{ ...DELETE_CELL, bgcolor: '#fff' }}>
-                              <Button
-                                aria-label="Xóa dòng"
-                                color="error"
-                                disabled={lines.length <= 1}
-                                onClick={() => setLines((current) => current.filter((item) => item.key !== line.key))}
-                                sx={{ minWidth: 36 }}
-                              >
-                                <DeleteIcon />
-                              </Button>
-                            </TableCell>
-                          </TableRow>
-                          {isHighValue && (
-                            <TableRow>
-                              <TableCell colSpan={LINE_COLUMNS.length} sx={{ pt: 0.5 }}>
-                                <Box sx={{ display: 'grid', gridTemplateColumns: '1fr 96px 170px', gap: 1, alignItems: 'start' }}>
+                            <TableCell>
+                              {isHighValue ? (
+                                <Box sx={{ display: 'grid', gap: 1 }}>
                                   <TextField
                                     required
                                     size="small"
                                     label={
                                       Number(line.quantity) > 1
-                                        ? `Serial (${line.quantity} máy, mỗi dòng 1 serial)`
-                                        : 'Số Serial'
+                                        ? `Serial (${line.quantity} máy, mỗi dòng 1 serial) *`
+                                        : 'Số Serial *'
                                     }
                                     placeholder={
                                       Number(line.quantity) > 1
@@ -1187,34 +1173,50 @@ export default function StockInwards() {
                                     value={line.serialsText}
                                     onChange={(event) => updateLine(line.key, { serialsText: event.target.value })}
                                   />
-                                  <TextField
-                                    required
-                                    size="small"
-                                    label="Version"
-                                    value={line.version}
-                                    onChange={(event) => updateLine(line.key, { version: event.target.value })}
-                                  />
-                                  <TextField
-                                    required
-                                    type="date"
-                                    size="small"
-                                    label="Bảo hành đến"
-                                    value={line.warrantyExpiresAt}
-                                    error={warrantyInvalid}
-                                    helperText={warrantyInvalid ? 'Phải ≥ ngày nhập' : ''}
-                                    onChange={(event) =>
-                                      updateLine(line.key, { warrantyExpiresAt: event.target.value })
-                                    }
-                                    slotProps={{
-                                      inputLabel: { shrink: true },
-                                      htmlInput: { min: receivedAt || undefined },
-                                    }}
-                                  />
+                                  <Box sx={{ display: 'grid', gridTemplateColumns: '72px 1fr', gap: 0.5 }}>
+                                    <TextField
+                                      required
+                                      size="small"
+                                      label="Version"
+                                      value={line.version}
+                                      onChange={(event) => updateLine(line.key, { version: event.target.value })}
+                                    />
+                                    <TextField
+                                      required
+                                      type="date"
+                                      size="small"
+                                      label="Bảo hành đến"
+                                      value={line.warrantyExpiresAt}
+                                      error={warrantyInvalid}
+                                      helperText={warrantyInvalid ? 'Phải ≥ ngày nhập' : ''}
+                                      onChange={(event) =>
+                                        updateLine(line.key, { warrantyExpiresAt: event.target.value })
+                                      }
+                                      slotProps={{
+                                        inputLabel: { shrink: true },
+                                        htmlInput: { min: receivedAt || undefined },
+                                      }}
+                                    />
+                                  </Box>
                                 </Box>
-                              </TableCell>
-                            </TableRow>
-                          )}
-                          </Fragment>
+                              ) : (
+                                <Typography sx={{ pt: 1, fontSize: 12, color: 'text.secondary' }}>
+                                  {component ? component.trackingType : 'Chọn linh kiện'}
+                                </Typography>
+                              )}
+                            </TableCell>
+                            <TableCell>
+                              <Button
+                                aria-label="Xóa dòng"
+                                color="error"
+                                disabled={lines.length <= 1}
+                                onClick={() => setLines((current) => current.filter((item) => item.key !== line.key))}
+                                sx={{ minWidth: 36 }}
+                              >
+                                <DeleteIcon />
+                              </Button>
+                            </TableCell>
+                          </TableRow>
                         )
                       })}
                     </TableBody>
