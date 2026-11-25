@@ -3,7 +3,6 @@ import {
   Add as AddIcon,
   ArrowBack as BackIcon,
   CancelOutlined as CancelIcon,
-  CardGiftcard as GiftIcon,
   CloudUpload as UploadIcon,
   Delete as DeleteIcon,
   Download as DownloadIcon,
@@ -60,6 +59,18 @@ import { findReceiptComponent, hasDifferentName } from './receiptCheck'
 import { labLabel } from '../../utils/labLabel'
 
 const MAX_DROPDOWN_OPTIONS = 50
+
+// Bảng dòng hàng: cột có bề rộng cố định để vừa màn hình, cột nào không ghi width thì chia phần còn lại
+const LINE_COLUMNS = [
+  { head: 'Linh kiện' },
+  { head: 'Số lượng', width: 88 },
+  { head: 'Đơn giá (VNĐ)', width: 138 },
+  { head: 'Thành tiền', width: 104 },
+  { head: 'Tủ cất', width: 142 },
+  { head: 'Serial / Version / Bảo hành', width: 236 },
+]
+// Nút xóa dòng luôn ghim bên phải, kể cả khi màn hình nhỏ phải cuộn ngang
+const DELETE_CELL = { position: 'sticky', right: 0, zIndex: 1, width: 48, px: 0.5, textAlign: 'center' }
 
 const newLine = () => ({
   key: `${Date.now()}-${Math.random()}`,
@@ -961,22 +972,25 @@ export default function StockInwards() {
                 </Box>
 
                 <TableContainer sx={{ border: '1px solid #d8dced', borderRadius: 1 }}>
-                  <Table size="small">
+                  <Table
+                    size="small"
+                    sx={{
+                      tableLayout: 'fixed',
+                      minWidth: 940,
+                      '& .MuiTableCell-root': { px: 0.75 },
+                      '& .MuiInputBase-input': { fontSize: 14 },
+                      '& .MuiOutlinedInput-input:not([type="date"], textarea)': { pl: 1.25 },
+                      '& .MuiFormHelperText-root': { mx: 0.5 },
+                    }}
+                  >
                     <TableHead>
                       <TableRow sx={{ bgcolor: '#faf9ff' }}>
-                        {[
-                          'Linh kiện (tìm theo tên / mã viết tắt)',
-                          'Số lượng',
-                          'Đơn giá (VNĐ) & Cho tặng',
-                          'Thành tiền',
-                          'Tủ cất',
-                          'Thông tin máy (Serial / Version / Bảo hành)',
-                          '',
-                        ].map((head, idx) => (
-                          <TableCell key={head || idx} sx={{ fontWeight: 700, color: '#334155' }}>
-                            {head}
+                        {LINE_COLUMNS.map((column) => (
+                          <TableCell key={column.head} sx={{ fontWeight: 700, color: '#334155', width: column.width }}>
+                            {column.head}
                           </TableCell>
                         ))}
+                        <TableCell sx={{ ...DELETE_CELL, fontWeight: 700, color: '#334155', bgcolor: '#faf9ff' }}>Xóa</TableCell>
                       </TableRow>
                     </TableHead>
                     <TableBody>
@@ -1001,9 +1015,10 @@ export default function StockInwards() {
 
                         return (
                           <TableRow key={line.key} sx={{ verticalAlign: 'top' }}>
-                            <TableCell sx={{ minWidth: 300 }}>
+                            <TableCell>
                               <Autocomplete
                                 size="small"
+                                slotProps={{ popper: { placement: 'bottom-start', sx: { minWidth: 340 } } }}
                                 options={optionsForRow}
                                 value={component || null}
                                 onChange={(_, newValue) => handleSelectComponent(line, newValue)}
@@ -1049,7 +1064,7 @@ export default function StockInwards() {
                                 )}
                               />
                             </TableCell>
-                            <TableCell sx={{ minWidth: 105 }}>
+                            <TableCell>
                               <TextField
                                 required
                                 type="number"
@@ -1065,10 +1080,10 @@ export default function StockInwards() {
                                     updateLine(line.key, { quantity: raw })
                                   }
                                 }}
-                                slotProps={{ htmlInput: { min: 1, step: 1 } }}
+                                slotProps={{ htmlInput: { min: 1, step: 1, style: { paddingRight: 2 } } }}
                               />
                             </TableCell>
-                            <TableCell sx={{ minWidth: 185 }}>
+                            <TableCell>
                               <TextField
                                 required={!line.isGift}
                                 disabled={line.isGift}
@@ -1100,17 +1115,17 @@ export default function StockInwards() {
                                 }
                                 label={
                                   <Typography sx={{ fontSize: 11.5, color: line.isGift ? '#0284c7' : '#64748b', fontWeight: line.isGift ? 700 : 500, display: 'flex', alignItems: 'center', gap: 0.4 }}>
-                                    <GiftIcon sx={{ fontSize: 13 }} /> Cho tặng / Tài trợ (0₫)
+                                    Cho tặng (0₫)
                                   </Typography>
                                 }
                               />
                             </TableCell>
-                            <TableCell sx={{ minWidth: 120, pt: 1.5 }}>
+                            <TableCell sx={{ pt: 1.5 }}>
                               <Typography sx={{ fontWeight: 700, fontSize: 13, color: line.isGift ? '#0284c7' : '#0f172a' }}>
                                 {line.isGift ? '0 ₫ (Tặng)' : `${lineTotal.toLocaleString('vi-VN')} ₫`}
                               </Typography>
                             </TableCell>
-                            <TableCell sx={{ minWidth: 210 }}>
+                            <TableCell>
                               <TextField
                                 fullWidth
                                 required
@@ -1120,11 +1135,14 @@ export default function StockInwards() {
                                 value={line.cabinetId}
                                 disabled={!roomId}
                                 onChange={(event) => updateLine(line.key, { cabinetId: event.target.value })}
+                                slotProps={{
+                                  select: { renderValue: (id) => roomCabinets.find((cab) => cab.cabinetId === id)?.cabinetCode || '' },
+                                }}
                                 helperText={
                                   !roomId
                                     ? 'Chọn lab nhận hàng trước'
                                     : line.cabinetId && line.cabinetId === cabinetFor(roomCabinets, selectedComponent(line))
-                                      ? 'Tự chọn theo loại linh kiện'
+                                      ? 'Tự chọn theo loại'
                                       : ''
                                 }
                               >
@@ -1135,7 +1153,7 @@ export default function StockInwards() {
                                 ))}
                               </TextField>
                             </TableCell>
-                            <TableCell sx={{ minWidth: 300 }}>
+                            <TableCell>
                               {isHighValue ? (
                                 <Box sx={{ display: 'grid', gap: 1 }}>
                                   <TextField
@@ -1156,7 +1174,7 @@ export default function StockInwards() {
                                     value={line.serialsText}
                                     onChange={(event) => updateLine(line.key, { serialsText: event.target.value })}
                                   />
-                                  <Box sx={{ display: 'grid', gridTemplateColumns: '72px 1fr', gap: 1 }}>
+                                  <Box sx={{ display: 'grid', gridTemplateColumns: '84px 1fr', gap: 0.5 }}>
                                     <TextField
                                       required
                                       size="small"
@@ -1183,12 +1201,12 @@ export default function StockInwards() {
                                   </Box>
                                 </Box>
                               ) : (
-                                <Typography color="text.secondary" fontSize={12} sx={{ pt: 1 }}>
+                                <Typography sx={{ pt: 1, fontSize: 12, color: 'text.secondary' }}>
                                   {component ? component.trackingType : 'Chọn linh kiện'}
                                 </Typography>
                               )}
                             </TableCell>
-                            <TableCell>
+                            <TableCell sx={{ ...DELETE_CELL, bgcolor: '#fff' }}>
                               <Button
                                 aria-label="Xóa dòng"
                                 color="error"
