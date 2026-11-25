@@ -1,9 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   Add as AddIcon,
-  GridView as GridViewIcon,
   Inventory as InventoryIcon,
-  ReceiptLong as ReceiptIcon,
   TableChart as ExcelIcon,
 } from '@mui/icons-material'
 import {
@@ -267,7 +265,7 @@ export default function Components() {
           {[
             ['Tổng linh kiện', components.length, <InventoryIcon />],
             ['Tổng tồn kho', totalQuantity.toLocaleString('vi-VN'), <InventoryIcon />],
-            ['Có thể sử dụng', availableQuantity.toLocaleString('vi-VN'), <InventoryIcon />],
+            ['Khả dụng', availableQuantity.toLocaleString('vi-VN'), <InventoryIcon />],
           ].map(([label, value, icon]) => (
             <Grid key={label} size={{ xs: 12, sm: 4 }}>
               <Card variant="outlined" sx={{ borderColor: '#d8dced', boxShadow: 'none' }}>
@@ -298,29 +296,6 @@ export default function Components() {
         >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
             <Typography sx={{ fontWeight: 800, color: '#182238' }}>Danh sách linh kiện</Typography>
-            <Chip
-              label={`${filtered.length} / ${components.length} linh kiện`}
-              size="small"
-              sx={{ fontWeight: 600, fontSize: 11, bgcolor: '#f1f5f9' }}
-            />
-            <Box sx={{ display: 'flex', gap: 0.8, ml: { xs: 0, sm: 1 }, flexWrap: 'wrap' }}>
-              {TRACKING_TYPE_OPTIONS.map((opt) => (
-                <Chip
-                  key={opt.value}
-                  label={opt.value === '' ? 'Tất cả' : opt.short}
-                  size="small"
-                  clickable
-                  color={typeFilter === opt.value ? 'primary' : 'default'}
-                  variant={typeFilter === opt.value ? 'filled' : 'outlined'}
-                  onClick={() => handleTypeFilterChange(opt.value)}
-                  sx={{
-                    fontWeight: typeFilter === opt.value ? 700 : 500,
-                    fontSize: 11,
-                    bgcolor: typeFilter === opt.value ? '#0058be' : undefined,
-                  }}
-                />
-              ))}
-            </Box>
           </Box>
 
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -393,31 +368,8 @@ export default function Components() {
               placeholder="Tìm tên, mã, mã viết tắt (VD: CBNDDA)..."
               sx={{ minWidth: 230 }}
             />
-            <Button
-              startIcon={<GridViewIcon />}
-              variant="outlined"
-              onClick={() => navigate('/components/catalog')}
-              sx={{
-                textTransform: 'none',
-                fontWeight: 600,
-                color: '#0058be',
-                borderColor: '#0058be',
-                whiteSpace: 'nowrap',
-                '&:hover': { bgcolor: '#f0f7ff', borderColor: '#004aa3' },
-              }}
-            >
-              Catalog
-            </Button>
             {canManage && (
               <>
-                <Button
-                  startIcon={<ReceiptIcon />}
-                  variant="outlined"
-                  onClick={() => navigate('/class-setup/admin/stock-receipts')}
-                  sx={{ textTransform: 'none', fontWeight: 600 }}
-                >
-                  Phiếu nhập
-                </Button>
                 <Button
                   startIcon={<ExcelIcon />}
                   variant="outlined"
@@ -459,7 +411,7 @@ export default function Components() {
             <TableHead>
               <TableRow sx={{ bgcolor: '#faf9ff' }}>
                 <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Tên linh kiện</TableCell>
-                <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Mã / Mã viết tắt</TableCell>
+                <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Mã</TableCell>
                 {showsReceipt && (
                   <TableCell sx={{ fontWeight: 700, color: '#334155' }}>
                     {receivedFilter === 'receipt' ? 'Nhập theo phiếu' : 'Nhập gần nhất'}
@@ -555,7 +507,17 @@ export default function Components() {
                           }
                           const totalQty = Number(component.totalQuantity || 0)
                           const availQty = Number(component.availableQuantity || 0)
-                          if (totalQty === 0 || availQty === 0) {
+                          if (totalQty > 0 && availQty === 0) {
+                            return (
+                              <Chip
+                                size="small"
+                                label="Cho mượn hết"
+                                color="info"
+                                sx={{ fontWeight: 600, fontSize: 11 }}
+                              />
+                            )
+                          }
+                          if (availQty === 0) {
                             return (
                               <Chip
                                 size="small"
@@ -578,7 +540,7 @@ export default function Components() {
                           return (
                             <Chip
                               size="small"
-                              label="Đang hoạt động"
+                              label="Còn hàng"
                               color="success"
                               sx={{ fontWeight: 600, fontSize: 11 }}
                             />

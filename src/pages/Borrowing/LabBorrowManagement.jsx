@@ -42,7 +42,7 @@ import { useLabBorrowRequests } from '../../hooks/useLabBorrowRequests'
 import { borrowService } from '../../services/borrowService'
 import { extractErrorMessage } from '../../services/api'
 import { formatVietnamDate, formatVietnamDateTime } from '../../utils/dateFormatting'
-import { getApprovalStatusMeta, getBorrowRequestStatusMeta } from './borrowHelpers'
+import { getApprovalStatusMeta, getBorrowRequestStatusMeta, getShownPurpose } from './borrowHelpers'
 import { labCode, labLabel, labName } from '../../utils/labLabel'
 import LabReturnSlips from './LabReturnSlips'
 import PickupDateDialog from './PickupDateDialog'
@@ -710,7 +710,7 @@ export default function LabBorrowManagement() {
                   <Box>
                     <Typography variant="h6" fontWeight={700}>{requestDetail.requestCode}</Typography>
                     <Typography color="text.secondary">
-                      {requestDetail.requesterName} · {requestDetail.classCode} · {requestDetail.projectTitle}
+                      {[requestDetail.requesterName, requestDetail.projectTitle].filter(Boolean).join(' · ')}
                     </Typography>
                   </Box>
                   {(() => {
@@ -733,14 +733,12 @@ export default function LabBorrowManagement() {
                     <Typography variant="caption" color="text.secondary">Ngày gửi đơn</Typography>
                     <Typography fontWeight={600}>{formatVietnamDate(requestDetail.requestDate)}</Typography>
                   </Grid>
-                  <Grid size={{ xs: 12, sm: 3 }}>
-                    <Typography variant="caption" color="text.secondary">Ngày hẹn nhận</Typography>
-                    <Typography fontWeight={600}>
-                      {requestDetail.borrowDate && !['Pending', 'Approved'].includes(requestDetail.status)
-                        ? formatVietnamDate(requestDetail.borrowDate)
-                        : '—'}
-                    </Typography>
-                  </Grid>
+                  {requestDetail.status === 'Ready' && requestDetail.borrowDate && (
+                    <Grid size={{ xs: 12, sm: 3 }}>
+                      <Typography variant="caption" color="text.secondary">Ngày hẹn nhận</Typography>
+                      <Typography fontWeight={600}>{formatVietnamDate(requestDetail.borrowDate)}</Typography>
+                    </Grid>
+                  )}
                   <Grid size={{ xs: 12, sm: 3 }}>
                     <Typography variant="caption" color="text.secondary">Hạn trả</Typography>
                     <Typography fontWeight={600} color={isOverdue(requestDetail) ? 'error.main' : 'inherit'}>
@@ -762,11 +760,6 @@ export default function LabBorrowManagement() {
                         size="small"
                         label={`Đã trả: ${detailItems.filter((i) => Boolean(i.returnedAt) || String(i.status || '').toLowerCase() === 'returned').length}/${detailItems.length}`}
                         sx={{ bgcolor: '#dcfce7', color: '#15803d', fontWeight: 700, fontSize: 11 }}
-                      />
-                      <Chip
-                        size="small"
-                        label={`Còn lại: ${detailItems.filter((i) => !i.returnedAt && String(i.status || '').toLowerCase() !== 'returned').length} món`}
-                        sx={{ bgcolor: '#fffbeb', color: '#b45309', fontWeight: 700, fontSize: 11 }}
                       />
                     </Box>
                   )}
@@ -840,13 +833,13 @@ export default function LabBorrowManagement() {
                   </Table>
                 </TableContainer>
 
-                {requestDetail.purpose && (
+                {getShownPurpose(requestDetail.purpose) && (
                   <Box sx={{ p: 1.75, borderRadius: 1.5, bgcolor: '#f8fafc', border: '1px solid #e2e8f0' }}>
                     <Typography variant="caption" sx={{ fontWeight: 700, color: '#64748b', display: 'block', mb: 0.4 }}>
                       MỤC ĐÍCH
                     </Typography>
                     <Typography variant="body2" sx={{ color: '#1e293b', lineHeight: 1.6 }}>
-                      {requestDetail.purpose}
+                      {getShownPurpose(requestDetail.purpose)}
                     </Typography>
                   </Box>
                 )}

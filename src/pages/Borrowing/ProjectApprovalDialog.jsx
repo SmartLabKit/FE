@@ -24,7 +24,7 @@ import { borrowService } from '../../services/borrowService'
 import { issueReportService } from '../../services/issueReportService'
 import { formatDateTime, issueStatusOf, issueTypeLabel } from '../IssueReports/issueReportLabels'
 import { formatVietnamDate } from '../../utils/dateFormatting'
-import { getBorrowRequestStatusMeta } from './borrowHelpers'
+import { getBorrowRequestStatusMeta, getShownPurpose } from './borrowHelpers'
 import { labCode, labName } from '../../utils/labLabel'
 
 const COMMENT_MAX_LENGTH = 255
@@ -405,7 +405,7 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
                               </Stack>
                               <Typography variant="caption" sx={{ color: '#475569', display: 'block', mt: 0.35 }}>
                                 Hạn trả: <strong>{br.dueDate ? formatVietnamDate(br.dueDate) : '—'}</strong>
-                                {br.purpose ? ` · ${br.purpose}` : ''}
+                                {getShownPurpose(br.purpose) ? ` · ${getShownPurpose(br.purpose)}` : ''}
                               </Typography>
                             </Box>
                             <Button

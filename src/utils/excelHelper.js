@@ -110,7 +110,7 @@ export function downloadComponentsTemplate(categories = [], existingComponents =
     {
       'Cột dữ liệu': 'Mã viết tắt (tự sinh nếu trống)',
       'Bắt buộc': 'Không',
-      'Ghi chú / Quy định': 'Mã viết tắt kiểu thuốc y tế để tìm kiếm nhanh. Nếu để trống hệ thống sẽ tự sinh từ tên linh kiện.',
+      'Ghi chú / Quy định': 'Mã viết tắt để tìm kiếm nhanh. Nếu để trống hệ thống sẽ tự sinh từ tên linh kiện.',
     },
     {
       'Cột dữ liệu': 'Danh mục (*)',
