@@ -7,7 +7,7 @@ import { useAuth } from '../../context/AuthContext'
 import { useEntityChanged } from '../../hooks/useEntityChanged'
 import { borrowService } from '../../services/borrowService'
 import { formatVietnamDate, formatVietnamDateTime } from '../../utils/dateFormatting'
-import { getBorrowRequestStatusMeta } from './borrowHelpers'
+import { getBorrowRequestStatusMeta, getShownPurpose } from './borrowHelpers'
 import { labLabel } from '../../utils/labLabel'
 import ReturnRow from './ReturnRow'
 import ReturnSlipDialog from './ReturnSlipDialog'
@@ -203,8 +203,12 @@ export default function BorrowRequestDetail() {
                 {request.requesterName} ({request.studentCode}) · {request.classCode}
                 <br />
                 Gửi {formatVietnamDateTime(request.requestDate)}
-                <br />
-                {request.purpose}
+                {getShownPurpose(request.purpose) && (
+                  <>
+                    <br />
+                    {getShownPurpose(request.purpose)}
+                  </>
+                )}
               </Typography>
             </Paper>
 

@@ -34,7 +34,6 @@ import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
 import {
   classifyTutorialType,
-  extractYoutubeVideoId,
   findDuplicateSpecKeys,
   formatSpecsText,
   generateComponentShortCode,
@@ -54,8 +53,6 @@ const blankForm = {
   trackingType: 'CONSUMABLE',
   minStock: '',
   datasheetUrl: '',
-  youtubeUrl: '',
-  pdfGuideUrl: '',
   isActive: true,
 }
 
@@ -111,8 +108,6 @@ export default function NewComponent() {
               trackingType: component.trackingType || component.TrackingType || 'CONSUMABLE',
               minStock: component.minStock ?? component.MinStock ?? '',
               datasheetUrl: rawDs,
-              youtubeUrl: '',
-              pdfGuideUrl: '',
               isActive: component.isActive !== false && component.IsActive !== false,
             })
 
@@ -319,11 +314,6 @@ export default function NewComponent() {
       return
     }
 
-    if (form.youtubeUrl.trim() && !isYoutubeUrl(form.youtubeUrl.trim())) {
-      setError('Link YouTube hướng dẫn không đúng định dạng (VD: https://www.youtube.com/watch?v=...).')
-      setTab(0)
-      return
-    }
 
     setSaving(true)
     try {
@@ -367,26 +357,7 @@ export default function NewComponent() {
           }
         }
 
-        const pendingTutorials = []
-        if (form.youtubeUrl.trim()) {
-          pendingTutorials.push({
-            title: `Video hướng dẫn ${name} (YouTube)`,
-            url: form.youtubeUrl.trim(),
-            content: `Video YouTube hướng dẫn đấu nối và lập trình cho ${name}.`,
-          })
-        }
-        if (form.pdfGuideUrl.trim()) {
-          pendingTutorials.push({
-            title: `Tài liệu PDF hướng dẫn ${name}`,
-            url: form.pdfGuideUrl.trim(),
-            content: `Tài liệu PDF hướng dẫn thực hành sử dụng ${name}.`,
-          })
-        }
-        if (!componentId) {
-          tutorials.forEach((t) => {
-            if (t.url && !pendingTutorials.some((p) => p.url === t.url)) pendingTutorials.push(t)
-          })
-        }
+        const pendingTutorials = componentId ? [] : tutorials.filter((t) => t.url)
 
         for (const tut of pendingTutorials) {
           try {
@@ -412,8 +383,6 @@ export default function NewComponent() {
       setSaving(false)
     }
   }
-
-  const youtubePreviewId = extractYoutubeVideoId(form.youtubeUrl)
 
   return (
     <PortalLayout
@@ -463,17 +432,6 @@ export default function NewComponent() {
                     Nhập hàng loạt từ Excel
                   </Button>
                 )}
-                <Button onClick={() => navigate('/class-setup/admin/components')} sx={{ textTransform: 'none' }}>
-                  Hủy
-                </Button>
-                <Button
-                  type="submit"
-                  variant="contained"
-                  disabled={saving}
-                  sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#0058be' }}
-                >
-                  {saving ? 'Đang lưu…' : componentId ? 'Lưu thay đổi' : 'Lưu linh kiện'}
-                </Button>
               </Box>
             </Box>
 
@@ -523,7 +481,7 @@ export default function NewComponent() {
                     placeholder="VD: CBNDDA-DHT22"
                     value={form.shortCode}
                     onChange={updateField}
-                    helperText="Sinh tự động kiểu mã viết tắt y tế từ tên linh kiện để thủ kho & sinh viên tìm siêu nhanh."
+                    helperText="Tự sinh từ tên, dùng để tìm nhanh."
                     slotProps={{
                       input: {
                         endAdornment: (
@@ -648,62 +606,6 @@ export default function NewComponent() {
                   />
                 </Grid>
 
-                {/* Nhập nhanh tài liệu kỹ thuật & tài liệu hướng dẫn ngay tại màn hình tạo */}
-                <Grid size={{ xs: 12 }}>
-                  <Box sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 2, border: '1px solid #e2e8f0' }}>
-                    <Typography sx={{ fontWeight: 700, fontSize: 13.5, color: '#182238', mb: 1.5 }}>
-                      Tài liệu đính kèm nhanh (không bắt buộc)
-                    </Typography>
-                    <Grid container spacing={2}>
-                      <Grid size={{ xs: 12, md: 4 }}>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          label="Link Datasheet kỹ thuật (NSX)"
-                          name="datasheetUrl"
-                          value={form.datasheetUrl}
-                          onChange={updateField}
-                          placeholder="https://www.espressif.com/.../datasheet.pdf"
-                          helperText="Tài liệu kỹ thuật chuẩn từ nhà sản xuất (pinout, điện áp)."
-                        />
-                      </Grid>
-                      <Grid size={{ xs: 12, md: 4 }}>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          label="Link Video YouTube hướng dẫn"
-                          name="youtubeUrl"
-                          value={form.youtubeUrl}
-                          onChange={updateField}
-                          placeholder="https://www.youtube.com/watch?v=..."
-                          helperText="Video YouTube hướng dẫn đấu nối / lập trình cho sinh viên."
-                        />
-                        {youtubePreviewId && (
-                          <Chip
-                            size="small"
-                            icon={<YoutubeIcon />}
-                            color="error"
-                            variant="outlined"
-                            label="Link YouTube hợp lệ"
-                            sx={{ mt: 0.75, fontSize: 11 }}
-                          />
-                        )}
-                      </Grid>
-                      <Grid size={{ xs: 12, md: 4 }}>
-                        <TextField
-                          fullWidth
-                          size="small"
-                          label="Link PDF hướng dẫn thực hành"
-                          name="pdfGuideUrl"
-                          value={form.pdfGuideUrl}
-                          onChange={updateField}
-                          placeholder="https://.../huong-dan-lab-esp32.pdf"
-                          helperText="Tài liệu PDF bài lab / hướng dẫn cách sử dụng."
-                        />
-                      </Grid>
-                    </Grid>
-                  </Box>
-                </Grid>
               </Grid>
             )}
 

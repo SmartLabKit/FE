@@ -29,7 +29,6 @@ import {
 import {
   Add as AddIcon,
   Check as CheckIcon,
-  CheckCircle as CheckCircleIcon,
   Close as CloseIcon,
   Delete as DeleteIcon,
   ExitToApp as LeaveIcon,
@@ -236,23 +235,6 @@ function TeamFormationStatusCard({ overview }) {
             <Typography variant="body2" sx={{ fontWeight: 700, color: '#131b2e', fontSize: 12.5, whiteSpace: 'nowrap' }}>
               {minTeamSize ?? '—'} – {maxTeamSize ?? '—'} thành viên
             </Typography>
-          </Box>
-
-          <Box>
-            <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 10, lineHeight: 1.2 }}>
-              TỰ ĐỔI NHÓM
-            </Typography>
-            <Chip
-              label={isOpen ? 'Cho phép' : 'Đã khóa'}
-              size="small"
-              sx={{
-                height: 20,
-                fontSize: 10.5,
-                fontWeight: 700,
-                bgcolor: isOpen ? '#dcfce7' : '#fee2e2',
-                color: isOpen ? '#15803d' : '#b91c1c',
-              }}
-            />
           </Box>
         </Box>
       </Box>
@@ -707,10 +689,10 @@ export default function StudentGroupsPage() {
   }, [currentTeam, overview, myProjects])
 
   const canModifyTeam = isOpen && !hasProject
-  const teamLockReason = hasProject ? PROJECT_LOCKED_REASON : !isOpen ? LOCKED_REASON : ''
 
   const isFull = currentTeam?.isFull === true
   const isReadyForProject = currentTeam?.isReadyForProject === true
+  const showsSidePanel = isLeader ? canModifyTeam && !isFull : myInvitations.length > 0
   const maxTeamSize = overview?.maxTeamSize ?? null
   const minTeamSize = overview?.minTeamSize ?? null
 
@@ -862,18 +844,6 @@ export default function StudentGroupsPage() {
         sx={{ width: '100%', maxWidth: 1600, minWidth: 0, mx: 'auto', boxSizing: 'border-box' }}
       >
         <Box>
-          {/* Header section */}
-          <Box sx={{ mb: 2, display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap' }}>
-            <Box>
-              <Typography variant="caption" sx={{ color: '#0058be', fontWeight: 700, fontSize: 11 }}>
-                Không gian sinh viên &gt; Quản lý Nhóm &amp; Lời mời
-              </Typography>
-              <Typography variant="h5" sx={{ fontWeight: 800, color: '#131b2e', mt: 0.5, mb: 0.5 }}>
-                Tạo nhóm, Quản lý thành viên &amp; Lời mời tham gia
-              </Typography>
-            </Box>
-          </Box>
-
           {/* ── 1. Chọn học kỳ & lớp học (GET /api/classes/my) ───────────────── */}
           <Paper
             elevation={0}
@@ -946,7 +916,7 @@ export default function StudentGroupsPage() {
                     )}
                     {filteredClasses.map((cls) => (
                       <MenuItem key={cls.classId} value={cls.classId} sx={{ fontSize: 13 }}>
-                        <strong>{cls.classCode}</strong> - {cls.courseName || cls.courseCode} ({cls.semesterCode || 'Học kỳ'})
+                        <strong>{cls.classCode}</strong> - {cls.courseName || cls.courseCode}
                       </MenuItem>
                     ))}
                   </Select>
@@ -964,11 +934,6 @@ export default function StudentGroupsPage() {
                   alignItems: 'center',
                 }}
               >
-                <Chip
-                  label={`Học kỳ: ${selectedClass.semesterCode || 'N/A'}`}
-                  size="small"
-                  sx={{ bgcolor: '#eff6ff', color: '#1d4ed8', fontWeight: 700, fontSize: 11 }}
-                />
                 <Box>
                   <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 10 }}>
                     GIẢNG VIÊN
@@ -1040,62 +1005,53 @@ export default function StudentGroupsPage() {
                   )}
                 </Typography>
 
-                {!isOpen && (
-                  <Alert severity="warning" sx={{ mb: 2.5, textAlign: 'left', borderRadius: 1.5, fontSize: 12.5 }}>
-                    {LOCKED_REASON}
-                  </Alert>
-                )}
-
-                <Box
-                  component="form"
-                  onSubmit={handleCreateTeam}
-                  sx={{
-                    display: 'flex',
-                    flexDirection: 'column',
-                    gap: 2,
-                    textAlign: 'left',
-                    opacity: isOpen ? 1 : 0.6,
-                  }}
-                >
-                  <Box>
-                    <Typography variant="caption" sx={{ fontWeight: 700, color: '#6b7280', display: 'block', mb: 0.5 }}>
-                      TÊN NHÓM MỚI *
-                    </Typography>
-                    <TextField
-                      fullWidth
-                      size="small"
-                      value={newTeamName}
-                      onChange={(e) => setNewTeamName(e.target.value)}
-                      disabled={!isOpen || creatingTeam}
-                      placeholder="Ví dụ: Nhóm 1 - IoT Smart Home Project"
-                      inputProps={{ maxLength: 100 }}
-                    />
-                  </Box>
-
-                  <Tooltip title={!isOpen ? LOCKED_REASON : ''}>
-                    <span>
-                      <Button
+                {isOpen && (
+                  <Box
+                    component="form"
+                    onSubmit={handleCreateTeam}
+                    sx={{
+                      display: 'flex',
+                      flexDirection: 'column',
+                      gap: 2,
+                      textAlign: 'left',
+                    }}
+                  >
+                    <Box>
+                      <Typography variant="caption" sx={{ fontWeight: 700, color: '#6b7280', display: 'block', mb: 0.5 }}>
+                        TÊN NHÓM MỚI *
+                      </Typography>
+                      <TextField
                         fullWidth
-                        type="submit"
-                        variant="contained"
-                        disabled={!isOpen || creatingTeam || !newTeamName.trim()}
-                        startIcon={creatingTeam ? <CircularProgress size={16} color="inherit" /> : <AddIcon />}
-                        sx={{
-                          bgcolor: '#0058be',
-                          py: 1.2,
-                          borderRadius: 1.5,
-                          textTransform: 'none',
-                          fontWeight: 700,
-                          fontSize: 13,
-                          boxShadow: 'none',
-                          '&:hover': { bgcolor: '#0049a3' },
-                        }}
-                      >
-                        {creatingTeam ? 'Đang tạo nhóm...' : 'Tạo nhóm ngay'}
-                      </Button>
-                    </span>
-                  </Tooltip>
-                </Box>
+                        size="small"
+                        value={newTeamName}
+                        onChange={(e) => setNewTeamName(e.target.value)}
+                        disabled={creatingTeam}
+                        placeholder="Ví dụ: Nhóm 1 - IoT Smart Home Project"
+                        inputProps={{ maxLength: 100 }}
+                      />
+                    </Box>
+
+                        <Button
+                          fullWidth
+                          type="submit"
+                          variant="contained"
+                          disabled={creatingTeam || !newTeamName.trim()}
+                          startIcon={creatingTeam ? <CircularProgress size={16} color="inherit" /> : <AddIcon />}
+                          sx={{
+                            bgcolor: '#0058be',
+                            py: 1.2,
+                            borderRadius: 1.5,
+                            textTransform: 'none',
+                            fontWeight: 700,
+                            fontSize: 13,
+                            boxShadow: 'none',
+                            '&:hover': { bgcolor: '#0049a3' },
+                          }}
+                        >
+                          {creatingTeam ? 'Đang tạo nhóm...' : 'Tạo nhóm ngay'}
+                        </Button>
+                  </Box>
+                )}
               </Paper>
 
               {/* Khối Lời mời đến tôi ở dưới cùng */}
@@ -1114,7 +1070,7 @@ export default function StudentGroupsPage() {
             <>
               <Grid container spacing={3} alignItems="stretch">
                 {/* Cột Trái: Thông tin nhóm & Bảng thành viên (đã bỏ cột THAO TÁC) */}
-                <Grid size={{ xs: 12, md: 7 }}>
+                <Grid size={{ xs: 12, md: showsSidePanel ? 7 : 12 }}>
                   <Paper
                     elevation={0}
                     sx={{
@@ -1141,21 +1097,6 @@ export default function StudentGroupsPage() {
                           <Typography variant="h6" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 17 }}>
                             {currentTeam.teamName}
                           </Typography>
-                          {isLeader && (
-                            <Chip
-                              icon={<StarIcon sx={{ fontSize: '13px !important' }} />}
-                              label="Trưởng nhóm"
-                              size="small"
-                              sx={{
-                                height: 22,
-                                fontSize: 11,
-                                fontWeight: 800,
-                                bgcolor: '#fef3c7',
-                                color: '#b45309',
-                                '& .MuiChip-icon': { color: 'inherit' },
-                              }}
-                            />
-                          )}
                           {isFull && (
                             <Chip
                               label="Nhóm đã đầy"
@@ -1179,6 +1120,11 @@ export default function StudentGroupsPage() {
                           thành viên chính thức
                           {pendingMembers.length > 0 && ` • ${pendingMembers.length} lời mời đang chờ`}
                         </Typography>
+                        {hasProject && (
+                          <Typography variant="body2" sx={{ color: '#b45309', fontSize: 12.5, mt: 0.5 }}>
+                            {PROJECT_LOCKED_REASON}.
+                          </Typography>
+                        )}
                       </Box>
 
                       <Box
@@ -1212,18 +1158,16 @@ export default function StudentGroupsPage() {
                             gap: 1,
                           }}
                         >
-                          {isLeader && (
+                          {isLeader && canModifyTeam && (
                             <>
                               <Tooltip
                                 arrow
                                 placement="top"
                                 slotProps={BLUE_TOOLTIP_SLOT_PROPS}
                                 title={
-                                  !canModifyTeam
-                                    ? teamLockReason
-                                    : eligibleTargetMembers.length === 0
-                                      ? 'Chưa có thành viên chính thức khác để chuyển quyền'
-                                      : ''
+                                  eligibleTargetMembers.length === 0
+                                    ? 'Chưa có thành viên chính thức khác để chuyển quyền'
+                                    : ''
                                 }
                               >
                                 <span>
@@ -1231,7 +1175,7 @@ export default function StudentGroupsPage() {
                                     size="small"
                                     variant={selectionMode === 'transfer' ? 'contained' : 'outlined'}
                                     color="primary"
-                                    disabled={!canModifyTeam || eligibleTargetMembers.length === 0 || actionLoading}
+                                    disabled={eligibleTargetMembers.length === 0 || actionLoading}
                                     startIcon={<TransferIcon sx={{ fontSize: 15 }} />}
                                     onClick={() => handleToggleSelectionMode('transfer')}
                                     sx={{
@@ -1252,11 +1196,9 @@ export default function StudentGroupsPage() {
                                 placement="top"
                                 slotProps={BLUE_TOOLTIP_SLOT_PROPS}
                                 title={
-                                  !canModifyTeam
-                                    ? teamLockReason
-                                    : eligibleTargetMembers.length === 0
-                                      ? 'Chưa có thành viên chính thức khác trong nhóm'
-                                      : ''
+                                  eligibleTargetMembers.length === 0
+                                    ? 'Chưa có thành viên chính thức khác trong nhóm'
+                                    : ''
                                 }
                               >
                                 <span>
@@ -1264,7 +1206,7 @@ export default function StudentGroupsPage() {
                                     size="small"
                                     variant={selectionMode === 'remove' ? 'contained' : 'outlined'}
                                     color="error"
-                                    disabled={!canModifyTeam || eligibleTargetMembers.length === 0 || actionLoading}
+                                    disabled={eligibleTargetMembers.length === 0 || actionLoading}
                                     startIcon={<DeleteIcon sx={{ fontSize: 15 }} />}
                                     onClick={() => handleToggleSelectionMode('remove')}
                                     sx={{
@@ -1316,40 +1258,40 @@ export default function StudentGroupsPage() {
                           </Tooltip>
 
                           {/* Nút Rời nhóm */}
-                          <Tooltip
-                            arrow
-                            placement="top"
-                            slotProps={BLUE_TOOLTIP_SLOT_PROPS}
-                            title={
-                              !canModifyTeam
-                                ? teamLockReason
-                                : leaderMustTransferBeforeLeave
+                          {canModifyTeam && (
+                            <Tooltip
+                              arrow
+                              placement="top"
+                              slotProps={BLUE_TOOLTIP_SLOT_PROPS}
+                              title={
+                                leaderMustTransferBeforeLeave
                                   ? 'Trưởng nhóm cần chuyển quyền trưởng nhóm cho thành viên khác trước khi rời nhóm'
                                   : ''
-                            }
-                          >
-                            <span>
-                              <Button
-                                size="small"
-                                variant="outlined"
-                                color="error"
-                                disabled={!canModifyTeam || actionLoading || leaderMustTransferBeforeLeave}
-                                startIcon={<LeaveIcon sx={{ fontSize: 15 }} />}
-                                onClick={() => {
-                                  setSelectionMode(null)
-                                  setPendingConfirm({ type: 'leave' })
-                                }}
-                                sx={{
-                                  textTransform: 'none',
-                                  fontWeight: 700,
-                                  fontSize: 12,
-                                  whiteSpace: 'nowrap',
-                                }}
-                              >
-                                {leaderIsAlone ? 'Giải tán nhóm' : 'Rời nhóm'}
-                              </Button>
-                            </span>
-                          </Tooltip>
+                              }
+                            >
+                              <span>
+                                <Button
+                                  size="small"
+                                  variant="outlined"
+                                  color="error"
+                                  disabled={actionLoading || leaderMustTransferBeforeLeave}
+                                  startIcon={<LeaveIcon sx={{ fontSize: 15 }} />}
+                                  onClick={() => {
+                                    setSelectionMode(null)
+                                    setPendingConfirm({ type: 'leave' })
+                                  }}
+                                  sx={{
+                                    textTransform: 'none',
+                                    fontWeight: 700,
+                                    fontSize: 12,
+                                    whiteSpace: 'nowrap',
+                                  }}
+                                >
+                                  {leaderIsAlone ? 'Giải tán nhóm' : 'Rời nhóm'}
+                                </Button>
+                              </span>
+                            </Tooltip>
+                          )}
                         </Box>
                       </Box>
                     </Box>
@@ -1482,9 +1424,11 @@ export default function StudentGroupsPage() {
                             <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280', width: '20%' }}>
                               VAI TRÒ
                             </TableCell>
-                            <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280', width: '20%', textAlign: 'right' }}>
-                              TRẠNG THÁI
-                            </TableCell>
+                            {pendingMembers.length > 0 && (
+                              <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280', width: '20%', textAlign: 'right' }}>
+                                TRẠNG THÁI
+                              </TableCell>
+                            )}
                           </TableRow>
                         </TableHead>
                         <TableBody>
@@ -1579,45 +1523,35 @@ export default function StudentGroupsPage() {
                                     />
                                   )}
                                 </TableCell>
-                                <TableCell sx={{ textAlign: 'right' }}>
-                                  {isAccepted ? (
-                                    <Chip
-                                      label="Đã tham gia"
-                                      size="small"
-                                      sx={{
-                                        height: 22,
-                                        fontSize: 10.5,
-                                        fontWeight: 700,
-                                        bgcolor: '#dcfce7',
-                                        color: '#15803d',
-                                      }}
-                                    />
-                                  ) : (
-                                    <Tooltip title={isLeader && canModifyTeam ? 'Bấm dấu × để hủy lời mời' : ''}>
-                                      <Chip
-                                        label="Chờ phản hồi"
-                                        size="small"
-                                        onDelete={
-                                          isLeader && canModifyTeam && !selectionMode
-                                            ? () => setPendingConfirm({ type: 'cancelInvitation', member: m })
-                                            : undefined
-                                        }
-                                        sx={{
-                                          height: 22,
-                                          fontSize: 10.5,
-                                          fontWeight: 700,
-                                          bgcolor: '#fff7ed',
-                                          color: '#c2410c',
-                                          '& .MuiChip-deleteIcon': {
-                                            fontSize: 14,
+                                {pendingMembers.length > 0 && (
+                                  <TableCell sx={{ textAlign: 'right' }}>
+                                    {!isAccepted && (
+                                      <Tooltip title={isLeader && canModifyTeam ? 'Bấm dấu × để hủy lời mời' : ''}>
+                                        <Chip
+                                          label="Chờ phản hồi"
+                                          size="small"
+                                          onDelete={
+                                            isLeader && canModifyTeam && !selectionMode
+                                              ? () => setPendingConfirm({ type: 'cancelInvitation', member: m })
+                                              : undefined
+                                          }
+                                          sx={{
+                                            height: 22,
+                                            fontSize: 10.5,
+                                            fontWeight: 700,
+                                            bgcolor: '#fff7ed',
                                             color: '#c2410c',
-                                            '&:hover': { color: '#9a3412' },
-                                          },
-                                        }}
-                                      />
-                                    </Tooltip>
-                                  )}
-                                </TableCell>
+                                            '& .MuiChip-deleteIcon': {
+                                              fontSize: 14,
+                                              color: '#c2410c',
+                                              '&:hover': { color: '#9a3412' },
+                                            },
+                                          }}
+                                        />
+                                      </Tooltip>
+                                    )}
+                                  </TableCell>
+                                )}
                               </TableRow>
                             )
                           })}
@@ -1630,6 +1564,7 @@ export default function StudentGroupsPage() {
                 {/* Cột Phải:
                     - Trưởng nhóm: Khung Mời thành viên cùng lớp
                     - Thành viên thường: Thay card trống bằng khối Lời mời đến tôi */}
+                {showsSidePanel && (
                 <Grid size={{ xs: 12, md: 5 }}>
                   {isLeader ? (
                     <Paper
@@ -1642,161 +1577,113 @@ export default function StudentGroupsPage() {
                         height: '100%',
                       }}
                     >
-                      {isFull ? (
-                        <Box sx={{ textAlign: 'center', py: 6, px: 2 }}>
-                          <CheckCircleIcon sx={{ fontSize: 48, color: '#16a34a', mb: 1.5 }} />
-                          <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#131b2e', mb: 1 }}>
-                            Nhóm đã đủ số lượng thành viên tối đa
-                          </Typography>
-                          <Typography variant="body2" sx={{ color: '#64748b', fontSize: 13, maxWidth: 320, mx: 'auto' }}>
-                            Nhóm hiện có{' '}
-                            <strong>
-                              {currentTeam.memberCount ?? acceptedMembers.length}
-                              {maxTeamSize ? `/${maxTeamSize}` : ''}
-                            </strong>{' '}
-                            thành viên nên chức năng gửi lời mời mới đã được ẩn.
-                          </Typography>
+                      <Typography variant="h6" sx={{ fontWeight: 800, fontSize: 16, color: '#131b2e', mb: 1.5 }}>
+                        Mời thành viên cùng lớp
+                      </Typography>
+
+                      {/* Tìm kiếm ứng viên */}
+                      <TextField
+                        fullWidth
+                        size="small"
+                        placeholder="Tìm bạn cùng lớp theo tên hoặc mã SV..."
+                        value={candidateSearch}
+                        onChange={(e) => setCandidateSearch(e.target.value)}
+                        sx={{
+                          mb: 2,
+                          '& .MuiOutlinedInput-root': { borderRadius: 1.5, height: 38, fontSize: 12 },
+                        }}
+                        slotProps={{
+                          input: {
+                            startAdornment: (
+                              <InputAdornment position="start">
+                                <SearchIcon sx={{ color: '#81899a', fontSize: 18 }} />
+                              </InputAdornment>
+                            ),
+                          },
+                        }}
+                      />
+
+                      {loadingCandidates ? (
+                        <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
+                          <CircularProgress size={24} />
                         </Box>
+                      ) : filteredCandidates.length === 0 ? (
+                        <Alert severity="info" sx={{ fontSize: 12, borderRadius: 1.5 }}>
+                          {candidateSearch
+                            ? 'Không tìm thấy sinh viên phù hợp.'
+                            : 'Không có sinh viên nào chưa có nhóm trong lớp này.'}
+                        </Alert>
                       ) : (
-                        <>
-                          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1.5 }}>
-                            <Typography variant="h6" sx={{ fontWeight: 800, fontSize: 16, color: '#131b2e' }}>
-                              Mời thành viên cùng lớp
-                            </Typography>
-                            {!canModifyTeam && (
-                              <Chip
-                                icon={<LockIcon sx={{ fontSize: '12px !important' }} />}
-                                label="Đã khóa"
-                                size="small"
-                                sx={{
-                                  height: 22,
-                                  fontSize: 10.5,
-                                  fontWeight: 700,
-                                  bgcolor: '#fef3c7',
-                                  color: '#b45309',
-                                  '& .MuiChip-icon': { color: 'inherit' },
-                                }}
-                              />
-                            )}
-                          </Box>
-
-                          {!canModifyTeam && (
-                            <Alert severity="warning" sx={{ mb: 2, fontSize: 12, borderRadius: 1.5, py: 0.5 }}>
-                              {teamLockReason}
-                            </Alert>
-                          )}
-
-                          {/* Tìm kiếm ứng viên */}
-                          <TextField
-                            fullWidth
-                            size="small"
-                            disabled={!canModifyTeam}
-                            placeholder="Tìm bạn cùng lớp theo tên hoặc mã SV..."
-                            value={candidateSearch}
-                            onChange={(e) => setCandidateSearch(e.target.value)}
-                            sx={{
-                              mb: 2,
-                              '& .MuiOutlinedInput-root': { borderRadius: 1.5, height: 38, fontSize: 12 },
-                            }}
-                            slotProps={{
-                              input: {
-                                startAdornment: (
-                                  <InputAdornment position="start">
-                                    <SearchIcon sx={{ color: '#81899a', fontSize: 18 }} />
-                                  </InputAdornment>
-                                ),
-                              },
-                            }}
-                          />
-
-                          {loadingCandidates ? (
-                            <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}>
-                              <CircularProgress size={24} />
-                            </Box>
-                          ) : filteredCandidates.length === 0 ? (
-                            <Alert severity="info" sx={{ fontSize: 12, borderRadius: 1.5 }}>
-                              {candidateSearch
-                                ? 'Không tìm thấy sinh viên phù hợp.'
-                                : 'Không có sinh viên nào chưa có nhóm trong lớp này.'}
-                            </Alert>
-                          ) : (
-                            <Box
+                        <Box
+                          sx={{
+                            display: 'flex',
+                            flexDirection: 'column',
+                            gap: 1,
+                            maxHeight: 360,
+                            overflowY: 'auto',
+                          }}
+                        >
+                          {filteredCandidates.map((cand) => (
+                            <Paper
+                              key={cand.studentProfileId || cand.studentCode}
+                              elevation={0}
                               sx={{
+                                p: 1.2,
+                                px: 1.5,
+                                borderRadius: 1.5,
+                                bgcolor: '#fafbff',
+                                border: '1px solid #eef2f6',
                                 display: 'flex',
-                                flexDirection: 'column',
+                                alignItems: 'center',
+                                justifyContent: 'space-between',
                                 gap: 1,
-                                maxHeight: 360,
-                                overflowY: 'auto',
-                                opacity: canModifyTeam ? 1 : 0.6,
                               }}
                             >
-                              {filteredCandidates.map((cand) => (
-                                <Paper
-                                  key={cand.studentProfileId || cand.studentCode}
-                                  elevation={0}
-                                  sx={{
-                                    p: 1.2,
-                                    px: 1.5,
-                                    borderRadius: 1.5,
-                                    bgcolor: '#fafbff',
-                                    border: '1px solid #eef2f6',
-                                    display: 'flex',
-                                    alignItems: 'center',
-                                    justifyContent: 'space-between',
-                                    gap: 1,
-                                  }}
-                                >
-                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, minWidth: 0 }}>
-                                    <Avatar sx={{ width: 32, height: 32, bgcolor: '#0284c7', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
-                                      {cand.fullName?.charAt(0) || 'S'}
-                                    </Avatar>
-                                    <Box sx={{ minWidth: 0 }}>
-                                      <Typography variant="body2" noWrap sx={{ fontWeight: 700, color: '#131b2e', fontSize: 12 }}>
-                                        {cand.fullName}
-                                      </Typography>
-                                      <Typography variant="caption" sx={{ color: '#6b7280', fontSize: 11 }}>
-                                        {cand.studentCode}
-                                        {cand.major ? ` • ${cand.major}` : ''}
-                                        {cand.cohort ? ` (${cand.cohort})` : ''}
-                                      </Typography>
-                                    </Box>
-                                  </Box>
+                              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2, minWidth: 0 }}>
+                                <Avatar sx={{ width: 32, height: 32, bgcolor: '#0284c7', fontSize: 11, fontWeight: 700, flexShrink: 0 }}>
+                                  {cand.fullName?.charAt(0) || 'S'}
+                                </Avatar>
+                                <Box sx={{ minWidth: 0 }}>
+                                  <Typography variant="body2" noWrap sx={{ fontWeight: 700, color: '#131b2e', fontSize: 12 }}>
+                                    {cand.fullName}
+                                  </Typography>
+                                  <Typography variant="caption" sx={{ color: '#6b7280', fontSize: 11 }}>
+                                    {cand.studentCode}
+                                    {cand.major ? ` • ${cand.major}` : ''}
+                                    {cand.cohort ? ` (${cand.cohort})` : ''}
+                                  </Typography>
+                                </Box>
+                              </Box>
 
-                                  <Tooltip title={!canModifyTeam ? teamLockReason : ''}>
-                                    <span>
-                                      <Button
-                                        size="small"
-                                        variant="contained"
-                                        disabled={!canModifyTeam || invitingId === cand.studentProfileId}
-                                        startIcon={
-                                          invitingId === cand.studentProfileId ? (
-                                            <CircularProgress size={12} color="inherit" />
-                                          ) : (
-                                            <PersonAddIcon sx={{ fontSize: 14 }} />
-                                          )
-                                        }
-                                        onClick={() => handleInviteMember(cand.studentProfileId, cand.fullName)}
-                                        sx={{
-                                          height: 28,
-                                          fontSize: 11,
-                                          fontWeight: 700,
-                                          textTransform: 'none',
-                                          borderRadius: 1,
-                                          bgcolor: '#0058be',
-                                          boxShadow: 'none',
-                                          whiteSpace: 'nowrap',
-                                          '&:hover': { bgcolor: '#0049a3' },
-                                        }}
-                                      >
-                                        {invitingId === cand.studentProfileId ? 'Đang gửi...' : 'Mời'}
-                                      </Button>
-                                    </span>
-                                  </Tooltip>
-                                </Paper>
-                              ))}
-                            </Box>
-                          )}
-                        </>
+                                  <Button
+                                    size="small"
+                                    variant="contained"
+                                    disabled={invitingId === cand.studentProfileId}
+                                    startIcon={
+                                      invitingId === cand.studentProfileId ? (
+                                        <CircularProgress size={12} color="inherit" />
+                                      ) : (
+                                        <PersonAddIcon sx={{ fontSize: 14 }} />
+                                      )
+                                    }
+                                    onClick={() => handleInviteMember(cand.studentProfileId, cand.fullName)}
+                                    sx={{
+                                      height: 28,
+                                      fontSize: 11,
+                                      fontWeight: 700,
+                                      textTransform: 'none',
+                                      borderRadius: 1,
+                                      bgcolor: '#0058be',
+                                      boxShadow: 'none',
+                                      whiteSpace: 'nowrap',
+                                      '&:hover': { bgcolor: '#0049a3' },
+                                    }}
+                                  >
+                                    {invitingId === cand.studentProfileId ? 'Đang gửi...' : 'Mời'}
+                                  </Button>
+                            </Paper>
+                          ))}
+                        </Box>
                       )}
                     </Paper>
                   ) : (
@@ -1810,10 +1697,11 @@ export default function StudentGroupsPage() {
                     />
                   )}
                 </Grid>
+                )}
               </Grid>
 
               {/* Với Trưởng nhóm: đặt khối Lời mời đến tôi gọn gàng ở dưới cùng */}
-              {isLeader && (
+              {isLeader && myInvitations.length > 0 && (
                 <InvitationsCard
                   invitations={myInvitations}
                   isOpen={isOpen}

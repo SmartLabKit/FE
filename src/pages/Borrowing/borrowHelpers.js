@@ -91,3 +91,9 @@ export function getApprovalStatusMeta(status) {
 export function formatBorrowRequestStatus(status) {
   return getBorrowRequestStatusMeta(status).label
 }
+
+/** Đơn mượn đầu của đề tài có mục đích tự sinh, chỉ lặp lại tên đề tài nên không hiện. */
+export function getShownPurpose(purpose) {
+  const text = String(purpose || '').trim()
+  return text.startsWith('Mượn linh kiện cho project:') ? '' : text
+}

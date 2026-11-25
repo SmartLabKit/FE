@@ -29,7 +29,6 @@ import {
   Close as CloseIcon,
   Edit as EditIcon,
   FactCheckOutlined as CheckIcon,
-  InfoOutlined as InfoIcon,
   Inventory2Outlined as ComponentsIcon,
 } from '@mui/icons-material'
 import PortalLayout from '../../components/layout/PortalLayout'
@@ -239,6 +238,7 @@ export default function StockReceiptDetail() {
   const isCancelled = receipt?.status === 'Cancelled'
   const currentNote = receipt?.note || ''
   const currentInvoiceDate = receipt?.invoiceDate || ''
+  const showsCreatedAt = Boolean(receipt?.createdAt) && formatDate(receipt.createdAt) !== formatDate(receipt.receivedAt)
 
   return (
     <PortalLayout headerTitle="Chi tiết phiếu nhập" headerSubtitle="Thông tin chứng từ, hàng hóa và hóa đơn">
@@ -300,11 +300,6 @@ export default function StockReceiptDetail() {
         )}
         {notice && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setNotice('')}>{notice}</Alert>}
 
-        {/* Thông báo quy định sửa phiếu nhập kho */}
-        <Alert severity="info" icon={<InfoIcon />} sx={{ mb: 2, bgcolor: '#f0f7ff', borderColor: '#b9e0fd', border: '1px solid' }}>
-          <strong>Quy định sửa phiếu:</strong> Chỉ được phép chỉnh sửa các thông tin: Nhà cung cấp, Số hóa đơn, Ngày nhận, Ngày xuất hóa đơn và Ghi chú. <strong>Không được sửa mặt hàng</strong>. Nếu có sai sót về hàng hóa, vui lòng bấm &quot;Hủy phiếu&quot; và tạo phiếu mới.
-        </Alert>
-
         {receipt && (
           <>
             <Card variant="outlined" sx={{ mb: 2, borderColor: '#d8dced', boxShadow: 'none' }}>
@@ -337,44 +332,23 @@ export default function StockReceiptDetail() {
                     <Typography color="text.secondary" fontSize={13}>Ngày xuất hóa đơn</Typography>
                     <Typography fontWeight={600}>{currentInvoiceDate ? formatDate(currentInvoiceDate) : '—'}</Typography>
                   </Grid>
-                  <Grid size={{ xs: 12, sm: 6, md: 1.5 }}>
-                    <Typography color="text.secondary" fontSize={13}>Ngày tạo phiếu</Typography>
-                    <Typography fontWeight={600} fontSize={13.5}>
-                      {receipt.createdAt ? formatDateTime(receipt.createdAt) : formatDate(receipt.receivedAt)}
-                    </Typography>
-                  </Grid>
+                  {showsCreatedAt && (
+                    <Grid size={{ xs: 12, sm: 6, md: 1.5 }}>
+                      <Typography color="text.secondary" fontSize={13}>Ngày tạo phiếu</Typography>
+                      <Typography fontWeight={600} fontSize={13.5}>{formatDateTime(receipt.createdAt)}</Typography>
+                    </Grid>
+                  )}
                   <Grid size={{ xs: 12, sm: 6, md: 1.5 }}>
                     <Typography color="text.secondary" fontSize={13}>Tổng tiền</Typography>
                     <Typography fontWeight={700} color="primary">{money(receipt.totalAmount)} ₫</Typography>
                   </Grid>
 
-                  {/* Phần hiển thị Lưu ý / Ghi chú */}
-                  <Grid size={{ xs: 12 }}>
-                    <Box sx={{ mt: 1, p: 2, bgcolor: '#f8fafc', borderRadius: 1.5, border: '1px solid #e2e8f0' }}>
-                      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 0.5 }}>
-                        <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#334155', display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                          <InfoIcon fontSize="small" sx={{ color: '#0284c7' }} /> Ghi chú phiếu nhập:
-                        </Typography>
-                        <Button
-                          size="small"
-                          onClick={handleOpenEdit}
-                          sx={{ textTransform: 'none', fontSize: 12, py: 0 }}
-                        >
-                          {currentNote ? 'Sửa ghi chú' : '+ Thêm ghi chú'}
-                        </Button>
-                      </Box>
-                      <Typography
-                        variant="body2"
-                        sx={{
-                          whiteSpace: 'pre-wrap',
-                          color: currentNote ? '#1e293b' : '#94a3b8',
-                          fontStyle: currentNote ? 'normal' : 'italic',
-                        }}
-                      >
-                        {currentNote || 'Không có ghi chú.'}
-                      </Typography>
-                    </Box>
-                  </Grid>
+                  {currentNote && (
+                    <Grid size={{ xs: 12 }}>
+                      <Typography color="text.secondary" fontSize={13}>Ghi chú</Typography>
+                      <Typography fontWeight={600} sx={{ whiteSpace: 'pre-wrap' }}>{currentNote}</Typography>
+                    </Grid>
+                  )}
                 </Grid>
               </CardContent>
             </Card>

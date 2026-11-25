@@ -7,7 +7,6 @@ import {
   Avatar,
   Box,
   Button,
-  Chip,
   CircularProgress,
   Collapse,
   Dialog,
@@ -443,9 +442,6 @@ export default function LecturerClassManagement() {
           <Typography component="h1" variant="h5" sx={{ fontWeight: 900 }}>
             Lớp giảng dạy & nhóm
           </Typography>
-          <Typography variant="body2" color="text.secondary">
-            Chỉ hiển thị lớp do bạn phụ trách. Thông tin nhóm ở chế độ xem; chuyển trưởng nhóm chỉ khả dụng trước khi đăng ký project.
-          </Typography>
         </Box>
       </Box>
 
@@ -479,55 +475,6 @@ export default function LecturerClassManagement() {
                 </Select>
               </FormControl>
 
-              {/* Quick filter chips cho các kỳ học (tương tự thiết kế mobile trong hình) */}
-              {semesters.length > 0 && (
-                <Box
-                  sx={{
-                    display: 'flex',
-                    gap: 0.8,
-                    overflowX: 'auto',
-                    pb: 0.5,
-                    scrollbarWidth: 'thin',
-                    '&::-webkit-scrollbar': { height: 4 },
-                    '&::-webkit-scrollbar-thumb': { bgcolor: '#cbd5e1', borderRadius: 4 },
-                  }}
-                >
-                  <Chip
-                    label="Tất cả"
-                    size="small"
-                    clickable
-                    color={semesterId === '' ? 'primary' : 'default'}
-                    variant={semesterId === '' ? 'filled' : 'outlined'}
-                    onClick={() => handleSelectSemester('')}
-                    sx={{
-                      fontWeight: semesterId === '' ? 700 : 500,
-                      fontSize: 11,
-                      bgcolor: semesterId === '' ? '#0058be' : undefined,
-                      flexShrink: 0,
-                    }}
-                  />
-                  {semesters.map((sem) => {
-                    const isSelected = semesterId === sem.semesterId
-                    return (
-                      <Chip
-                        key={sem.semesterId}
-                        label={sem.semesterCode}
-                        size="small"
-                        clickable
-                        color={isSelected ? 'primary' : 'default'}
-                        variant={isSelected ? 'filled' : 'outlined'}
-                        onClick={() => handleSelectSemester(sem.semesterId)}
-                        sx={{
-                          fontWeight: isSelected ? 700 : 500,
-                          fontSize: 11,
-                          bgcolor: isSelected ? '#0058be' : undefined,
-                          flexShrink: 0,
-                        }}
-                      />
-                    )
-                  })}
-                </Box>
-              )}
             </Box>
 
             <Box sx={{ px: 0.25, display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1 }}>
@@ -753,7 +700,7 @@ export default function LecturerClassManagement() {
                               <Box>
                                 <Typography fontWeight={700}>{group.teamName}</Typography>
                                 <Typography variant="caption" color="text.secondary">
-                                  {group.students.filter(isInTeam).length} thành viên · {isExpanded ? 'Nhấn để ẩn' : 'Nhấn để xem thành viên'}
+                                  {group.students.filter(isInTeam).length} thành viên
                                 </Typography>
                               </Box>
                             </Stack>

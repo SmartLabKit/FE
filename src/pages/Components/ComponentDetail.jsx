@@ -374,15 +374,9 @@ export default function ComponentDetail() {
           </Box>
 
           {/* Mô tả linh kiện */}
-          <Typography
-            sx={{
-              fontSize: 14,
-              color: '#334155',
-              lineHeight: 1.65,
-            }}
-          >
-            {component?.description || 'Board mạch linh kiện phục vụ thực hành và nghiên cứu đồ án.'}
-          </Typography>
+          {component?.description && (
+            <Typography sx={{ fontSize: 14, color: '#334155', lineHeight: 1.65 }}>{component.description}</Typography>
+          )}
 
           {/* Thông số kỹ thuật (nếu có) */}
           {component?.specifications && (
@@ -526,7 +520,7 @@ export default function ComponentDetail() {
               mb: 1,
             }}
           >
-            TÀI LIỆU KỸ THUẬT (DATASHEET NSX)
+            Tài liệu kỹ thuật
           </Typography>
 
           <Box
@@ -564,11 +558,9 @@ export default function ComponentDetail() {
                 </Box>
                 <Box>
                   <Typography sx={{ fontSize: 14, fontWeight: 600, color: '#1e293b' }}>
-                    Datasheet kỹ thuật
+                    Datasheet
                   </Typography>
-                  <Typography sx={{ fontSize: 12, color: '#64748b' }}>
-                    {datasheet.name || 'Sơ đồ chân (pinout), thông số điện áp từ nhà sản xuất'}
-                  </Typography>
+                  {datasheet.url && datasheet.name && <Typography sx={{ fontSize: 12, color: '#64748b' }}>{datasheet.name}</Typography>}
                 </Box>
               </Box>
 
@@ -605,7 +597,7 @@ export default function ComponentDetail() {
               mb: 1,
             }}
           >
-            TUTORIAL / HƯỚNG DẪN SỬ DỤNG (YOUTUBE &amp; PDF)
+            Hướng dẫn sử dụng
           </Typography>
 
           <Box

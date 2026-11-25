@@ -41,7 +41,7 @@ import { inventoryService } from '../../services/inventoryService'
 import { projectService } from '../../services/projectService'
 import { teamService } from '../../services/teamService'
 import { formatVietnamDate } from '../../utils/dateFormatting'
-import { getBorrowRequestStatusMeta } from '../Borrowing/borrowHelpers'
+import { getBorrowRequestStatusMeta, getShownPurpose } from '../Borrowing/borrowHelpers'
 import FinalSubmissionPanel from './FinalSubmissionPanel'
 import ProjectStatus from './ProjectStatus'
 import { isTeamLeader } from './projectHelpers'
@@ -1401,10 +1401,8 @@ export default function ProjectManagement() {
                               </Tooltip>
                             )
                         ))}
-                        {form.selfSuppliedItems.length === 0 && (
-                          <Alert severity="info" sx={{ display: 'inline-flex', width: 'fit-content', py: 0.25 }}>
-                            Chưa thêm món tự mua.
-                          </Alert>
+                        {!canEdit && form.selfSuppliedItems.length === 0 && (
+                          <Typography variant="body2" color="text.secondary">Không có</Typography>
                         )}
                         {canEdit && inlineDraft?.mode === 'create' && inlineDraft.type === 'self' && inlineDraftView}
                         {canEdit && (
@@ -1711,7 +1709,7 @@ export default function ProjectManagement() {
                               </Stack>
                               <Typography variant="caption" sx={{ color: '#475569', display: 'block', mt: 0.4 }}>
                                 Hạn trả: <strong>{br.dueDate ? formatVietnamDate(br.dueDate) : '—'}</strong>
-                                {br.purpose ? ` · ${br.purpose}` : ''}
+                                {getShownPurpose(br.purpose) ? ` · ${getShownPurpose(br.purpose)}` : ''}
                               </Typography>
                             </Box>
                             <Button
