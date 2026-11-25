@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   Alert,
   Box,
@@ -12,8 +12,6 @@ import {
   DialogTitle,
   FormControl,
   FormControlLabel,
-  IconButton,
-  InputAdornment,
   InputLabel,
   MenuItem,
   Paper,
@@ -29,18 +27,28 @@ import {
   Typography,
 } from '@mui/material'
 import {
-  AutoAwesome as AutoAwesomeIcon,
-  Clear as ClearIcon,
   Save as SaveIcon,
 } from '@mui/icons-material'
 import {
   getTeamFormationOverview,
   updateTeamSettings,
-  getAutoAssignPreview,
+  closeTeamFormation,
   assignTeams,
   moveMember,
+  removeTeamMember,
 } from '../../services/teamFormationApi'
 import { extractErrorMessage } from '../../services/api'
+import ConfirmDialog from '../../components/common/ConfirmDialog'
+import { useEntityChanged } from '../../hooks/useEntityChanged'
+import AutoAssignDialog from './AutoAssignDialog'
+
+/** 17 bạn, tối đa 4 → [4, 4, 3, 3, 3]; null khi không chia được theo cỡ nhóm (BE cũng chặn). */
+function planSizes(students, min, max) {
+  if (!students || !min || !max || min > max) return null
+  const count = Math.ceil(students / max)
+  if (count * min > students) return null
+  return Array.from({ length: count }, (_, index) => Math.floor(students / count) + (index < students % count ? 1 : 0))
+}
 
 /**
  * Định dạng chuỗi ngày tháng sang DD/MM/YYYY HH:mm
@@ -74,13 +82,11 @@ function toDatetimeLocalInput(dateStr) {
 
 /**
  * Component Tab "Chia nhóm" dành cho Giảng viên (Màn 1)
- * Tuân thủ quy tắc nghiệp vụ:
- * 1. Không có nút/trạng thái "Mở chia nhóm" hay "Chốt nhóm" thủ công.
- * 2. Gọi getTeamFormationOverview(classId) duy nhất 1 lần khi mount để load toàn bộ dữ liệu.
+ * 1. Đặt cỡ nhóm và hạn chót thì sinh viên mới tự chọn nhóm được.
+ * 2. Hết hạn (hoặc kết thúc sớm) thì chia nhóm tự động cho các bạn còn lại, xem trước rồi mới lưu.
  */
 export default function TeamFormationTab({
   classId,
-  onOpenAutoAssign,
   onOpenMoveMember,
   onOpenManualAssign,
 }) {
@@ -102,6 +108,7 @@ export default function TeamFormationTab({
 
   // Modal placeholders sẵn sàng cho Task 3
   const [autoAssignOpen, setAutoAssignOpen] = useState(false)
+  const [confirmRequest, setConfirmRequest] = useState(null)
   const [moveMemberOpen, setMoveMemberOpen] = useState(false)
   const [selectedTeamForMove, setSelectedTeamForMove] = useState(null)
   const [manualAssignOpen, setManualAssignOpen] = useState(false)
@@ -146,6 +153,38 @@ export default function TeamFormationTab({
     }
   }, [classId])
 
+  // Tải lại sau khi thay đổi (hoặc khi sinh viên vừa đổi nhóm), giữ nguyên ô cấu hình đang nhập
+  const reload = useCallback(() => {
+    if (!classId) return
+    getTeamFormationOverview(classId)
+      .then((data) => {
+        if (!data) return
+        setOverview(data)
+        setSelectedStudentIds((previous) =>
+          previous.filter((id) => (data.unassignedStudents || []).some((student) => student.studentProfileId === id))
+        )
+      })
+      .catch(() => {})
+  }, [classId])
+  useEntityChanged(reload)
+
+  const confirmClose = () =>
+    setConfirmRequest({
+      title: 'Kết thúc chọn nhóm?',
+      message: 'Sinh viên sẽ không tự đổi nhóm được nữa, lời mời chưa trả lời bị hủy.',
+      confirmText: 'Kết thúc',
+      onConfirm: async () => {
+        setSettingsError('')
+        try {
+          const data = await closeTeamFormation(classId)
+          setOverview(data)
+          setDeadline(toDatetimeLocalInput(data.deadline))
+        } catch (closeError) {
+          setSettingsError(extractErrorMessage(closeError, 'Không thể kết thúc chọn nhóm.'))
+        }
+      },
+    })
+
   /**
    * Lưu cấu hình nhóm (PUT /api/classes/{classId}/team-formation/settings)
    */
@@ -178,30 +217,22 @@ export default function TeamFormationTab({
       return
     }
 
+    if (!deadline) {
+      setSettingsError('Vui lòng chọn hạn chót chọn nhóm.')
+      setSavingSettings(false)
+      return
+    }
+
     const payload = {
       minTeamSize: min,
       maxTeamSize: max,
-      deadline: deadline ? new Date(deadline).toISOString() : null,
+      deadline: new Date(deadline).toISOString(),
     }
 
     try {
-      await updateTeamSettings(classId, payload)
-      setSettingsSuccess('Lưu cấu hình nhóm thành công!')
-      // Cập nhật lại state trực tiếp trên giao diện
-      setOverview((prev) =>
-        prev
-          ? {
-              ...prev,
-              minTeamSize: min,
-              maxTeamSize: max,
-              deadline: payload.deadline,
-              teams: (prev.teams || []).map((t) => ({
-                ...t,
-                maxTeamSize: max,
-              })),
-            }
-          : null
-      )
+      const data = await updateTeamSettings(classId, payload)
+      setOverview(data)
+      setSettingsSuccess('Đã lưu, sinh viên trong lớp được báo.')
     } catch (err) {
       // Bóc tách message phản hồi từ backend (đặc biệt khi HTTP 409 Conflict)
       const respMessage =
@@ -237,15 +268,7 @@ export default function TeamFormationTab({
     }
   }
 
-  // Xử lý mở các Modal (sẽ nối sang Task 3)
-  const handleOpenAutoAssignModal = () => {
-    if (onOpenAutoAssign) {
-      onOpenAutoAssign()
-    } else {
-      setAutoAssignOpen(true)
-    }
-  }
-
+  // Xử lý mở các Modal
   const handleOpenMoveMemberModal = (team) => {
     if (onOpenMoveMember) {
       onOpenMoveMember(team)
@@ -296,6 +319,9 @@ export default function TeamFormationTab({
     overview.maxTeamSize !== null &&
     overview.maxTeamSize !== undefined
 
+  const choosing = overview.studentsCanChangeTeams === true
+  const needsLecturer = unassignedCount > 0 || (overview.underMinTeamCount ?? 0) > 0
+  const sizes = planSizes(overview.studyingStudents, Number(minTeamSize), Number(maxTeamSize))
   const unassignedStudents = overview.unassignedStudents || []
   const teams = overview.teams || []
 
@@ -322,36 +348,35 @@ export default function TeamFormationTab({
           {/* Bên trái: Tiêu đề trạng thái hạn chót & mô tả */}
           <Box sx={{ minWidth: 0 }}>
             <Typography variant="h6" sx={{ fontWeight: 800, color: '#1e3a8a', lineHeight: 1.3 }}>
-              {overview.deadline
-                ? `Sinh viên tự lập nhóm tới hạn chót ${formatDeadlineDisplay(overview.deadline)}`
-                : 'Sinh viên tự lập nhóm (không giới hạn thời gian)'}
+              {!isSettingsConfigured
+                ? 'Chưa mở chọn nhóm'
+                : choosing
+                  ? `Sinh viên đang tự chọn nhóm${overview.deadline ? ` tới ${formatDeadlineDisplay(overview.deadline)}` : ''}`
+                  : 'Đã hết hạn chọn nhóm'}
             </Typography>
-            <Typography variant="body2" sx={{ color: '#475569', mt: 0.75, maxWidth: 960, lineHeight: 1.5 }}>
-              Lớp mới tạo là sinh viên tự tạo nhóm và mời nhau được ngay. Nhóm đủ số tối thiểu là đăng ký đề tài được.
-              Bạn xếp các bạn còn lẻ hoặc chuyển người giữa các nhóm chưa có đề tài bất cứ lúc nào.
+            <Typography variant="body2" sx={{ color: '#475569', mt: 0.75, lineHeight: 1.5 }}>
+              {!isSettingsConfigured
+                ? 'Đặt số thành viên và hạn chót bên dưới thì sinh viên mới tạo nhóm được.'
+                : choosing
+                  ? 'Hết hạn thì bạn chia nhóm cho các bạn còn lại.'
+                  : needsLecturer
+                    ? 'Còn bạn chưa có nhóm hoặc nhóm thiếu người, bấm Chia nhóm tự động để xem trước.'
+                    : 'Cả lớp đã có nhóm đủ người.'}
             </Typography>
           </Box>
 
-          {/* Bên phải: Nút primary Tự xếp sinh viên còn lẻ */}
-          {unassignedCount > 0 && (
+          {choosing && (
+            <Button variant="outlined" onClick={confirmClose} sx={{ whiteSpace: 'nowrap', fontWeight: 700, textTransform: 'none', flexShrink: 0, alignSelf: 'center', ml: { md: 'auto !important' } }}>
+              Kết thúc sớm
+            </Button>
+          )}
+          {isSettingsConfigured && !choosing && needsLecturer && (
             <Button
               variant="contained"
-              color="primary"
-              size="medium"
-              disabled={!isSettingsConfigured}
-              onClick={handleOpenAutoAssignModal}
-              sx={{
-                whiteSpace: 'nowrap',
-                fontWeight: 700,
-                px: 2.5,
-                py: 1,
-                borderRadius: 1.75,
-                textTransform: 'none',
-                boxShadow: 'none',
-                flexShrink: 0,
-              }}
+              onClick={() => setAutoAssignOpen(true)}
+              sx={{ whiteSpace: 'nowrap', fontWeight: 700, textTransform: 'none', boxShadow: 'none', flexShrink: 0, alignSelf: 'center', ml: { md: 'auto !important' } }}
             >
-              Tự xếp {unassignedCount} sinh viên còn lẻ
+              Chia nhóm tự động
             </Button>
           )}
         </Stack>
@@ -479,9 +504,8 @@ export default function TeamFormationTab({
         <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.primary' }}>
           Cấu hình nhóm
         </Typography>
-        <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5, mb: 2, maxWidth: 960 }}>
-          Chỉ lưu khi bấm &apos;Lưu cấu hình&apos; (PUT settings). Hết hạn chót thì sinh viên không tự đổi nhóm được nữa,
-          bạn vẫn xếp và chuyển người được. Phải đặt số tối thiểu/tối đa thì mới xếp nhóm được.
+        <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5, mb: 2 }}>
+          Lưu xong, cả lớp được báo và tự chọn nhóm tới hạn chót.
         </Typography>
 
         <Box component="form" onSubmit={handleSaveSettings}>
@@ -518,31 +542,16 @@ export default function TeamFormationTab({
               required
             />
 
-            {/* Input 3: Hạn chót (không bắt buộc) */}
+            {/* Input 3: Hạn chót */}
             <TextField
               size="small"
-              label="Hạn chót (không bắt buộc)"
+              label="Hạn chót"
               type="datetime-local"
               value={deadline}
               onChange={(e) => setDeadline(e.target.value)}
-              slotProps={{
-                inputLabel: { shrink: true },
-                input: {
-                  endAdornment: deadline ? (
-                    <InputAdornment position="end">
-                      <IconButton
-                        size="small"
-                        aria-label="Xóa hạn chót"
-                        onClick={() => setDeadline('')}
-                        edge="end"
-                      >
-                        <ClearIcon fontSize="small" />
-                      </IconButton>
-                    </InputAdornment>
-                  ) : null,
-                },
-              }}
+              slotProps={{ inputLabel: { shrink: true } }}
               sx={{ width: { xs: '100%', md: 250 } }}
+              required
             />
 
             {/* Nút 4: Lưu cấu hình */}
@@ -564,6 +573,14 @@ export default function TeamFormationTab({
               Lưu cấu hình
             </Button>
           </Stack>
+
+          {Number(minTeamSize) > 0 && Number(maxTeamSize) > 0 && overview.studyingStudents > 0 && (
+            <Typography variant="body2" sx={{ mt: 1.5, color: sizes ? 'text.secondary' : '#b45309' }}>
+              {sizes
+                ? `${overview.studyingStudents} bạn → ${sizes.length} nhóm: ${sizes.join(', ')} người`
+                : `${overview.studyingStudents} bạn không chia hết được thành các nhóm ${minTeamSize}–${maxTeamSize} người`}
+            </Typography>
+          )}
 
           {/* Dòng text lỗi màu đỏ ngay dưới form (HTTP 409 hoặc lỗi cấu hình) */}
           {settingsError && (
@@ -715,9 +732,9 @@ export default function TeamFormationTab({
                         )}
                       </TableCell>
 
-                      {/* Cột 7: ACTION (Ẩn link nếu hasProject === true) */}
+                      {/* Cột 7: ACTION */}
                       <TableCell align="right" sx={{ py: 1.3 }}>
-                        {!team.hasProject && (
+                        {team.acceptedCount > 0 && (
                           <Button
                             size="small"
                             onClick={() => handleOpenMoveMemberModal(team)}
@@ -731,7 +748,7 @@ export default function TeamFormationTab({
                               '&:hover': { bgcolor: 'transparent', textDecoration: 'underline' },
                             }}
                           >
-                            Chuyển thành viên
+                            Thành viên
                           </Button>
                         )}
                       </TableCell>
@@ -861,24 +878,27 @@ export default function TeamFormationTab({
           variant="caption"
           sx={{ display: 'block', mt: 2, color: 'text.secondary', fontStyle: 'italic' }}
         >
-          Chỉ xếp vào nhóm chưa có đề tài. Lời mời đang chờ của bạn được xếp sẽ tự bị từ chối.
+          Lời mời đang chờ của bạn được xếp sẽ tự bị từ chối.
         </Typography>
       </Paper>
 
       {/* ======================================================================
           MODAL 1: TỰ XẾP (AUTO-ASSIGN PREVIEW)
           ====================================================================== */}
-      <AutoAssignModal
-        open={autoAssignOpen}
-        onClose={() => setAutoAssignOpen(false)}
-        classId={classId}
-        maxTeamSize={overview?.maxTeamSize}
-        overviewTeams={teams}
-        onSuccess={() => {
-          setAutoAssignOpen(false)
-          window.location.reload()
-        }}
-      />
+      {autoAssignOpen && (
+        <AutoAssignDialog
+          classId={classId}
+          teams={teams}
+          minTeamSize={overview.minTeamSize}
+          maxTeamSize={overview.maxTeamSize}
+          onClose={() => setAutoAssignOpen(false)}
+          onDone={() => {
+            setAutoAssignOpen(false)
+            reload()
+          }}
+        />
+      )}
+      <ConfirmDialog request={confirmRequest} onClose={() => setConfirmRequest(null)} />
 
       {/* ======================================================================
           MODAL 2: CHUYỂN THÀNH VIÊN
@@ -892,7 +912,7 @@ export default function TeamFormationTab({
         maxTeamSize={overview?.maxTeamSize}
         onSuccess={() => {
           setMoveMemberOpen(false)
-          window.location.reload()
+          reload()
         }}
       />
 
@@ -911,347 +931,10 @@ export default function TeamFormationTab({
         overviewMaxTeamSize={overview?.maxTeamSize}
         onSuccess={() => {
           setManualAssignOpen(false)
-          window.location.reload()
+          reload()
         }}
       />
     </Stack>
-  )
-}
-
-// =============================================================================
-// MODAL 1: TỰ XẾP (AutoAssignModal)
-// =============================================================================
-function AutoAssignModal({ open, onClose, classId, maxTeamSize, overviewTeams, onSuccess }) {
-  const [loading, setLoading] = useState(false)
-  const [submitting, setSubmitting] = useState(false)
-  const [error, setError] = useState('')
-  const [preview, setPreview] = useState(null)
-
-  // Local state: mapping studentProfileId -> teamId (cho dropdown đổi nhóm)
-  const [studentTeamMap, setStudentTeamMap] = useState({})
-  // Local state: sửa tên & leader cho newTeams
-  const [newTeamEdits, setNewTeamEdits] = useState([])
-  // Checkbox xác nhận vượt max
-  const [allowExceedMax, setAllowExceedMax] = useState(false)
-
-  useEffect(() => {
-    if (!open) return
-    setError('')
-    setPreview(null)
-    setStudentTeamMap({})
-    setNewTeamEdits([])
-    setAllowExceedMax(false)
-    setLoading(true)
-
-    getAutoAssignPreview(classId)
-      .then((data) => {
-        setPreview(data)
-        // Khởi tạo studentTeamMap từ existingTeams[].addedStudents
-        const initMap = {}
-        ;(data.existingTeams || []).forEach((team) => {
-          ;(team.addedStudents || []).forEach((sv) => {
-            initMap[sv.studentProfileId] = team.teamId
-          })
-        })
-        setStudentTeamMap(initMap)
-        // Khởi tạo newTeamEdits
-        setNewTeamEdits(
-          (data.newTeams || []).map((nt) => ({
-            ...nt,
-            teamName: nt.teamName || '',
-            leaderStudentProfileId: nt.leaderStudentProfileId || '',
-          }))
-        )
-      })
-      .catch((err) => setError(extractErrorMessage(err, 'Không thể tải bản xem trước')))
-      .finally(() => setLoading(false))
-  }, [open, classId])
-
-  // Danh sách các nhóm hợp lệ để xếp vào (chưa có đề tài) gộp từ overviewTeams và preview.existingTeams
-  const mergedEligibleTeams = (() => {
-    const map = new Map()
-    // Ưu tiên các nhóm từ overview.teams (lọc !team.hasProject)
-    ;(overviewTeams || []).forEach((t) => {
-      if (!t.hasProject) {
-        map.set(t.teamId, { teamId: t.teamId, teamName: t.teamName, hasProject: false })
-      }
-    })
-    // Gộp thêm preview.existingTeams
-    ;(preview?.existingTeams || []).forEach((t) => {
-      if (!t.hasProject) {
-        if (!map.has(t.teamId)) {
-          map.set(t.teamId, { teamId: t.teamId, teamName: t.teamName, hasProject: false })
-        }
-      }
-    })
-    return Array.from(map.values())
-  })()
-
-  // Sĩ số cơ bản của từng nhóm (từ preview.existingTeams hoặc overviewTeams)
-  const getBaseCount = (teamId) => {
-    const previewTeam = preview?.existingTeams?.find((t) => t.teamId === teamId)
-    if (previewTeam && previewTeam.currentCount !== undefined) {
-      return previewTeam.currentCount
-    }
-    const ovTeam = (overviewTeams || []).find((t) => t.teamId === teamId)
-    return ovTeam?.acceptedCount || 0
-  }
-
-  // Tính sĩ số mới cho từng nhóm dựa trên studentTeamMap
-  const computeNewCount = (teamId) => {
-    const base = getBaseCount(teamId)
-    const added = Object.values(studentTeamMap).filter((tid) => tid === teamId).length
-    return base + added
-  }
-
-  const isExceedingMax = (teamId) => {
-    if (!maxTeamSize) return false
-    return computeNewCount(teamId) > maxTeamSize
-  }
-
-  const anyExceeds = preview?.existingTeams?.some((t) => isExceedingMax(t.teamId)) || false
-  const needsConfirm = preview?.requiresExceedMax || anyExceeds
-
-  const handleSubmit = async () => {
-    if (needsConfirm && !allowExceedMax) return
-
-    // Xây dựng payload existingTeams
-    const existingTeamsPayload = (preview?.existingTeams || []).map((team) => {
-      const addedIds = Object.entries(studentTeamMap)
-        .filter(([, tid]) => tid === team.teamId)
-        .map(([spid]) => spid)
-      return { teamId: team.teamId, studentProfileIds: addedIds }
-    })
-
-    // Payload newTeams
-    const newTeamsPayload = newTeamEdits.map((nt) => ({
-      teamName: nt.teamName,
-      leaderStudentProfileId: nt.leaderStudentProfileId || null,
-      studentProfileIds: (nt.students || []).map((s) => s.studentProfileId),
-    }))
-
-    setSubmitting(true)
-    setError('')
-    try {
-      await assignTeams(classId, {
-        existingTeams: existingTeamsPayload,
-        newTeams: newTeamsPayload,
-        allowExceedMax,
-      })
-      onSuccess()
-    } catch (err) {
-      setError(extractErrorMessage(err, 'Áp dụng không thành công. Vui lòng thử lại.'))
-    } finally {
-      setSubmitting(false)
-    }
-  }
-
-  return (
-    <Dialog open={open} onClose={onClose} fullWidth maxWidth="md">
-      <DialogTitle sx={{ fontWeight: 800 }}>Tự xếp sinh viên còn lẻ</DialogTitle>
-      <DialogContent dividers>
-        {loading ? (
-          <Box sx={{ display: 'flex', justifyContent: 'center', py: 5 }}>
-            <CircularProgress />
-          </Box>
-        ) : error ? (
-          <Alert severity="error">{error}</Alert>
-        ) : preview ? (
-          <Stack spacing={2.5}>
-            {/* Cảnh báo */}
-            {preview.warnings?.length > 0 && (
-              <Alert severity="warning" sx={{ bgcolor: '#fff7ed', borderColor: '#fed7aa' }}>
-                <Stack spacing={0.5}>
-                  {preview.warnings.map((w, i) => (
-                    <Typography key={i} variant="body2">{w}</Typography>
-                  ))}
-                </Stack>
-              </Alert>
-            )}
-
-            {/* Danh sách SV được thêm vào nhóm có sẵn */}
-            {(preview.existingTeams || []).some((t) => (t.addedStudents || []).length > 0) && (
-              <Box>
-                <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1 }}>
-                  Xếp vào nhóm có sẵn
-                </Typography>
-                <Stack spacing={1}>
-                  {(preview.existingTeams || []).map((team) =>
-                    (team.addedStudents || []).map((sv) => {
-                      const curTeamId = studentTeamMap[sv.studentProfileId] || team.teamId
-                      const targetTeam = preview.existingTeams.find((t) => t.teamId === curTeamId)
-                      const newCount = computeNewCount(curTeamId)
-                      const exceeds = isExceedingMax(curTeamId)
-                      return (
-                        <Box
-                          key={sv.studentProfileId}
-                          sx={{
-                            display: 'flex',
-                            alignItems: 'center',
-                            gap: 1.5,
-                            p: 1.25,
-                            border: '1px solid #e2e8f0',
-                            borderRadius: 1.5,
-                            bgcolor: '#fafafa',
-                          }}
-                        >
-                          {/* Tên / Mã SV */}
-                          <Box sx={{ flex: 1, minWidth: 0 }}>
-                            <Typography variant="body2" sx={{ fontWeight: 700 }} noWrap>
-                              {sv.fullName}
-                            </Typography>
-                            <Typography variant="caption" sx={{ color: 'text.secondary', fontFamily: 'monospace' }}>
-                              {sv.studentCode}
-                            </Typography>
-                          </Box>
-
-                          {/* Dropdown đổi nhóm (chỉ khi nhóm đích chưa có đề tài) */}
-                          <FormControl size="small" sx={{ minWidth: 160 }}>
-                            <InputLabel id={`assign-team-label-${sv.studentProfileId}`}>Xếp vào nhóm</InputLabel>
-                            <Select
-                              labelId={`assign-team-label-${sv.studentProfileId}`}
-                              label="Xếp vào nhóm"
-                              value={curTeamId}
-                              onChange={(e) =>
-                                setStudentTeamMap((prev) => ({
-                                  ...prev,
-                                  [sv.studentProfileId]: e.target.value,
-                                }))
-                              }
-                              MenuProps={{
-                                PaperProps: {
-                                  sx: {
-                                    zIndex: 1400,
-                                    maxHeight: 300,
-                                  },
-                                },
-                              }}
-                            >
-                              {mergedEligibleTeams.map((t) => (
-                                <MenuItem key={t.teamId} value={t.teamId}>
-                                  {t.teamName}
-                                </MenuItem>
-                              ))}
-                            </Select>
-                          </FormControl>
-
-                          {/* Badge sĩ số mới */}
-                          <Chip
-                            label={maxTeamSize != null ? `${newCount}/${maxTeamSize}` : `${newCount} thành viên`}
-                            size="small"
-                            sx={{
-                              fontWeight: 700,
-                              fontSize: 11,
-                              bgcolor: exceeds ? '#fff7ed' : '#f1f5f9',
-                              color: exceeds ? '#ea580c' : '#475569',
-                              border: `1px solid ${exceeds ? '#fed7aa' : '#e2e8f0'}`,
-                            }}
-                          />
-                        </Box>
-                      )
-                    })
-                  )}
-                </Stack>
-              </Box>
-            )}
-
-            {/* Nhóm mới */}
-            <Box>
-              <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1 }}>
-                Nhóm mới sẽ được tạo
-              </Typography>
-              {newTeamEdits.length === 0 ? (
-                <Typography variant="body2" sx={{ color: 'text.secondary', fontStyle: 'italic' }}>
-                  Không tạo thêm nhóm mới.
-                </Typography>
-              ) : (
-                <Stack spacing={2}>
-                  {newTeamEdits.map((nt, idx) => (
-                    <Paper key={idx} variant="outlined" sx={{ p: 2, borderRadius: 1.5 }}>
-                      <Stack spacing={1.5}>
-                        <TextField
-                          size="small"
-                          label="Tên nhóm mới"
-                          value={nt.teamName}
-                          onChange={(e) =>
-                            setNewTeamEdits((prev) =>
-                              prev.map((item, i) =>
-                                i === idx ? { ...item, teamName: e.target.value } : item
-                              )
-                            )
-                          }
-                          fullWidth
-                        />
-                        <FormControl size="small" fullWidth>
-                          <InputLabel>Trưởng nhóm</InputLabel>
-                          <Select
-                            label="Trưởng nhóm"
-                            value={nt.leaderStudentProfileId || ''}
-                            onChange={(e) =>
-                              setNewTeamEdits((prev) =>
-                                prev.map((item, i) =>
-                                  i === idx
-                                    ? { ...item, leaderStudentProfileId: e.target.value }
-                                    : item
-                                )
-                              )
-                            }
-                          >
-                            <MenuItem value=""><em>Không chỉ định</em></MenuItem>
-                            {(nt.students || []).map((sv) => (
-                              <MenuItem key={sv.studentProfileId} value={sv.studentProfileId}>
-                                {sv.fullName} ({sv.studentCode})
-                              </MenuItem>
-                            ))}
-                          </Select>
-                        </FormControl>
-                        <Typography variant="caption" sx={{ color: 'text.secondary' }}>
-                          Thành viên: {(nt.students || []).map((s) => s.fullName).join(', ')}
-                        </Typography>
-                      </Stack>
-                    </Paper>
-                  ))}
-                </Stack>
-              )}
-            </Box>
-
-            {/* Checkbox xác nhận vượt max */}
-            {needsConfirm && (
-              <FormControlLabel
-                control={
-                  <Checkbox
-                    checked={allowExceedMax}
-                    onChange={(e) => setAllowExceedMax(e.target.checked)}
-                    color="warning"
-                  />
-                }
-                label={
-                  <Typography variant="body2" sx={{ color: '#c2410c', fontWeight: 600 }}>
-                    Tôi xác nhận cho phép nhóm vượt sĩ số tối đa ({maxTeamSize} người)
-                  </Typography>
-                }
-              />
-            )}
-
-            {error && <Alert severity="error">{error}</Alert>}
-          </Stack>
-        ) : null}
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose} disabled={submitting}>
-          Hủy
-        </Button>
-        <Button
-          variant="contained"
-          color="primary"
-          onClick={handleSubmit}
-          disabled={loading || submitting || !preview || (needsConfirm && !allowExceedMax)}
-          sx={{ fontWeight: 700, textTransform: 'none' }}
-        >
-          Áp dụng
-        </Button>
-      </DialogActions>
-    </Dialog>
   )
 }
 
@@ -1274,11 +957,13 @@ function MoveMemberModal({ open, onClose, classId, sourceTeam, allTeams, maxTeam
     setError('')
   }, [open, sourceTeam])
 
-  const acceptedMembers = sourceTeam?.members?.filter((m) => m.status === 'Accepted') || []
+  // Danh sách của BE chỉ gồm thành viên chính thức
+  const acceptedMembers = sourceTeam?.members || []
 
-  const eligibleTargets = (allTeams || []).filter(
-    (t) => t.hasProject === false && t.teamId !== sourceTeam?.teamId
-  )
+  const eligibleTargets = sourceTeam?.projectApproved
+    ? []
+    : (allTeams || []).filter((t) => !t.projectApproved && t.teamId !== sourceTeam?.teamId)
+  const isLeader = selectedMemberId !== '' && selectedMemberId === sourceTeam?.leaderId
 
   const targetTeam = eligibleTargets.find((t) => t.teamId === targetTeamId)
   const newTargetCount = targetTeam ? (targetTeam.acceptedCount || 0) + 1 : null
@@ -1306,40 +991,57 @@ function MoveMemberModal({ open, onClose, classId, sourceTeam, allTeams, maxTeam
     }
   }
 
+  const handleRemove = async () => {
+    setSubmitting(true)
+    setError('')
+    try {
+      await removeTeamMember(classId, selectedMemberId)
+      onSuccess()
+    } catch (err) {
+      setError(extractErrorMessage(err, 'Không thể đưa sinh viên ra khỏi nhóm.'))
+    } finally {
+      setSubmitting(false)
+    }
+  }
+
   return (
     <Dialog open={open} onClose={onClose} fullWidth maxWidth="sm">
       <DialogTitle sx={{ fontWeight: 800 }}>
-        Chuyển thành viên{sourceTeam ? ` · ${sourceTeam.teamName}` : ''}
+        Thành viên{sourceTeam ? ` · ${sourceTeam.teamName}` : ''}
       </DialogTitle>
       <DialogContent dividers>
         <Stack spacing={2.5}>
           {/* Chọn thành viên */}
           <FormControl size="small" fullWidth>
-            <InputLabel>Thành viên cần chuyển</InputLabel>
+            <InputLabel>Thành viên</InputLabel>
             <Select
-              label="Thành viên cần chuyển"
+              label="Thành viên"
               value={selectedMemberId}
               onChange={(e) => setSelectedMemberId(e.target.value)}
             >
               {acceptedMembers.length === 0 ? (
                 <MenuItem disabled value="">
-                  Không có thành viên Accepted
+                  Nhóm chưa có thành viên
                 </MenuItem>
               ) : (
                 acceptedMembers.map((m) => (
                   <MenuItem key={m.studentProfileId} value={m.studentProfileId}>
-                    {m.fullName} ({m.studentCode})
+                    {m.fullName} ({m.studentCode}){m.studentProfileId === sourceTeam?.leaderId ? ' · trưởng nhóm' : ''}
                   </MenuItem>
                 ))
               )}
             </Select>
           </FormControl>
 
+          {sourceTeam?.projectApproved && (
+            <Alert severity="info">Đề tài của nhóm đã được duyệt: chỉ đưa bạn nghỉ học ra khỏi nhóm, không chuyển sang nhóm khác.</Alert>
+          )}
+
           {/* Chọn nhóm đích */}
-          <FormControl size="small" fullWidth>
-            <InputLabel>Nhóm đích</InputLabel>
+          <FormControl size="small" fullWidth disabled={Boolean(sourceTeam?.projectApproved)}>
+            <InputLabel>Chuyển sang nhóm</InputLabel>
             <Select
-              label="Nhóm đích"
+              label="Chuyển sang nhóm"
               value={targetTeamId}
               onChange={(e) => {
                 setTargetTeamId(e.target.value)
@@ -1385,6 +1087,14 @@ function MoveMemberModal({ open, onClose, classId, sourceTeam, allTeams, maxTeam
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
+        <Button
+          color="error"
+          onClick={handleRemove}
+          disabled={!selectedMemberId || isLeader || submitting}
+          sx={{ mr: 'auto', textTransform: 'none' }}
+        >
+          Đưa ra khỏi nhóm
+        </Button>
         <Button onClick={onClose} disabled={submitting}>
           Hủy
         </Button>
@@ -1401,7 +1111,7 @@ function MoveMemberModal({ open, onClose, classId, sourceTeam, allTeams, maxTeam
           startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : <SaveIcon />}
           sx={{ fontWeight: 700, textTransform: 'none' }}
         >
-          Xếp
+          Chuyển
         </Button>
       </DialogActions>
     </Dialog>
@@ -1448,7 +1158,7 @@ function ManualAssignModal({
     setError('')
   }, [open]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const eligibleTeams = (allTeams || []).filter((t) => t.hasProject === false)
+  const eligibleTeams = allTeams || []
 
   const handleSubmit = async () => {
     setSubmitting(true)
@@ -1482,7 +1192,7 @@ function ManualAssignModal({
         // Nếu 1 SV: tự động làm trưởng; nếu nhiều SV: dùng newLeaderId đã chọn
         const resolvedLeader = isSingleStudent
           ? (selectedStudents[0]?.studentProfileId ?? null)
-          : (newLeaderId || null)
+          : newLeaderId || selectedStudents[0]?.studentProfileId
         payload = {
           existingTeams: [],
           newTeams: [
@@ -1541,7 +1251,7 @@ function ManualAssignModal({
                 >
                   {eligibleTeams.length === 0 ? (
                     <MenuItem disabled value="">
-                      Không có nhóm hợp lệ (chưa có đề tài)
+                      Lớp chưa có nhóm nào
                     </MenuItem>
                   ) : (
                     eligibleTeams.map((t) => {
@@ -1595,10 +1305,9 @@ function ManualAssignModal({
                     <InputLabel>Trưởng nhóm</InputLabel>
                     <Select
                       label="Trưởng nhóm"
-                      value={newLeaderId}
+                      value={newLeaderId || selectedStudents[0]?.studentProfileId || ''}
                       onChange={(e) => setNewLeaderId(e.target.value)}
                     >
-                      <MenuItem value=""><em>Không chỉ định</em></MenuItem>
                       {selectedStudents.map((sv) => (
                         <MenuItem key={sv.studentProfileId} value={sv.studentProfileId}>
                           {sv.fullName} ({sv.studentCode})
