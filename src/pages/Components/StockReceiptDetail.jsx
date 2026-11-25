@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import {
   Alert,
   Box,
@@ -45,6 +45,7 @@ import {
   toSafeInvoiceDateIso,
 } from '../../utils/dateFormatting'
 import ReceiptExcelCheckDialog from './ReceiptExcelCheckDialog'
+import { INVOICE_ACCEPT, invoiceFileError } from './invoiceFile'
 import { receiptStatusOf } from './inventoryLabels'
 
 const getLines = (receipt) => receipt?.items || receipt?.lines || receipt?.receiptLines || []
@@ -58,6 +59,7 @@ const formatDateDisplay = (dateStr) => (!dateStr ? '—' : formatVietnamDate(dat
 
 export default function StockReceiptDetail() {
   const { receiptId } = useParams()
+  const location = useLocation()
   const navigate = useNavigate()
   const [receipt, setReceipt] = useState(null)
   const [confirmRequest, setConfirmRequest] = useState(null)
@@ -173,6 +175,8 @@ export default function StockReceiptDetail() {
 
   const uploadInvoice = async (file) => {
     if (!file) return
+    const invalid = invoiceFileError(file)
+    if (invalid) return setError(invalid)
     setBusy(true)
     setError('')
     try {
@@ -288,6 +292,12 @@ export default function StockReceiptDetail() {
         </Box>
 
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
+        {location.state?.invoiceError && receipt && !receipt.invoiceUrl && (
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            Phiếu đã lưu và nhập kho, nhưng chưa tải lên được tệp hóa đơn: {location.state.invoiceError} Hãy tải lại ở mục Tệp hóa
+            đơn đính kèm.
+          </Alert>
+        )}
         {notice && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setNotice('')}>{notice}</Alert>}
 
         {/* Thông báo quy định sửa phiếu nhập kho */}
@@ -437,7 +447,7 @@ export default function StockReceiptDetail() {
                 <Box>
                   <Typography fontWeight={700}>Tệp hóa đơn đính kèm</Typography>
                   <Typography variant="body2" color="text.secondary">
-                    {receipt.invoicePath || receipt.invoiceUrl ? 'Đã có tệp hóa đơn được tải lên cho phiếu này.' : 'Chưa đính kèm tệp hóa đơn.'}
+                    {receipt.invoiceUrl ? 'Đã có tệp hóa đơn được tải lên cho phiếu này.' : 'Chưa đính kèm tệp hóa đơn.'}
                   </Typography>
                 </Box>
                 <Box sx={{ display: 'flex', gap: 1 }}>
@@ -446,15 +456,26 @@ export default function StockReceiptDetail() {
                       Xem hóa đơn
                     </Button>
                   )}
-                  {receipt.invoicePath && !isCancelled && (
+                  {receipt.invoiceUrl && !isCancelled && (
                     <Button variant="outlined" color="error" size="small" onClick={deleteInvoice} sx={{ textTransform: 'none' }}>
                       Xóa tệp
                     </Button>
                   )}
-                  <Button variant="contained" component="label" size="small" sx={{ textTransform: 'none' }}>
-                    {receipt.invoicePath ? 'Thay tệp mới' : 'Tải lên hóa đơn'}
-                    <input type="file" hidden onChange={(e) => uploadInvoice(e.target.files?.[0])} />
-                  </Button>
+                  {!isCancelled && (
+                    <Button variant="contained" component="label" size="small" disabled={busy} sx={{ textTransform: 'none' }}>
+                      {receipt.invoiceUrl ? 'Thay tệp mới' : 'Tải lên hóa đơn'}
+                      <input
+                        type="file"
+                        hidden
+                        accept={INVOICE_ACCEPT}
+                        onChange={(e) => {
+                          const file = e.target.files?.[0]
+                          e.target.value = ''
+                          uploadInvoice(file)
+                        }}
+                      />
+                    </Button>
+                  )}
                 </Box>
               </CardContent>
             </Card>
