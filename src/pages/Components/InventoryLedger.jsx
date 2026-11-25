@@ -21,6 +21,7 @@ import PortalLayout from '../../components/layout/PortalLayout'
 import { useAuth } from '../../context/AuthContext'
 import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
+import { getDisplayCode } from './componentHelpers'
 import { TRANSACTION_TYPES, cabinetLabel, formatDateTime, itemStatusOf, rowsOf } from './inventoryLabels'
 
 const PAGE_SIZE = 20
@@ -129,7 +130,7 @@ export default function InventoryLedger() {
             options={components}
             value={filters.component}
             onChange={(_, value) => update({ component: value })}
-            getOptionLabel={(option) => `${option.componentCode} · ${option.componentName}`}
+            getOptionLabel={(option) => `${getDisplayCode(option)} · ${option.componentName}`}
             isOptionEqualToValue={(option, value) => option.componentId === value.componentId}
             renderInput={(params) => <TextField {...params} label="Linh kiện" />}
           />

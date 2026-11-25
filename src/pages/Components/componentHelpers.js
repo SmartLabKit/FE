@@ -95,6 +95,11 @@ export function getComponentShortCode(component) {
   return String(component.shortCode || component.ShortCode || '').trim()
 }
 
+/** Mã hiện cho người dùng: mã viết tắt, linh kiện chưa có thì dùng mã hệ thống. */
+export function getDisplayCode(component) {
+  return getComponentShortCode(component) || component?.componentCode || ''
+}
+
 /** Đơn giá trên phiếu nhập gần nhất (API latestUnitPrice); 0 nếu linh kiện chưa nhập lần nào. */
 export function getComponentLatestPrice(component) {
   const price = Number(component?.latestUnitPrice ?? component?.LatestUnitPrice)

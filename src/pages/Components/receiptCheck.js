@@ -1,5 +1,5 @@
 import { getVietnamDateInputValue, formatVietnamDate } from '../../utils/dateFormatting'
-import { getComponentShortCode, normalizeSearchText } from './componentHelpers'
+import { getComponentShortCode, getDisplayCode, normalizeSearchText } from './componentHelpers'
 
 const money = (value) => `${Number(value || 0).toLocaleString('vi-VN')} ₫`
 
@@ -129,7 +129,7 @@ export function compareReceiptWithExcel(lines, rows, components, cabinets = []) 
     results.push({
       key: componentId,
       status,
-      code: component.componentCode,
+      code: getDisplayCode(component),
       name: component.componentName,
       fileQuantity,
       receiptQuantity: receiptLines.length > 0 ? receiptQuantity : null,

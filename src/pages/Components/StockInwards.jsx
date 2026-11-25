@@ -53,6 +53,7 @@ import {
 import {
   getComponentLatestPrice,
   getComponentShortCode,
+  getDisplayCode,
   normalizeSearchText,
 } from './componentHelpers'
 import DeclareComponentDialog from './DeclareComponentDialog'
@@ -395,7 +396,7 @@ export default function StockInwards() {
           unmatchedWarnings.push(notFoundWarning(row))
         } else if (hasDifferentName(matchedComp, row)) {
           unmatchedWarnings.push(
-            `Dòng #${row.rowNumber}: file ghi tên "${row.componentName}" nhưng mã ${matchedComp.componentCode} là "${matchedComp.componentName}"`
+            `Dòng #${row.rowNumber}: file ghi tên "${row.componentName}" nhưng mã ${getDisplayCode(matchedComp)} là "${matchedComp.componentName}"`
           )
         }
         if (!matchedCab && row.cabinetCode) {
@@ -468,7 +469,7 @@ export default function StockInwards() {
       })
     )
     setExcelNotice((current) => ({
-      intro: `Đã khai báo ${component.componentCode} – ${component.componentName}.`,
+      intro: `Đã khai báo ${getDisplayCode(component)} – ${component.componentName}.`,
       warnings: [
         ...(current?.warnings || []).filter((warning) => !rows.some((row) => warning === notFoundWarning(row))),
         ...(component.trackingType === 'HIGH_VALUE' ? rows.flatMap(missingMachineInfo) : []),
@@ -576,7 +577,7 @@ export default function StockInwards() {
     if (lines.length === 0) return setError('Cần ít nhất một dòng hàng.')
     for (const [index, line] of lines.entries()) {
       const comp = selectedComponent(line)
-      const compName = comp ? `${comp.componentCode} - ${comp.componentName}` : `Dòng #${index + 1}`
+      const compName = comp ? `${getDisplayCode(comp)} - ${comp.componentName}` : `Dòng #${index + 1}`
       if (!line.componentId) return setError(`Vui lòng chọn linh kiện ở dòng #${index + 1}.`)
       if (!line.cabinetId) return setError(`Vui lòng chọn tủ cất cho ${compName}.`)
 
@@ -916,7 +917,7 @@ export default function StockInwards() {
                         return (
                           <TableRow key={line.key}>
                             <TableCell sx={{ fontWeight: 600 }}>
-                              {comp ? `${comp.componentCode} — ${comp.componentName}` : line.componentName || '—'}
+                              {comp ? `${getDisplayCode(comp)} — ${comp.componentName}` : line.componentName || '—'}
                             </TableCell>
                             <TableCell>{line.quantity}</TableCell>
                             <TableCell>
@@ -1097,7 +1098,6 @@ export default function StockInwards() {
                                 noOptionsText="Không tìm thấy linh kiện phù hợp — thử đổi danh mục hoặc từ khóa"
                                 renderOption={(props, option) => {
                                   const { key, ...rest } = props
-                                  const sc = getComponentShortCode(option)
                                   const refP = getComponentLatestPrice(option)
                                   return (
                                     <Box component="li" key={key} {...rest} sx={{ display: 'block !important', py: 0.75 }}>
@@ -1105,8 +1105,7 @@ export default function StockInwards() {
                                         {option.componentName}
                                       </Typography>
                                       <Typography sx={{ fontSize: 11.5, color: '#64748b' }}>
-                                        {option.componentCode}
-                                        {sc && sc !== option.componentCode ? ` · ${sc}` : ''} · {option.categoryName || 'Chưa phân loại'} ·{' '}
+                                        {getDisplayCode(option)} · {option.categoryName || 'Chưa phân loại'} ·{' '}
                                         {option.trackingType}
                                         {refP > 0 ? ` · Giá chuẩn: ${refP.toLocaleString('vi-VN')} ₫` : ''}
                                       </Typography>

@@ -1,6 +1,7 @@
 import * as XLSX from 'xlsx'
 import {
   generateComponentShortCode,
+  getDisplayCode,
   getComponentLatestPrice,
   normalizeSearchText,
 } from '../pages/Components/componentHelpers'
@@ -185,7 +186,7 @@ export function downloadComponentsTemplate(categories = [], existingComponents =
   if (existingComponents.length > 0) {
     const wsExisting = XLSX.utils.json_to_sheet(
       existingComponents.map((c) => ({
-        'Mã linh kiện': c.componentCode || '',
+        'Mã linh kiện': getDisplayCode(c),
         'Tên linh kiện': c.componentName || '',
         'Danh mục': c.categoryName || '',
         'Đơn vị': c.unit || '',
@@ -306,7 +307,7 @@ export function downloadStockReceiptTemplate(components = [], cabinets = []) {
 
   if (components.length > 0) {
     const refComps = components.map((c) => ({
-      'Mã linh kiện': c.componentCode || '',
+      'Mã linh kiện': getDisplayCode(c),
       'Tên linh kiện': c.componentName || '',
       'Danh mục': c.categoryName || '',
       'Loại quản lý': c.trackingType || '',

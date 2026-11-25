@@ -36,6 +36,7 @@ import { useAuth } from '../../context/AuthContext'
 import {
   getComponentLatestPrice,
   getComponentShortCode,
+  getDisplayCode,
   normalizeSearchText,
 } from './componentHelpers'
 import ComponentReceiptCell from './ComponentReceiptCell'
@@ -496,7 +497,6 @@ export default function Components() {
                 </TableRow>
               ) : (
                 paginatedRows.map((component) => {
-                  const shortCode = getComponentShortCode(component)
                   const refPrice = getComponentLatestPrice(component)
                   return (
                     <TableRow key={component.componentId} hover>
@@ -513,13 +513,8 @@ export default function Components() {
                       </TableCell>
                       <TableCell>
                         <Typography sx={{ color: '#0058be', fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap' }}>
-                          {component.componentCode}
+                          {getDisplayCode(component)}
                         </Typography>
-                        {shortCode && shortCode !== component.componentCode && (
-                          <Typography sx={{ color: '#64748b', fontSize: 11, fontWeight: 600 }}>
-                            {shortCode}
-                          </Typography>
-                        )}
                       </TableCell>
                       {showsReceipt && (
                         <TableCell>
