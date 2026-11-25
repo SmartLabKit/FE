@@ -471,6 +471,7 @@ export default function Components() {
                 {showsPrice && <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Giá nhập gần nhất</TableCell>}
                 <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Tổng tồn</TableCell>
                 <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Khả dụng</TableCell>
+                <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Tồn tối thiểu</TableCell>
                 <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Trạng thái</TableCell>
                 <TableCell sx={{ width: canManage ? 110 : 70, fontWeight: 700, color: '#334155' }}>
                   Thao tác
@@ -480,7 +481,7 @@ export default function Components() {
             <TableBody>
               {loading ? (
                 <TableRow>
-                  <TableCell colSpan={9} align="center" sx={{ py: 6 }}>
+                  <TableCell colSpan={10} align="center" sx={{ py: 6 }}>
                     <CircularProgress size={28} sx={{ color: '#0058be', mb: 1 }} />
                     <Typography variant="body2" sx={{ color: '#64748b' }}>
                       Đang tải danh sách linh kiện...
@@ -489,7 +490,7 @@ export default function Components() {
                 </TableRow>
               ) : filtered.length === 0 ? (
                 <TableRow>
-                  <TableCell colSpan={9} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                  <TableCell colSpan={10} align="center" sx={{ py: 4, color: 'text.secondary' }}>
                     {receivedFilter === 'receipt' && !receiptId
                       ? 'Chọn phiếu nhập để xem linh kiện của phiếu.'
                       : 'Không có linh kiện phù hợp với bộ lọc.'}
@@ -536,6 +537,9 @@ export default function Components() {
                       </TableCell>
                       <TableCell sx={{ fontWeight: 600 }}>
                         {Number(component.availableQuantity || 0).toLocaleString('vi-VN')}
+                      </TableCell>
+                      <TableCell sx={{ color: '#64748b' }}>
+                        {component.minStock == null ? '—' : Number(component.minStock).toLocaleString('vi-VN')}
                       </TableCell>
                       <TableCell>
                         {(() => {
