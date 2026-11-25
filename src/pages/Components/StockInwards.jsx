@@ -1009,11 +1009,8 @@ export default function StockInwards() {
                                 onChange={(_, newValue) => handleSelectComponent(line, newValue)}
                                 filterOptions={filterComponentOptions}
                                 isOptionEqualToValue={(option, value) => option.componentId === value?.componentId}
-                                getOptionLabel={(option) => {
-                                  if (!option) return ''
-                                  const sc = getComponentShortCode(option)
-                                  return `${option.componentCode}${sc && sc !== option.componentCode ? ` (${sc})` : ''} — ${option.componentName}`
-                                }}
+                                getOptionKey={(option) => option.componentId}
+                                getOptionLabel={(option) => option?.componentName || ''}
                                 noOptionsText="Không tìm thấy linh kiện phù hợp — thử đổi danh mục hoặc từ khóa"
                                 renderOption={(props, option) => {
                                   const { key, ...rest } = props
@@ -1039,11 +1036,14 @@ export default function StockInwards() {
                                     required
                                     label="Tìm & chọn linh kiện"
                                     placeholder="Gõ tên hoặc mã viết tắt..."
+                                    title={component?.componentName}
                                     error={Boolean(line.importError)}
                                     helperText={
                                       line.importError
                                         ? line.importError
-                                        : !component && filteredComponentsByCategory.length > MAX_DROPDOWN_OPTIONS
+                                        : component
+                                        ? component.componentCode
+                                        : filteredComponentsByCategory.length > MAX_DROPDOWN_OPTIONS
                                         ? `Gõ tên hoặc mã để tìm (${filteredComponentsByCategory.length} linh kiện)`
                                         : undefined
                                     }
