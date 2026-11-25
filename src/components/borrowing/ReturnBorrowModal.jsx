@@ -41,7 +41,8 @@ function getOpenReturnLines(items) {
   return (items || []).filter((item) => item.status === 'Issued')
 }
 
-export default function ReturnBorrowModal({ request, open, submitting, onClose, onReturn }) {
+/** planned (Map borrowItemId → số lượng): món ghi trong phiếu trả, điền sẵn để lab chỉ sửa chỗ khác. */
+export default function ReturnBorrowModal({ request, open, submitting, planned, submitError, onClose, onReturn }) {
   const [photo, setPhoto] = useState(null)
   const [photoPreviewUrl, setPhotoPreviewUrl] = useState('')
   const [cabinets, setCabinets] = useState([])
@@ -100,8 +101,11 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
       setPhoto(null)
       setPhotoPreviewUrl('')
       setCabinetId('')
-      setConditions({})
-      setConsumableQuantities({})
+      const plannedLines = planned ? getOpenReturnLines(request?.items).filter((item) => planned.has(item.borrowItemId)) : []
+      setConditions(Object.fromEntries(plannedLines.filter((item) => !isConsumable(item)).map((item) => [item.borrowItemId, 'Good'])))
+      setConsumableQuantities(
+        Object.fromEntries(plannedLines.filter(isConsumable).map((item) => [item.borrowItemId, planned.get(item.borrowItemId)])),
+      )
       setDamagePhotos({})
       setError('')
       try {
@@ -127,6 +131,8 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
       active = false
       window.clearTimeout(timer)
     }
+    // Chỉ nạp lại khi mở hộp cho đơn khác; planned và items cố định trong lúc hộp mở
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, requestId, roomId])
 
   const handlePhotoSelected = async (event) => {
@@ -242,7 +248,7 @@ export default function ReturnBorrowModal({ request, open, submitting, onClose, 
       <DialogTitle sx={{ pb: 1 }}>Nhận trả đồ · {request?.requestCode}</DialogTitle>
       <DialogContent dividers sx={{ overflowY: 'auto' }}>
         <Stack spacing={2} sx={{ py: 1 }}>
-          {error && <Alert severity="error">{error}</Alert>}
+          {(error || submitError) && <Alert severity="error">{error || submitError}</Alert>}
           <Paper variant="outlined" sx={{ p: { xs: 1.5, sm: 2 }, width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
             <Stack spacing={1.5} sx={{ width: '100%', minWidth: 0 }}>
               <Stack

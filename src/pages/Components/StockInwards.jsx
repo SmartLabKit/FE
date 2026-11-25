@@ -535,13 +535,13 @@ export default function StockInwards() {
     }
     if (invoiceDate) {
       if (!isValidYmdDate(invoiceDate)) {
-        return setError('Ngày hóa đơn không hợp lệ.')
+        return setError('Ngày xuất hóa đơn không hợp lệ.')
       }
       if (invoiceDate > currentTodayVn) {
-        return setError('Ngày hóa đơn không được ở tương lai.')
+        return setError('Ngày xuất hóa đơn không được ở tương lai.')
       }
       if (invoiceDate > receivedAt) {
-        return setError('Ngày hóa đơn (trên chứng từ NCC) không được sau ngày nhập kho thực tế.')
+        return setError('Ngày xuất hóa đơn không được sau ngày nhập kho thực tế.')
       }
     }
 
@@ -549,7 +549,7 @@ export default function StockInwards() {
     const isoReceivedAt = toReceiptReceivedAtIso(receivedAt)
     const isoInvoiceDate = toSafeInvoiceDateIso(invoiceDate)
 
-    // TRƯỜNG HỢP SỬA PHIẾU: Chỉ được sửa Nhà cung cấp, Số hóa đơn, Ngày nhập kho, Ngày hóa đơn, Ghi chú
+    // TRƯỜNG HỢP SỬA PHIẾU: Chỉ được sửa Nhà cung cấp, Số hóa đơn, Ngày nhập kho, Ngày xuất hóa đơn, Ghi chú
     if (editId) {
       setLoading(true)
       try {
@@ -694,7 +694,7 @@ export default function StockInwards() {
       headerTitle={editId ? 'Sửa thông tin phiếu nhập' : 'Lập phiếu nhập kho'}
       headerSubtitle={
         editId
-          ? 'Chỉ được sửa Nhà cung cấp, Số hóa đơn, Ngày nhập kho, Ngày hóa đơn và Ghi chú. Không được sửa mặt hàng.'
+          ? 'Chỉ được sửa Nhà cung cấp, Số hóa đơn, Ngày nhập kho, Ngày xuất hóa đơn và Ghi chú. Không được sửa mặt hàng.'
           : 'Nhập hàng từ Excel Template hoặc chọn linh kiện theo danh mục; lưu phiếu là hàng vào kho ngay'
       }
     >
@@ -724,7 +724,7 @@ export default function StockInwards() {
                 <Typography sx={{ color: '#697386', fontSize: 12 }}>
                   {editId
                     ? 'Chỉ chỉnh sửa thông tin chứng từ. Hàng hóa đã vào kho không thể sửa trực tiếp.'
-                    : 'Phân biệt rõ Ngày hóa đơn (ngày trên chứng từ mua hàng từ nhà cung cấp) và Ngày nhập kho (ngày thực tế hàng vào Lab).'}
+                    : 'Phân biệt rõ Ngày xuất hóa đơn (ngày trên chứng từ mua hàng từ nhà cung cấp) và Ngày nhập kho (ngày thực tế hàng vào Lab).'}
                 </Typography>
               </Box>
               {!editId && (
@@ -763,7 +763,7 @@ export default function StockInwards() {
               </Alert>
             )}
 
-            {/* Các trường thông tin phiếu: Nhà cung cấp (gợi ý NCC thực tế), Số hóa đơn, Ngày nhập kho, Ngày hóa đơn, Ghi chú */}
+            {/* Các trường thông tin phiếu: Nhà cung cấp (gợi ý NCC thực tế), Số hóa đơn, Ngày nhập kho, Ngày xuất hóa đơn, Ghi chú */}
             <Grid container spacing={2} sx={{ mb: 2 }}>
               {!editId && (
                 <Grid size={{ xs: 12, md: 6 }}>
@@ -839,13 +839,13 @@ export default function StockInwards() {
                 <TextField
                   fullWidth
                   type="date"
-                  label="Ngày hóa đơn (trên chứng từ NCC)"
+                  label="Ngày xuất hóa đơn"
                   value={invoiceDate}
                   onChange={(event) => setInvoiceDate(event.target.value)}
                   error={Boolean(invoiceDate && receivedAt && invoiceDate > receivedAt)}
                   helperText={
                     invoiceDate && receivedAt && invoiceDate > receivedAt
-                      ? 'Lỗi: Ngày hóa đơn không được sau ngày nhập kho!'
+                      ? 'Lỗi: Ngày xuất hóa đơn không được sau ngày nhập kho!'
                       : 'Ngày phát hành ghi trên hóa đơn thực tế (phải ≤ ngày nhập kho).'
                   }
                   slotProps={{

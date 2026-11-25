@@ -21,6 +21,7 @@ import SupplementaryBorrowDetail from './pages/Borrowing/SupplementaryBorrowDeta
 import ReviewSupplementaryBorrow from './pages/Borrowing/ReviewSupplementaryBorrow.jsx'
 import SupplementaryBorrowList from './pages/Borrowing/SupplementaryBorrowList.jsx'
 import BorrowRequestDetail from './pages/Borrowing/BorrowRequestDetail.jsx'
+import ReturnSlipDetail from './pages/Borrowing/ReturnSlipDetail.jsx'
 import LabBorrowManagement from './pages/Borrowing/LabBorrowManagement.jsx'
 
 import InventorySetup from './pages/Components/InventorySetup.jsx'
@@ -106,6 +107,7 @@ function App() {
           <Route path="/borrow/lab-orders" element={<RequireRole roles={['LabStaff']}><LabBorrowManagement /></RequireRole>} />
           <Route path="/borrow/my-requests" element={<RequireRole roles={['Student', 'Lecturer']}><SupplementaryBorrowList /></RequireRole>} />
           <Route path="/borrow/requests/:id" element={<RequireRole><BorrowRequestDetail /></RequireRole>} />
+          <Route path="/borrow/return-slips/:id" element={<RequireRole><ReturnSlipDetail /></RequireRole>} />
           <Route path="/borrow/supplementary" element={<RequireRole roles={['Student', 'Lecturer']}><SupplementaryBorrowList /></RequireRole>} />
           <Route path="/borrow/supplementary/create" element={<RequireRole roles={['Student']}><CreateSupplementaryBorrow /></RequireRole>} />
           <Route path="/borrow/supplementary/:id" element={<RequireRole roles={['Student', 'Lecturer']}><SupplementaryBorrowDetail /></RequireRole>} />

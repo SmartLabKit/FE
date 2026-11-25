@@ -68,7 +68,7 @@ export default function StockReceiptDetail() {
   const [busy, setBusy] = useState(false)
   const [checkOpen, setCheckOpen] = useState(false)
 
-  // Edit dialog state (Thiết kế đúng theo hình 2: Nhà cung cấp, Số hóa đơn, Ngày nhận, Ngày hóa đơn, Ghi chú)
+  // Edit dialog state (Thiết kế đúng theo hình 2: Nhà cung cấp, Số hóa đơn, Ngày nhận, Ngày xuất hóa đơn, Ghi chú)
   const [editOpen, setEditOpen] = useState(false)
   const [editSupplier, setEditSupplier] = useState('')
   const [editInvoiceNumber, setEditInvoiceNumber] = useState('')
@@ -131,15 +131,15 @@ export default function StockReceiptDetail() {
     }
     if (editInvoiceDate) {
       if (!isValidYmdDate(editInvoiceDate)) {
-        setEditError('Ngày hóa đơn không hợp lệ.')
+        setEditError('Ngày xuất hóa đơn không hợp lệ.')
         return
       }
       if (editInvoiceDate > todayVn) {
-        setEditError('Ngày hóa đơn không được ở tương lai.')
+        setEditError('Ngày xuất hóa đơn không được ở tương lai.')
         return
       }
       if (editInvoiceDate > editReceivedAt) {
-        setEditError('Ngày hóa đơn (trên chứng từ NCC) không được sau ngày nhập kho thực tế.')
+        setEditError('Ngày xuất hóa đơn không được sau ngày nhập kho thực tế.')
         return
       }
     }
@@ -152,7 +152,7 @@ export default function StockReceiptDetail() {
     const isoInvoiceDate = editInvoiceDate ? toSafeInvoiceDateIso(editInvoiceDate) : null
     const noteVal = editNote.trim() || null
 
-    // Chỉ cập nhật các trường được phép: Nhà cung cấp, Số hóa đơn, Ngày nhận, Ngày hóa đơn, Ghi chú
+    // Chỉ cập nhật các trường được phép: Nhà cung cấp, Số hóa đơn, Ngày nhận, Ngày xuất hóa đơn, Ghi chú
     const payload = {
       supplierName: editSupplier.trim(),
       invoiceNumber: editInvoiceNumber.trim() || null,
@@ -302,7 +302,7 @@ export default function StockReceiptDetail() {
 
         {/* Thông báo quy định sửa phiếu nhập kho */}
         <Alert severity="info" icon={<InfoIcon />} sx={{ mb: 2, bgcolor: '#f0f7ff', borderColor: '#b9e0fd', border: '1px solid' }}>
-          <strong>Quy định sửa phiếu:</strong> Chỉ được phép chỉnh sửa các thông tin: Nhà cung cấp, Số hóa đơn, Ngày nhận, Ngày hóa đơn và Ghi chú. <strong>Không được sửa mặt hàng</strong>. Nếu có sai sót về hàng hóa, vui lòng bấm &quot;Hủy phiếu&quot; và tạo phiếu mới.
+          <strong>Quy định sửa phiếu:</strong> Chỉ được phép chỉnh sửa các thông tin: Nhà cung cấp, Số hóa đơn, Ngày nhận, Ngày xuất hóa đơn và Ghi chú. <strong>Không được sửa mặt hàng</strong>. Nếu có sai sót về hàng hóa, vui lòng bấm &quot;Hủy phiếu&quot; và tạo phiếu mới.
         </Alert>
 
         {receipt && (
@@ -334,7 +334,7 @@ export default function StockReceiptDetail() {
                     <Typography fontWeight={600}>{formatDateTime(receipt.receivedAt)}</Typography>
                   </Grid>
                   <Grid size={{ xs: 12, sm: 6, md: 2 }}>
-                    <Typography color="text.secondary" fontSize={13}>Ngày hóa đơn (chứng từ)</Typography>
+                    <Typography color="text.secondary" fontSize={13}>Ngày xuất hóa đơn</Typography>
                     <Typography fontWeight={600}>{currentInvoiceDate ? formatDate(currentInvoiceDate) : '—'}</Typography>
                   </Grid>
                   <Grid size={{ xs: 12, sm: 6, md: 1.5 }}>
@@ -588,7 +588,7 @@ export default function StockReceiptDetail() {
               />
             </Box>
 
-            {/* NGÀY THÁNG (Gồm Ngày nhận và Ngày hóa đơn) */}
+            {/* NGÀY THÁNG (Gồm Ngày nhận và Ngày xuất hóa đơn) */}
             <Box>
               <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: '#64748b', letterSpacing: 0.6, mb: 0.75 }}>
                 NGÀY THÁNG
@@ -644,7 +644,7 @@ export default function StockReceiptDetail() {
 
                 <Divider sx={{ borderColor: '#f1f5f9' }} />
 
-                {/* Dòng Ngày hóa đơn */}
+                {/* Dòng Ngày xuất hóa đơn */}
                 <Box
                   onClick={() => invoiceDateInputRef.current?.showPicker?.()}
                   sx={{
@@ -659,7 +659,7 @@ export default function StockReceiptDetail() {
                   }}
                 >
                   <Typography sx={{ fontSize: 14, fontWeight: 500, color: '#1e293b' }}>
-                    Ngày hóa đơn (chứng từ)
+                    Ngày xuất hóa đơn
                   </Typography>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                     <Typography sx={{ fontSize: 14, color: editInvoiceDate ? '#1e293b' : '#94a3b8' }}>
@@ -673,7 +673,7 @@ export default function StockReceiptDetail() {
                           setEditInvoiceDate('')
                         }}
                         sx={{ p: 0.25, zIndex: 2, color: '#94a3b8' }}
-                        title="Xóa ngày hóa đơn"
+                        title="Xóa ngày xuất hóa đơn"
                       >
                         <CloseIcon sx={{ fontSize: 15 }} />
                       </IconButton>
