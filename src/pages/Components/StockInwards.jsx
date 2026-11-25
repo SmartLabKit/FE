@@ -56,6 +56,7 @@ import {
   getComponentShortCode,
   normalizeSearchText,
 } from './componentHelpers'
+import { findReceiptComponent, hasDifferentName } from './receiptCheck'
 import { labLabel } from '../../utils/labLabel'
 
 const MAX_DROPDOWN_OPTIONS = 50
@@ -338,17 +339,7 @@ export default function StockInwards() {
       const unmatchedWarnings = []
       const importedLines = parsedRows.map((row) => {
         // Tìm linh kiện theo Mã hệ thống, Mã viết tắt hoặc Tên linh kiện
-        const normCode = normalizeSearchText(row.componentCode)
-        const normName = normalizeSearchText(row.componentName)
-        const matchedComp = components.find((c) => {
-          const cCode = normalizeSearchText(c.componentCode)
-          const cShort = normalizeSearchText(getComponentShortCode(c))
-          const cName = normalizeSearchText(c.componentName)
-          return (
-            (normCode && (cCode === normCode || cShort === normCode)) ||
-            (normName && cName === normName)
-          )
-        })
+        const matchedComp = findReceiptComponent(components, row)
 
         // Tìm tủ lưu trữ theo Mã tủ hoặc Tên tủ
         const normCab = normalizeSearchText(row.cabinetCode)
@@ -363,6 +354,10 @@ export default function StockInwards() {
           : `Dòng #${row.rowNumber} trong file: không tìm thấy "${row.componentCode || row.componentName}", chọn lại linh kiện`
         if (!matchedComp) {
           unmatchedWarnings.push(`Dòng #${row.rowNumber}: không tìm thấy linh kiện "${row.componentCode || row.componentName}"`)
+        } else if (hasDifferentName(matchedComp, row)) {
+          unmatchedWarnings.push(
+            `Dòng #${row.rowNumber}: file ghi tên "${row.componentName}" nhưng mã ${matchedComp.componentCode} là "${matchedComp.componentName}"`
+          )
         }
         if (!matchedCab && row.cabinetCode) {
           unmatchedWarnings.push(`Dòng #${row.rowNumber}: tủ "${row.cabinetCode}" không thuộc lab nhận hàng, đã đổi sang tủ mặc định`)

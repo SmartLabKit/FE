@@ -211,8 +211,14 @@ export const inventoryService = {
   async deleteTutorial(id, tutorialId) {
     return api.delete(`/api/components/${id}/tutorials/${tutorialId}`)
   },
+  /** Mọi phiếu nhập: BE trả tối đa 100 phiếu một trang nên tải lần lượt đến hết. */
   async getStockReceipts() {
-    return asList(unwrap(await api.get('/api/stock-receipts')), ['items', 'receipts'])
+    const receipts = []
+    for (let page = 1; ; page += 1) {
+      const data = unwrap(await api.get('/api/stock-receipts', { params: { page, size: 100 } }))
+      receipts.push(...asList(data, ['items', 'receipts']))
+      if (!data?.hasNext) return receipts
+    }
   },
   async getStockReceipt(id) {
     return unwrap(await api.get(`/api/stock-receipts/${id}`))

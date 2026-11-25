@@ -8,6 +8,7 @@ import {
 } from '@mui/icons-material'
 import {
   Alert,
+  Autocomplete,
   Box,
   Button,
   Card,
@@ -26,7 +27,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import PortalLayout from '../../components/layout/PortalLayout'
 import TrackingTypeBadge from '../../components/common/TrackingTypeBadge'
 import { inventoryService } from '../../services/inventoryService'
@@ -37,6 +38,16 @@ import {
   getComponentShortCode,
   normalizeSearchText,
 } from './componentHelpers'
+import ComponentReceiptCell from './ComponentReceiptCell'
+import {
+  applyReceivedFilter,
+  JUST_CREATED_OPTION,
+  receiptByComponent,
+  receivedAmount,
+  receivedQuantity,
+  RECEIVED_OPTIONS,
+} from './receivedFilter'
+import { formatVietnamDateTime } from '../../utils/dateFormatting'
 
 const TRACKING_TYPE_OPTIONS = [
   { value: '', label: 'Tất cả loại quản lý' },
@@ -55,6 +66,9 @@ export default function Components() {
 
   const navigate = useNavigate()
   const location = useLocation()
+  const [searchParams, setSearchParams] = useSearchParams()
+  const [receipts, setReceipts] = useState([])
+  const [receiptDetail, setReceiptDetail] = useState(null)
   const [components, setComponents] = useState([])
   const [categories, setCategories] = useState([])
   const [query, setQuery] = useState('')
@@ -93,6 +107,59 @@ export default function Components() {
       active = false
     }
   }, [])
+
+  // Ô lọc "Mới nhập" nằm trên đường dẫn để bấm từ phiếu nhập sang và tải lại trang vẫn giữ
+  const createdIds = useMemo(() => location.state?.createdIds || [], [location.state])
+  const receivedOptions = createdIds.length > 0 ? [...RECEIVED_OPTIONS, JUST_CREATED_OPTION] : RECEIVED_OPTIONS
+  const receivedParam = searchParams.get('received') || ''
+  const receivedFilter = canManage && receivedOptions.some((o) => o.value === receivedParam) ? receivedParam : ''
+  const receiptId = receivedFilter === 'receipt' ? searchParams.get('receipt') || '' : ''
+  const showsReceipt = ['today', '7', '30', 'receipt'].includes(receivedFilter)
+  const showsCreatedAt = ['none', 'created'].includes(receivedFilter)
+
+  const setReceivedFilter = (received, receipt = '') => {
+    const next = new URLSearchParams(searchParams)
+    next.delete('received')
+    next.delete('receipt')
+    if (received) next.set('received', received)
+    if (receipt) next.set('receipt', receipt)
+    setSearchParams(next, { replace: true, state: location.state })
+    setPage(0)
+  }
+
+  useEffect(() => {
+    if (receivedFilter !== 'receipt') return undefined
+    let active = true
+    inventoryService
+      .getStockReceipts()
+      .then((items) => {
+        const usable = items.filter((r) => r.status === 'Completed')
+        usable.sort((a, b) => String(b.createdAt).localeCompare(String(a.createdAt)))
+        if (active) setReceipts(usable)
+      })
+      .catch((loadError) => {
+        if (active) setError(extractErrorMessage(loadError, 'Không thể tải danh sách phiếu nhập.'))
+      })
+    return () => {
+      active = false
+    }
+  }, [receivedFilter])
+
+  useEffect(() => {
+    if (!receiptId) return undefined
+    let active = true
+    inventoryService
+      .getStockReceipt(receiptId)
+      .then((data) => {
+        if (active) setReceiptDetail(data)
+      })
+      .catch((loadError) => {
+        if (active) setError(extractErrorMessage(loadError, 'Không thể tải phiếu nhập.'))
+      })
+    return () => {
+      active = false
+    }
+  }, [receiptId])
 
   // Danh sách danh mục duy nhất cho bộ lọc phân loại linh kiện
   const categoryOptions = useMemo(() => {
@@ -138,7 +205,8 @@ export default function Components() {
 
   const filtered = useMemo(() => {
     const normQuery = normalizeSearchText(query)
-    return components.filter((component) => {
+    const receiptLines = receiptByComponent(receiptDetail?.receiptId === receiptId ? receiptDetail : null)
+    return applyReceivedFilter(components, receivedFilter, { receiptLines, createdIds }).filter((component) => {
       // 1. Lọc theo Danh mục linh kiện
       if (categoryFilter) {
         const compCatId = component.categoryId || component.CategoryId || ''
@@ -164,12 +232,15 @@ export default function Components() {
 
       return true
     })
-  }, [components, categoryFilter, typeFilter, query])
+  }, [components, categoryFilter, typeFilter, query, receivedFilter, receiptId, receiptDetail, createdIds])
 
   const paginatedRows = useMemo(() => {
     const start = page * rowsPerPage
     return filtered.slice(start, start + rowsPerPage)
   }, [filtered, page, rowsPerPage])
+
+  const shownReceipts = showsReceipt ? filtered.map((component) => component.shownReceipt).filter(Boolean) : []
+  const showsPrice = !showsReceipt && !showsCreatedAt
 
   const totalQuantity = components.reduce((sum, component) => sum + Number(component.totalQuantity || 0), 0)
   const availableQuantity = components.reduce((sum, component) => sum + Number(component.availableQuantity || 0), 0)
@@ -252,6 +323,39 @@ export default function Components() {
           </Box>
 
           <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
+            {canManage && (
+              <TextField
+                select
+                size="small"
+                label="Mới nhập"
+                value={receivedFilter}
+                onChange={(e) => setReceivedFilter(e.target.value)}
+                slotProps={{ select: { displayEmpty: true }, inputLabel: { shrink: true } }}
+                sx={{ minWidth: 185 }}
+              >
+                {receivedOptions.map((option) => (
+                  <MenuItem key={option.value} value={option.value}>
+                    {option.label}
+                  </MenuItem>
+                ))}
+              </TextField>
+            )}
+            {receivedFilter === 'receipt' && (
+              <Autocomplete
+                size="small"
+                options={receipts}
+                value={receipts.find((r) => r.receiptId === receiptId) || null}
+                onChange={(_event, receipt) => setReceivedFilter('receipt', receipt?.receiptId)}
+                getOptionKey={(receipt) => receipt.receiptId}
+                getOptionLabel={(receipt) =>
+                  `${receipt.receiptCode} · ${receipt.supplierName} · ${formatVietnamDateTime(receipt.createdAt)}`
+                }
+                isOptionEqualToValue={(a, b) => a.receiptId === b.receiptId}
+                noOptionsText="Không có phiếu nhập"
+                renderInput={(params) => <TextField {...params} label="Phiếu nhập" placeholder="Chọn phiếu" />}
+                sx={{ minWidth: { xs: 260, sm: 340 } }}
+              />
+            )}
             <TextField
               select
               size="small"
@@ -340,15 +444,30 @@ export default function Components() {
           </Box>
         </Box>
 
+        {shownReceipts.length > 0 && (
+          <Alert severity="info" sx={{ borderRadius: 0, border: '1px solid #d8dced', borderTop: 0 }}>
+            <strong>{shownReceipts.length}</strong> linh kiện · nhập{' '}
+            <strong>{shownReceipts.reduce((sum, r) => sum + receivedQuantity(r), 0).toLocaleString('vi-VN')}</strong> đơn vị · thành tiền{' '}
+            <strong>{shownReceipts.reduce((sum, r) => sum + receivedAmount(r), 0).toLocaleString('vi-VN')} ₫</strong>
+            {receivedFilter !== 'receipt' && ' (tính phiếu gần nhất của mỗi linh kiện)'}
+          </Alert>
+        )}
+
         <TableContainer sx={{ bgcolor: '#fff', border: '1px solid #d8dced', borderTop: 0 }}>
           <Table size="small">
             <TableHead>
               <TableRow sx={{ bgcolor: '#faf9ff' }}>
                 <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Tên linh kiện</TableCell>
                 <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Mã / Mã viết tắt</TableCell>
+                {showsReceipt && (
+                  <TableCell sx={{ fontWeight: 700, color: '#334155' }}>
+                    {receivedFilter === 'receipt' ? 'Nhập theo phiếu' : 'Nhập gần nhất'}
+                  </TableCell>
+                )}
+                {showsCreatedAt && <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Ngày khai báo</TableCell>}
                 <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Danh mục</TableCell>
                 <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Loại quản lý</TableCell>
-                <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Giá nhập gần nhất</TableCell>
+                {showsPrice && <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Giá nhập gần nhất</TableCell>}
                 <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Tổng tồn</TableCell>
                 <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Khả dụng</TableCell>
                 <TableCell sx={{ fontWeight: 700, color: '#334155' }}>Trạng thái</TableCell>
@@ -370,7 +489,9 @@ export default function Components() {
               ) : filtered.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={9} align="center" sx={{ py: 4, color: 'text.secondary' }}>
-                    Không có linh kiện phù hợp với bộ lọc.
+                    {receivedFilter === 'receipt' && !receiptId
+                      ? 'Chọn phiếu nhập để xem linh kiện của phiếu.'
+                      : 'Không có linh kiện phù hợp với bộ lọc.'}
                   </TableCell>
                 </TableRow>
               ) : (
@@ -391,7 +512,7 @@ export default function Components() {
                         {component.componentName}
                       </TableCell>
                       <TableCell>
-                        <Typography sx={{ color: '#0058be', fontWeight: 700, fontSize: 13 }}>
+                        <Typography sx={{ color: '#0058be', fontWeight: 700, fontSize: 13, whiteSpace: 'nowrap' }}>
                           {component.componentCode}
                         </Typography>
                         {shortCode && shortCode !== component.componentCode && (
@@ -400,13 +521,21 @@ export default function Components() {
                           </Typography>
                         )}
                       </TableCell>
+                      {showsReceipt && (
+                        <TableCell>
+                          <ComponentReceiptCell receipt={component.shownReceipt} unit={component.unit} />
+                        </TableCell>
+                      )}
+                      {showsCreatedAt && <TableCell>{formatVietnamDateTime(component.createdAt)}</TableCell>}
                       <TableCell>{component.categoryName || '—'}</TableCell>
                       <TableCell>
                         <TrackingTypeBadge type={component.trackingType} />
                       </TableCell>
-                      <TableCell sx={{ fontWeight: 600, color: refPrice > 0 ? '#0f172a' : '#94a3b8' }}>
-                        {refPrice > 0 ? `${refPrice.toLocaleString('vi-VN')} ₫` : '—'}
-                      </TableCell>
+                      {showsPrice && (
+                        <TableCell sx={{ fontWeight: 600, color: refPrice > 0 ? '#0f172a' : '#94a3b8' }}>
+                          {refPrice > 0 ? `${refPrice.toLocaleString('vi-VN')} ₫` : '—'}
+                        </TableCell>
+                      )}
                       <TableCell>
                         {Number(component.totalQuantity || 0).toLocaleString('vi-VN')} {component.unit || ''}
                       </TableCell>
