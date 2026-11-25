@@ -1043,8 +1043,8 @@ export default function StockInwards() {
                                     helperText={
                                       line.importError
                                         ? line.importError
-                                        : filteredComponentsByCategory.length > MAX_DROPDOWN_OPTIONS
-                                        ? `Đang hiển thị tối đa ${MAX_DROPDOWN_OPTIONS}/${filteredComponentsByCategory.length} linh kiện — gõ từ khóa hoặc lọc danh mục.`
+                                        : !component && filteredComponentsByCategory.length > MAX_DROPDOWN_OPTIONS
+                                        ? `Gõ tên hoặc mã để tìm (${filteredComponentsByCategory.length} linh kiện)`
                                         : undefined
                                     }
                                   />
