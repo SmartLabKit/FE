@@ -15,6 +15,7 @@ import {
   DialogContent,
   DialogTitle,
   Grid,
+  IconButton,
   InputAdornment,
   ListSubheader,
   MenuItem,
@@ -28,6 +29,7 @@ import {
   TableHead,
   TableRow,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material'
 import {
@@ -39,6 +41,7 @@ import {
   Search as SearchIcon,
   ExpandMore as ExpandMoreIcon,
   Download as DownloadIcon,
+  ForwardToInbox as MailIcon,
 } from '@mui/icons-material'
 import { academicService } from '../../services/academicService'
 import { userService } from '../../services/userService'
@@ -53,65 +56,32 @@ import { useEntityChanged } from '../../hooks/useEntityChanged'
  * 3. POST /api/classes/assign-instructor - Phân công giảng viên cho lớp
  */
 
-/**
- * Lọc và chuẩn hóa danh sách lỗi thực sự từ kết quả import roster.
- * Loại bỏ các dòng trùng lặp / bỏ qua hoặc các dòng trống không có nội dung lỗi.
- */
-function getRealErrors(result) {
-  if (!result?.errors || !Array.isArray(result.errors)) return []
-  return result.errors
-    .map((err) => {
-      const row =
-        err?.row ??
-        err?.Row ??
-        err?.rowNumber ??
-        err?.RowNumber ??
-        err?.lineNumber ??
-        err?.LineNumber ??
-        err?.line ??
-        err?.Line ??
-        null
+/** Dòng của sinh viên đã học trong lớp: chỉ đếm, không liệt kê từng dòng. */
+const isAlreadyInClass = (row) => row.outcome === 'Failed' && (row.message || '').startsWith('Sinh viên đã có trong lớp')
 
-      let message = ''
-      if (typeof err === 'string') {
-        message = err.trim()
-      } else if (err && typeof err === 'object') {
-        message = (
-          err.message ||
-          err.Message ||
-          err.errorMessage ||
-          err.ErrorMessage ||
-          err.error ||
-          err.Error ||
-          err.description ||
-          err.Description ||
-          err.reason ||
-          err.Reason ||
-          ''
-        ).trim()
-      }
+/** Chia kết quả import: dòng cần xem (lỗi thật trước, rồi bạn vừa thêm), số bạn đã có sẵn và số dòng lỗi thật. */
+function readImportResult(result) {
+  const rows = Array.isArray(result?.rows) ? result.rows : []
+  const already = rows.filter(isAlreadyInClass)
+  const failed = rows.filter((row) => row.outcome === 'Failed' && !isAlreadyInClass(row))
+  const added = rows.filter((row) => row.outcome !== 'Failed')
+  return { rows: [...failed, ...added], alreadyCount: already.length, failedCount: failed.length }
+}
 
-      return { row, message, raw: err }
-    })
-    .filter((err) => {
-      // Bỏ qua nếu hoàn toàn không có nội dung lỗi
-      if (!err.message && !err.row) return false
+/** Câu tóm tắt: "Đã thêm 1 sinh viên. 16 bạn đã có trong lớp nên bỏ qua. 2 dòng lỗi." */
+function importSummary(result) {
+  const { alreadyCount, failedCount } = readImportResult(result)
+  const parts = [`Đã thêm ${result?.enrolledStudents ?? 0} sinh viên`]
+  if (result?.createdUsers > 0) parts.push(`gửi email kích hoạt cho ${result.createdUsers} tài khoản mới`)
+  const sentences = [parts.join(', ')]
+  if (alreadyCount > 0) sentences.push(`${alreadyCount} bạn đã có trong lớp nên bỏ qua`)
+  if (failedCount > 0) sentences.push(`${failedCount} dòng lỗi`)
+  return `${sentences.join('. ')}.`
+}
 
-      // Bỏ qua nếu được đánh dấu rõ ràng là trùng lặp hoặc warning từ server
-      const raw = err.raw
-      if (raw && typeof raw === 'object') {
-        if (raw.isDuplicate || raw.isSkipped || raw.type === 'Duplicate' || raw.type === 'Warning') {
-          return false
-        }
-      }
-
-      // Bỏ qua nếu không có thông báo chi tiết mà hệ thống đã ghi nhận số dòng bỏ qua
-      if (!err.message && (result.skippedRows ?? 0) > 0) {
-        return false
-      }
-
-      return true
-    })
+function importSeverity(result) {
+  if (readImportResult(result).failedCount === 0) return 'success'
+  return (result?.enrolledStudents ?? 0) > 0 ? 'warning' : 'error'
 }
 
 /**
@@ -504,15 +474,7 @@ export default function ImportRosterFaculty() {
       setImportError('')
       const res = await academicService.importRoster(selectedClassId, selectedFile)
       setImportResult(res)
-      const realErrors = getRealErrors(res)
-      const hasErrors = realErrors.length > 0
-      setToast({
-        open: true,
-        message: hasErrors
-          ? `Đã xử lý file: ghi danh ${res?.enrolledStudents ?? 0} sinh viên, phát hiện ${realErrors.length} lỗi dòng.`
-          : `Import thành công! Đã ghi danh ${res?.enrolledStudents ?? 0} sinh viên vào lớp.`,
-        severity: hasErrors ? 'warning' : 'success',
-      })
+      setToast({ open: true, message: importSummary(res), severity: importSeverity(res) })
       // Cập nhật lại số sinh viên trong danh sách lớp và tải lại danh sách sinh viên thực tế
       await Promise.all([
         fetchClasses(),
@@ -899,28 +861,18 @@ export default function ImportRosterFaculty() {
 
             {/* Import Result Notification */}
             {importResult && (() => {
-              const realErrors = getRealErrors(importResult)
-              const hasErrors = realErrors.length > 0
-
-              let alertSeverity = 'success'
-              if (hasErrors) {
-                alertSeverity = (importResult.enrolledStudents ?? 0) > 0 ? 'warning' : 'error'
-              }
+              const { rows } = readImportResult(importResult)
 
               return (
                 <Box sx={{ mt: 3 }}>
                   <Alert
-                    severity={alertSeverity}
-                    icon={<CheckCircleIcon fontSize="inherit" />}
+                    severity={importSeverity(importResult)}
                     sx={{ borderRadius: 1.5, fontSize: 13, fontWeight: 600 }}
                   >
-                    Kết quả import: Đã xử lý <strong>{importResult.totalRows ?? 0}</strong> dòng, ghi danh{' '}
-                    <strong>{importResult.enrolledStudents ?? 0}</strong> sinh viên, gửi email kích hoạt cho{' '}
-                    <strong>{importResult.createdUsers ?? 0}</strong> tài khoản mới.
-                    {importResult.skippedRows > 0 && ` Lỗi / bỏ qua: ${importResult.skippedRows} dòng.`}
+                    {importSummary(importResult)}
                   </Alert>
 
-                  {Array.isArray(importResult.rows) && importResult.rows.length > 0 && (
+                  {rows.length > 0 && (
                     <TableContainer sx={{ mt: 1.5, border: '1px solid #e5e7eb', borderRadius: 1.5, maxHeight: 360 }}>
                       <Table size="small" stickyHeader>
                         <TableHead>
@@ -933,7 +885,7 @@ export default function ImportRosterFaculty() {
                           </TableRow>
                         </TableHead>
                         <TableBody>
-                          {importResult.rows.map((row) => {
+                          {rows.map((row) => {
                             const account = studentOf(row)
                             return (
                               <TableRow key={row.rowNumber}>
@@ -959,18 +911,6 @@ export default function ImportRosterFaculty() {
                     </TableContainer>
                   )}
 
-                  {hasErrors && (
-                    <Box sx={{ mt: 1.5, p: 1.5, bgcolor: '#fef2f2', borderRadius: 1.5, border: '1px solid #fee2e2' }}>
-                      <Typography variant="caption" sx={{ color: '#b91c1c', fontWeight: 700, display: 'block', mb: 0.5 }}>
-                        Các dòng gặp lỗi:
-                      </Typography>
-                      {realErrors.map((err, i) => (
-                        <Typography key={i} variant="caption" sx={{ display: 'block', color: '#ef4444', fontSize: 11 }}>
-                          • {err.row ? `Dòng ${err.row}: ` : ''}{err.message || 'Lỗi không xác định'}
-                        </Typography>
-                      ))}
-                    </Box>
-                  )}
                 </Box>
               )
             })()}
@@ -1067,7 +1007,7 @@ export default function ImportRosterFaculty() {
                           <TableCell>MÃ SV</TableCell>
                           <TableCell>HỌ VÀ TÊN</TableCell>
                           <TableCell>EMAIL</TableCell>
-                          <TableCell sx={{ width: 110 }}>TÀI KHOẢN</TableCell>
+                          <TableCell sx={{ width: 140 }}>TÀI KHOẢN</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -1109,8 +1049,25 @@ export default function ImportRosterFaculty() {
                                   {email}
                                 </TableCell>
                                 <TableCell>
-                                  <AccountStatusChip account={s} />
-                                  {resendButton(s)}
+                                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, whiteSpace: 'nowrap' }}>
+                                    <AccountStatusChip account={s} />
+                                    {s.activationPending && (
+                                      <Tooltip title="Gửi lại mail">
+                                        <span>
+                                          <IconButton
+                                            size="small"
+                                            color="primary"
+                                            aria-label="Gửi lại mail"
+                                            disabled={resendingId === s.userId}
+                                            onClick={() => handleResend(s.userId)}
+                                            sx={{ p: 0.25 }}
+                                          >
+                                            <MailIcon sx={{ fontSize: 18 }} />
+                                          </IconButton>
+                                        </span>
+                                      </Tooltip>
+                                    )}
+                                  </Box>
                                 </TableCell>
                               </TableRow>
                             )
