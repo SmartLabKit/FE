@@ -171,22 +171,13 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
   const teamName = detail?.teamName || project?.teamName || 'Nhóm'
   const classCode = detail?.classCode || project?.classCode || '—'
   const submittedAt = detail?.submittedAt || project?.submittedAt
-  const borrowDate = borrowRequest?.borrowDate || detail?.borrowDate
   const dueDate = borrowRequest?.dueDate || detail?.dueDate
   const submittedDate = formatVietnamDate(submittedAt)
-  const borrowedDate = formatVietnamDate(borrowDate)
   const returnedDate = formatVietnamDate(dueDate)
-  const combineSubmissionAndBorrowDate = submittedDate !== '—' && submittedDate === borrowedDate
-  const timeInfo = combineSubmissionAndBorrowDate
-    ? [
-        { label: 'Thời gian gửi đề tài / Thời gian mượn LK', value: submittedDate },
-        { label: 'Hạn trả LK', value: returnedDate },
-      ]
-    : [
-        { label: 'Thời gian gửi đề tài', value: submittedDate },
-        { label: 'Thời gian mượn LK', value: borrowedDate },
-        { label: 'Hạn trả LK', value: returnedDate },
-      ]
+  const timeInfo = [
+    { label: 'Thời gian gửi đề tài', value: submittedDate },
+    { label: 'Hạn trả LK', value: returnedDate },
+  ]
 
   const supplementaryReason =
     pendingBorrowDetail?.purpose ||

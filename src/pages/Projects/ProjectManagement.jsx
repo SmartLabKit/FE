@@ -40,7 +40,7 @@ import { borrowService } from '../../services/borrowService'
 import { inventoryService } from '../../services/inventoryService'
 import { projectService } from '../../services/projectService'
 import { teamService } from '../../services/teamService'
-import { formatVietnamDate, getVietnamDateInputValue } from '../../utils/dateFormatting'
+import { formatVietnamDate } from '../../utils/dateFormatting'
 import { getBorrowRequestStatusMeta } from '../Borrowing/borrowHelpers'
 import FinalSubmissionPanel from './FinalSubmissionPanel'
 import ProjectStatus from './ProjectStatus'
@@ -144,10 +144,6 @@ function getProjectFormSnapshot(form) {
 
 function getSuggestionNote(suggestion) {
   return suggestion.note || suggestion.reason || suggestion.description || suggestion.purpose || suggestion.role || ''
-}
-
-function localDateValue() {
-  return getVietnamDateInputValue()
 }
 
 function QuantityLabel({ name, quantity }) {
@@ -325,7 +321,6 @@ export default function ProjectManagement() {
   const [suggestions, setSuggestions] = useState(null)
   const [selectedSuggestions, setSelectedSuggestions] = useState([])
   const [submitDialogOpen, setSubmitDialogOpen] = useState(false)
-  const [pickupDate, setPickupDate] = useState(() => localDateValue())
   const [inlineDraft, setInlineDraft] = useState(null)
   const [borrowDeadline, setBorrowDeadline] = useState(null)
   const [loadingDeadline, setLoadingDeadline] = useState(false)
@@ -396,7 +391,6 @@ export default function ProjectManagement() {
     if (!project?.projectId) return
     setBorrowDeadline(null)
     setDeadlineError('')
-    setPickupDate(localDateValue())
     setSubmitDialogOpen(true)
     if (!requiresBorrow) {
       setLoadingDeadline(false)
@@ -926,10 +920,7 @@ export default function ProjectManagement() {
         project.projectId,
         toProjectPayload(form)
       )
-      const submittedProject = await projectService.submitProject(
-        updatedProject.projectId,
-        requiresBorrow ? pickupDate : null
-      )
+      const submittedProject = await projectService.submitProject(updatedProject.projectId)
       let refreshedProject
       let refreshError
       try {
@@ -1775,7 +1766,7 @@ export default function ProjectManagement() {
                     borderRadius: 2,
                     p: 2,
                     display: 'grid',
-                    gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(4, minmax(0, 1fr))' },
+                    gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(3, minmax(0, 1fr))' },
                     gap: 1.5,
                   }}
                 >
@@ -1784,22 +1775,6 @@ export default function ProjectManagement() {
                     <Typography variant="body2" sx={{ fontWeight: 700, color: '#1e293b' }}>
                       {borrowDeadline.semesterCode || '—'}
                     </Typography>
-                  </Box>
-                  <Box>
-                    <Typography variant="caption" color="text.secondary" display="block">Ngày nhận đồ</Typography>
-                    <TextField
-                      type="date"
-                      size="small"
-                      value={pickupDate}
-                      onChange={(event) => setPickupDate(event.target.value)}
-                      slotProps={{
-                        htmlInput: {
-                          min: localDateValue(),
-                          max: borrowDeadline.dueDate ? getVietnamDateInputValue(borrowDeadline.dueDate) : undefined,
-                        },
-                      }}
-                      sx={{ mt: 0.5, '& input': { py: 0.5, fontSize: 13, fontWeight: 700 } }}
-                    />
                   </Box>
                   <Box>
                     <Typography variant="caption" color="text.secondary" display="block">Hạn trả thiết bị</Typography>
@@ -1814,6 +1789,9 @@ export default function ProjectManagement() {
                     </Typography>
                   </Box>
                 </Box>
+                <Typography variant="body2" color="text.secondary">
+                  Sau khi giảng viên duyệt, lab chuẩn bị đồ và hẹn ngày đến nhận.
+                </Typography>
                 {!borrowDeadline.canBorrow && (
                   <Alert severity="error" sx={{ py: 0 }}>
                     Học kỳ đã kết thúc hoặc hiện không còn trong thời gian cho phép mượn linh kiện.
@@ -1837,9 +1815,6 @@ export default function ProjectManagement() {
               submitting ||
               loadingDeadline ||
               (requiresBorrow && (
-                !pickupDate ||
-                pickupDate < localDateValue() ||
-                (borrowDeadline?.dueDate && pickupDate > getVietnamDateInputValue(borrowDeadline.dueDate)) ||
                 Boolean(deadlineError) ||
                 !borrowDeadline ||
                 !borrowDeadline.canBorrow ||

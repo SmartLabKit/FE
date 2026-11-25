@@ -29,6 +29,7 @@ import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded'
 import RadioButtonUncheckedRoundedIcon from '@mui/icons-material/RadioButtonUncheckedRounded'
 import { alpha } from '@mui/material/styles'
 import { extractErrorMessage } from '../../services/api'
+import PhotoComponentsCheck from './PhotoComponentsCheck'
 import { borrowService } from '../../services/borrowService'
 import { inventoryService } from '../../services/inventoryService'
 
@@ -494,7 +495,7 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
                 {uploading && (
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                     <CircularProgress size={18} />
-                    <Typography variant="body2" color="text.secondary">Đang tải ảnh lên…</Typography>
+                    <Typography variant="body2" color="text.secondary">Đang tải ảnh, AI đọc thẻ và đếm linh kiện…</Typography>
                   </Box>
                 )}
                 {photoPreviewUrl && photo?.photoId && (
@@ -538,6 +539,7 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
                 </Stack>
               </Alert>
             )}
+            {photo && <PhotoComponentsCheck detail={parsedAiDetail} />}
             {needsOverride && (
               <TextField
                 required

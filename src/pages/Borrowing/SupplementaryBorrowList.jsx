@@ -423,7 +423,7 @@ export default function SupplementaryBorrowList() {
                       <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280', py: 1.2 }}>ĐỀ TÀI / DỰ ÁN</TableCell>
                       <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>NHÓM / LỚP</TableCell>
                       <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>NGÀY GỬI</TableCell>
-                      <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>NGÀY MƯỢN / TRẢ</TableCell>
+                      <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>HẠN TRẢ</TableCell>
                       <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>TRẠNG THÁI</TableCell>
                       <TableCell align="right" sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>THAO TÁC</TableCell>
                     </TableRow>
@@ -463,8 +463,6 @@ export default function SupplementaryBorrowList() {
                               {formatVietnamDate(project.submittedAt)}
                             </TableCell>
                             <TableCell sx={{ fontSize: 12, color: '#334155' }}>
-                              {formatVietnamDate(project.borrowDate)}
-                              {' / '}
                               {formatVietnamDate(project.dueDate)}
                             </TableCell>
                             <TableCell>
