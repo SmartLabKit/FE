@@ -1041,9 +1041,7 @@ export default function StockInwards() {
                                     helperText={
                                       line.importError
                                         ? line.importError
-                                        : component
-                                        ? component.componentCode
-                                        : filteredComponentsByCategory.length > MAX_DROPDOWN_OPTIONS
+                                        : !component && filteredComponentsByCategory.length > MAX_DROPDOWN_OPTIONS
                                         ? `Gõ tên hoặc mã để tìm (${filteredComponentsByCategory.length} linh kiện)`
                                         : undefined
                                     }
