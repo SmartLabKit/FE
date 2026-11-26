@@ -865,16 +865,13 @@ export default function GroupInviteManager() {
                   
                 </Box>
                 <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1, flexDirection: 'column' }}>
-                  <Chip
-                    label={currentTeam.isReadyForProject ? 'Đã đủ thành viên' : 'Đang tuyển thành viên'}
-                    size="small"
-                    sx={{
-                      bgcolor: currentTeam.isReadyForProject ? '#ecfdf5' : '#eff6ff',
-                      color: currentTeam.isReadyForProject ? '#047857' : '#1d4ed8',
-                      fontWeight: 700,
-                      fontSize: 11,
-                    }}
-                  />
+                  {currentTeam.isReadyForProject && (
+                    <Chip
+                      label="Đã đủ thành viên"
+                      size="small"
+                      sx={{ bgcolor: '#ecfdf5', color: '#047857', fontWeight: 700, fontSize: 11 }}
+                    />
+                  )}
                   <Button
                     size="small"
                     variant="contained"

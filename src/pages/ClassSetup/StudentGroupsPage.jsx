@@ -1133,17 +1133,13 @@ export default function StudentGroupsPage() {
                           ml: 'auto',
                         }}
                       >
-                        <Chip
-                          label={isReadyForProject ? 'Đủ điều kiện lập dự án' : 'Đang tuyển thành viên'}
-                          size="small"
-                          sx={{
-                            bgcolor: isReadyForProject ? '#ecfdf5' : '#eff6ff',
-                            color: isReadyForProject ? '#047857' : '#1d4ed8',
-                            fontWeight: 700,
-                            fontSize: 11,
-                            flexShrink: 0,
-                          }}
-                        />
+                        {isReadyForProject && (
+                          <Chip
+                            label="Đủ điều kiện lập dự án"
+                            size="small"
+                            sx={{ bgcolor: '#ecfdf5', color: '#047857', fontWeight: 700, fontSize: 11, flexShrink: 0 }}
+                          />
+                        )}
 
                         {/* Hàng nút thao tác nhóm: [Chuyển trưởng nhóm] [Xóa khỏi nhóm] [Thiết lập dự án] [Rời nhóm] */}
                         <Box
