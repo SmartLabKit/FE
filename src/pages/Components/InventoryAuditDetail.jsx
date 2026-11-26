@@ -953,7 +953,8 @@ export default function InventoryAuditDetail() {
               </>
             )}
 
-            {lostItems.length > 0 && (
+            {/* Chỉ quản lý kho (khôi phục được) mới cần xem thiết bị đã thất lạc từ trước; nhân viên lab đang đếm thì không */}
+            {canRestore && lostItems.length > 0 && (
               <SectionCard
                 title={`Thiết bị thất lạc của tủ này (${lostItems.length})`}
                 subtitle={canRestore ? 'Tìm thấy lại thì bấm Khôi phục để đưa về kho.' : 'Tìm thấy lại thì báo quản lý kho khôi phục.'}
