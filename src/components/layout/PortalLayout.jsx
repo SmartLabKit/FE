@@ -188,7 +188,7 @@ export default function PortalLayout({
 
     // 4. Phân hệ QUẢN LÝ KHO & LINH KIỆN (InventoryManager / LabStaff); Admin chỉ quản lý phòng lab
     {
-      label: 'Linh kiện kho',
+      label: 'Quản lý linh kiện',
       icon: <CategoryIcon fontSize="small" />,
       path: '/class-setup/admin/components',
       roles: ['InventoryManager', 'LabStaff'],

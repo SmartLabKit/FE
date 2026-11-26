@@ -246,7 +246,7 @@ export default function Components() {
 
   return (
     <PortalLayout
-      headerTitle={canManage ? 'Quản lý linh kiện' : 'Tra cứu linh kiện'}
+      headerTitle="Quản lý linh kiện"
       headerSubtitle={
         canManage
           ? 'Danh mục linh kiện, mã viết tắt tra cứu nhanh, giá nhập gần nhất và tồn kho hiện tại'
