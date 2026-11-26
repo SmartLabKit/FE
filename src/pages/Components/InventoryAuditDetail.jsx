@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowBack as BackIcon,
   Done as DoneIcon,
@@ -11,12 +11,14 @@ import {
   Button,
   Card,
   CardContent,
+  Checkbox,
   Chip,
   CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  FormControlLabel,
   LinearProgress,
   Stack,
   Table,
@@ -77,7 +79,10 @@ export default function InventoryAuditDetail() {
   const [error, setError] = useState('')
   const [notice, setNotice] = useState('')
   const [counts, setCounts] = useState({})
-  const [presentIds, setPresentIds] = useState({})
+  const [missingPicks, setMissingPicks] = useState({})
+  const [scannedIds, setScannedIds] = useState({})
+  const [searchInput, setSearchInput] = useState('')
+  const [quantityError, setQuantityError] = useState('')
   const [checkedOrder, setCheckedOrder] = useState([])
   const [tab, setTab] = useState('checked')
   const [selected, setSelected] = useState(null)
@@ -97,7 +102,8 @@ export default function InventoryAuditDetail() {
   const applyAudit = useCallback(async (data) => {
     setAudit(data)
     setCounts({})
-    setPresentIds({})
+    setMissingPicks({})
+    setScannedIds({})
     setCheckedOrder([])
     setSelected(null)
     setQuantityInput('')
@@ -134,115 +140,174 @@ export default function InventoryAuditDetail() {
   const items = useMemo(() => audit?.items || [], [audit])
   const status = auditStatusOf(audit?.status)
 
-  const searchOptions = useMemo(
-    () => [
-      ...consumables.map((line) => ({
-        key: `c:${line.componentId}`,
-        kind: 'consumable',
-        name: line.componentName,
-        detail: `Hệ thống: ${line.systemQuantity}`,
-        searchText: normalizeSearchText(`${line.componentName} ${line.componentCode || ''}`),
-        line,
-      })),
-      ...items.map((item) => ({
-        key: `i:${item.itemId}`,
-        kind: 'item',
-        name: item.componentName,
-        detail: item.serialNumber ? `S/N ${item.serialNumber}` : 'Thiết bị',
-        searchText: normalizeSearchText(`${item.componentName} ${item.itemCode || ''} ${item.serialNumber || ''}`),
-        item,
-      })),
-    ],
-    [consumables, items]
-  )
+  const searchOptions = useMemo(() => {
+    const consumableOptions = consumables.map((line) => ({
+      key: `c:${line.componentId}`,
+      kind: 'consumable',
+      componentId: line.componentId,
+      name: line.componentName,
+      system: Number(line.systemQuantity),
+      units: [],
+      searchText: normalizeSearchText(`${line.componentName} ${line.componentCode || ''}`),
+    }))
+    const groups = new Map()
+    items.forEach((item) => {
+      if (!groups.has(item.componentId)) {
+        groups.set(item.componentId, {
+          key: `d:${item.componentId}`,
+          kind: 'device',
+          componentId: item.componentId,
+          name: item.componentName,
+          units: [],
+          searchText: normalizeSearchText(item.componentName),
+        })
+      }
+      const group = groups.get(item.componentId)
+      group.units.push(item)
+      group.searchText += ` ${normalizeSearchText(`${item.itemCode || ''} ${item.serialNumber || ''}`)}`
+    })
+    const deviceOptions = [...groups.values()].map((group) => ({ ...group, system: group.units.length }))
+    return [...consumableOptions, ...deviceOptions]
+  }, [consumables, items])
 
-  const countedOf = (line) => {
-    const raw = counts[line.componentId]
-    if (raw === undefined) return null
-    return Number(raw)
+  const unitByCode = useMemo(() => {
+    const map = new Map()
+    items.forEach((item) => {
+      if (item.itemCode) map.set(normalizeSearchText(item.itemCode), item)
+    })
+    return map
+  }, [items])
+
+  const countedOf = (option) => {
+    const value = counts[option.componentId]
+    if (value === undefined) return null
+    return value
   }
 
-  const differenceOf = (line) => {
-    const counted = countedOf(line)
+  const differenceOf = (option) => {
+    const counted = countedOf(option)
     if (counted === null) return null
-    return counted - Number(line.systemQuantity)
+    return counted - option.system
   }
 
-  const isChecked = (option) => {
-    if (option.kind === 'consumable') return countedOf(option.line) !== null
-    return Boolean(presentIds[option.item.itemId])
+  const missingNeeded = (option) => {
+    const counted = countedOf(option)
+    if (option.kind !== 'device' || counted === null) return 0
+    return option.system - counted
   }
+
+  const missingPicked = (option) => option.units.filter((unit) => missingPicks[unit.itemId]).length
+
+  const isChecked = (option) => countedOf(option) !== null
+  const needsPicking = (option) => isChecked(option) && missingPicked(option) !== missingNeeded(option)
 
   const optionsByKey = new Map(searchOptions.map((option) => [option.key, option]))
   const checkedOptions = checkedOrder.map((key) => optionsByKey.get(key)).filter(Boolean)
   const uncheckedOptions = searchOptions.filter((option) => !isChecked(option))
+  const diffOptions = checkedOptions.filter((option) => differenceOf(option) !== 0)
+  const pickingOptions = checkedOptions.filter(needsPicking)
   const checkedCount = searchOptions.length - uncheckedOptions.length
   const totalCount = searchOptions.length
 
-  const diffLines = consumables.filter((line) => {
-    const difference = differenceOf(line)
-    return difference !== null && difference !== 0
+  const uncountedConsumables = uncheckedOptions.filter((option) => option.kind === 'consumable')
+  const missingIds = []
+  searchOptions.forEach((option) => {
+    if (option.kind !== 'device') return
+    option.units.forEach((unit) => {
+      if (!isChecked(option) || missingPicks[unit.itemId]) missingIds.push(unit.itemId)
+    })
   })
-  const uncountedLines = consumables.filter((line) => countedOf(line) === null)
-  const missingIds = items.filter((item) => !presentIds[item.itemId]).map((item) => item.itemId)
-  const diffOptions = checkedOptions.filter(
-    (option) => option.kind === 'consumable' && differenceOf(option.line) !== 0
-  )
 
   const markChecked = (key) => {
     setCheckedOrder((current) => [key, ...current.filter((existing) => existing !== key)])
   }
 
+  const setUnitFlags = (setter, units, flagOf) => {
+    setter((current) => {
+      const next = { ...current }
+      units.forEach((unit) => {
+        if (flagOf(unit)) next[unit.itemId] = true
+        else delete next[unit.itemId]
+      })
+      return next
+    })
+  }
+
   const unmark = (option) => {
-    if (option.kind === 'consumable') {
-      setCounts((current) => {
-        const next = { ...current }
-        delete next[option.line.componentId]
-        return next
-      })
-    } else {
-      setPresentIds((current) => {
-        const next = { ...current }
-        delete next[option.item.itemId]
-        return next
-      })
-    }
+    setCounts((current) => {
+      const next = { ...current }
+      delete next[option.componentId]
+      return next
+    })
+    setUnitFlags(setMissingPicks, option.units, () => false)
+    setUnitFlags(setScannedIds, option.units, () => false)
     setCheckedOrder((current) => current.filter((key) => key !== option.key))
   }
 
   const focusSearch = () => {
     setSearchKey((key) => key + 1)
+    setSearchInput('')
     window.setTimeout(() => searchRef.current?.focus(), 0)
   }
 
   const pickOption = (option) => {
     if (!option) return
-    if (option.kind === 'item') {
-      if (presentIds[option.item.itemId]) {
-        setScanMessage(`${option.name} này đã được ghi nhận trước đó.`)
-      } else {
-        setPresentIds((current) => ({ ...current, [option.item.itemId]: true }))
-        markChecked(option.key)
-        setScanMessage(`Có mặt: ${option.name}`)
-      }
-      focusSearch()
-      return
-    }
     setSelected(option)
-    const current = counts[option.line.componentId]
+    setQuantityError('')
+    const current = counts[option.componentId]
     setQuantityInput(current === undefined ? '' : String(current))
     setScanMessage('')
     window.setTimeout(() => quantityRef.current?.focus(), 0)
   }
 
+  const scanUnit = (unit) => {
+    const option = optionsByKey.get(`d:${unit.componentId}`)
+    if (!option) return
+    if (scannedIds[unit.itemId]) {
+      setScanMessage(`Mã này đã quét rồi (${option.name}).`)
+      focusSearch()
+      return
+    }
+    const nextScanned = { ...scannedIds, [unit.itemId]: true }
+    const scannedCount = option.units.filter((groupUnit) => nextScanned[groupUnit.itemId]).length
+    setScannedIds(nextScanned)
+    setCounts((current) => ({ ...current, [option.componentId]: scannedCount }))
+    setUnitFlags(setMissingPicks, option.units, (groupUnit) => !nextScanned[groupUnit.itemId])
+    markChecked(option.key)
+    setSelected(null)
+    setScanMessage(`Có mặt: ${option.name} (${scannedCount}/${option.system})`)
+    focusSearch()
+  }
+
   const saveQuantity = () => {
     if (!selected || quantityInput === '') return
-    setCounts((current) => ({ ...current, [selected.line.componentId]: Number(quantityInput) }))
+    const value = Number(quantityInput)
+    if (selected.kind === 'device' && value > selected.system) {
+      setQuantityError(`Tối đa ${selected.system}`)
+      return
+    }
+    setCounts((current) => ({ ...current, [selected.componentId]: value }))
+    setUnitFlags(setScannedIds, selected.units, () => false)
+    setUnitFlags(setMissingPicks, selected.units, () => false)
     markChecked(selected.key)
-    setScanMessage(`Đã ghi ${selected.name}: ${quantityInput}`)
+    if (selected.kind === 'device' && value < selected.system) {
+      setScanMessage(`${selected.name}: thiếu ${selected.system - value}, chọn cái thiếu ở bảng bên dưới.`)
+      setTab('checked')
+    } else {
+      setScanMessage(`Đã ghi ${selected.name}: ${value}`)
+    }
     setSelected(null)
     setQuantityInput('')
     focusSearch()
+  }
+
+  const toggleMissing = (unit) => {
+    setMissingPicks((current) => {
+      const next = { ...current }
+      if (next[unit.itemId]) delete next[unit.itemId]
+      else next[unit.itemId] = true
+      return next
+    })
   }
 
   let shownOptions = checkedOptions
@@ -277,7 +342,7 @@ export default function InventoryAuditDetail() {
       await inventoryService.completeInventoryAudit(auditId, {
         consumables: consumables.map((line) => ({
           componentId: line.componentId,
-          countedQuantity: countedOf(line) ?? 0,
+          countedQuantity: counts[line.componentId] ?? 0,
         })),
         missingItemIds: missingIds,
         note: note.trim() || null,
@@ -392,6 +457,19 @@ export default function InventoryAuditDetail() {
                         openOnFocus={false}
                         value={null}
                         onChange={(_event, option) => pickOption(option)}
+                        inputValue={searchInput}
+                        onInputChange={(_event, value, reason) => {
+                          if (reason !== 'reset') setSearchInput(value)
+                        }}
+                        onKeyDown={(event) => {
+                          if (event.key !== 'Enter') return
+                          const unit = unitByCode.get(normalizeSearchText(searchInput))
+                          if (unit) {
+                            event.defaultMuiPrevented = true
+                            event.preventDefault()
+                            scanUnit(unit)
+                          }
+                        }}
                         getOptionLabel={(option) => option.name}
                         getOptionKey={(option) => option.key}
                         filterOptions={(options, state) => {
@@ -412,7 +490,9 @@ export default function InventoryAuditDetail() {
                                   <Box component="span" sx={{ color: '#2e7d32', fontSize: 12, ml: 1 }}>đã kiểm</Box>
                                 )}
                               </Typography>
-                              <Typography sx={{ fontSize: 12, color: '#64748b' }}>{option.detail}</Typography>
+                              <Typography sx={{ fontSize: 12, color: '#64748b' }}>
+                                Hệ thống: {option.system}{option.kind === 'device' ? ' thiết bị' : ''}
+                              </Typography>
                             </Box>
                           )
                         }}
@@ -438,8 +518,13 @@ export default function InventoryAuditDetail() {
                             value={quantityInput}
                             onChange={(event) => {
                               const value = event.target.value
-                              if (value === '' || /^\d+$/.test(value)) setQuantityInput(value)
+                              if (value === '' || /^\d+$/.test(value)) {
+                                setQuantityInput(value)
+                                setQuantityError('')
+                              }
                             }}
+                            error={Boolean(quantityError)}
+                            helperText={quantityError}
                             onKeyDown={(event) => {
                               if (event.key === 'Enter') saveQuantity()
                               if (event.key === 'Escape') {
@@ -497,48 +582,73 @@ export default function InventoryAuditDetail() {
                       <TableBody>
                         {shownOptions.map((option) => {
                           const checked = isChecked(option)
-                          let system = 1
+                          const difference = differenceOf(option)
+                          const needed = missingNeeded(option)
+                          const picked = missingPicked(option)
                           let actual = '—'
-                          let difference = null
-                          if (option.kind === 'consumable') {
-                            system = option.line.systemQuantity
-                            difference = differenceOf(option.line)
-                            if (checked) actual = countedOf(option.line)
-                          } else if (checked) {
-                            actual = 1
-                            difference = 0
-                          }
+                          if (checked) actual = countedOf(option)
                           return (
-                            <TableRow key={option.key} hover>
-                              <TableCell>
-                                <Typography sx={{ fontWeight: 600, fontSize: 13.5 }}>{option.name}</Typography>
-                                {option.kind === 'item' && (
-                                  <Typography sx={{ fontSize: 12, color: '#64748b' }}>{option.detail}</Typography>
-                                )}
-                              </TableCell>
-                              <TableCell align="right">{system}</TableCell>
-                              <TableCell align="right" sx={{ fontWeight: 700 }}>{actual}</TableCell>
-                              <TableCell align="right" sx={{ fontWeight: 700, color: diffColor(difference) }}>
-                                {formatDiff(difference)}
-                              </TableCell>
-                              <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                                {option.kind === 'consumable' && (
+                            <Fragment key={option.key}>
+                              <TableRow hover>
+                                <TableCell>
+                                  <Typography sx={{ fontWeight: 600, fontSize: 13.5 }}>{option.name}</Typography>
+                                  {needsPicking(option) && (
+                                    <Typography sx={{ fontSize: 12, color: '#b45309' }}>
+                                      Chọn {needed} cái thiếu (đã chọn {picked})
+                                    </Typography>
+                                  )}
+                                </TableCell>
+                                <TableCell align="right">{option.system}</TableCell>
+                                <TableCell align="right" sx={{ fontWeight: 700 }}>{actual}</TableCell>
+                                <TableCell align="right" sx={{ fontWeight: 700, color: diffColor(difference) }}>
+                                  {formatDiff(difference)}
+                                </TableCell>
+                                <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                                   <Button size="small" onClick={() => pickOption(option)} sx={{ textTransform: 'none' }}>
                                     {checked ? 'Sửa' : 'Đếm'}
                                   </Button>
-                                )}
-                                {option.kind === 'item' && !checked && (
-                                  <Button size="small" onClick={() => pickOption(option)} sx={{ textTransform: 'none' }}>
-                                    Có mặt
-                                  </Button>
-                                )}
-                                {checked && (
-                                  <Button size="small" color="inherit" onClick={() => unmark(option)} sx={{ textTransform: 'none', color: '#64748b' }}>
-                                    Bỏ
-                                  </Button>
-                                )}
-                              </TableCell>
-                            </TableRow>
+                                  {checked && (
+                                    <Button size="small" onClick={() => unmark(option)} sx={{ textTransform: 'none', color: '#64748b' }}>
+                                      Bỏ
+                                    </Button>
+                                  )}
+                                </TableCell>
+                              </TableRow>
+                              {option.kind === 'device' && needed > 0 && (
+                                <TableRow>
+                                  <TableCell colSpan={5} sx={{ bgcolor: '#fffbeb', py: 1 }}>
+                                    <Typography sx={{ fontSize: 12.5, color: '#92400e', mb: 0.5 }}>
+                                      Tick những cái không tìm thấy (xem mã dán trên thiết bị):
+                                    </Typography>
+                                    <Box sx={{ display: 'flex', flexWrap: 'wrap', columnGap: 2 }}>
+                                      {option.units.map((unit) => {
+                                        const isPicked = Boolean(missingPicks[unit.itemId])
+                                        return (
+                                          <FormControlLabel
+                                            key={unit.itemId}
+                                            control={
+                                              <Checkbox
+                                                size="small"
+                                                color="error"
+                                                checked={isPicked}
+                                                disabled={!isPicked && picked >= needed}
+                                                onChange={() => toggleMissing(unit)}
+                                              />
+                                            }
+                                            label={
+                                              <Typography sx={{ fontSize: 13 }}>
+                                                {unit.itemCode}
+                                                {unit.serialNumber ? ` · S/N ${unit.serialNumber}` : ''}
+                                              </Typography>
+                                            }
+                                          />
+                                        )
+                                      })}
+                                    </Box>
+                                  </TableCell>
+                                </TableRow>
+                              )}
+                            </Fragment>
                           )
                         })}
                         {shownOptions.length === 0 && (
@@ -575,11 +685,16 @@ export default function InventoryAuditDetail() {
                     Hủy phiên kiểm kê
                   </Button>
                   <Stack direction="row" spacing={1.5} alignItems="center">
+                    {pickingOptions.length > 0 && (
+                      <Typography variant="body2" sx={{ color: '#b45309' }}>
+                        Còn {pickingOptions.length} loại thiết bị chưa chọn cái thiếu
+                      </Typography>
+                    )}
                     <Button
                       variant="contained"
                       startIcon={<DoneIcon />}
                       onClick={() => setConfirm('complete')}
-                      disabled={saving || checkedCount === 0}
+                      disabled={saving || checkedCount === 0 || pickingOptions.length > 0}
                       sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#0058be' }}
                     >
                       Gửi kết quả
@@ -784,15 +899,15 @@ export default function InventoryAuditDetail() {
           ) : (
             <Stack spacing={1}>
               <Typography variant="body2">
-                • <strong>{diffLines.length}</strong> loại vật tư lệch so với hệ thống.
+                • <strong>{diffOptions.length}</strong> loại linh kiện lệch so với hệ thống.
               </Typography>
-              {uncountedLines.length > 0 && (
+              {uncountedConsumables.length > 0 && (
                 <Typography variant="body2" sx={{ color: '#b45309' }}>
-                  • <strong>{uncountedLines.length}</strong> loại vật tư chưa đếm sẽ tính là <strong>0</strong>.
+                  • <strong>{uncountedConsumables.length}</strong> loại vật tư chưa đếm sẽ tính là <strong>0</strong>.
                 </Typography>
               )}
               <Typography variant="body2" sx={{ color: missingIds.length > 0 ? '#b45309' : undefined }}>
-                • <strong>{missingIds.length}</strong> thiết bị chưa ghi nhận có mặt sẽ báo <strong>thiếu</strong> (chuyển sang Thất lạc khi được duyệt).
+                • <strong>{missingIds.length}</strong> thiết bị báo <strong>thiếu</strong> (kể cả loại chưa đếm), chuyển sang Thất lạc khi được duyệt.
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Tồn kho chỉ thay đổi sau khi quản lý kho duyệt.
