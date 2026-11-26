@@ -319,8 +319,9 @@ export default function InventoryAuditDetail() {
     setDirty(true)
     setCounts((current) => ({ ...current, [option.componentId]: value }))
     if (option.kind === 'device') {
-      setUnitFlags(setScannedIds, option.units, () => false)
-      setUnitFlags(setMissingPicks, option.units, () => false)
+      // Gõ đủ số tồn là chọn hết; gõ 0 là bỏ chọn hết; số khác thì giữ lựa chọn, người kiểm chọn cho khớp
+      if (value !== '' && Number(value) === option.system) setUnitFlags(setMissingPicks, option.units, () => false)
+      if (value === '0') setUnitFlags(setMissingPicks, option.units, () => true)
     }
     if (!checkedOrder.includes(option.key)) markChecked(option.key)
   }
@@ -694,9 +695,6 @@ export default function InventoryAuditDetail() {
                                 </TableCell>
                                 <TableCell align="right">{option.system}</TableCell>
                                 <TableCell align="right">
-                                  {option.kind === 'device' ? (
-                                    <Typography sx={{ fontWeight: 700, pr: 1 }}>{counts[option.componentId] ?? 0}</Typography>
-                                  ) : (
                                   <TextField
                                     variant="standard"
                                     value={counts[option.componentId] ?? ''}
@@ -708,7 +706,6 @@ export default function InventoryAuditDetail() {
                                     slotProps={{ htmlInput: { inputMode: 'numeric', style: { textAlign: 'right' } } }}
                                     sx={{ width: 70 }}
                                   />
-                                  )}
                                 </TableCell>
                                 <TableCell align="right" sx={{ fontWeight: 700, color: diffColor(difference) }}>
                                   {formatDiff(difference)}
@@ -750,7 +747,13 @@ export default function InventoryAuditDetail() {
                                         />
                                       ))}
                                     </Box>
-                                    {needed > 0 && (
+                                    {needsPicking(option) && (
+                                      <Typography sx={{ fontSize: 12, color: '#b45309', mt: 0.5 }}>
+                                        Thực tế {countedOf(option)} cái: hãy chọn đủ {countedOf(option)} cái có trong tủ (đang chọn{' '}
+                                        {option.system - missingPicked(option)}).
+                                      </Typography>
+                                    )}
+                                    {!needsPicking(option) && needed > 0 && (
                                       <Typography sx={{ fontSize: 12, color: '#b45309', mt: 0.5 }}>
                                         {needed} cái chưa chọn sẽ được báo thiếu.
                                       </Typography>
