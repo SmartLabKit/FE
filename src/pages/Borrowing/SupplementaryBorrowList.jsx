@@ -228,7 +228,7 @@ export default function SupplementaryBorrowList() {
 
   return (
     <PortalLayout
-      headerTitle={isLecturer ? 'Duyệt yêu cầu mượn' : 'Mượn / Trả linh kiện'}
+      headerTitle={isLecturer ? 'Duyệt đề tài' : 'Mượn / Trả linh kiện'}
       headerSubtitle={
         isLecturer
           ? 'Duyệt đề tài và mượn bổ sung của sinh viên'

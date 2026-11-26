@@ -154,13 +154,13 @@ export default function PortalLayout({
       roles: ['Lecturer'],
     },
     {
-      label: 'Duyệt yêu cầu mượn',
+      label: 'Duyệt đề tài',
       icon: <ApprovalsIcon fontSize="small" />,
       path: '/borrow/my-requests',
       roles: ['Lecturer'],
     },
     {
-      label: 'Duyệt bài cuối kỳ',
+      label: 'Duyệt nộp cuối kỳ',
       icon: <FinalSubmissionIcon fontSize="small" />,
       path: '/class-setup/lecturer/final-submissions',
       roles: ['Lecturer'],

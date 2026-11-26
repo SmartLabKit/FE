@@ -131,7 +131,7 @@ export default function FinalSubmissionReview() {
   }
 
   return (
-    <PortalLayout headerTitle="Duyệt bài cuối kỳ" headerSubtitle="Bài nộp cuối kỳ đang chờ xác nhận, nộp sớm nhất lên trước">
+    <PortalLayout headerTitle="Duyệt nộp cuối kỳ" headerSubtitle="Bài nộp cuối kỳ đang chờ xác nhận, nộp sớm nhất lên trước">
       <Box sx={{ maxWidth: 1200, mx: 'auto' }}>
         {!isLecturer && (
           <Alert severity="info" sx={{ mb: 2 }}>
