@@ -10,6 +10,7 @@ import {
   Chip,
   LinearProgress,
   MenuItem,
+  Snackbar,
   Stack,
   Table,
   TableBody,
@@ -97,6 +98,7 @@ export default function ComponentExcelImport() {
   const [importing, setImporting] = useState(false)
   const [progress, setProgress] = useState({ current: 0, total: 0 })
   const [importSummary, setImportSummary] = useState(null)
+  const [summaryToastOpen, setSummaryToastOpen] = useState(false)
   const createdIds = rows.map((row) => row.componentId).filter(Boolean)
 
   const existingByName = useMemo(() => {
@@ -327,6 +329,8 @@ export default function ComponentExcelImport() {
 
     setImporting(false)
     setImportSummary({ successCount, failedCount })
+    setSummaryToastOpen(true)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   return (
@@ -748,6 +752,21 @@ export default function ComponentExcelImport() {
           </Card>
         )}
       </Box>
+      <Snackbar
+        open={summaryToastOpen && Boolean(importSummary)}
+        autoHideDuration={6000}
+        onClose={() => setSummaryToastOpen(false)}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+      >
+        <Alert
+          severity={importSummary?.failedCount === 0 ? 'success' : 'warning'}
+          onClose={() => setSummaryToastOpen(false)}
+          sx={{ width: '100%' }}
+        >
+          Đã tạo {importSummary?.successCount ?? 0} linh kiện
+          {importSummary?.failedCount > 0 ? `, ${importSummary.failedCount} dòng lỗi` : ''}. Tồn kho tăng sau khi nhập kho.
+        </Alert>
+      </Snackbar>
     </PortalLayout>
   )
 }
