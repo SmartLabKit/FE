@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useEntityChanged } from '../../hooks/useEntityChanged'
 import {
   Alert, Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle,
   MenuItem, Tab, Tabs, Table, TableBody, TableCell, TableContainer, TableHead,
@@ -126,6 +127,10 @@ export default function InventorySetup() {
 
   const canApproveAudits = hasPermission('INVENTORY_AUDIT_APPROVE')
   const [pendingAudits, setPendingAudits] = useState(0)
+  // Có phiếu kiểm kê mới gửi lên thì số "chờ duyệt" trên tab tự đổi
+  const [auditCountKey, setAuditCountKey] = useState(0)
+  const bumpAuditCount = useCallback(() => setAuditCountKey((key) => key + 1), [])
+  useEntityChanged(bumpAuditCount)
 
   useEffect(() => {
     if (!canApproveAudits) return undefined
@@ -135,7 +140,7 @@ export default function InventorySetup() {
       .then((data) => { if (active) setPendingAudits(Number(data?.totalCount || 0)) })
       .catch(() => { if (active) setPendingAudits(0) })
     return () => { active = false }
-  }, [canApproveAudits, location.pathname])
+  }, [canApproveAudits, location.pathname, auditCountKey])
 
   let auditTabLabel = 'Kiểm kê'
   if (pendingAudits > 0) auditTabLabel = `Kiểm kê (${pendingAudits} chờ duyệt)`
@@ -196,9 +201,9 @@ export default function InventorySetup() {
   const [categoryToDelete, setCategoryToDelete] = useState(null)
   const [deleting, setDeleting] = useState(false)
 
-  const load = useCallback(async (isSubscribed = () => true, resetView = false) => {
+  const load = useCallback(async (isSubscribed = () => true, resetView = false, silent = false) => {
     if (kind === 'audits') return
-    setLoading(true)
+    if (!silent) setLoading(true)
     setError('')
     if (resetView) {
       setRows([])
@@ -244,6 +249,10 @@ export default function InventorySetup() {
       }
     }
   }, [canManageCategories, isLabStaff, kind, roomFilter])
+
+  // Dữ liệu đổi ở nơi khác thì tải lại lặng lẽ, giữ nguyên bộ lọc và trang đang xem
+  const reloadQuietly = useCallback(() => load(() => true, false, true), [load])
+  useEntityChanged(reloadQuietly)
 
   // Reset state và tải dữ liệu mới khi chuyển tab hoặc đổi bộ lọc
   useEffect(() => {

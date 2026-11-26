@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback } from 'react'
+import { useEntityChanged } from '../../hooks/useEntityChanged'
 import {
   Alert,
   Box,
@@ -167,6 +168,11 @@ export default function SemesterClassManager({ onNext }) {
   }, [showToast])
 
   // Tải danh sách lớp khi thay đổi học kỳ được chọn
+  // Dữ liệu đổi ở nơi khác (người khác thao tác) thì tự tải lại, không cần F5
+  const [liveKey, setLiveKey] = useState(0)
+  const bumpLive = useCallback(() => setLiveKey((key) => key + 1), [])
+  useEntityChanged(bumpLive)
+
   useEffect(() => {
     if (!selectedSemesterId) return
     academicService
@@ -177,7 +183,7 @@ export default function SemesterClassManager({ onNext }) {
       .catch((err) => {
         showToast(err.message, 'error')
       })
-  }, [selectedSemesterId, showToast])
+  }, [selectedSemesterId, showToast, liveKey])
 
   // ==================== XỬ LÝ HỌC KỲ ====================
   const handleOpenCreateSemester = () => {

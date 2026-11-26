@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import {
   Add as AddIcon,
   Inventory as InventoryIcon,
@@ -47,6 +47,7 @@ import {
   RECEIVED_OPTIONS,
 } from './receivedFilter'
 import { formatVietnamDateTime } from '../../utils/dateFormatting'
+import { useEntityChanged } from '../../hooks/useEntityChanged'
 
 const TRACKING_TYPE_OPTIONS = [
   { value: '', label: 'Tất cả loại quản lý' },
@@ -83,6 +84,11 @@ export default function Components() {
       : ''
   )
 
+  // Dữ liệu đổi ở nơi khác (người khác thao tác) thì tự tải lại, không cần F5
+  const [liveKey, setLiveKey] = useState(0)
+  const bumpLive = useCallback(() => setLiveKey((key) => key + 1), [])
+  useEntityChanged(bumpLive)
+
   useEffect(() => {
     let active = true
     Promise.all([
@@ -105,7 +111,7 @@ export default function Components() {
     return () => {
       active = false
     }
-  }, [])
+  }, [liveKey])
 
   // Ô lọc "Mới nhập" nằm trên đường dẫn để bấm từ phiếu nhập sang và tải lại trang vẫn giữ
   const createdIds = useMemo(() => location.state?.createdIds || [], [location.state])

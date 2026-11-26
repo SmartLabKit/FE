@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
+import { useEntityChanged } from '../../hooks/useEntityChanged'
 import { DoneAll as DoneAllIcon } from '@mui/icons-material'
 import {
   Alert, Box, Button, Chip, CircularProgress, List, ListItemButton, Paper, Tab,
@@ -24,6 +25,9 @@ export default function Notifications() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [reloadKey, setReloadKey] = useState(0)
+  // Dữ liệu đổi ở nơi khác thì tự tải lại
+  const bumpReload = useCallback(() => setReloadKey((key) => key + 1), [])
+  useEntityChanged(bumpReload)
 
   useEffect(() => {
     let active = true

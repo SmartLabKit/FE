@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
+import { useEntityChanged } from '../../hooks/useEntityChanged'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Alert, Box, Button, Card, CardContent, Chip, Snackbar, Tab, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Tabs, Typography } from '@mui/material'
 import { ArrowBack as BackIcon, FactCheck as AuditIcon } from '@mui/icons-material'
@@ -19,6 +20,9 @@ export default function CabinetDetail() {
   const [cabinet, setCabinet] = useState(null)
   const [error, setError] = useState('')
   const [reloadKey, setReloadKey] = useState(0)
+  // Dữ liệu đổi ở nơi khác thì tự tải lại
+  const bumpReload = useCallback(() => setReloadKey((key) => key + 1), [])
+  useEntityChanged(bumpReload)
   const [tab, setTab] = useState('overview')
   const [cabinets, setCabinets] = useState([])
   const [rooms, setRooms] = useState([])

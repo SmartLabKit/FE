@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
+import { useEntityChanged } from '../../hooks/useEntityChanged'
 import {
   Add as AddIcon,
   ArrowBack as BackIcon,
@@ -54,6 +55,11 @@ export default function StockReceipts() {
   const [page, setPage] = useState(0)
   const [rowsPerPage, setRowsPerPage] = useState(10)
 
+  // Dữ liệu đổi ở nơi khác (người khác thao tác) thì tự tải lại, không cần F5
+  const [liveKey, setLiveKey] = useState(0)
+  const bumpLive = useCallback(() => setLiveKey((key) => key + 1), [])
+  useEntityChanged(bumpLive)
+
   useEffect(() => {
     let active = true
     inventoryService
@@ -67,7 +73,7 @@ export default function StockReceipts() {
     return () => {
       active = false
     }
-  }, [])
+  }, [liveKey])
 
   // Trích xuất danh sách nhà cung cấp duy nhất từ dữ liệu thực tế
   const suppliers = useMemo(() => {

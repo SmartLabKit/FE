@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEntityChanged } from '../../hooks/useEntityChanged'
 import {
   Accordion,
   AccordionDetails,
@@ -155,14 +156,14 @@ export default function LecturerClassManagement() {
 
   const selectedClass = classes.find((item) => item.classId === selectedClassId)
 
-  const loadStudents = useCallback(async (classId) => {
+  const loadStudents = useCallback(async (classId, silent = false) => {
     const requestSequence = ++studentRequestSequence.current
     if (!classId) {
       setStudents([])
       setLoadingStudents(false)
       return []
     }
-    setLoadingStudents(true)
+    if (!silent) setLoadingStudents(true)
     setStudentError('')
     try {
       const result = await academicService.getClassStudents(classId)
@@ -182,6 +183,12 @@ export default function LecturerClassManagement() {
       if (requestSequence === studentRequestSequence.current) setLoadingStudents(false)
     }
   }, [])
+
+  // Sinh viên kích hoạt, vào nhóm, thôi học... thì danh sách tự cập nhật
+  const reloadStudentsQuietly = useCallback(() => {
+    if (selectedClassId) loadStudents(selectedClassId, true)
+  }, [loadStudents, selectedClassId])
+  useEntityChanged(reloadStudentsQuietly)
 
   const loadClasses = useCallback(async (nextSemesterId = '', preferredClassId = '') => {
     const requestSequence = ++classRequestSequence.current

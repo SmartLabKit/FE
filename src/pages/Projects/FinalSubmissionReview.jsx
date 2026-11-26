@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
+import { useEntityChanged } from '../../hooks/useEntityChanged'
 import {
   CheckCircle as ApproveIcon,
   Replay as ReturnIcon,
@@ -60,6 +61,9 @@ export default function FinalSubmissionReview() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [reloadKey, setReloadKey] = useState(0)
+  // Dữ liệu đổi ở nơi khác thì tự tải lại
+  const bumpReload = useCallback(() => setReloadKey((key) => key + 1), [])
+  useEntityChanged(bumpReload)
 
   const [dialog, setDialog] = useState(null)
   const [comment, setComment] = useState('')

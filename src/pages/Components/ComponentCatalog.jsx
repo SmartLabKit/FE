@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, useCallback } from 'react'
 import {
   Box,
   Button,
@@ -31,6 +31,7 @@ import PortalLayout from '../../components/layout/PortalLayout'
 import TrackingTypeBadge from '../../components/common/TrackingTypeBadge'
 import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
+import { useEntityChanged } from '../../hooks/useEntityChanged'
 import {
   getComponentImage,
   getComponentShortCode,
@@ -54,6 +55,11 @@ export default function ComponentCatalog() {
   const [error, setError] = useState('')
   const [viewMode, setViewMode] = useState('grid')
 
+  // Dữ liệu đổi ở nơi khác (người khác thao tác) thì tự tải lại, không cần F5
+  const [liveKey, setLiveKey] = useState(0)
+  const bumpLive = useCallback(() => setLiveKey((key) => key + 1), [])
+  useEntityChanged(bumpLive)
+
   // Tải danh sách linh kiện và danh mục từ API
   useEffect(() => {
     let active = true
@@ -75,7 +81,7 @@ export default function ComponentCatalog() {
     return () => {
       active = false
     }
-  }, [])
+  }, [liveKey])
 
   // Danh sách các danh mục duy nhất để hiển thị thanh chọn ngang (Tabs/Chips)
   const categoryChips = useMemo(() => {

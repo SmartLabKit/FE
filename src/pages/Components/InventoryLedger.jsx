@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
+import { useEntityChanged } from '../../hooks/useEntityChanged'
 import {
   Alert,
   Autocomplete,
@@ -70,6 +71,11 @@ export default function InventoryLedger() {
   const componentId = filters.component?.componentId
   const { cabinetId, type, fromDate, toDate } = filters
 
+  // Dữ liệu đổi ở nơi khác (người khác thao tác) thì tự tải lại, không cần F5
+  const [liveKey, setLiveKey] = useState(0)
+  const bumpLive = useCallback(() => setLiveKey((key) => key + 1), [])
+  useEntityChanged(bumpLive)
+
   useEffect(() => {
     if (invalidRange) return undefined
     let active = true
@@ -97,7 +103,7 @@ export default function InventoryLedger() {
       active = false
       window.clearTimeout(timer)
     }
-  }, [componentId, cabinetId, type, fromDate, toDate, page, invalidRange])
+  }, [componentId, cabinetId, type, fromDate, toDate, page, invalidRange, liveKey])
 
   const update = (patch) => {
     setFilters((current) => ({ ...current, ...patch }))

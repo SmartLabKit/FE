@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
+import { useEntityChanged } from '../../hooks/useEntityChanged'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import {
   Alert,
@@ -88,6 +89,7 @@ export default function StockReceiptDetail() {
       setError(extractErrorMessage(loadError, 'Không thể tải chi tiết phiếu nhập.'))
     }
   }, [receiptId])
+  useEntityChanged(load)
 
   useEffect(() => {
     let active = true

@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { useEntityChanged } from '../../hooks/useEntityChanged'
 import {
   ArrowForward as ArrowForwardIcon,
   FilterAltOff as FilterAltOffIcon,
@@ -559,9 +560,9 @@ export default function StudentProjectList() {
   const [statusFilter, setStatusFilter] = useState(ALL_STATUSES)
   const requestSeqRef = useRef(0)
 
-  const loadOverview = useCallback(async () => {
+  const loadOverview = useCallback(async (silent = false) => {
     const requestId = ++requestSeqRef.current
-    setLoading(true)
+    if (silent !== true) setLoading(true)
     setLoadError('')
 
     // Tải song song danh sách lớp, dự án và học kỳ trước để lọc bỏ lớp thuộc học kỳ đã ngưng hoạt động
@@ -640,6 +641,10 @@ export default function StudentProjectList() {
     })
     setLoading(false)
   }, [])
+
+  // Giảng viên duyệt, lab giao đồ... thì tự cập nhật, không hiện vòng xoay
+  const reloadQuietly = useCallback(() => loadOverview(true), [loadOverview])
+  useEntityChanged(reloadQuietly)
 
   useEffect(() => {
     const timer = window.setTimeout(loadOverview, 0)

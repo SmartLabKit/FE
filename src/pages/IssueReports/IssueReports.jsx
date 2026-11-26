@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
+import { useEntityChanged } from '../../hooks/useEntityChanged'
 import { ReportProblem as ReportIcon, Search as SearchIcon } from '@mui/icons-material'
 import {
   Alert,
@@ -48,6 +49,9 @@ export default function IssueReports() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [reloadKey, setReloadKey] = useState(0)
+  // Dữ liệu đổi ở nơi khác thì tự tải lại
+  const bumpReload = useCallback(() => setReloadKey((key) => key + 1), [])
+  useEntityChanged(bumpReload)
 
   const [createOpen, setCreateOpen] = useState(false)
   const [selectedId, setSelectedId] = useState(null)

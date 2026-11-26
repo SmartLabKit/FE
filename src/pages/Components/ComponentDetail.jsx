@@ -1,4 +1,5 @@
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState, useRef, useCallback } from 'react'
+import { useEntityChanged } from '../../hooks/useEntityChanged'
 import {
   Alert,
   Box,
@@ -82,6 +83,11 @@ export default function ComponentDetail() {
   const [galleryNotice, setGalleryNotice] = useState('')
 
   // Tải thông tin chi tiết linh kiện
+  // Dữ liệu đổi ở nơi khác (người khác thao tác) thì tự tải lại, không cần F5
+  const [liveKey, setLiveKey] = useState(0)
+  const bumpLive = useCallback(() => setLiveKey((key) => key + 1), [])
+  useEntityChanged(bumpLive)
+
   useEffect(() => {
     let active = true
     if (!componentId) return
@@ -115,7 +121,7 @@ export default function ComponentDetail() {
     return () => {
       active = false
     }
-  }, [componentId])
+  }, [componentId, liveKey])
 
   // Tải phân bổ tồn kho theo từng phòng Lab
   useEffect(() => {
