@@ -189,28 +189,6 @@ export default function StockReceiptDetail() {
     }
   }
 
-  const deleteInvoice = () =>
-    setConfirmRequest({
-      title: 'Xóa tệp hóa đơn?',
-      message: 'Tệp hóa đơn đính kèm sẽ bị xóa khỏi phiếu nhập.',
-      confirmText: 'Xóa tệp',
-      onConfirm: doDeleteInvoice,
-    })
-
-  const doDeleteInvoice = async () => {
-    setBusy(true)
-    setError('')
-    try {
-      await inventoryService.deleteReceiptInvoice(receiptId)
-      setNotice('Đã xóa hóa đơn đính kèm.')
-      await load()
-    } catch (delError) {
-      setError(extractErrorMessage(delError, 'Không thể xóa hóa đơn.'))
-    } finally {
-      setBusy(false)
-    }
-  }
-
   const cancelReceipt = () =>
     setConfirmRequest({
       title: 'Hủy phiếu nhập?',
@@ -269,6 +247,17 @@ export default function StockReceiptDetail() {
                 </Button>
               </>
             )}
+            {receipt?.invoiceUrl && (
+              <Button
+                variant="outlined"
+                href={receipt.invoiceUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                sx={{ textTransform: 'none', fontWeight: 600 }}
+              >
+                Xem hóa đơn
+              </Button>
+            )}
             <Button
               disabled={!receipt || isCancelled || receipt.status === 'Cancelled'}
               variant="outlined"
@@ -293,9 +282,26 @@ export default function StockReceiptDetail() {
 
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         {location.state?.invoiceError && receipt && !receipt.invoiceUrl && (
-          <Alert severity="warning" sx={{ mb: 2 }}>
-            Phiếu đã lưu và nhập kho, nhưng chưa tải lên được tệp hóa đơn: {location.state.invoiceError} Hãy tải lại ở mục Tệp hóa
-            đơn đính kèm.
+          <Alert
+            severity="warning"
+            sx={{ mb: 2 }}
+            action={
+              <Button color="inherit" component="label" size="small" disabled={busy} sx={{ textTransform: 'none', fontWeight: 700 }}>
+                Tải lại hóa đơn
+                <input
+                  type="file"
+                  hidden
+                  accept={INVOICE_ACCEPT}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    e.target.value = ''
+                    uploadInvoice(file)
+                  }}
+                />
+              </Button>
+            }
+          >
+            Phiếu đã lưu và nhập kho, nhưng chưa tải lên được tệp hóa đơn: {location.state.invoiceError}
           </Alert>
         )}
         {notice && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setNotice('')}>{notice}</Alert>}
@@ -415,44 +421,6 @@ export default function StockReceiptDetail() {
               </Table>
             </TableContainer>
 
-            {/* Quản lý tệp hóa đơn chứng từ */}
-            <Card variant="outlined" sx={{ mb: 2, borderColor: '#d8dced' }}>
-              <CardContent sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 2 }}>
-                <Box>
-                  <Typography fontWeight={700}>Tệp hóa đơn đính kèm</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {receipt.invoiceUrl ? 'Đã có tệp hóa đơn được tải lên cho phiếu này.' : 'Chưa đính kèm tệp hóa đơn.'}
-                  </Typography>
-                </Box>
-                <Box sx={{ display: 'flex', gap: 1 }}>
-                  {receipt.invoiceUrl && (
-                    <Button variant="outlined" size="small" href={receipt.invoiceUrl} target="_blank" rel="noopener noreferrer" sx={{ textTransform: 'none' }}>
-                      Xem hóa đơn
-                    </Button>
-                  )}
-                  {receipt.invoiceUrl && !isCancelled && (
-                    <Button variant="outlined" color="error" size="small" onClick={deleteInvoice} sx={{ textTransform: 'none' }}>
-                      Xóa tệp
-                    </Button>
-                  )}
-                  {!isCancelled && (
-                    <Button variant="contained" component="label" size="small" disabled={busy} sx={{ textTransform: 'none' }}>
-                      {receipt.invoiceUrl ? 'Thay tệp mới' : 'Tải lên hóa đơn'}
-                      <input
-                        type="file"
-                        hidden
-                        accept={INVOICE_ACCEPT}
-                        onChange={(e) => {
-                          const file = e.target.files?.[0]
-                          e.target.value = ''
-                          uploadInvoice(file)
-                        }}
-                      />
-                    </Button>
-                  )}
-                </Box>
-              </CardContent>
-            </Card>
           </>
         )}
 
