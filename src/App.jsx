@@ -30,7 +30,6 @@ import LabRoomManagement from './pages/Components/LabRoomManagement.jsx'
 import CabinetDetail from './pages/Components/CabinetDetail.jsx'
 import StockReceipts from './pages/Components/StockReceipts.jsx'
 import StockReceiptDetail from './pages/Components/StockReceiptDetail.jsx'
-import InventoryAudits from './pages/Components/InventoryAudits.jsx'
 import InventoryLedger from './pages/Components/InventoryLedger.jsx'
 import InventoryAuditDetail from './pages/Components/InventoryAuditDetail.jsx'
 import ProjectManagement from './pages/Projects/ProjectManagement.jsx'
@@ -97,7 +96,7 @@ function App() {
           <Route path="/class-setup/admin/stock-receipts" element={<RequireRole roles={['InventoryManager']}><StockReceipts /></RequireRole>} />
           <Route path="/class-setup/admin/stock-receipts/:receiptId" element={<RequireRole roles={['InventoryManager']}><StockReceiptDetail /></RequireRole>} />
           <Route path="/class-setup/admin/inventory-ledger" element={<RequireRole roles={['InventoryManager']}><InventoryLedger /></RequireRole>} />
-          <Route path="/class-setup/admin/inventory-audits" element={<RequireRole roles={['InventoryManager', 'LabStaff']}><InventoryAudits /></RequireRole>} />
+          <Route path="/class-setup/admin/inventory-audits" element={<RequireRole roles={['InventoryManager', 'LabStaff']}><InventorySetup /></RequireRole>} />
           <Route path="/class-setup/admin/inventory-audits/:auditId" element={<RequireRole roles={['InventoryManager', 'LabStaff']}><InventoryAuditDetail /></RequireRole>} />
           <Route path="/class-setup/lecturer/classes" element={<RequireRole roles={['Lecturer']}><ClassSetup /></RequireRole>} />
           <Route path="/class-setup/lecturer/final-submissions" element={<RequireRole roles={['Lecturer', 'Admin']}><FinalSubmissionReview /></RequireRole>} />

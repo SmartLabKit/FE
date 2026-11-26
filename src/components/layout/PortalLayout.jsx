@@ -35,7 +35,6 @@ import {
   Assessment as ReportIcon,
   FactCheck as FinalSubmissionIcon,
   ReportProblem as IssueIcon,
-  Checklist as AuditIcon,
   MeetingRoom as RoomIcon,
   History as AuditLogIcon,
 } from '@mui/icons-material'
@@ -194,7 +193,7 @@ export default function PortalLayout({
       roles: ['InventoryManager', 'LabStaff', 'Lecturer', 'Student'],
     },
     {
-      label: 'Tủ lưu trữ',
+      label: 'Tủ & kiểm kê',
       icon: <RoomIcon fontSize="small" />,
       path: '/class-setup/admin/cabinets',
       roles: ['InventoryManager', 'LabStaff'],
@@ -210,12 +209,6 @@ export default function PortalLayout({
       icon: <ApprovalsIcon fontSize="small" />,
       path: '/class-setup/admin/stock-receipts',
       roles: [ 'InventoryManager'],
-    },
-    {
-      label: 'Kiểm kê kho',
-      icon: <AuditIcon fontSize="small" />,
-      path: '/class-setup/admin/inventory-audits',
-      roles: ['InventoryManager', 'LabStaff'],
     },
     {
       label: 'Sổ kho',
@@ -377,7 +370,9 @@ export default function PortalLayout({
             location.pathname.startsWith('/class-setup/admin/stock-inwards')
           const isCategoriesRoute = location.pathname.startsWith('/class-setup/admin/categories')
           const isLabRoomsRoute = location.pathname.startsWith('/class-setup/admin/lab-rooms')
-          const isCabinetsRoute = location.pathname.startsWith('/class-setup/admin/cabinets')
+          const isCabinetsRoute =
+            location.pathname.startsWith('/class-setup/admin/cabinets') ||
+            location.pathname.startsWith('/class-setup/admin/inventory-audits')
           const isUsersRoute = location.pathname.startsWith('/admin/users')
           const isRolesRoute = location.pathname.startsWith('/admin/roles')
           const isSystemSettingsRoute = location.pathname.startsWith('/admin/system-settings')
@@ -418,8 +413,6 @@ export default function PortalLayout({
               ? isLecturerClassesRoute
               : item.path === '/borrow/my-requests'
               ? isBorrowRoute
-              : item.path === '/class-setup/admin/inventory-audits'
-              ? location.pathname.startsWith(item.path)
               : location.pathname === item.path
 
           return (

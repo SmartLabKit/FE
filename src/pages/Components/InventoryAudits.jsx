@@ -138,8 +138,11 @@ function StartAuditDialog({ onClose, onStarted }) {
   )
 }
 
-/** Danh sách phiên kiểm kê tủ (mới nhất trước), lọc theo trạng thái, bắt đầu phiên mới. */
-export default function InventoryAudits() {
+/**
+ * Danh sách phiên kiểm kê tủ (mới nhất trước), lọc theo trạng thái, bắt đầu phiên mới.
+ * embedded: hiện bên trong tab "Kiểm kê" của trang Tủ & kiểm kê, không tự bọc PortalLayout.
+ */
+export default function InventoryAudits({ embedded = false }) {
   const navigate = useNavigate()
   const [status, setStatus] = useState('')
   const [page, setPage] = useState(1)
@@ -172,8 +175,8 @@ export default function InventoryAudits() {
 
   const audits = rowsOf(result)
 
-  return (
-    <PortalLayout headerTitle="Kiểm kê kho" headerSubtitle="Đếm thực tế từng tủ và ghi nhận chênh lệch vào sổ kho">
+  const content = (
+    <>
       <Box sx={{ maxWidth: 1440, mx: 'auto' }}>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <Box
@@ -264,6 +267,14 @@ export default function InventoryAudits() {
           onStarted={(audit) => navigate(`/class-setup/admin/inventory-audits/${audit.auditId}`)}
         />
       )}
+    </>
+  )
+
+  if (embedded) return content
+
+  return (
+    <PortalLayout headerTitle="Kiểm kê kho" headerSubtitle="Đếm thực tế từng tủ và ghi nhận chênh lệch vào sổ kho">
+      {content}
     </PortalLayout>
   )
 }
