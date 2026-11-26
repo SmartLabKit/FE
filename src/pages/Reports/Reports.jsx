@@ -18,9 +18,9 @@ export default function Reports() {
   const seesInventory = isAdminOrManager || isLabStaff
 
   const tabs = [
-    seesInventory && { value: 'inventory', label: 'Tồn kho' },
+    isAdminOrManager && { value: 'inventory', label: 'Tồn kho' },
     isAdminOrManager && { value: 'receipts', label: 'Nhập kho & hao hụt' },
-    seesInventory && { value: 'movements', label: 'Thẻ kho' },
+    isAdminOrManager && { value: 'movements', label: 'Thẻ kho' },
     { value: 'borrowing', label: 'Mượn trả' },
     seesInventory && { value: 'issues', label: 'Sự cố' },
   ].filter(Boolean)
