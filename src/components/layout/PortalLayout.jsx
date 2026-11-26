@@ -111,11 +111,18 @@ export default function PortalLayout({
       roles: ['Admin', 'InventoryManager', 'LabStaff', 'Lecturer'],
     },
     {
+      label: 'Xử lý sự cố',
+      icon: <IssueIcon fontSize="small" />,
+      path: '/issue-reports',
+      roles: ['LabStaff'],
+      excludeRoles: ['Admin'],
+    },
+    {
       label: 'Sự cố thiết bị',
       icon: <IssueIcon fontSize="small" />,
       path: '/issue-reports',
-      roles: ['InventoryManager', 'LabStaff', 'Student'],
-      excludeRoles: ['Admin'],
+      roles: ['InventoryManager', 'Student'],
+      excludeRoles: ['Admin', 'LabStaff'],
     },
 
     // 1. Phân hệ SINH VIÊN (Student)

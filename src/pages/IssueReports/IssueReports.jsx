@@ -89,7 +89,7 @@ export default function IssueReports() {
   }
 
   return (
-    <PortalLayout headerTitle="Sự cố thiết bị" headerSubtitle={canCreate
+    <PortalLayout headerTitle={canCreate ? 'Xử lý sự cố' : 'Sự cố thiết bị'} headerSubtitle={canCreate
         ? 'Ghi nhận và theo dõi thiết bị hư hỏng, cháy hoặc mất'
         : showFilters
           ? 'Thiết bị hư hỏng, cháy hoặc mất do nhân viên lab ghi nhận'
