@@ -247,11 +247,6 @@ export default function ComponentCatalog() {
           })}
         </Box>
 
-        {/* Dòng tóm tắt số lượng */}
-        <Typography sx={{ fontSize: 13, color: '#64748b', fontWeight: 500, mb: 2 }}>
-          {filteredComponents.length} linh kiện, kể cả ngừng dùng
-        </Typography>
-
         {/* Trạng thái đang tải */}
         {loading && (
           <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'center', py: 8 }}>

@@ -113,11 +113,8 @@ export default function IssueReportDetailDialog({ issueReportId, onClose, onChan
               <Divider sx={{ my: 1.5 }} />
               <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 0.5 }}>Thiết bị</Typography>
               <InfoRow label="Mã thiết bị">{detail.itemCode || item?.itemCode}</InfoRow>
-              <InfoRow label="Linh kiện">{[detail.componentCode, detail.componentName].filter(Boolean).join(' · ')}</InfoRow>
+              <InfoRow label="Linh kiện">{detail.componentName}</InfoRow>
               <InfoRow label="Serial">{item?.serialNumber}</InfoRow>
-              <InfoRow label="Vị trí">
-                {[item?.roomCode || detail.roomCode, item?.cabinetCode, item?.cabinetLocation].filter(Boolean).join(' · ')}
-              </InfoRow>
 
               {borrow && (
                 <>
