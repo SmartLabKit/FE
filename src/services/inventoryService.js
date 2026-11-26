@@ -101,6 +101,9 @@ export const inventoryService = {
   async startInventoryAudit(data) {
     return unwrap(await api.post('/api/inventory-audits', data))
   },
+  async saveInventoryAuditDraft(id, data) {
+    return unwrap(await api.put(`/api/inventory-audits/${id}/draft`, data))
+  },
   async completeInventoryAudit(id, data) {
     return unwrap(await api.post(`/api/inventory-audits/${id}/complete`, data))
   },

@@ -31,8 +31,6 @@ import {
   TableContainer,
   TableHead,
   TableRow,
-  Tab,
-  Tabs,
   TextField,
   Typography,
 } from '@mui/material'
@@ -87,12 +85,14 @@ export default function InventoryAuditDetail() {
   const [scannedIds, setScannedIds] = useState({})
   const [searchInput, setSearchInput] = useState('')
   const [checkedOrder, setCheckedOrder] = useState([])
-  const [tab, setTab] = useState('all')
   const [searchKey, setSearchKey] = useState(0)
   const [scanMessage, setScanMessage] = useState('')
   const searchRef = useRef(null)
   const rowInputs = useRef({})
   const [note, setNote] = useState('')
+  const [draftSavedAt, setDraftSavedAt] = useState(null)
+  const [dirty, setDirty] = useState(false)
+  const [savingDraft, setSavingDraft] = useState(false)
   const [confirm, setConfirm] = useState(null)
   const [saving, setSaving] = useState(false)
   const [review, setReview] = useState(null)
@@ -102,10 +102,30 @@ export default function InventoryAuditDetail() {
 
   const applyAudit = useCallback(async (data) => {
     setAudit(data)
-    setCounts({})
-    setMissingPicks({})
+    const draft = data?.draft
+    const draftCounts = {}
+    const draftOrder = []
+    const draftMissing = {}
+    if (draft) {
+      const kindOf = new Map()
+      ;(data.consumables || []).forEach((line) => kindOf.set(line.componentId, 'c'))
+      ;(data.items || []).forEach((item) => kindOf.set(item.componentId, 'd'))
+      ;(draft.lines || []).forEach((line) => {
+        const kind = kindOf.get(line.componentId)
+        if (!kind) return
+        draftCounts[line.componentId] = line.countedQuantity === null || line.countedQuantity === undefined ? '' : String(line.countedQuantity)
+        draftOrder.push(`${kind}:${line.componentId}`)
+      })
+      ;(draft.missingItemIds || []).forEach((itemId) => {
+        draftMissing[itemId] = true
+      })
+    }
+    setCounts(draftCounts)
+    setMissingPicks(draftMissing)
     setScannedIds({})
-    setCheckedOrder([])
+    setCheckedOrder(draftOrder)
+    setDraftSavedAt(draft?.savedAt || null)
+    setDirty(false)
     setNote(data.note || '')
     if (data?.cabinetId) {
       const lost = await inventoryService
@@ -203,7 +223,6 @@ export default function InventoryAuditDetail() {
   const optionsByKey = new Map(searchOptions.map((option) => [option.key, option]))
   const addedOptions = checkedOrder.map((key) => optionsByKey.get(key)).filter(Boolean)
   const uncheckedOptions = searchOptions.filter((option) => !isChecked(option))
-  const matchOptions = addedOptions.filter((option) => isChecked(option) && differenceOf(option) === 0)
   const diffOptions = addedOptions.filter((option) => isChecked(option) && differenceOf(option) !== 0)
   const pickingOptions = addedOptions.filter(needsPicking)
   const checkedCount = searchOptions.length - uncheckedOptions.length
@@ -234,6 +253,7 @@ export default function InventoryAuditDetail() {
   }
 
   const unmark = (option) => {
+    setDirty(true)
     setCounts((current) => {
       const next = { ...current }
       delete next[option.componentId]
@@ -257,10 +277,10 @@ export default function InventoryAuditDetail() {
   const pickOption = (option) => {
     if (!option) return
     if (counts[option.componentId] === undefined) {
+      setDirty(true)
       setCounts((current) => ({ ...current, [option.componentId]: '' }))
     }
     markChecked(option.key)
-    setTab('all')
     setSearchKey((key) => key + 1)
     setSearchInput('')
     setScanMessage('')
@@ -270,6 +290,7 @@ export default function InventoryAuditDetail() {
   const changeCount = (option, value) => {
     if (value !== '' && !/^\d+$/.test(value)) return
     if (option.kind === 'device' && value !== '' && Number(value) > option.system) return
+    setDirty(true)
     setCounts((current) => ({ ...current, [option.componentId]: value }))
     if (option.kind === 'device') {
       setUnitFlags(setScannedIds, option.units, () => false)
@@ -289,15 +310,16 @@ export default function InventoryAuditDetail() {
     const nextScanned = { ...scannedIds, [unit.itemId]: true }
     const scannedCount = option.units.filter((groupUnit) => nextScanned[groupUnit.itemId]).length
     setScannedIds(nextScanned)
+    setDirty(true)
     setCounts((current) => ({ ...current, [option.componentId]: String(scannedCount) }))
     setUnitFlags(setMissingPicks, option.units, (groupUnit) => !nextScanned[groupUnit.itemId])
     markChecked(option.key)
-    setTab('all')
     setScanMessage(`Có mặt: ${option.name} (${scannedCount}/${option.system})`)
     focusSearch()
   }
 
   const toggleMissing = (unit) => {
+    setDirty(true)
     setMissingPicks((current) => {
       const next = { ...current }
       if (next[unit.itemId]) delete next[unit.itemId]
@@ -306,10 +328,7 @@ export default function InventoryAuditDetail() {
     })
   }
 
-  let shownOptions = addedOptions
-  if (tab === 'match') shownOptions = matchOptions
-  if (tab === 'diff') shownOptions = diffOptions
-  if (tab === 'unchecked') shownOptions = uncheckedOptions
+  const shownOptions = addedOptions
 
   const handleRestoreLostItem = async (item) => {
     setRestoringId(item.itemId)
@@ -329,6 +348,44 @@ export default function InventoryAuditDetail() {
       setError(extractErrorMessage(restoreErr, `Không thể khôi phục ${item.componentName}.`))
     } finally {
       setRestoringId('')
+    }
+  }
+
+  useEffect(() => {
+    if (!dirty) return undefined
+    const warn = (event) => {
+      event.preventDefault()
+      event.returnValue = ''
+    }
+    window.addEventListener('beforeunload', warn)
+    return () => window.removeEventListener('beforeunload', warn)
+  }, [dirty])
+
+  const saveDraft = async () => {
+    setSavingDraft(true)
+    setError('')
+    try {
+      const lines = checkedOrder
+        .map((key) => optionsByKey.get(key))
+        .filter(Boolean)
+        .map((option) => {
+          const value = counts[option.componentId]
+          let countedQuantity = null
+          if (value !== undefined && value !== '') countedQuantity = Number(value)
+          return { componentId: option.componentId, countedQuantity }
+        })
+      const saved = await inventoryService.saveInventoryAuditDraft(auditId, {
+        lines,
+        missingItemIds: Object.keys(missingPicks),
+        note: note.trim() || null,
+      })
+      setDraftSavedAt(saved?.savedAt || new Date().toISOString())
+      setDirty(false)
+      setScanMessage('Đã lưu tạm.')
+    } catch (saveError) {
+      setError(extractErrorMessage(saveError, 'Không thể lưu tạm.'))
+    } finally {
+      setSavingDraft(false)
     }
   }
 
@@ -526,12 +583,6 @@ export default function InventoryAuditDetail() {
                     <Typography sx={{ fontSize: 13, color: '#2e7d32', px: 2 }}>{scanMessage}</Typography>
                   )}
 
-                  <Tabs value={tab} onChange={(_event, value) => setTab(value)} sx={{ px: 1, borderBottom: '1px solid #eef0f6' }}>
-                    <Tab value="all" label={`Tất cả (${addedOptions.length})`} sx={{ textTransform: 'none', fontWeight: 600 }} />
-                    <Tab value="match" label={`Khớp (${matchOptions.length})`} sx={{ textTransform: 'none', fontWeight: 600 }} />
-                    <Tab value="diff" label={`Lệch (${diffOptions.length})`} sx={{ textTransform: 'none', fontWeight: 600 }} />
-                    <Tab value="unchecked" label={`Chưa kiểm (${uncheckedOptions.length})`} sx={{ textTransform: 'none', fontWeight: 600 }} />
-                  </Tabs>
 
                   <TableContainer>
                     <Table size="small">
@@ -629,10 +680,7 @@ export default function InventoryAuditDetail() {
                         {shownOptions.length === 0 && (
                           <TableRow>
                             <TableCell colSpan={6} align="center" sx={{ py: 6, color: 'text.secondary' }}>
-                              {tab === 'all' && 'Tìm linh kiện hoặc quét mã ở ô phía trên để bắt đầu đếm.'}
-                              {tab === 'match' && 'Chưa có món nào khớp.'}
-                              {tab === 'diff' && 'Chưa có món nào lệch.'}
-                              {tab === 'unchecked' && (totalCount === 0 ? 'Tủ đang trống.' : 'Đã kiểm hết.')}
+                              {totalCount === 0 ? 'Tủ đang trống.' : 'Chọn linh kiện hoặc quét mã ở ô phía trên để bắt đầu đếm.'}
                             </TableCell>
                           </TableRow>
                         )}
@@ -645,7 +693,10 @@ export default function InventoryAuditDetail() {
                       size="small"
                       placeholder="Ghi chú (không bắt buộc)"
                       value={note}
-                      onChange={(event) => setNote(event.target.value)}
+                      onChange={(event) => {
+                        setNote(event.target.value)
+                        setDirty(true)
+                      }}
                       sx={{ flex: 1, minWidth: 200 }}
                     />
                     {pickingOptions.length > 0 && (
@@ -653,8 +704,20 @@ export default function InventoryAuditDetail() {
                         Còn {pickingOptions.length} loại thiết bị chưa chọn cái thiếu
                       </Typography>
                     )}
+                    <Typography variant="body2" color="text.secondary">
+                      {dirty && 'Có thay đổi chưa lưu'}
+                      {!dirty && draftSavedAt && `Đã lưu lúc ${formatDateTime(draftSavedAt)}`}
+                    </Typography>
                     <Button color="error" onClick={() => setConfirm('cancel')} disabled={saving} sx={{ textTransform: 'none', fontWeight: 700 }}>
                       Hủy phiên
+                    </Button>
+                    <Button
+                      variant="outlined"
+                      onClick={saveDraft}
+                      disabled={saving || savingDraft || !dirty}
+                      sx={{ textTransform: 'none', fontWeight: 700 }}
+                    >
+                      {savingDraft ? 'Đang lưu...' : 'Lưu tạm'}
                     </Button>
                     <Button
                       variant="contained"
