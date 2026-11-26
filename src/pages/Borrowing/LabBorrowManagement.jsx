@@ -66,16 +66,9 @@ const ORDER_STATUS_FILTERS = [
 const RETURN_DESK_FILTERS = [
   { key: 'Borrowing', label: 'Đang mượn', status: 'Borrowing', overdue: false },
   { key: 'Overdue', label: 'Quá hạn', status: '', overdue: true },
-  { key: 'Returned', label: 'Đã trả', status: 'Returned', overdue: false },
-  { key: 'ALL', label: 'Tất cả', status: '', overdue: false },
 ]
 
-const HISTORY_FILTERS = [
-  { key: 'Returned', label: 'Đã trả', status: 'Returned', overdue: false },
-  { key: 'Rejected', label: 'Từ chối', status: 'Rejected', overdue: false },
-  { key: 'Cancelled', label: 'Đã hủy', status: 'Cancelled', overdue: false },
-  { key: 'ALL', label: 'Tất cả đơn', status: '', overdue: false },
-]
+const LEGACY_TABS = { 4: 0, 5: 3 }
 
 function getId(row) {
   return row?.borrowRequestId || row?.id
@@ -228,14 +221,17 @@ function getItemStatusInfo(item, requestStatus) {
   }
 }
 
+const STATUS_BY_TAB = { 0: '', 2: 'Ready', 3: 'Borrowing' }
+
 export default function LabBorrowManagement() {
-  const [status, setStatus] = useState('')
+  const location = useLocation()
+  const initialTab = LEGACY_TABS[location.state?.tab] ?? location.state?.tab ?? 0
+  const [status, setStatus] = useState(STATUS_BY_TAB[initialTab] ?? '')
   const [overdueFilter, setOverdueFilter] = useState(false)
   const [searchInput, setSearchInput] = useState('')
   const [search, setSearch] = useState('')
   const [page, setPage] = useState(1)
-  const location = useLocation()
-  const [tab, setTab] = useState(location.state?.tab ?? 0)
+  const [tab, setTab] = useState(initialTab)
   const {
     requests,
     requestResult,
@@ -471,20 +467,23 @@ export default function LabBorrowManagement() {
               setOverdueFilter(false)
               if (value === 2) setStatus('Ready')
               else if (value === 3) setStatus('Borrowing')
-              else if (value === 4) setStatus('Returned')
               else if (value === 0) setStatus('')
             }}
             aria-label="Danh sách đơn Lab"
           >
             <Tab value={0} label="Đơn mượn" />
-            <Tab value={2} label="Quầy giao đồ" />
-            <Tab value={3} label="Quầy nhận trả" />
-            <Tab value={5} label="Phiếu trả" />
-            <Tab value={4} label="Lịch sử đã trả" />
+            <Tab value={2} label="Giao đồ" />
+            <Tab value={3} label="Nhận trả" />
           </Tabs>
 
-          {tab === 5 ? <LabReturnSlips /> : (
           <>
+          {tab === 3 && (
+            <Box sx={{ borderBottom: '1px solid #eef0f6' }}>
+              <Typography sx={{ fontWeight: 800, px: { xs: 2, sm: 3 }, pt: 2 }}>Phiếu trả</Typography>
+              <LabReturnSlips />
+              <Typography sx={{ fontWeight: 800, px: { xs: 2, sm: 3 }, pb: 0.5 }}>Đơn đang mượn</Typography>
+            </Box>
+          )}
           {/* Thanh tìm kiếm & bộ lọc trạng thái đơn mượn */}
           <Box component="form" onSubmit={handleSearch} sx={{ p: 2 }}>
             <Grid container spacing={1.5} alignItems="center">
@@ -495,9 +494,7 @@ export default function LabBorrowManagement() {
                   label={
                     tab === 2
                       ? 'Tìm đơn sẵn sàng · MSSV / mã đơn'
-                      : tab === 4
-                        ? 'Tìm sinh viên, MSSV, mã đơn đã trả...'
-                        : 'Tìm mã đơn, sinh viên, MSSV, đề tài...'
+                      : 'Tìm mã đơn, sinh viên, MSSV, đề tài...'
                   }
                   value={searchInput}
                   onChange={(event) => setSearchInput(event.target.value)}
@@ -558,9 +555,9 @@ export default function LabBorrowManagement() {
             </Grid>
 
             {/* Dải nút lọc trạng thái 1 chạm */}
-            {(tab === 0 || tab === 3 || tab === 4) && (() => {
-              const filterOptions =
-                tab === 4 ? HISTORY_FILTERS : tab === 3 ? RETURN_DESK_FILTERS : ORDER_STATUS_FILTERS
+            {(tab === 0 || tab === 3) && (() => {
+              let filterOptions = ORDER_STATUS_FILTERS
+              if (tab === 3) filterOptions = RETURN_DESK_FILTERS
               return (
                 <Box sx={{ display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center', mt: 1.75 }}>
                   {filterOptions.map((opt) => {
@@ -676,9 +673,7 @@ export default function LabBorrowManagement() {
                           ? 'Không tìm thấy đơn sẵn sàng giao.'
                           : tab === 3
                             ? 'Không có đơn đang mượn cần nhận trả.'
-                            : tab === 4
-                              ? 'Không tìm thấy đơn mượn nào đã hoàn tất trả đồ.'
-                              : 'Không có đơn phù hợp.'}
+                            : 'Không có đơn phù hợp.'}
                       </TableCell>
                     </TableRow>
                   )}
@@ -696,12 +691,11 @@ export default function LabBorrowManagement() {
             labelDisplayedRows={({ from, to, count }) => `${from}–${to} / ${count}`}
           />
           </>
-          )}
         </Paper>
 
         <Drawer
           anchor="right"
-          open={(tab === 0 || tab === 2 || tab === 3 || tab === 4) && Boolean(selectedRequestId)}
+          open={(tab === 0 || tab === 2 || tab === 3) && Boolean(selectedRequestId)}
           onClose={closeDetail}
         >
           <Box sx={{ width: { xs: '100vw', sm: 560, md: 720 }, p: { xs: 2, md: 3 } }}>

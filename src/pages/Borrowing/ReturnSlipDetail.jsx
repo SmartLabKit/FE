@@ -80,7 +80,7 @@ export default function ReturnSlipDetail() {
         {slip && (
           <Button
             startIcon={<ArrowBackIcon />}
-            onClick={() => (isStaff ? navigate('/borrow/lab-orders', { state: { tab: 5 } }) : navigate(orderPath))}
+            onClick={() => (isStaff ? navigate('/borrow/lab-orders', { state: { tab: 3 } }) : navigate(orderPath))}
             sx={{ mb: 2, textTransform: 'none', fontWeight: 700 }}
           >
             {isStaff ? 'Phiếu trả' : `Đơn ${slip.requestCode}`}
