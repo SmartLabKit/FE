@@ -99,6 +99,19 @@ export const userService = {
   },
 
   /**
+   * Kích hoạt thủ công tài khoản đang chờ kích hoạt, Admin đặt mật khẩu tạm (người dùng phải đổi ở lần đăng nhập đầu)
+   * POST /api/users/{id}/activate
+   * Body: { temporaryPassword }
+   */
+  async activateUser(id, temporaryPassword) {
+    try {
+      await api.post(`/api/users/${id}/activate`, { temporaryPassword })
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Không thể kích hoạt tài khoản'), { cause: error })
+    }
+  },
+
+  /**
    * Đặt lại mật khẩu người dùng (trả về mật khẩu tạm một lần duy nhất)
    * POST /api/users/{id}/reset-password
    * Quyền: USER_MANAGE (Admin)

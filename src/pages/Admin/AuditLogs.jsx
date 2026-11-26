@@ -16,6 +16,7 @@ const ACTIONS = [
   { value: 'LOGIN', label: 'Đăng nhập' },
   { value: 'CHANGE_PASSWORD', label: 'Đổi mật khẩu' },
   { value: 'RESET_PASSWORD', label: 'Đặt lại mật khẩu' },
+  { value: 'ACTIVATE_USER', label: 'Kích hoạt thủ công' },
   { value: 'CREATE_USER', label: 'Tạo tài khoản' },
   { value: 'UPDATE_USER', label: 'Sửa tài khoản' },
   { value: 'ASSIGN_ROLES', label: 'Gán vai trò' },
@@ -99,6 +100,8 @@ function describe(log) {
       return 'Đổi mật khẩu của chính mình'
     case 'RESET_PASSWORD':
       return 'Đặt lại mật khẩu cho tài khoản'
+    case 'ACTIVATE_USER':
+      return 'Kích hoạt thủ công, đặt mật khẩu tạm'
     case 'CREATE_USER':
       return `Tạo tài khoản ${after.Username || ''}${after.Role ? ` (${after.Role})` : ''}`.trim()
     case 'UPDATE_USER': {

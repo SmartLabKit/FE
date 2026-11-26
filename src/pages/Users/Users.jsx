@@ -46,6 +46,7 @@ import {
   Edit as EditIcon,
   LockReset as LockResetIcon,
   ContentCopy as ContentCopyIcon,
+  HowToReg as ActivateIcon,
 } from '@mui/icons-material'
 import PortalLayout from '../../components/layout/PortalLayout'
 import AccountStatusChip from '../../components/common/AccountStatusChip'
@@ -118,6 +119,12 @@ export default function Users() {
   const [tempPassword, setTempPassword] = useState('')
   const [resetSubmitting, setResetSubmitting] = useState(false)
   const [resetConfirmUser, setResetConfirmUser] = useState(null)
+
+  // Kích hoạt thủ công (POST /api/users/{id}/activate): Admin đặt mật khẩu tạm, người dùng phải đổi ở lần đăng nhập đầu
+  const [activateTarget, setActivateTarget] = useState(null)
+  const [activatePassword, setActivatePassword] = useState('')
+  const [activateError, setActivateError] = useState('')
+  const [activateSubmitting, setActivateSubmitting] = useState(false)
 
   // Notification Toast
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
@@ -383,6 +390,31 @@ export default function Users() {
       showToast(err.message, 'error')
     } finally {
       setResetSubmitting(false)
+    }
+  }
+
+  const openActivateDialog = (user) => {
+    setActivateTarget(user)
+    setActivatePassword(generateTemporaryPassword())
+    setActivateError('')
+  }
+
+  const handleActivate = async () => {
+    const error = passwordError(activatePassword)
+    if (error) {
+      setActivateError(error)
+      return
+    }
+    setActivateSubmitting(true)
+    try {
+      await userService.activateUser(activateTarget.userId, activatePassword)
+      showToast(`Đã kích hoạt ${activateTarget.fullName || activateTarget.username}. Hãy đưa mật khẩu tạm cho người dùng.`)
+      setActivateTarget(null)
+      fetchUsers()
+    } catch (err) {
+      setActivateError(err.message)
+    } finally {
+      setActivateSubmitting(false)
     }
   }
 
@@ -718,6 +750,26 @@ export default function Users() {
                           >
                             Sửa
                           </Button>
+                          {item.activationPending && (
+                            <Button
+                              variant="outlined"
+                              size="small"
+                              startIcon={<ActivateIcon fontSize="small" />}
+                              onClick={() => openActivateDialog(item)}
+                              sx={{
+                                borderRadius: 1.5,
+                                textTransform: 'none',
+                                fontWeight: 700,
+                                fontSize: 11,
+                                borderColor: '#05966940',
+                                color: '#059669',
+                                bgcolor: '#ecfdf5',
+                                '&:hover': { bgcolor: '#d1fae5', borderColor: '#059669' },
+                              }}
+                            >
+                              Kích hoạt
+                            </Button>
+                          )}
                           <Button
                             variant="outlined"
                             size="small"
@@ -1340,6 +1392,76 @@ export default function Users() {
           </Button>
         </DialogActions>
       </Dialog>
+      <Dialog open={Boolean(activateTarget)} onClose={() => setActivateTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800, fontSize: 17 }}>Kích hoạt thủ công</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ fontSize: 14, color: '#3d4556', lineHeight: 1.6, mb: 2 }}>
+            Kích hoạt <strong>{activateTarget?.fullName || activateTarget?.username}</strong> không cần email.
+            Đưa mật khẩu tạm này cho người dùng, họ phải đổi mật khẩu ở lần đăng nhập đầu. Link trong email cũ sẽ hết hiệu lực.
+          </Typography>
+          <TextField
+            fullWidth
+            size="small"
+            label="Mật khẩu tạm"
+            value={activatePassword}
+            onChange={(event) => {
+              setActivatePassword(event.target.value)
+              setActivateError('')
+            }}
+            error={Boolean(activateError)}
+            helperText={activateError || PASSWORD_HINT}
+            slotProps={{
+              input: {
+                endAdornment: (
+                  <InputAdornment position="end">
+                    <IconButton
+                      size="small"
+                      aria-label="Sao chép"
+                      onClick={() => {
+                        navigator.clipboard.writeText(activatePassword)
+                        showToast('Đã sao chép mật khẩu tạm.')
+                      }}
+                    >
+                      <ContentCopyIcon fontSize="small" />
+                    </IconButton>
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+          <Button size="small" onClick={() => setActivatePassword(generateTemporaryPassword())} sx={{ mt: 1, textTransform: 'none' }}>
+            Tạo mật khẩu khác
+          </Button>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 1.5 }}>
+          <Button onClick={() => setActivateTarget(null)} sx={{ textTransform: 'none' }}>Hủy</Button>
+          <Button
+            variant="contained"
+            color="success"
+            disabled={activateSubmitting}
+            onClick={handleActivate}
+            sx={{ textTransform: 'none', fontWeight: 700 }}
+          >
+            Kích hoạt
+          </Button>
+        </DialogActions>
+      </Dialog>
     </PortalLayout>
   )
+}
+
+/** Mật khẩu tạm dễ đọc: chữ hoa + chữ thường + số, bỏ các ký tự dễ nhầm (0/O, 1/l/I). */
+function generateTemporaryPassword() {
+  const upper = 'ABCDEFGHJKLMNPQRSTUVWXYZ'
+  const lower = 'abcdefghijkmnpqrstuvwxyz'
+  const digits = '23456789'
+  const random = (chars) => {
+    const values = new Uint32Array(1)
+    window.crypto.getRandomValues(values)
+    return chars[values[0] % chars.length]
+  }
+  let password = random(upper)
+  for (let i = 0; i < 5; i += 1) password += random(lower)
+  for (let i = 0; i < 4; i += 1) password += random(digits)
+  return password
 }

@@ -41,6 +41,7 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth, DEMO_ACCOUNTS } from '../../context/AuthContext'
 import NotificationMenu from './NotificationMenu'
+import ForcePasswordChangeDialog from '../common/ForcePasswordChangeDialog'
 import { shouldBlockLeave } from '../../utils/leaveGuard'
 
 /**
@@ -765,6 +766,7 @@ export default function PortalLayout({
           {children}
         </Box>
       </Box>
+      {user?.mustChangePassword && <ForcePasswordChangeDialog />}
     </Box>
   )
 }
