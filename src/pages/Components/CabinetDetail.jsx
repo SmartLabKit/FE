@@ -81,8 +81,7 @@ export default function CabinetDetail() {
           <Card variant="outlined" sx={{ mb: 2, borderColor: '#d8dced', boxShadow: 'none' }}>
             <CardContent sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
               <Box>
-                <Typography variant="h6" fontWeight={800}>{cabinet.cabinetCode || cabinet.code}</Typography>
-                <Typography>{cabinet.cabinetName || cabinet.name || 'Tủ lưu trữ'}</Typography>
+                <Typography variant="h6" fontWeight={800}>{cabinet.cabinetName || cabinet.name || cabinet.cabinetCode || 'Tủ lưu trữ'}</Typography>
                 <Typography color="text.secondary">{labName(cabinet)}</Typography>
               </Box>
               <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
