@@ -714,7 +714,7 @@ export default function InventoryAuditDetail() {
                                   <TableCell colSpan={5} sx={{ bgcolor: '#f8fafc', py: 1 }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 0.5 }}>
                                       <Typography sx={{ fontSize: 12.5, color: '#334155' }}>
-                                        Thiếu {needed} cái. Chọn những cái có trong tủ, hoặc chọn tất cả rồi bỏ những cái không thấy:
+                                        Thiếu {needed} cái. Chọn những cái có trong tủ:
                                       </Typography>
                                       <Button size="small" onClick={() => setFound(option.units, true)} sx={{ textTransform: 'none', py: 0 }}>
                                         Chọn tất cả
