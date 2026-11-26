@@ -331,7 +331,7 @@ export default function ComponentExcelImport() {
 
   return (
     <PortalLayout
-      headerTitle="Tạo linh kiện hàng loạt từ Excel"
+      headerTitle="Nhập linh kiện từ file mẫu"
       headerSubtitle="Khai báo hàng loạt linh kiện kho từ file mẫu (.xlsx / .csv), tự sinh mã viết tắt tra cứu nhanh"
     >
       <Box sx={{ maxWidth: 1440, mx: 'auto' }}>

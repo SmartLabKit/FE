@@ -383,7 +383,7 @@ export default function Components() {
                     '&:hover': { bgcolor: '#f0fdf4', borderColor: '#15803d' },
                   }}
                 >
-                  Tạo hàng loạt từ Excel
+                  Nhập từ file mẫu
                 </Button>
                 <Button
                   startIcon={<AddIcon />}

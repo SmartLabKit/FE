@@ -429,7 +429,7 @@ export default function NewComponent() {
                       '&:hover': { bgcolor: '#f0fdf4', borderColor: '#15803d' },
                     }}
                   >
-                    Nhập hàng loạt từ Excel
+                    Nhập từ file mẫu
                   </Button>
                 )}
               </Box>
