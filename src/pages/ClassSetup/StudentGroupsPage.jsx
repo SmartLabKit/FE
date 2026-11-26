@@ -653,6 +653,10 @@ export default function StudentGroupsPage() {
 
   // ── Computed flags ────────────────────────────────────────────────────────
   const isOpen = overview ? overview.studentsCanChangeTeams === true : true
+  // Lớp đã đủ số nhóm (sĩ số ÷ số người tối thiểu): không tạo thêm nhóm, chỉ nhận lời mời
+  const maxTeamCount = overview?.maxTeamCount ?? null
+  const classHasAllTeams = maxTeamCount !== null && (overview?.teamCount ?? 0) >= maxTeamCount
+  const canCreateTeam = isOpen && !classHasAllTeams
   const myMemberRecord = useMemo(() => findMyMemberRecord(currentTeam, user), [currentTeam, user])
   const isLeader = myMemberRecord
     ? isMemberLeader(myMemberRecord)
@@ -988,21 +992,26 @@ export default function StudentGroupsPage() {
                   mx: 'auto',
                 }}
               >
-                <GroupsIcon sx={{ fontSize: 56, color: isOpen ? '#0058be' : '#94a3b8', mb: 1.5 }} />
+                <GroupsIcon sx={{ fontSize: 56, color: canCreateTeam ? '#0058be' : '#94a3b8', mb: 1.5 }} />
                 <Typography variant="h6" sx={{ fontWeight: 800, color: '#131b2e', mb: 1 }}>
                   Bạn chưa có nhóm trong lớp này
                 </Typography>
                 <Typography variant="body2" sx={{ color: '#6b7280', fontSize: 13, mb: 2.5 }}>
-                  {isOpen ? (
+                  {isOpen && classHasAllTeams && (
+                    <>
+                      Lớp đã đủ <strong>{maxTeamCount} nhóm</strong> nên không tạo thêm được. Hãy nhận lời mời vào một nhóm bên dưới,
+                      hoặc chờ giảng viên xếp nhóm cho bạn.
+                    </>
+                  )}
+                  {canCreateTeam && (
                     <>
                       Hãy đặt tên nhóm và tạo nhóm ngay. Sau khi tạo, bạn sẽ là <strong>Trưởng nhóm</strong> và có quyền mời các bạn cùng lớp tham gia.
                     </>
-                  ) : (
-                    'Bạn chưa tạo nhóm được lúc này. Giảng viên sẽ mở chọn nhóm hoặc xếp nhóm cho bạn.'
                   )}
+                  {!isOpen && 'Bạn chưa tạo nhóm được lúc này. Giảng viên sẽ mở chọn nhóm hoặc xếp nhóm cho bạn.'}
                 </Typography>
 
-                {isOpen && (
+                {canCreateTeam && (
                   <Box
                     component="form"
                     onSubmit={handleCreateTeam}
