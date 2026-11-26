@@ -7,7 +7,6 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
-  MenuItem,
   Stack,
   Table,
   TableBody,
@@ -20,81 +19,9 @@ import {
 } from '@mui/material'
 import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
-import { cabinetAccepts, cabinetLabel, formatDateTime, rowsOf } from './inventoryLabels'
+import { formatDateTime, rowsOf } from './inventoryLabels'
 
 const headCellSx = { fontWeight: 700, color: '#334155' }
-
-function MoveStockDialog({ stock, cabinets, onClose, onSaved }) {
-  const [toCabinetId, setToCabinetId] = useState('')
-  const [quantity, setQuantity] = useState(1)
-  const [reason, setReason] = useState('')
-  const [error, setError] = useState('')
-  const [saving, setSaving] = useState(false)
-
-  const targets = cabinets.filter((cabinet) => cabinet.cabinetId !== stock.cabinetId && cabinetAccepts(cabinet, 'CONSUMABLE'))
-  const quantityValue = Number(quantity)
-  const validQuantity = Number.isInteger(quantityValue) && quantityValue >= 1 && quantityValue <= stock.quantity
-
-  const save = async () => {
-    setSaving(true)
-    setError('')
-    try {
-      await inventoryService.moveConsumableStock({
-        componentId: stock.componentId,
-        fromCabinetId: stock.cabinetId,
-        toCabinetId,
-        quantity: quantityValue,
-        reason: reason.trim() || null,
-      })
-      onSaved(`Đã chuyển ${quantityValue} ${stock.componentName} sang tủ mới.`)
-    } catch (saveError) {
-      setError(extractErrorMessage(saveError, 'Không thể chuyển vật tư.'))
-    } finally {
-      setSaving(false)
-    }
-  }
-
-  return (
-    <Dialog open onClose={() => !saving && onClose()} fullWidth maxWidth="sm">
-      <DialogTitle sx={{ fontWeight: 800 }}>Chuyển tủ · {stock.componentName}</DialogTitle>
-      <DialogContent>
-        {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-        <Stack spacing={2} sx={{ pt: 1 }}>
-          <TextField select label="Tủ đích" value={toCabinetId} onChange={(event) => setToCabinetId(event.target.value)} required fullWidth>
-            {targets.map((cabinet) => (
-              <MenuItem key={cabinet.cabinetId} value={cabinet.cabinetId}>{cabinetLabel(cabinet)}</MenuItem>
-            ))}
-          </TextField>
-          <TextField
-            type="number"
-            label="Số lượng chuyển"
-            value={quantity}
-            onKeyDown={(e) => {
-              if (['-', '+', 'e', 'E', '.', ','].includes(e.key)) e.preventDefault()
-            }}
-            onChange={(event) => setQuantity(event.target.value)}
-            error={!validQuantity}
-            helperText={`Hiện có ${stock.quantity} trong tủ`}
-            slotProps={{ htmlInput: { min: 1, max: stock.quantity, step: 1 } }}
-            fullWidth
-          />
-          <TextField
-            label="Lý do (không bắt buộc)"
-            value={reason}
-            onChange={(event) => setReason(event.target.value)}
-            fullWidth
-          />
-        </Stack>
-      </DialogContent>
-      <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose} disabled={saving}>Đóng</Button>
-        <Button variant="contained" onClick={save} disabled={saving || !toCabinetId || !validQuantity} sx={{ bgcolor: '#0058be' }}>
-          {saving ? 'Đang chuyển...' : 'Chuyển tủ'}
-        </Button>
-      </DialogActions>
-    </Dialog>
-  )
-}
 
 function AdjustStockDialog({ stock, onClose, onSaved }) {
   const [countedQuantity, setCountedQuantity] = useState(stock.quantity)
@@ -164,10 +91,9 @@ function AdjustStockDialog({ stock, onClose, onSaved }) {
 
 /**
  * Tab "Vật tư tiêu hao" của trang Chi tiết tủ: tồn vật tư CONSUMABLE trong tủ.
- * - canMove (COMPONENT_MANAGE, hoặc LabStaff của lab chứa tủ): chuyển sang tủ khác; chỉ chuyển giữa các tủ cùng lab.
  * - canAdjust (INVENTORY_AUDIT_APPROVE, quản lý kho): đặt lại tồn bằng số đếm thực tế, bắt buộc ghi lý do.
  */
-export default function CabinetConsumablesTab({ cabinet, cabinets, canMove, canAdjust, onChanged, showToast }) {
+export default function CabinetConsumablesTab({ cabinet, canAdjust, onChanged, showToast }) {
   const [stocks, setStocks] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
@@ -223,9 +149,6 @@ export default function CabinetConsumablesTab({ cabinet, cabinets, canMove, canA
                 <TableCell><Typography component="span" sx={{ fontWeight: 800 }}>{stock.quantity}</Typography></TableCell>
                 <TableCell>{formatDateTime(stock.updatedAt)}</TableCell>
                 <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                  {canMove && stock.quantity > 0 && (
-                    <Button size="small" onClick={() => setDialog({ type: 'move', stock })} sx={{ textTransform: 'none' }}>Chuyển tủ</Button>
-                  )}
                   {canAdjust && (
                     <Button size="small" onClick={() => setDialog({ type: 'adjust', stock })} sx={{ textTransform: 'none' }}>Điều chỉnh</Button>
                   )}
@@ -241,7 +164,6 @@ export default function CabinetConsumablesTab({ cabinet, cabinets, canMove, canA
         </Table>
       </TableContainer>
 
-      {dialog?.type === 'move' && <MoveStockDialog stock={dialog.stock} cabinets={cabinets} onClose={() => setDialog(null)} onSaved={handleSaved} />}
       {dialog?.type === 'adjust' && <AdjustStockDialog stock={dialog.stock} onClose={() => setDialog(null)} onSaved={handleSaved} />}
     </>
   )

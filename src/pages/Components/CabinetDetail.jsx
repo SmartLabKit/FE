@@ -10,7 +10,7 @@ import TrackingTypeBadge from '../../components/common/TrackingTypeBadge'
 import CabinetItemsTab from './CabinetItemsTab'
 import CabinetConsumablesTab from './CabinetConsumablesTab'
 import { rowsOf } from './inventoryLabels'
-import { labLabel } from '../../utils/labLabel'
+import { labName } from '../../utils/labLabel'
 
 export default function CabinetDetail() {
   const { cabinetId } = useParams()
@@ -81,9 +81,8 @@ export default function CabinetDetail() {
           <Card variant="outlined" sx={{ mb: 2, borderColor: '#d8dced', boxShadow: 'none' }}>
             <CardContent sx={{ display: 'flex', justifyContent: 'space-between', gap: 2 }}>
               <Box>
-                <Typography variant="h6" fontWeight={800}>{cabinet.cabinetCode || cabinet.code}</Typography>
-                <Typography>{cabinet.cabinetName || cabinet.name || 'Tủ lưu trữ'}</Typography>
-                <Typography color="text.secondary">{labLabel(cabinet)}</Typography>
+                <Typography variant="h6" fontWeight={800}>{cabinet.cabinetName || cabinet.name || cabinet.cabinetCode || 'Tủ lưu trữ'}</Typography>
+                <Typography color="text.secondary">{labName(cabinet)}</Typography>
               </Box>
               <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', gap: 1 }}>
                 <Chip label={isActive ? 'Đang hoạt động' : 'Ngừng hoạt động'} color={isActive ? 'success' : 'default'} />
@@ -122,8 +121,6 @@ export default function CabinetDetail() {
             {tab === 'consumables' && (
               <CabinetConsumablesTab
                 cabinet={cabinet}
-                cabinets={targetCabinets}
-                canMove={canMove}
                 canAdjust={canAdjust}
                 onChanged={() => setReloadKey((key) => key + 1)}
                 showToast={showToast}

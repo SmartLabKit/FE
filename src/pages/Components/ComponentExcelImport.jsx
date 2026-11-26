@@ -331,7 +331,7 @@ export default function ComponentExcelImport() {
 
   return (
     <PortalLayout
-      headerTitle="Nhập linh kiện từ Excel"
+      headerTitle="Tạo linh kiện hàng loạt từ Excel"
       headerSubtitle="Khai báo hàng loạt linh kiện kho từ file mẫu (.xlsx / .csv), tự sinh mã viết tắt tra cứu nhanh"
     >
       <Box sx={{ maxWidth: 1440, mx: 'auto' }}>
@@ -429,8 +429,7 @@ export default function ComponentExcelImport() {
                   </Typography>
                 </Stack>
                 <Typography sx={{ fontSize: 13, color: '#475569', mb: 2, lineHeight: 1.5 }}>
-                  File mẫu chuẩn cột kèm sheet hướng dẫn, danh sách <strong>Danh mục</strong> ({categories.length}) và{' '}
-                  <strong>Linh kiện hiện có</strong> ({existingComponents.length}) lấy trực tiếp từ hệ thống API để đối chiếu khi nhập.
+                  File mẫu có sẵn các cột cần điền, sheet hướng dẫn, danh sách danh mục và linh kiện hiện có để đối chiếu khi nhập.
                 </Typography>
                 <Button
                   variant="outlined"
