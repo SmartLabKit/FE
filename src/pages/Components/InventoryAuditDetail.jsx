@@ -298,13 +298,7 @@ export default function InventoryAuditDetail() {
     if (!option) return
     if (counts[option.componentId] === undefined) {
       setDirty(true)
-      if (option.kind === 'device') {
-        // Thiết bị: chưa chọn cái nào là có trong tủ, số thực tế = số cái được chọn
-        setCounts((current) => ({ ...current, [option.componentId]: '0' }))
-        setUnitFlags(setMissingPicks, option.units, () => true)
-      } else {
-        setCounts((current) => ({ ...current, [option.componentId]: '' }))
-      }
+      setCounts((current) => ({ ...current, [option.componentId]: '' }))
     }
     markChecked(option.key)
     setSearchKey((key) => key + 1)
@@ -319,9 +313,10 @@ export default function InventoryAuditDetail() {
     setDirty(true)
     setCounts((current) => ({ ...current, [option.componentId]: value }))
     if (option.kind === 'device') {
-      // Gõ đủ số tồn là chọn hết; gõ 0 là bỏ chọn hết; số khác thì giữ lựa chọn, người kiểm chọn cho khớp
-      if (value !== '' && Number(value) === option.system) setUnitFlags(setMissingPicks, option.units, () => false)
-      if (value === '0') setUnitFlags(setMissingPicks, option.units, () => true)
+      // Đủ số tồn: không cần chọn. Thiếu: bắt đầu chưa chọn cái nào, người kiểm chọn đúng số cái có trong tủ
+      setUnitFlags(setScannedIds, option.units, () => false)
+      const short = value !== '' && Number(value) < option.system
+      setUnitFlags(setMissingPicks, option.units, () => short)
     }
     if (!checkedOrder.includes(option.key)) markChecked(option.key)
   }
@@ -351,17 +346,17 @@ export default function InventoryAuditDetail() {
     focusSearch()
   }
 
-  // Chọn / bỏ chọn một thiết bị có trong tủ; số thực tế đi theo số thiết bị được chọn
-  const setFound = (option, unitsToChange, found) => {
+  // Chọn / bỏ chọn thiết bị có trong tủ khi số thực tế ít hơn tồn kho
+  const setFound = (unitsToChange, found) => {
     setDirty(true)
-    const next = { ...missingPicks }
-    unitsToChange.forEach((unit) => {
-      if (found) delete next[unit.itemId]
-      else next[unit.itemId] = true
-    })
-    setMissingPicks(next)
-    const foundCount = option.units.filter((unit) => !next[unit.itemId]).length
-    setCounts((current) => ({ ...current, [option.componentId]: String(foundCount) }))
+    setUnitFlags(setMissingPicks, unitsToChange, () => !found)
+  }
+
+  // "Có đủ": thật ra không thiếu cái nào, số thực tế bằng tồn kho
+  const markAllFound = (option) => {
+    setDirty(true)
+    setCounts((current) => ({ ...current, [option.componentId]: String(option.system) }))
+    setUnitFlags(setMissingPicks, option.units, () => false)
   }
 
   const shownOptions = addedOptions
@@ -711,31 +706,35 @@ export default function InventoryAuditDetail() {
                                   {formatDiff(difference)}
                                 </TableCell>
                               </TableRow>
-                              {option.kind === 'device' && added && (
+                              {option.kind === 'device' && added && needed > 0 && (
                                 <TableRow>
                                   <TableCell />
                                   <TableCell colSpan={5} sx={{ bgcolor: '#f8fafc', py: 1 }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 0.5 }}>
                                       <Typography sx={{ fontSize: 12.5, color: '#334155' }}>
-                                        Chọn những cái có trong tủ (xem mã dán trên thiết bị):
+                                        Thiếu {needed} cái. Chọn {countedOf(option)} cái có trong tủ (xem mã dán trên thiết bị):
                                       </Typography>
-                                      <Button size="small" onClick={() => setFound(option, option.units, true)} sx={{ textTransform: 'none', py: 0 }}>
-                                        Chọn tất cả
+                                      <Button size="small" onClick={() => markAllFound(option)} sx={{ textTransform: 'none', py: 0 }}>
+                                        Có đủ cả {option.system}
                                       </Button>
-                                      <Button size="small" color="inherit" onClick={() => setFound(option, option.units, false)} sx={{ textTransform: 'none', py: 0 }}>
+                                      <Button size="small" color="inherit" onClick={() => setFound(option.units, false)} sx={{ textTransform: 'none', py: 0 }}>
                                         Bỏ chọn hết
                                       </Button>
                                     </Box>
                                     <Box sx={{ display: 'flex', flexWrap: 'wrap', columnGap: 2 }}>
-                                      {option.units.map((unit) => (
+                                      {option.units.map((unit) => {
+                                        const found = !missingPicks[unit.itemId]
+                                        const enoughChosen = option.system - missingPicked(option) >= countedOf(option)
+                                        return (
                                         <FormControlLabel
                                           key={unit.itemId}
                                           control={
                                             <Checkbox
                                               size="small"
                                               color="success"
-                                              checked={!missingPicks[unit.itemId]}
-                                              onChange={(event) => setFound(option, [unit], event.target.checked)}
+                                              checked={found}
+                                              disabled={!found && enoughChosen}
+                                              onChange={(event) => setFound([unit], event.target.checked)}
                                             />
                                           }
                                           label={
@@ -745,19 +744,14 @@ export default function InventoryAuditDetail() {
                                             </Typography>
                                           }
                                         />
-                                      ))}
+                                        )
+                                      })}
                                     </Box>
-                                    {needsPicking(option) && (
-                                      <Typography sx={{ fontSize: 12, color: '#b45309', mt: 0.5 }}>
-                                        Thực tế {countedOf(option)} cái: hãy chọn đủ {countedOf(option)} cái có trong tủ (đang chọn{' '}
-                                        {option.system - missingPicked(option)}).
-                                      </Typography>
-                                    )}
-                                    {!needsPicking(option) && needed > 0 && (
-                                      <Typography sx={{ fontSize: 12, color: '#b45309', mt: 0.5 }}>
-                                        {needed} cái chưa chọn sẽ được báo thiếu.
-                                      </Typography>
-                                    )}
+                                    <Typography sx={{ fontSize: 12, color: '#b45309', mt: 0.5 }}>
+                                      {needsPicking(option)
+                                        ? `Đã chọn ${option.system - missingPicked(option)}/${countedOf(option)} cái.`
+                                        : `${needed} cái chưa chọn sẽ được báo thiếu.`}
+                                    </Typography>
                                   </TableCell>
                                 </TableRow>
                               )}
