@@ -416,7 +416,8 @@ export default function SupplementaryBorrowList() {
                   <TableHead sx={{ bgcolor: '#fafbff' }}>
                     <TableRow>
                       <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280', py: 1.2 }}>ĐỀ TÀI / DỰ ÁN</TableCell>
-                      <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>NHÓM / LỚP</TableCell>
+                      <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>NHÓM</TableCell>
+                      <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>LỚP</TableCell>
                       <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>NGÀY GỬI</TableCell>
                       <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>HẠN TRẢ</TableCell>
                       <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>TRẠNG THÁI</TableCell>
@@ -426,7 +427,7 @@ export default function SupplementaryBorrowList() {
                   <TableBody>
                     {filteredLecturerProjects.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={6} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                        <TableCell colSpan={7} align="center" sx={{ py: 4, color: 'text.secondary' }}>
                           {projectSearch
                             ? 'Không tìm thấy đề tài nào phù hợp với từ khóa.'
                             : 'Không có đề tài nào trong danh mục này.'}
@@ -447,12 +448,12 @@ export default function SupplementaryBorrowList() {
                               <Typography variant="body2" sx={{ fontWeight: 800, color: '#131b2e' }}>
                                 {project.title}
                               </Typography>
-                              <Typography variant="caption" sx={{ color: '#64748b' }}>
-                                {[project.pendingRequestCode || project.requestCode, project.ownerName].filter(Boolean).join(' · ') || '—'}
-                              </Typography>
+                            </TableCell>
+                            <TableCell sx={{ fontSize: 12, color: '#334155', fontWeight: 700 }}>
+                              {project.teamName || '—'}
                             </TableCell>
                             <TableCell sx={{ fontSize: 12, color: '#334155' }}>
-                              <strong>{project.teamName || 'Nhóm'}</strong> · {project.classCode || '—'}
+                              {project.classCode || '—'}
                             </TableCell>
                             <TableCell sx={{ fontSize: 12, color: '#64748b' }}>
                               {formatVietnamDate(project.submittedAt)}
