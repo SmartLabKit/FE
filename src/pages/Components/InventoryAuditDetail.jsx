@@ -3,7 +3,6 @@ import {
   ArrowBack as BackIcon,
   DeleteOutlined as DeleteIcon,
   Done as DoneIcon,
-  Restore as RestoreIcon,
   Search as SearchIcon,
 } from '@mui/icons-material'
 import {
@@ -101,8 +100,6 @@ export default function InventoryAuditDetail() {
   const [saving, setSaving] = useState(false)
   const [review, setReview] = useState(null)
   const [reviewText, setReviewText] = useState('')
-  const [lostItems, setLostItems] = useState([])
-  const [restoringId, setRestoringId] = useState('')
   const [extras, setExtras] = useState([])
   const [allComponents, setAllComponents] = useState([])
   const [unknownCode, setUnknownCode] = useState('')
@@ -161,12 +158,6 @@ export default function InventoryAuditDetail() {
     setDraftSavedAt(draft?.savedAt || null)
     setDirty(false)
     setNote(data.note || '')
-    if (data?.cabinetId) {
-      const lost = await inventoryService
-        .getComponentItems({ cabinetId: data.cabinetId, status: 'Lost', page: 1, size: 100 })
-        .catch(() => [])
-      setLostItems(rowsOf(lost))
-    }
   }, [])
 
   useEffect(() => {
@@ -408,27 +399,6 @@ export default function InventoryAuditDetail() {
   }
 
   const shownOptions = addedOptions
-
-  const handleRestoreLostItem = async (item) => {
-    setRestoringId(item.itemId)
-    setError('')
-    try {
-      await inventoryService.moveComponentItems({
-        componentId: item.componentId,
-        fromCabinetId: item.cabinetId || audit?.cabinetId,
-        fromStatus: 'Lost',
-        itemIds: [item.itemId],
-        toStatus: 'Available',
-        reason: 'Tìm thấy lại thiết bị và khôi phục về kho',
-      })
-      setNotice(`Đã khôi phục ${item.componentName} về kho.`)
-      await applyAudit(await inventoryService.getInventoryAudit(auditId))
-    } catch (restoreErr) {
-      setError(extractErrorMessage(restoreErr, `Không thể khôi phục ${item.componentName}.`))
-    } finally {
-      setRestoringId('')
-    }
-  }
 
   useEffect(() => {
     if (!dirty) return undefined
@@ -1062,49 +1032,6 @@ export default function InventoryAuditDetail() {
               </SectionCard>
             )}
 
-            {/* Chỉ quản lý kho (khôi phục được) mới cần xem thiết bị đã thất lạc từ trước; nhân viên lab đang đếm thì không */}
-            {canRestore && lostItems.length > 0 && (
-              <SectionCard
-                title={`Thiết bị thất lạc của tủ này (${lostItems.length})`}
-                subtitle={canRestore ? 'Tìm thấy lại thì bấm Khôi phục để đưa về kho.' : 'Tìm thấy lại thì báo quản lý kho khôi phục.'}
-              >
-                <TableContainer>
-                  <Table size="small">
-                    <TableHead>
-                      <TableRow sx={{ bgcolor: '#fffbeb' }}>
-                        {['Linh kiện', 'Mã thiết bị', 'Serial', ''].map((head) => (
-                          <TableCell key={head} sx={headCellSx}>{head}</TableCell>
-                        ))}
-                      </TableRow>
-                    </TableHead>
-                    <TableBody>
-                      {lostItems.map((item) => (
-                        <TableRow key={item.itemId} hover>
-                          <TableCell>{item.componentName}</TableCell>
-                          <TableCell>{item.itemCode}</TableCell>
-                          <TableCell>{item.serialNumber || '—'}</TableCell>
-                          <TableCell align="right">
-                            {canRestore && (
-                              <Button
-                                size="small"
-                                variant="outlined"
-                                color="success"
-                                startIcon={<RestoreIcon />}
-                                disabled={restoringId === item.itemId}
-                                onClick={() => handleRestoreLostItem(item)}
-                                sx={{ textTransform: 'none', fontWeight: 700 }}
-                              >
-                                {restoringId === item.itemId ? 'Đang khôi phục...' : 'Khôi phục'}
-                              </Button>
-                            )}
-                          </TableCell>
-                        </TableRow>
-                      ))}
-                    </TableBody>
-                  </Table>
-                </TableContainer>
-              </SectionCard>
-            )}
           </>
         )}
       </Box>
