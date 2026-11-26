@@ -298,7 +298,7 @@ export default function SupplementaryBorrowList() {
             elevation={0}
             sx={{ p: 3, mb: 4, borderRadius: 2, border: '1px solid #e4e6ef', bgcolor: '#ffffff' }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5, mb: 2.5, borderBottom: '1px solid #eef0f6' }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', columnGap: 2, rowGap: 1, mb: 2.5, borderBottom: '1px solid #eef0f6' }}>
               <Tabs
                 value={lecturerTab}
                 onChange={(_, value) => setLecturerTab(value)}
@@ -313,7 +313,7 @@ export default function SupplementaryBorrowList() {
                 label="Lớp"
                 value={classFilter}
                 onChange={(event) => setClassFilter(event.target.value)}
-                sx={{ minWidth: 200, mb: 1 }}
+                sx={{ minWidth: 180, my: 0.75, '& .MuiInputBase-root': { height: 34, fontSize: 13 } }}
               >
                 <MenuItem value="">Tất cả lớp</MenuItem>
                 {classOptions.map((code) => (
