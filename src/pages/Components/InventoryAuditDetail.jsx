@@ -72,7 +72,7 @@ function formatDiff(difference) {
 
 /**
  * Phiên kiểm kê 1 tủ.
- * Nhân viên lab tự đếm: ô số lượng để trống, từng thiết bị chọn Có mặt / Thiếu; kiểm hết mới gửi được.
+ * Nhân viên lab tự đếm: vật tư nhập số thực tế; thiết bị chọn những cái có trong tủ (cái không chọn là thiếu).
  * Quản lý kho duyệt thì tồn kho mới đổi (vật tư theo số đếm, thiết bị thiếu sang Thất lạc).
  */
 export default function InventoryAuditDetail() {
@@ -298,7 +298,13 @@ export default function InventoryAuditDetail() {
     if (!option) return
     if (counts[option.componentId] === undefined) {
       setDirty(true)
-      setCounts((current) => ({ ...current, [option.componentId]: '' }))
+      if (option.kind === 'device') {
+        // Thiết bị: chưa chọn cái nào là có trong tủ, số thực tế = số cái được chọn
+        setCounts((current) => ({ ...current, [option.componentId]: '0' }))
+        setUnitFlags(setMissingPicks, option.units, () => true)
+      } else {
+        setCounts((current) => ({ ...current, [option.componentId]: '' }))
+      }
     }
     markChecked(option.key)
     setSearchKey((key) => key + 1)
@@ -328,24 +334,33 @@ export default function InventoryAuditDetail() {
       return
     }
     const nextScanned = { ...scannedIds, [unit.itemId]: true }
-    const scannedCount = option.units.filter((groupUnit) => nextScanned[groupUnit.itemId]).length
     setScannedIds(nextScanned)
+    const started = isChecked(option)
+    const nextMissing = { ...missingPicks }
+    option.units.forEach((groupUnit) => {
+      if (!started) nextMissing[groupUnit.itemId] = true
+    })
+    delete nextMissing[unit.itemId]
+    const foundCount = option.units.filter((groupUnit) => !nextMissing[groupUnit.itemId]).length
+    setMissingPicks(nextMissing)
     setDirty(true)
-    setCounts((current) => ({ ...current, [option.componentId]: String(scannedCount) }))
-    setUnitFlags(setMissingPicks, option.units, (groupUnit) => !nextScanned[groupUnit.itemId])
+    setCounts((current) => ({ ...current, [option.componentId]: String(foundCount) }))
     markChecked(option.key)
-    setScanMessage(`Có mặt: ${option.name} (${scannedCount}/${option.system})`)
+    setScanMessage(`Có trong tủ: ${option.name} (${foundCount}/${option.system})`)
     focusSearch()
   }
 
-  const toggleMissing = (unit) => {
+  // Chọn / bỏ chọn một thiết bị có trong tủ; số thực tế đi theo số thiết bị được chọn
+  const setFound = (option, unitsToChange, found) => {
     setDirty(true)
-    setMissingPicks((current) => {
-      const next = { ...current }
-      if (next[unit.itemId]) delete next[unit.itemId]
+    const next = { ...missingPicks }
+    unitsToChange.forEach((unit) => {
+      if (found) delete next[unit.itemId]
       else next[unit.itemId] = true
-      return next
     })
+    setMissingPicks(next)
+    const foundCount = option.units.filter((unit) => !next[unit.itemId]).length
+    setCounts((current) => ({ ...current, [option.componentId]: String(foundCount) }))
   }
 
   const shownOptions = addedOptions
@@ -662,7 +677,6 @@ export default function InventoryAuditDetail() {
                         {shownOptions.map((option, index) => {
                           const difference = differenceOf(option)
                           const needed = missingNeeded(option)
-                          const picked = missingPicked(option)
                           const added = checkedOrder.includes(option.key)
                           return (
                             <Fragment key={option.key}>
@@ -677,14 +691,12 @@ export default function InventoryAuditDetail() {
                                 <TableCell sx={{ color: '#64748b' }}>{index + 1}</TableCell>
                                 <TableCell>
                                   <Typography sx={{ fontSize: 14 }}>{option.name}</Typography>
-                                  {needsPicking(option) && (
-                                    <Typography sx={{ fontSize: 12, color: '#b45309' }}>
-                                      Chọn {needed} cái thiếu bên dưới (đã chọn {picked})
-                                    </Typography>
-                                  )}
                                 </TableCell>
                                 <TableCell align="right">{option.system}</TableCell>
                                 <TableCell align="right">
+                                  {option.kind === 'device' ? (
+                                    <Typography sx={{ fontWeight: 700, pr: 1 }}>{counts[option.componentId] ?? 0}</Typography>
+                                  ) : (
                                   <TextField
                                     variant="standard"
                                     value={counts[option.componentId] ?? ''}
@@ -696,43 +708,53 @@ export default function InventoryAuditDetail() {
                                     slotProps={{ htmlInput: { inputMode: 'numeric', style: { textAlign: 'right' } } }}
                                     sx={{ width: 70 }}
                                   />
+                                  )}
                                 </TableCell>
                                 <TableCell align="right" sx={{ fontWeight: 700, color: diffColor(difference) }}>
                                   {formatDiff(difference)}
                                 </TableCell>
                               </TableRow>
-                              {option.kind === 'device' && needed > 0 && (
+                              {option.kind === 'device' && added && (
                                 <TableRow>
                                   <TableCell />
-                                  <TableCell colSpan={5} sx={{ bgcolor: '#fffbeb', py: 1 }}>
-                                    <Typography sx={{ fontSize: 12.5, color: '#92400e', mb: 0.5 }}>
-                                      Tick những cái không tìm thấy (xem mã dán trên thiết bị):
-                                    </Typography>
-                                    <Box sx={{ display: 'flex', flexWrap: 'wrap', columnGap: 2 }}>
-                                      {option.units.map((unit) => {
-                                        const isPicked = Boolean(missingPicks[unit.itemId])
-                                        return (
-                                          <FormControlLabel
-                                            key={unit.itemId}
-                                            control={
-                                              <Checkbox
-                                                size="small"
-                                                color="error"
-                                                checked={isPicked}
-                                                disabled={!isPicked && picked >= needed}
-                                                onChange={() => toggleMissing(unit)}
-                                              />
-                                            }
-                                            label={
-                                              <Typography sx={{ fontSize: 13 }}>
-                                                {unit.itemCode}
-                                                {unit.serialNumber ? ` · S/N ${unit.serialNumber}` : ''}
-                                              </Typography>
-                                            }
-                                          />
-                                        )
-                                      })}
+                                  <TableCell colSpan={5} sx={{ bgcolor: '#f8fafc', py: 1 }}>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 0.5 }}>
+                                      <Typography sx={{ fontSize: 12.5, color: '#334155' }}>
+                                        Chọn những cái có trong tủ (xem mã dán trên thiết bị):
+                                      </Typography>
+                                      <Button size="small" onClick={() => setFound(option, option.units, true)} sx={{ textTransform: 'none', py: 0 }}>
+                                        Chọn tất cả
+                                      </Button>
+                                      <Button size="small" color="inherit" onClick={() => setFound(option, option.units, false)} sx={{ textTransform: 'none', py: 0 }}>
+                                        Bỏ chọn hết
+                                      </Button>
                                     </Box>
+                                    <Box sx={{ display: 'flex', flexWrap: 'wrap', columnGap: 2 }}>
+                                      {option.units.map((unit) => (
+                                        <FormControlLabel
+                                          key={unit.itemId}
+                                          control={
+                                            <Checkbox
+                                              size="small"
+                                              color="success"
+                                              checked={!missingPicks[unit.itemId]}
+                                              onChange={(event) => setFound(option, [unit], event.target.checked)}
+                                            />
+                                          }
+                                          label={
+                                            <Typography sx={{ fontSize: 13 }}>
+                                              {unit.itemCode}
+                                              {unit.serialNumber ? ` · S/N ${unit.serialNumber}` : ''}
+                                            </Typography>
+                                          }
+                                        />
+                                      ))}
+                                    </Box>
+                                    {needed > 0 && (
+                                      <Typography sx={{ fontSize: 12, color: '#b45309', mt: 0.5 }}>
+                                        {needed} cái chưa chọn sẽ được báo thiếu.
+                                      </Typography>
+                                    )}
                                   </TableCell>
                                 </TableRow>
                               )}
