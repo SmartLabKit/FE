@@ -248,7 +248,7 @@ export default function InventoryAudits({ embedded = false }) {
                       <TableCell>{audit.roomCode}</TableCell>
                       <TableCell sx={{ fontWeight: 600 }}>{audit.cabinetCode} · {audit.cabinetName}</TableCell>
                       <TableCell>{audit.auditorName}</TableCell>
-                      <TableCell>{audit.status === 'Completed' ? audit.differenceCount : '—'}</TableCell>
+                      <TableCell>{audit.status === 'InProgress' ? '—' : audit.differenceCount}</TableCell>
                       <TableCell sx={{ maxWidth: 260, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{audit.note || '—'}</TableCell>
                       <TableCell><Chip size="small" color={auditStatus.color} label={auditStatus.label} sx={{ fontWeight: 600, fontSize: 11 }} /></TableCell>
                     </TableRow>
