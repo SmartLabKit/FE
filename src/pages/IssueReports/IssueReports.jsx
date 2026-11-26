@@ -198,12 +198,7 @@ export default function IssueReports() {
                       </TableCell>
                       <TableCell>
                         {report.borrowRequestCode ? (
-                          <>
-                            <Box component="span" sx={{ whiteSpace: 'nowrap' }}>{report.borrowRequestCode}</Box>
-                            <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
-                              {[report.requesterFullName, report.requesterStudentCode].filter(Boolean).join(' · ')}
-                            </Typography>
-                          </>
+                          <Box component="span" sx={{ whiteSpace: 'nowrap' }}>{report.borrowRequestCode}</Box>
                         ) : 'Trong tủ'}
                       </TableCell>
                       <TableCell sx={{ whiteSpace: 'nowrap' }}>{report.roomCode || '—'}</TableCell>
