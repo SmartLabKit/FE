@@ -10,6 +10,7 @@ import { formatVietnamDate, formatVietnamDateTime } from '../../utils/dateFormat
 import { getBorrowRequestStatusMeta, getShownPurpose } from './borrowHelpers'
 import { labLabel } from '../../utils/labLabel'
 import ReturnRow from './ReturnRow'
+import HandoverPhotos from '../../components/borrowing/HandoverPhotos'
 import ReturnSlipDialog from './ReturnSlipDialog'
 import { COLORS, daysUntil, itemSubtitle, returnResult, shortDate, slipStatusText } from './returnSlipHelpers'
 
@@ -198,6 +199,8 @@ export default function BorrowRequestDetail() {
                   ))}
                 </>
               )}
+
+              <HandoverPhotos photos={request.photos} sx={{ mt: 3 }} />
 
               <Typography sx={{ mt: 3, fontSize: 13, color: COLORS.grey, lineHeight: 1.7 }}>
                 {request.requesterName} ({request.studentCode}) · {request.classCode}

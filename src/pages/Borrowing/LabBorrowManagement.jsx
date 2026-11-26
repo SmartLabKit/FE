@@ -48,6 +48,7 @@ import { getApprovalStatusMeta, getBorrowRequestStatusMeta, getShownPurpose } fr
 import { labCode, labLabel, labName } from '../../utils/labLabel'
 import LabReturnSlips from './LabReturnSlips'
 import PickupDateDialog from './PickupDateDialog'
+import HandoverPhotos from '../../components/borrowing/HandoverPhotos'
 
 const PAGE_SIZE = 20
 
@@ -838,6 +839,8 @@ export default function LabBorrowManagement() {
                     </TableBody>
                   </Table>
                 </TableContainer>
+
+                <HandoverPhotos photos={requestDetail.photos} />
 
                 {getShownPurpose(requestDetail.purpose) && (
                   <Box sx={{ p: 1.75, borderRadius: 1.5, bgcolor: '#f8fafc', border: '1px solid #e2e8f0' }}>
