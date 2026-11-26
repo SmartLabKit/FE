@@ -29,7 +29,7 @@ export default function CabinetDetail() {
   const canManageItems = isManager || hasPermission('COMPONENT_MANAGE')
   const ownLab = rooms.some((room) => room.isMine && room.roomId === cabinet?.roomId)
   const canMove = canManageItems || (ownLab && hasPermission('BORROW_ISSUE'))
-  const canAudit = isManager || (ownLab && hasPermission('INVENTORY_AUDIT'))
+  const canAudit = ownLab && hasRole('LabStaff')
   const canAdjust = isManager || hasPermission('INVENTORY_AUDIT_APPROVE')
   const canReport = ownLab && hasRole('LabStaff')
   const targetCabinets = cabinets.filter((item) => item.roomId === cabinet?.roomId)
