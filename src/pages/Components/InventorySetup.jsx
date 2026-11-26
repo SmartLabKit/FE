@@ -124,21 +124,37 @@ export default function InventorySetup() {
   const canManageStorage = hasRole('Admin') || hasRole('InventoryManager') || hasPermission('COMPONENT_MANAGE')
   const canEditInventory = canManageStorage
 
+  const canApproveAudits = hasPermission('INVENTORY_AUDIT_APPROVE')
+  const [pendingAudits, setPendingAudits] = useState(0)
+
+  useEffect(() => {
+    if (!canApproveAudits) return undefined
+    let active = true
+    inventoryService
+      .getInventoryAudits({ status: 'Submitted', page: 1, size: 1 })
+      .then((data) => { if (active) setPendingAudits(Number(data?.totalCount || 0)) })
+      .catch(() => { if (active) setPendingAudits(0) })
+    return () => { active = false }
+  }, [canApproveAudits, location.pathname])
+
+  let auditTabLabel = 'Kiểm kê'
+  if (pendingAudits > 0) auditTabLabel = `Kiểm kê (${pendingAudits} chờ duyệt)`
+
   // Xác định các Tabs hiển thị phù hợp với quyền người dùng
   const tabs = useMemo(() => {
     if (isLabStaff || !canManageStorage) {
       return [
         ['/class-setup/admin/cabinets', 'Tủ lưu trữ'],
-        ['/class-setup/admin/inventory-audits', 'Kiểm kê'],
+        ['/class-setup/admin/inventory-audits', auditTabLabel],
       ]
     }
     return [
       ['/class-setup/admin/categories', 'Danh mục'],
       ['/class-setup/admin/lab-rooms', 'Phòng lab'],
       ['/class-setup/admin/cabinets', 'Tủ lưu trữ'],
-      ['/class-setup/admin/inventory-audits', 'Kiểm kê'],
+      ['/class-setup/admin/inventory-audits', auditTabLabel],
     ]
-  }, [canManageStorage, isLabStaff])
+  }, [auditTabLabel, canManageStorage, isLabStaff])
 
   // Người không có quyền quản lý rời khỏi mục danh mục.
   useEffect(() => {

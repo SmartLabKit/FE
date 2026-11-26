@@ -144,14 +144,15 @@ function StartAuditDialog({ onClose, onStarted }) {
  */
 export default function InventoryAudits({ embedded = false }) {
   const navigate = useNavigate()
-  const [status, setStatus] = useState('')
+  const { hasRole, hasPermission } = useAuth()
+  const canCount = hasRole('LabStaff')
+  const canApprove = hasPermission('INVENTORY_AUDIT_APPROVE')
+  const [status, setStatus] = useState(canApprove ? 'Submitted' : '')
   const [page, setPage] = useState(1)
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [startOpen, setStartOpen] = useState(false)
-  const { hasRole } = useAuth()
-  const canCount = hasRole('LabStaff')
 
   useEffect(() => {
     let active = true
