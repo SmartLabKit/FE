@@ -163,11 +163,9 @@ export default function SupplementaryBorrowList() {
       if (projectSearch.trim()) {
         const q = projectSearch.toLowerCase().trim()
         const matchTitle = project.title?.toLowerCase().includes(q)
-        const matchCode = (project.pendingRequestCode || project.requestCode || '').toLowerCase().includes(q)
-        const matchOwner = project.ownerName?.toLowerCase().includes(q)
         const matchTeam = project.teamName?.toLowerCase().includes(q)
         const matchClass = project.classCode?.toLowerCase().includes(q)
-        if (!matchTitle && !matchCode && !matchOwner && !matchTeam && !matchClass) {
+        if (!matchTitle && !matchTeam && !matchClass) {
           return false
         }
       }
@@ -267,17 +265,9 @@ export default function SupplementaryBorrowList() {
             elevation={0}
             sx={{ p: 3, mb: 4, borderRadius: 2, border: '1px solid #e4e6ef', bgcolor: '#ffffff' }}
           >
-            {/* Tiêu đề & Tổng số */}
-            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2.5, gap: 1, flexWrap: 'wrap' }}>
-              <Typography variant="h6" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 18 }}>
-                Quản lý đơn duyệt đồ án & mượn linh kiện
-              </Typography>
-              <Chip
-                label={`${lecturerProjects.length} đề tài`}
-                size="small"
-                sx={{ bgcolor: '#eff6ff', color: '#0058be', fontWeight: 800, fontSize: 12 }}
-              />
-            </Box>
+            <Typography variant="h6" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 18, mb: 2.5 }}>
+              Quản lý đơn duyệt đồ án & mượn linh kiện
+            </Typography>
 
             {/* Thanh lọc trạng thái và ô tìm kiếm */}
             <Box
@@ -382,7 +372,7 @@ export default function SupplementaryBorrowList() {
               </Box>
 
               <TextField
-                placeholder="Tìm kiếm theo đề tài, nhóm, mã SV..."
+                placeholder="Tìm theo đề tài, nhóm, lớp..."
                 size="small"
                 value={projectSearch}
                 onChange={(e) => setProjectSearch(e.target.value)}
