@@ -221,7 +221,7 @@ export default function PortalLayout({
       label: 'Sổ kho',
       icon: <AuditLogIcon fontSize="small" />,
       path: '/class-setup/admin/inventory-ledger',
-      roles: ['InventoryManager', 'LabStaff'],
+      roles: ['InventoryManager'],
     },
 
     // 5. Phân hệ BÀN GIAO & TRẢ ĐỒ (LabStaff)
