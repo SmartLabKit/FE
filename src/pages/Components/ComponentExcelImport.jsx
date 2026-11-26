@@ -513,6 +513,12 @@ export default function ComponentExcelImport() {
                       />
                     )}
                   </Stack>
+                  {duplicateCount > 0 && duplicateCount === evaluatedRows.filter((row) => row.status !== 'success').length && (
+                    <Alert severity="info" sx={{ mt: 1.5 }}>
+                      Mọi linh kiện trong file đã có trong hệ thống, không cần nhập lại. Muốn có hàng để mượn thì vào{' '}
+                      <strong>Nhập kho</strong>.
+                    </Alert>
+                  )}
                 </Box>
                 <Stack direction="row" spacing={1}>
                   <Button
