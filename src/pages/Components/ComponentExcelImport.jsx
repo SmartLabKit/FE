@@ -10,6 +10,10 @@ import {
   Chip,
   LinearProgress,
   MenuItem,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
   Snackbar,
   Stack,
   Table,
@@ -99,6 +103,7 @@ export default function ComponentExcelImport() {
   const [progress, setProgress] = useState({ current: 0, total: 0 })
   const [importSummary, setImportSummary] = useState(null)
   const [summaryToastOpen, setSummaryToastOpen] = useState(false)
+  const [pendingFile, setPendingFile] = useState(null)
   const createdIds = rows.map((row) => row.componentId).filter(Boolean)
 
   const existingByName = useMemo(() => {
@@ -166,20 +171,36 @@ export default function ComponentExcelImport() {
     return errors
   }
 
+  // Đưa các dòng của file vào bảng: thay danh sách hiện tại, hoặc gộp thêm vào sau (đánh số dòng tiếp theo)
+  const applyFileRows = (name, enriched, merge) => {
+    let incoming = enriched
+    let base = []
+    if (merge) {
+      base = rows.filter((row) => row.status !== 'success')
+      const lastNumber = base.reduce((max, row) => Math.max(max, row.rowNumber || 0), 1)
+      incoming = enriched.map((row, idx) => ({ ...row, rowNumber: lastNumber + idx + 1 }))
+      setFileName((current) => (current ? `${current} + ${name}` : name))
+    } else {
+      setFileName(name)
+    }
+    const combined = [...base, ...incoming]
+    const duplicates = getDuplicateMessages(combined, existingByName)
+    const incomingKeys = new Set(incoming.map((row) => row.key))
+    setRows(combined.map((row) => (incomingKeys.has(row.key) && duplicates.has(row.key) ? { ...row, selected: false } : row)))
+    setImportSummary(null)
+  }
+
   const handleFileSelected = async (event) => {
     const file = event.target.files?.[0]
     event.target.value = ''
     if (!file) return
 
     setError('')
-    setImportSummary(null)
-    setFileName(file.name)
 
     try {
       const parsed = await parseComponentsExcel(file)
       if (parsed.length === 0) {
         setError('File Excel không có dòng dữ liệu linh kiện nào. Vui lòng dùng đúng file mẫu.')
-        setRows([])
         return
       }
       const enriched = parsed.map((item, idx) => {
@@ -194,11 +215,15 @@ export default function ComponentExcelImport() {
           statusMessage: '',
         }
       })
-      const duplicates = getDuplicateMessages(enriched, existingByName)
-      setRows(enriched.map((row) => (duplicates.has(row.key) ? { ...row, selected: false } : row)))
+      // Còn dòng chưa đẩy thì hỏi trước: thay bằng file mới hay gộp thêm
+      const unsent = rows.filter((row) => row.status !== 'success' && !existingByName.has(normalizeName(row.componentName)))
+      if (unsent.length > 0) {
+        setPendingFile({ name: file.name, rows: enriched })
+        return
+      }
+      applyFileRows(file.name, enriched, false)
     } catch (parseErr) {
       setError(`Không thể đọc file Excel: ${parseErr.message || 'Định dạng không hợp lệ.'}`)
-      setRows([])
     }
   }
 
@@ -777,6 +802,42 @@ export default function ComponentExcelImport() {
           </Card>
         )}
       </Box>
+      <Dialog open={Boolean(pendingFile)} onClose={() => setPendingFile(null)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800, fontSize: 17 }}>Thay danh sách hiện tại bằng file mới?</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ fontSize: 14, color: '#3d4556', lineHeight: 1.6 }}>
+            Bảng đang có <strong>{visibleRows.length} dòng chưa đẩy</strong>. File <strong>{pendingFile?.name}</strong> có{' '}
+            {pendingFile?.rows.length} dòng.
+          </Typography>
+          <Typography sx={{ fontSize: 13, color: '#64748b', mt: 1 }}>
+            Thay: bỏ các dòng chưa đẩy, chỉ giữ file mới. Gộp thêm: giữ cả hai rồi đẩy một lần.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 1.5 }}>
+          <Button onClick={() => setPendingFile(null)} sx={{ textTransform: 'none' }}>Hủy</Button>
+          <Button
+            color="warning"
+            onClick={() => {
+              applyFileRows(pendingFile.name, pendingFile.rows, false)
+              setPendingFile(null)
+            }}
+            sx={{ textTransform: 'none', fontWeight: 700 }}
+          >
+            Thay
+          </Button>
+          <Button
+            variant="contained"
+            onClick={() => {
+              applyFileRows(pendingFile.name, pendingFile.rows, true)
+              setPendingFile(null)
+            }}
+            sx={{ textTransform: 'none', fontWeight: 700, boxShadow: 'none' }}
+          >
+            Gộp thêm
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Snackbar
         open={summaryToastOpen && Boolean(importSummary)}
         autoHideDuration={6000}
