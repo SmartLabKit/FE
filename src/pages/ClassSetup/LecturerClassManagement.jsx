@@ -585,14 +585,13 @@ export default function LecturerClassManagement() {
             </Paper>
           ) : (
             <Stack spacing={2}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-                <Box>
-                  <Typography variant="h6" fontWeight={800}>{selectedClass?.classCode || 'Danh sách sinh viên'}</Typography>
-                  <Typography variant="body2" color="text.secondary">
-                    {selectedClass?.courseName || selectedClass?.courseCode || ''} · {filteredStudents.length} / {students.length} sinh viên
-                  </Typography>
-                </Box>
-                {classSubTab === 0 && (
+              {classSubTab === 0 && (
+                <Box sx={{ display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                  {studentSearch && (
+                    <Typography variant="body2" color="text.secondary">
+                      {filteredStudents.length} / {students.length} sinh viên
+                    </Typography>
+                  )}
                   <TextField
                     size="small"
                     placeholder="Tìm sinh viên hoặc nhóm"
@@ -600,8 +599,8 @@ export default function LecturerClassManagement() {
                     onChange={(event) => setStudentSearch(event.target.value)}
                     sx={{ width: { xs: '100%', sm: 280 } }}
                   />
-                )}
-              </Box>
+                </Box>
+              )}
 
               <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>
                 <Tabs

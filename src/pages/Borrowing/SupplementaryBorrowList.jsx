@@ -269,14 +269,9 @@ export default function SupplementaryBorrowList() {
           >
             {/* Tiêu đề & Tổng số */}
             <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2.5, gap: 1, flexWrap: 'wrap' }}>
-              <Box>
-                <Typography variant="h6" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 18 }}>
-                  Quản lý đơn duyệt đồ án & mượn linh kiện
-                </Typography>
-                <Typography variant="caption" sx={{ color: '#64748b', fontSize: 13 }}>
-                  Theo dõi tất cả đề tài đồ án của sinh viên, xem thông tin chi tiết và duyệt mượn linh kiện
-                </Typography>
-              </Box>
+              <Typography variant="h6" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 18 }}>
+                Quản lý đơn duyệt đồ án & mượn linh kiện
+              </Typography>
               <Chip
                 label={`${lecturerProjects.length} đề tài`}
                 size="small"
