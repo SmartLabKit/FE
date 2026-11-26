@@ -192,10 +192,9 @@ export default function IssueReports() {
                     <TableRow key={report.issueReportId} hover onClick={() => setSelectedId(report.issueReportId)} sx={{ cursor: 'pointer' }}>
                       <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDateTime(report.createdAt)}</TableCell>
                       <TableCell>
-                        <Typography variant="body2" sx={{ color: '#0058be', fontWeight: 600, whiteSpace: 'nowrap' }}>
-                          {report.itemCode || '—'}
+                        <Typography variant="body2" sx={{ color: '#0058be', fontWeight: 600 }}>
+                          {report.componentName || '—'}
                         </Typography>
-                        <Typography variant="caption" color="text.secondary">{report.componentName}</Typography>
                       </TableCell>
                       <TableCell>
                         {report.borrowRequestCode ? (
