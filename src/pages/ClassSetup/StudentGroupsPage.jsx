@@ -860,11 +860,11 @@ export default function StudentGroupsPage() {
               gap: 2,
             }}
           >
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: '0 1 auto', minWidth: { xs: '100%', md: 460 }, flexWrap: 'wrap' }}>
-              <SchoolIcon sx={{ color: '#0058be', fontSize: 28 }} />
+            <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1.5, flex: '1 1 520px', flexWrap: { xs: 'wrap', sm: 'nowrap' } }}>
+              <SchoolIcon sx={{ color: '#0058be', fontSize: 28, mb: 0.75, display: { xs: 'none', sm: 'block' } }} />
 
               {/* Học kỳ */}
-              <Box sx={{ minWidth: 180 }}>
+              <Box sx={{ width: { xs: '100%', sm: 180 }, flexShrink: 0 }}>
                 <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 10, mb: 0.5 }}>
                   Học kỳ:
                 </Typography>
@@ -894,7 +894,7 @@ export default function StudentGroupsPage() {
               </Box>
 
               {/* Môn học / Lớp */}
-              <Box sx={{ flex: '1 1 260px', minWidth: 230, maxWidth: { md: 360, lg: 400 } }}>
+              <Box sx={{ flex: '1 1 auto', minWidth: 0, maxWidth: { sm: 400 }, width: { xs: '100%', sm: 'auto' } }}>
                 <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 10, mb: 0.5 }}>
                   Môn học:
                 </Typography>
