@@ -2,7 +2,6 @@ import { useEffect, useState } from 'react'
 import { FactCheck as AuditIcon } from '@mui/icons-material'
 import {
   Alert,
-  Autocomplete,
   Box,
   Button,
   Chip,
@@ -28,7 +27,8 @@ import PortalLayout from '../../components/layout/PortalLayout'
 import { useAuth } from '../../context/AuthContext'
 import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
-import { AUDIT_STATUSES, auditStatusOf, cabinetLabel, formatDateTime, rowsOf } from './inventoryLabels'
+import { AUDIT_STATUSES, auditStatusOf, formatDateTime, rowsOf } from './inventoryLabels'
+import { labLabel } from '../../utils/labLabel'
 
 const PAGE_SIZE = 20
 const headCellSx = { fontWeight: 700, color: '#334155' }
@@ -36,22 +36,28 @@ const headCellSx = { fontWeight: 700, color: '#334155' }
 function StartAuditDialog({ onClose, onStarted }) {
   const { hasPermission } = useAuth()
   const everyLab = hasPermission('INVENTORY_AUDIT_APPROVE')
+  const [rooms, setRooms] = useState([])
   const [cabinets, setCabinets] = useState([])
   const [busyCabinets, setBusyCabinets] = useState({})
-  const [cabinet, setCabinet] = useState(null)
+  const [roomId, setRoomId] = useState('')
+  const [cabinetId, setCabinetId] = useState('')
   const [note, setNote] = useState('')
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
     let active = true
-    Promise.all([inventoryService.getCabinets(), everyLab ? [] : inventoryService.getLabRooms()])
-      .then(([items, rooms]) => {
+    Promise.all([inventoryService.getCabinets(), inventoryService.getLabRooms()])
+      .then(([items, labRooms]) => {
         if (!active) return
-        const myRoomIds = new Set(rooms.filter((room) => room.isMine).map((room) => room.roomId))
-        setCabinets(everyLab ? items : items.filter((item) => myRoomIds.has(item.roomId)))
+        let shownRooms = labRooms
+        if (!everyLab) shownRooms = labRooms.filter((room) => room.isMine)
+        const shownRoomIds = new Set(shownRooms.map((room) => room.roomId))
+        setRooms(shownRooms)
+        setCabinets(items.filter((item) => shownRoomIds.has(item.roomId)))
+        if (shownRooms.length === 1) setRoomId(shownRooms[0].roomId)
       })
-      .catch((loadError) => { if (active) setError(extractErrorMessage(loadError, 'Không thể tải danh sách tủ.')) })
+      .catch((loadError) => { if (active) setError(extractErrorMessage(loadError, 'Không thể tải danh sách lab và tủ.')) })
     Promise.all(
       ['InProgress', 'Submitted'].map((value) =>
         inventoryService.getInventoryAudits({ status: value, page: 1, size: 100 }).catch(() => null)
@@ -69,11 +75,13 @@ function StartAuditDialog({ onClose, onStarted }) {
     return () => { active = false }
   }, [everyLab])
 
+  const roomCabinets = cabinets.filter((item) => item.roomId === roomId)
+
   const start = async () => {
     setSaving(true)
     setError('')
     try {
-      const audit = await inventoryService.startInventoryAudit({ cabinetId: cabinet.cabinetId, note: note.trim() || null })
+      const audit = await inventoryService.startInventoryAudit({ cabinetId, note: note.trim() || null })
       onStarted(audit)
     } catch (startError) {
       setError(extractErrorMessage(startError, 'Không thể bắt đầu kiểm kê.'))
@@ -87,31 +95,45 @@ function StartAuditDialog({ onClose, onStarted }) {
       <DialogContent>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <Stack spacing={2} sx={{ pt: 1 }}>
-          <Autocomplete
-            options={cabinets}
-            value={cabinet}
-            onChange={(_, value) => setCabinet(value)}
-            getOptionLabel={cabinetLabel}
-            getOptionDisabled={(option) => Boolean(busyCabinets[option.cabinetId])}
-            renderOption={(props, option) => {
-              const { key, ...rest } = props
-              return (
-                <li key={key} {...rest}>
-                  {cabinetLabel(option)}
-                  {busyCabinets[option.cabinetId] ? ` — ${busyCabinets[option.cabinetId]}` : ''}
-                </li>
-              )
+          <TextField
+            select
+            label="Lab"
+            value={roomId}
+            onChange={(event) => {
+              setRoomId(event.target.value)
+              setCabinetId('')
             }}
-            isOptionEqualToValue={(option, value) => option.cabinetId === value.cabinetId}
-            renderInput={(params) => <TextField {...params} label="Tủ cần kiểm kê" required />}
-          />
+            required
+            fullWidth
+          >
+            {rooms.map((room) => (
+              <MenuItem key={room.roomId} value={room.roomId}>{labLabel(room)}</MenuItem>
+            ))}
+          </TextField>
+          <TextField
+            select
+            label="Tủ"
+            value={cabinetId}
+            onChange={(event) => setCabinetId(event.target.value)}
+            disabled={!roomId}
+            helperText={roomId ? '' : 'Chọn lab trước'}
+            required
+            fullWidth
+          >
+            {roomCabinets.map((item) => (
+              <MenuItem key={item.cabinetId} value={item.cabinetId} disabled={Boolean(busyCabinets[item.cabinetId])}>
+                {item.cabinetName || item.cabinetCode}
+                {busyCabinets[item.cabinetId] ? ` — ${busyCabinets[item.cabinetId]}` : ''}
+              </MenuItem>
+            ))}
+            {roomId && roomCabinets.length === 0 && <MenuItem disabled value="">Lab này chưa có tủ</MenuItem>}
+          </TextField>
           <TextField label="Ghi chú (không bắt buộc)" value={note} onChange={(event) => setNote(event.target.value)} fullWidth />
-          <Alert severity="info">Mỗi tủ chỉ có một phiên đang kiểm. Tồn kho chỉ thay đổi khi quản lý kho duyệt kết quả đếm.</Alert>
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
         <Button onClick={onClose} disabled={saving}>Đóng</Button>
-        <Button variant="contained" onClick={start} disabled={saving || !cabinet} sx={{ bgcolor: '#0058be' }}>
+        <Button variant="contained" onClick={start} disabled={saving || !cabinetId} sx={{ bgcolor: '#0058be' }}>
           {saving ? 'Đang tạo...' : 'Bắt đầu'}
         </Button>
       </DialogActions>
