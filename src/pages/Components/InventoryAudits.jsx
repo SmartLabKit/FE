@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { FactCheck as AuditIcon } from '@mui/icons-material'
 import {
   Alert,
@@ -29,6 +29,7 @@ import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
 import { AUDIT_STATUSES, auditStatusOf, formatDateTime, rowsOf } from './inventoryLabels'
 import { labLabel } from '../../utils/labLabel'
+import { useEntityChanged } from '../../hooks/useEntityChanged'
 
 const PAGE_SIZE = 20
 const headCellSx = { fontWeight: 700, color: '#334155' }
@@ -153,11 +154,20 @@ export default function InventoryAudits({ embedded = false }) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [startOpen, setStartOpen] = useState(false)
+  const [reloadKey, setReloadKey] = useState(0)
+  const quietReload = useRef(false)
+
+  const reloadQuietly = useCallback(() => {
+    quietReload.current = true
+    setReloadKey((key) => key + 1)
+  }, [])
+  useEntityChanged(reloadQuietly)
 
   useEffect(() => {
     let active = true
     const timer = window.setTimeout(async () => {
-      setLoading(true)
+      if (!quietReload.current) setLoading(true)
+      quietReload.current = false
       setError('')
       try {
         const data = await inventoryService.getInventoryAudits({ status: status || undefined, page, size: PAGE_SIZE })
@@ -172,7 +182,7 @@ export default function InventoryAudits({ embedded = false }) {
       active = false
       window.clearTimeout(timer)
     }
-  }, [status, page])
+  }, [status, page, reloadKey])
 
   const audits = rowsOf(result)
 

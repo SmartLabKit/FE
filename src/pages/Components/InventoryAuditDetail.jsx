@@ -42,6 +42,7 @@ import { extractErrorMessage } from '../../services/api'
 import { TRANSACTION_TYPES, auditStatusOf, formatDateTime, rowsOf } from './inventoryLabels'
 import { normalizeSearchText } from './componentHelpers'
 import { clearLeaveGuard, setLeaveGuard } from '../../utils/leaveGuard'
+import { useEntityChanged } from '../../hooks/useEntityChanged'
 
 const headCellSx = { fontWeight: 700, color: '#334155' }
 
@@ -151,6 +152,21 @@ export default function InventoryAuditDetail() {
       active = false
     }
   }, [auditId, applyAudit])
+
+  const currentStatus = useRef(null)
+  useEffect(() => {
+    currentStatus.current = audit?.status || null
+  }, [audit?.status])
+
+  const reloadWhenStatusChanges = useCallback(() => {
+    inventoryService
+      .getInventoryAudit(auditId)
+      .then((data) => {
+        if (data?.status !== currentStatus.current) applyAudit(data)
+      })
+      .catch(() => {})
+  }, [auditId, applyAudit])
+  useEntityChanged(reloadWhenStatusChanges)
 
   const canCount = Boolean(hasRole?.('LabStaff'))
   const inProgress = audit?.status === 'InProgress' && canCount
