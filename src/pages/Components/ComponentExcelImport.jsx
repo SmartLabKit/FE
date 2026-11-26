@@ -224,12 +224,19 @@ export default function ComponentExcelImport() {
     return rows.map((row) => {
       const errors = validateRow(row)
       if (duplicates.has(row.key)) errors.unshift(duplicates.get(row.key))
-      return { ...row, errors, isDuplicate: duplicates.has(row.key) }
+      const duplicateMessage = duplicates.get(row.key) || ''
+      return { ...row, errors, isDuplicate: duplicates.has(row.key), existsAlready: duplicateMessage.startsWith('Đã có') }
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, categories, existingByName])
 
   const duplicateCount = useMemo(() => evaluatedRows.filter((row) => row.isDuplicate).length, [evaluatedRows])
+  // Bảng chỉ giữ dòng còn cần xử lý: dòng đã tạo xong và dòng đã có sẵn trong hệ thống được ẩn đi
+  const visibleRows = useMemo(
+    () => evaluatedRows.filter((row) => row.status !== 'success' && !row.existsAlready),
+    [evaluatedRows]
+  )
+  const existingCount = evaluatedRows.filter((row) => row.existsAlready).length
 
   const selectedValidRows = useMemo(
     () => evaluatedRows.filter((row) => row.selected && row.errors.length === 0 && row.status !== 'success'),
@@ -490,35 +497,44 @@ export default function ComponentExcelImport() {
         </Card>
 
         {/* Bước 3: Bảng xem trước & chỉnh sửa trước khi đẩy lên hệ thống */}
-        {evaluatedRows.length > 0 && (
+        {evaluatedRows.length > 0 && visibleRows.length === 0 && !importSummary && (
+          <Alert severity="info" sx={{ mb: 2 }}>
+            Mọi linh kiện trong file đã có trong hệ thống, không cần nhập lại. Muốn có hàng để mượn thì vào{' '}
+            <strong>Nhập kho</strong>.
+          </Alert>
+        )}
+
+        {visibleRows.length > 0 && (
           <Card variant="outlined" sx={{ borderColor: '#d8dced', boxShadow: 'none' }}>
             <CardContent sx={{ p: 2.5 }}>
               <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 1.5 }}>
                 <Box>
                   <Typography sx={{ fontWeight: 800, color: '#182238', fontSize: 16 }}>
-                    Bước 3: Xem trước danh sách ({evaluatedRows.length} linh kiện)
+                    Bước 3: Xem trước danh sách ({visibleRows.length} linh kiện)
                   </Typography>
                   <Stack direction="row" spacing={1} sx={{ mt: 0.75 }} flexWrap="wrap">
                     <Chip size="small" color="success" variant="outlined" label={`Sẵn sàng đẩy: ${selectedValidRows.length}`} sx={{ fontWeight: 700 }} />
                     {invalidCount > 0 && (
                       <Chip size="small" color="error" variant="outlined" label={`Cần sửa lỗi: ${invalidCount}`} sx={{ fontWeight: 700 }} />
                     )}
-                    {duplicateCount > 0 && (
+                    {existingCount > 0 && (
+                      <Chip
+                        size="small"
+                        variant="outlined"
+                        label={`Đã có trong hệ thống, bỏ qua: ${existingCount}`}
+                        sx={{ fontWeight: 700 }}
+                      />
+                    )}
+                    {duplicateCount - existingCount > 0 && (
                       <Chip
                         size="small"
                         color="warning"
                         variant="outlined"
-                        label={`Trùng tên, đã bỏ chọn: ${duplicateCount}`}
+                        label={`Trùng tên trong file, đã bỏ chọn: ${duplicateCount - existingCount}`}
                         sx={{ fontWeight: 700 }}
                       />
                     )}
                   </Stack>
-                  {duplicateCount > 0 && duplicateCount === evaluatedRows.filter((row) => row.status !== 'success').length && (
-                    <Alert severity="info" sx={{ mt: 1.5 }}>
-                      Mọi linh kiện trong file đã có trong hệ thống, không cần nhập lại. Muốn có hàng để mượn thì vào{' '}
-                      <strong>Nhập kho</strong>.
-                    </Alert>
-                  )}
                 </Box>
                 <Stack direction="row" spacing={1}>
                   <Button
@@ -564,8 +580,11 @@ export default function ComponentExcelImport() {
                       <TableCell padding="checkbox">
                         <Checkbox
                           size="small"
-                          checked={rows.length > 0 && rows.every((r) => r.selected)}
-                          onChange={(e) => setRows((cur) => cur.map((r) => ({ ...r, selected: e.target.checked })))}
+                          checked={visibleRows.length > 0 && visibleRows.every((r) => r.selected)}
+                          onChange={(e) => {
+                            const shown = new Set(visibleRows.map((r) => r.key))
+                            setRows((cur) => cur.map((r) => (shown.has(r.key) ? { ...r, selected: e.target.checked } : r)))
+                          }}
                         />
                       </TableCell>
                       <TableCell sx={{ fontWeight: 700 }}>Dòng</TableCell>
@@ -581,7 +600,7 @@ export default function ComponentExcelImport() {
                     </TableRow>
                   </TableHead>
                   <TableBody>
-                    {evaluatedRows.map((row) => {
+                    {visibleRows.map((row) => {
                       const hasError = row.errors.length > 0
                       return (
                         <TableRow
