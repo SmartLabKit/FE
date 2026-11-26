@@ -60,7 +60,9 @@ import {
   removeMember,
   changeTeamLeader,
   respondInvitation,
+  respondLeaderTransfer,
 } from '../../services/teamFormationApi'
+import { useEntityChanged } from '../../hooks/useEntityChanged'
 
 // ─── Constants & Helpers ──────────────────────────────────────────────────────
 
@@ -596,6 +598,12 @@ export default function StudentGroupsPage() {
     [user, fetchCandidates, showToast]
   )
 
+  // Nhóm, lời mời hoặc đề nghị làm trưởng nhóm đổi ở nơi khác thì tự tải lại
+  const reloadQuietly = useCallback(() => {
+    if (selectedClassId) fetchPageData(selectedClassId, { silent: true })
+  }, [fetchPageData, selectedClassId])
+  useEntityChanged(reloadQuietly)
+
   // ── Initial load: danh sách lớp + lời mời đến tôi ─────────────────────────
   useEffect(() => {
     let ignore = false
@@ -805,6 +813,22 @@ export default function StudentGroupsPage() {
     setPendingConfirm({ type: currentMode, member })
   }
 
+  // Thành viên được đề nghị làm trưởng nhóm bấm Nhận / Từ chối
+  const handleRespondLeaderTransfer = async (decision) => {
+    if (!currentTeam?.teamId) return
+    setActionLoading(true)
+    try {
+      await respondLeaderTransfer(currentTeam.teamId, decision)
+      if (decision === 'Accepted') showToast('Bạn đã là trưởng nhóm.')
+      else showToast('Đã từ chối làm trưởng nhóm.', 'info')
+      await fetchPageData(selectedClassId, { silent: true })
+    } catch (err) {
+      showToast(err.message || 'Thao tác thất bại', 'error')
+    } finally {
+      setActionLoading(false)
+    }
+  }
+
   // 6. Thực thi hành động sau khi bấm Xác nhận trên khối xác nhận tại chỗ
   const handleExecuteInlineConfirm = async () => {
     if (!pendingConfirm || !currentTeam?.teamId) return
@@ -813,7 +837,7 @@ export default function StudentGroupsPage() {
     try {
       if (type === 'transfer' && member) {
         await changeTeamLeader(currentTeam.teamId, member.studentProfileId)
-        showToast(`Đã chuyển quyền trưởng nhóm cho ${member.fullName}.`)
+        showToast(`Đã gửi đề nghị, chờ ${member.fullName} xác nhận làm trưởng nhóm.`)
         setCandidates([])
       } else if (type === 'remove' && member) {
         await removeMember(currentTeam.teamId, member.studentProfileId)
@@ -1340,6 +1364,31 @@ export default function StudentGroupsPage() {
                       </Box>
                     )}
 
+                    {/* Đề nghị làm trưởng nhóm đang chờ người được chọn xác nhận */}
+                    {currentTeam.pendingLeaderId && currentTeam.pendingLeaderId === myMemberRecord?.studentProfileId && (
+                      <Alert
+                        severity="info"
+                        sx={{ mb: 2, alignItems: 'center' }}
+                        action={
+                          <Box sx={{ display: 'flex', gap: 1 }}>
+                            <Button size="small" color="inherit" disabled={actionLoading} onClick={() => handleRespondLeaderTransfer('Rejected')} sx={{ textTransform: 'none' }}>
+                              Từ chối
+                            </Button>
+                            <Button size="small" variant="contained" disabled={actionLoading} onClick={() => handleRespondLeaderTransfer('Accepted')} sx={{ textTransform: 'none', fontWeight: 700, boxShadow: 'none' }}>
+                              Nhận
+                            </Button>
+                          </Box>
+                        }
+                      >
+                        Bạn được đề nghị làm <strong>trưởng nhóm</strong> {currentTeam.teamName}.
+                      </Alert>
+                    )}
+                    {currentTeam.pendingLeaderId && isLeader && (
+                      <Alert severity="info" sx={{ mb: 2 }}>
+                        Đang chờ <strong>{currentTeam.pendingLeaderFullName}</strong> xác nhận làm trưởng nhóm.
+                      </Alert>
+                    )}
+
                     {/* Khối xác nhận hành động ngay tại chỗ (không mở modal) */}
                     {pendingConfirm && (
                       <Box
@@ -1360,9 +1409,9 @@ export default function StudentGroupsPage() {
                         <Typography variant="body2" sx={{ fontSize: 12.5, color: '#1e293b', lineHeight: 1.45 }}>
                           {pendingConfirm.type === 'transfer' ? (
                             <>
-                              Xác nhận chuyển quyền <strong>Trưởng nhóm</strong> cho{' '}
-                              <strong>{pendingConfirm.member?.fullName}</strong>
-                              {pendingConfirm.member?.studentCode ? ` (${pendingConfirm.member.studentCode})` : ''}?
+                              Đề nghị <strong>{pendingConfirm.member?.fullName}</strong>
+                              {pendingConfirm.member?.studentCode ? ` (${pendingConfirm.member.studentCode})` : ''} làm{' '}
+                              <strong>Trưởng nhóm</strong>? Bạn ấy xác nhận thì mới đổi.
                             </>
                           ) : pendingConfirm.type === 'remove' ? (
                             <>

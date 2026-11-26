@@ -447,6 +447,23 @@ export async function respondInvitation(
   }
 }
 
+/**
+ * Thành viên được đề nghị làm trưởng nhóm nhận hoặc từ chối
+ * POST /api/teams/{teamId}/leader/respond
+ * @param decision 'Accepted' (nhận làm trưởng nhóm) | 'Rejected'
+ */
+export async function respondLeaderTransfer(
+  teamId: string,
+  decision: 'Accepted' | 'Rejected'
+): Promise<any> {
+  try {
+    const response = await api.post<ApiResponse<any>>(`/api/teams/${teamId}/leader/respond`, { decision })
+    return unwrapResponse<any>(response)
+  } catch (error) {
+    throw new Error(extractErrorMessage(error, 'Không thể trả lời đề nghị làm trưởng nhóm'), { cause: error })
+  }
+}
+
 // Gom toàn bộ hàm vào một object teamFormationApi để hỗ trợ cả 2 cách import
 export const teamFormationApi = {
   // Giảng viên
@@ -466,6 +483,7 @@ export const teamFormationApi = {
   removeMember,
   getMyInvitations,
   respondInvitation,
+  respondLeaderTransfer,
 }
 
 export default teamFormationApi
