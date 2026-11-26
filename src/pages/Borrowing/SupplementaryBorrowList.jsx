@@ -7,6 +7,7 @@ import {
   CircularProgress,
   Container,
   InputAdornment,
+  MenuItem,
   Paper,
   Snackbar,
   Tab,
@@ -65,6 +66,7 @@ export default function SupplementaryBorrowList() {
   const [lecturerProjects, setLecturerProjects] = useState([])
   const [classRequests, setClassRequests] = useState([])
   const [lecturerTab, setLecturerTab] = useState('projects')
+  const [classFilter, setClassFilter] = useState('')
   const [loadingLecturerProjects, setLoadingLecturerProjects] = useState(false)
   const [lecturerProjectsError, setLecturerProjectsError] = useState('')
   const [projectStatusFilter, setProjectStatusFilter] = useState('all') // 'all' | 'Submitted' | 'Approved' | 'Rejected'
@@ -130,37 +132,53 @@ export default function SupplementaryBorrowList() {
   }, [loadData])
   useEntityChanged(refreshSilently)
 
-  // Thống kê số lượng project theo trạng thái cho Giảng viên (bao gồm cả đề tài đã Approved nhưng có đơn mượn thêm Pending)
-  // Số đơn quá hạn của các lớp giảng viên dạy, hiện trên tab Theo dõi mượn
-  const overdueClassRequests = useMemo(
-    () => classRequests.filter((request) => borrowProgressOf(request)?.key === 'overdue').length,
-    [classRequests]
+  // Lọc theo lớp, dùng chung cho tab Đề tài và tab Theo dõi mượn
+  const classOptions = useMemo(() => {
+    const codes = new Set()
+    lecturerProjects.forEach((project) => project.classCode && codes.add(project.classCode))
+    classRequests.forEach((request) => request.classCode && codes.add(request.classCode))
+    return [...codes].sort()
+  }, [lecturerProjects, classRequests])
+  const classProjects = useMemo(
+    () => lecturerProjects.filter((project) => !classFilter || project.classCode === classFilter),
+    [lecturerProjects, classFilter]
+  )
+  const classScopedRequests = useMemo(
+    () => classRequests.filter((request) => !classFilter || request.classCode === classFilter),
+    [classRequests, classFilter]
   )
 
+  // Số đơn quá hạn của các lớp giảng viên dạy, hiện trên tab Theo dõi mượn
+  const overdueClassRequests = useMemo(
+    () => classScopedRequests.filter((request) => borrowProgressOf(request)?.key === 'overdue').length,
+    [classScopedRequests]
+  )
+
+  // Thống kê số lượng project theo trạng thái cho Giảng viên (bao gồm cả đề tài đã Approved nhưng có đơn mượn thêm Pending)
   const pendingCount = useMemo(
     () =>
-      lecturerProjects.filter(
+      classProjects.filter(
         (p) =>
           ['Submitted', 'PendingApproval', 'PendingLecturer', 'Pending'].includes(p.status) ||
           Boolean(p.hasPendingApproval) ||
           Boolean(p.isSupplementary)
       ).length,
-    [lecturerProjects]
+    [classProjects]
   )
 
   const approvedCount = useMemo(
-    () => lecturerProjects.filter((p) => p.status === 'Approved').length,
-    [lecturerProjects]
+    () => classProjects.filter((p) => p.status === 'Approved').length,
+    [classProjects]
   )
 
   const rejectedCount = useMemo(
-    () => lecturerProjects.filter((p) => p.status === 'Rejected').length,
-    [lecturerProjects]
+    () => classProjects.filter((p) => p.status === 'Rejected').length,
+    [classProjects]
   )
 
   // Danh sách project đã lọc
   const filteredLecturerProjects = useMemo(() => {
-    return lecturerProjects.filter((project) => {
+    return classProjects.filter((project) => {
       // Lọc trạng thái
       if (projectStatusFilter === 'Submitted') {
         const isPendingItem =
@@ -187,7 +205,7 @@ export default function SupplementaryBorrowList() {
 
       return true
     })
-  }, [lecturerProjects, projectStatusFilter, projectSearch])
+  }, [classProjects, projectStatusFilter, projectSearch])
 
   // Thống kê đơn mượn của sinh viên theo nhóm trạng thái (đồng bộ với Mobile: Đang xử lý / Quá hạn / Lịch sử)
   const studentBorrowCounts = useMemo(() => {
@@ -280,16 +298,31 @@ export default function SupplementaryBorrowList() {
             elevation={0}
             sx={{ p: 3, mb: 4, borderRadius: 2, border: '1px solid #e4e6ef', bgcolor: '#ffffff' }}
           >
-            <Tabs
-              value={lecturerTab}
-              onChange={(_, value) => setLecturerTab(value)}
-              sx={{ mb: 2.5, borderBottom: '1px solid #eef0f6', '& .MuiTab-root': { textTransform: 'none', fontWeight: 700, fontSize: 14 } }}
-            >
-              <Tab value="projects" label="Đề tài" />
-              <Tab value="borrows" label={overdueClassRequests > 0 ? `Theo dõi mượn (${overdueClassRequests} quá hạn)` : 'Theo dõi mượn'} />
-            </Tabs>
+            <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1.5, mb: 2.5, borderBottom: '1px solid #eef0f6' }}>
+              <Tabs
+                value={lecturerTab}
+                onChange={(_, value) => setLecturerTab(value)}
+                sx={{ '& .MuiTab-root': { textTransform: 'none', fontWeight: 700, fontSize: 14 } }}
+              >
+                <Tab value="projects" label="Đề tài" />
+                <Tab value="borrows" label={overdueClassRequests > 0 ? `Theo dõi mượn (${overdueClassRequests} quá hạn)` : 'Theo dõi mượn'} />
+              </Tabs>
+              <TextField
+                select
+                size="small"
+                label="Lớp"
+                value={classFilter}
+                onChange={(event) => setClassFilter(event.target.value)}
+                sx={{ minWidth: 200, mb: 1 }}
+              >
+                <MenuItem value="">Tất cả lớp</MenuItem>
+                {classOptions.map((code) => (
+                  <MenuItem key={code} value={code}>{code}</MenuItem>
+                ))}
+              </TextField>
+            </Box>
 
-            {lecturerTab === 'borrows' && <LecturerBorrowTracking requests={classRequests} />}
+            {lecturerTab === 'borrows' && <LecturerBorrowTracking requests={classScopedRequests} />}
 
             {lecturerTab === 'projects' && (
             <>
@@ -326,7 +359,7 @@ export default function SupplementaryBorrowList() {
                     },
                   }}
                 >
-                  Tất cả ({lecturerProjects.length})
+                  Tất cả ({classProjects.length})
                 </Button>
                 <Button
                   size="small"
