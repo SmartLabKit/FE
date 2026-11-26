@@ -118,12 +118,19 @@ function StartAuditDialog({ onClose, onStarted }) {
             required
             fullWidth
           >
-            {roomCabinets.map((item) => (
-              <MenuItem key={item.cabinetId} value={item.cabinetId} disabled={Boolean(busyCabinets[item.cabinetId])}>
-                {item.cabinetName || item.cabinetCode}
-                {busyCabinets[item.cabinetId] ? ` — ${busyCabinets[item.cabinetId]}` : ''}
-              </MenuItem>
-            ))}
+            {roomCabinets.map((item) => {
+              // Tủ trống (không còn vật tư, không có thiết bị trong tủ) thì không có gì để kiểm
+              const empty = Number(item.unitCount ?? 1) === 0 && Number(item.consumableQuantity ?? 1) === 0
+              let note = ''
+              if (busyCabinets[item.cabinetId]) note = ` — ${busyCabinets[item.cabinetId]}`
+              else if (empty) note = ' — tủ trống'
+              return (
+                <MenuItem key={item.cabinetId} value={item.cabinetId} disabled={Boolean(busyCabinets[item.cabinetId]) || empty}>
+                  {item.cabinetName || item.cabinetCode}
+                  {note}
+                </MenuItem>
+              )
+            })}
             {roomId && roomCabinets.length === 0 && <MenuItem disabled value="">Lab này chưa có tủ</MenuItem>}
           </TextField>
           <TextField label="Ghi chú (không bắt buộc)" value={note} onChange={(event) => setNote(event.target.value)} fullWidth />

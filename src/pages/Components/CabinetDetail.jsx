@@ -30,6 +30,10 @@ export default function CabinetDetail() {
   const ownLab = rooms.some((room) => room.isMine && room.roomId === cabinet?.roomId)
   const canMove = canManageItems || (ownLab && hasPermission('BORROW_ISSUE'))
   const canAudit = ownLab && hasRole('LabStaff')
+  // Tủ trống thì không có gì để kiểm
+  const cabinetEmpty = Number(cabinet?.unitCount ?? 1) === 0 && Number(cabinet?.consumableQuantity ?? 1) === 0
+  let auditLabel = 'Kiểm kê tủ này'
+  if (cabinetEmpty) auditLabel = 'Tủ trống'
   const canAdjust = isManager || hasPermission('INVENTORY_AUDIT_APPROVE')
   const canReport = ownLab && hasRole('LabStaff')
   const showsItems = cabinet?.trackingType !== 'CONSUMABLE'
@@ -94,10 +98,11 @@ export default function CabinetDetail() {
                     size="small"
                     startIcon={<AuditIcon />}
                     onClick={startAudit}
-                    disabled={startingAudit}
+                    disabled={startingAudit || cabinetEmpty}
+                    title={cabinetEmpty ? 'Tủ đang trống, không có gì để kiểm kê' : undefined}
                     sx={{ textTransform: 'none', fontWeight: 700 }}
                   >
-                    {startingAudit ? 'Đang mở...' : 'Kiểm kê tủ này'}
+                    {startingAudit ? 'Đang mở...' : auditLabel}
                   </Button>
                 )}
               </Box>
