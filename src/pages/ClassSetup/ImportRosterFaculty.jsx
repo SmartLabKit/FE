@@ -1037,7 +1037,7 @@ export default function ImportRosterFaculty() {
                           <TableCell>HỌ VÀ TÊN</TableCell>
                           <TableCell>EMAIL</TableCell>
                           <TableCell sx={{ width: 140 }}>TÀI KHOẢN</TableCell>
-                          {canManageRoster && <TableCell sx={{ width: 110 }}>HỌC TẬP</TableCell>}
+                          {canManageRoster && <TableCell sx={{ width: 120 }} />}
                         </TableRow>
                       </TableHead>
                       <TableBody>
@@ -1121,7 +1121,6 @@ export default function ImportRosterFaculty() {
                                         </>
                                       ) : (
                                         <>
-                                          <Chip size="small" label="Đang học" sx={{ height: 22, fontSize: 11, fontWeight: 700, bgcolor: '#eff6ff', color: '#1d4ed8' }} />
                                           <Tooltip title="Thôi học hoặc xóa khỏi lớp">
                                             <span>
                                               <IconButton
