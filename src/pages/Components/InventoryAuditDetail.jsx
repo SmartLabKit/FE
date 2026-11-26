@@ -41,6 +41,7 @@ import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
 import { TRANSACTION_TYPES, auditStatusOf, formatDateTime, rowsOf } from './inventoryLabels'
 import { normalizeSearchText } from './componentHelpers'
+import { clearLeaveGuard, setLeaveGuard } from '../../utils/leaveGuard'
 
 const headCellSx = { fontWeight: 700, color: '#334155' }
 
@@ -93,6 +94,7 @@ export default function InventoryAuditDetail() {
   const [draftSavedAt, setDraftSavedAt] = useState(null)
   const [dirty, setDirty] = useState(false)
   const [savingDraft, setSavingDraft] = useState(false)
+  const [leaveTarget, setLeaveTarget] = useState(null)
   const [confirm, setConfirm] = useState(null)
   const [saving, setSaving] = useState(false)
   const [review, setReview] = useState(null)
@@ -384,11 +386,51 @@ export default function InventoryAuditDetail() {
       setDraftSavedAt(saved?.savedAt || new Date().toISOString())
       setDirty(false)
       setScanMessage('Đã lưu tạm.')
+      return true
     } catch (saveError) {
       setError(extractErrorMessage(saveError, 'Không thể lưu tạm.'))
+      return false
     } finally {
       setSavingDraft(false)
     }
+  }
+
+  const hasUnsaved = dirty && inProgress
+
+  useEffect(() => {
+    if (!hasUnsaved) return undefined
+    const guard = (path) => {
+      setLeaveTarget(path)
+      return true
+    }
+    setLeaveGuard(guard)
+    return () => clearLeaveGuard(guard)
+  }, [hasUnsaved])
+
+  const leaveTo = (path) => {
+    if (hasUnsaved) {
+      setLeaveTarget(path)
+      return
+    }
+    navigate(path)
+  }
+
+  const leaveWithoutSaving = () => {
+    const path = leaveTarget
+    setLeaveTarget(null)
+    setDirty(false)
+    navigate(path)
+  }
+
+  const saveAndLeave = async () => {
+    const path = leaveTarget
+    const ok = await saveDraft()
+    if (!ok) {
+      setLeaveTarget(null)
+      return
+    }
+    setLeaveTarget(null)
+    navigate(path)
   }
 
   const complete = async () => {
@@ -459,7 +501,7 @@ export default function InventoryAuditDetail() {
       <Box sx={{ maxWidth: 1100, mx: 'auto' }}>
         <Button
           startIcon={<BackIcon />}
-          onClick={() => navigate('/class-setup/admin/inventory-audits')}
+          onClick={() => leaveTo('/class-setup/admin/inventory-audits')}
           sx={{ mb: 2, textTransform: 'none', fontWeight: 600 }}
         >
           Danh sách kiểm kê
@@ -920,6 +962,20 @@ export default function InventoryAuditDetail() {
           </>
         )}
       </Box>
+
+      <Dialog open={Boolean(leaveTarget)} onClose={() => !savingDraft && setLeaveTarget(null)} fullWidth maxWidth="xs">
+        <DialogTitle sx={{ fontWeight: 800 }}>Bạn chưa lưu tạm</DialogTitle>
+        <DialogContent>
+          <Typography variant="body2">Thoát bây giờ sẽ mất những gì vừa đếm từ lần lưu trước.</Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, pb: 2, flexWrap: 'wrap', gap: 1 }}>
+          <Button onClick={() => setLeaveTarget(null)} disabled={savingDraft}>Ở lại</Button>
+          <Button color="error" onClick={leaveWithoutSaving} disabled={savingDraft}>Thoát không lưu</Button>
+          <Button variant="contained" onClick={saveAndLeave} disabled={savingDraft} sx={{ bgcolor: '#0058be' }}>
+            {savingDraft ? 'Đang lưu...' : 'Lưu tạm rồi thoát'}
+          </Button>
+        </DialogActions>
+      </Dialog>
 
       <Dialog open={Boolean(confirm)} onClose={() => !saving && setConfirm(null)} fullWidth maxWidth="xs">
         <DialogTitle sx={{ fontWeight: 800 }}>

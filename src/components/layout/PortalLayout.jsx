@@ -42,6 +42,7 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth, DEMO_ACCOUNTS } from '../../context/AuthContext'
 import NotificationMenu from './NotificationMenu'
+import { shouldBlockLeave } from '../../utils/leaveGuard'
 
 /**
  * PortalLayout: Khung giao diện dùng chung cho hệ thống SmartLabKit
@@ -426,6 +427,10 @@ export default function PortalLayout({
               <ListItemButton
                 onClick={() => {
                   if (item.path !== '#') {
+                    if (shouldBlockLeave(item.path)) {
+                      setMobileOpen(false)
+                      return
+                    }
                     navigate(item.path)
                     setMobileOpen(false)
                   }
