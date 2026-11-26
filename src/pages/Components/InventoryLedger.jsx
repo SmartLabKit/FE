@@ -15,7 +15,6 @@ import {
   TablePagination,
   TableRow,
   TextField,
-  Typography,
 } from '@mui/material'
 import PortalLayout from '../../components/layout/PortalLayout'
 import { useAuth } from '../../context/AuthContext'
@@ -170,10 +169,7 @@ export default function InventoryLedger() {
                   <TableRow key={row.transactionId} hover>
                     <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDateTime(row.createdAt)}</TableCell>
                     <TableCell>{TRANSACTION_TYPES[row.type] || row.type}</TableCell>
-                    <TableCell>
-                      <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{row.componentName}</Typography>
-                      <Typography sx={{ fontSize: 11.5, color: '#64748b' }}>{row.componentCode}</Typography>
-                    </TableCell>
+                    <TableCell sx={{ fontSize: 13, fontWeight: 600 }}>{row.componentName}</TableCell>
                     <TableCell sx={{ whiteSpace: 'nowrap' }}>{row.cabinetCode || '—'}</TableCell>
                     <TableCell sx={{ fontWeight: 700, color: row.quantityChange < 0 ? '#c62828' : row.quantityChange > 0 ? '#2e7d32' : '#64748b' }}>
                       {row.quantityChange > 0 ? `+${row.quantityChange}` : row.quantityChange}
