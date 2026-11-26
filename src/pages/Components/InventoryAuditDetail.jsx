@@ -1073,6 +1073,14 @@ export default function InventoryAuditDetail() {
               <Typography variant="body2" sx={{ color: missingIds.length > 0 ? '#b45309' : undefined }}>
                 • <strong>{missingIds.length}</strong> thiết bị báo <strong>thiếu</strong> (kể cả loại chưa đếm), chuyển sang Thất lạc khi được duyệt.
               </Typography>
+              <Typography variant="body2" sx={{ color: extras.length > 0 ? '#1d4ed8' : undefined }}>
+                • <strong>{extras.length}</strong> thiết bị <strong>thừa</strong>, quản lý kho xử lý từng con (không tự cộng vào tồn kho).
+              </Typography>
+              {extras.length > 0 && (
+                <Typography variant="body2" sx={{ color: '#64748b', pl: 1.5 }}>
+                  {extras.map((extra) => extra.itemCode || 'Không có nhãn').join(', ')}
+                </Typography>
+              )}
               <Typography variant="body2" color="text.secondary">
                 Tồn kho chỉ thay đổi sau khi quản lý kho duyệt.
               </Typography>
