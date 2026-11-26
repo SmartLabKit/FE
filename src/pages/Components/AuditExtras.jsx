@@ -184,6 +184,24 @@ export function AuditExtrasReview({ audit, canResolve, onResolved, onError }) {
     return run(extra, request, `Đã khôi phục ${extra.itemCode}.`)
   }
 
+  // Phiếu nhập điền sẵn: lab của tủ đã kiểm, đúng linh kiện, 1 cái, hàng cho tặng, ghi chú nguồn gốc
+  const openReceipt = (extra) => {
+    let origin = 'không có nhãn'
+    if (extra.itemCode) origin = `nhãn ${extra.itemCode} không có trong hệ thống`
+    const parts = [`Phát hiện khi kiểm kê tủ ${audit.cabinetCode} (${audit.roomCode}), ${origin}`]
+    if (extra.note) parts.push(extra.note)
+    navigate('/class-setup/admin/stock-inwards', {
+      state: {
+        fromAudit: {
+          roomId: audit.roomId,
+          cabinetId: audit.cabinetId,
+          componentId: extra.componentId || '',
+          note: parts.join('. '),
+        },
+      },
+    })
+  }
+
   const actionOf = (extra) => {
     const busy = busyId === extra.extraId
     const button = (label, onClick) => (
@@ -200,7 +218,7 @@ export function AuditExtrasReview({ audit, canResolve, onResolved, onError }) {
       return button('Mở đơn mượn', () => navigate(`/borrow/requests/${extra.borrowRequestId}`))
     }
     if (extra.resolution === 'Unknown' || extra.resolution === 'NoLabel') {
-      return button('Lập phiếu nhập kho', () => navigate('/class-setup/admin/stock-inwards'))
+      return button('Lập phiếu nhập kho', () => openReceipt(extra))
     }
     return null
   }

@@ -32,7 +32,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import PortalLayout from '../../components/layout/PortalLayout'
 import ConfirmDialog from '../../components/common/ConfirmDialog'
 import { inventoryService } from '../../services/inventoryService'
@@ -114,6 +114,9 @@ const blockNonIntegerKey = (event) => {
 
 export default function StockInwards() {
   const navigate = useNavigate()
+  const location = useLocation()
+  // Mở từ kiểm kê: thiết bị tìm thấy trong tủ mà chưa từng nhập kho, điền sẵn phiếu nhập cho đúng con đó
+  const fromAudit = location.state?.fromAudit || null
   const [searchParams] = useSearchParams()
   const editId = searchParams.get('edit')
   const [components, setComponents] = useState([])
@@ -284,6 +287,24 @@ export default function StockInwards() {
               }
             })
           )
+        } else if (fromAudit) {
+          // Hàng tìm thấy khi kiểm kê: không có nhà cung cấp, hóa đơn; nhập như hàng cho tặng (0₫) vào lab của tủ đã kiểm
+          const component = componentList.find((item) => item.componentId === fromAudit.componentId)
+          const cabinet = cabinetList.find((item) => item.cabinetId === fromAudit.cabinetId)
+          const cabinetFits = cabinet && component && (!cabinet.trackingType || cabinet.trackingType === component.trackingType)
+          setRoomId(fromAudit.roomId || '')
+          setSupplier('Phát hiện khi kiểm kê')
+          setNote(fromAudit.note || '')
+          setLines([
+            {
+              ...newLine(),
+              componentId: fromAudit.componentId || '',
+              quantity: '1',
+              unitPrice: '0',
+              isGift: true,
+              cabinetId: cabinetFits ? cabinet.cabinetId : '',
+            },
+          ])
         }
       } catch (loadError) {
         if (active) setError(extractErrorMessage(loadError, 'Không thể tải dữ liệu nhập kho.'))
@@ -295,7 +316,7 @@ export default function StockInwards() {
     return () => {
       active = false
     }
-  }, [editId])
+  }, [editId, fromAudit])
 
   const chooseInvoice = (event) => {
     const file = event.target.files?.[0]
@@ -745,6 +766,12 @@ export default function StockInwards() {
               </Alert>
             )}
 
+            {fromAudit && (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                Phiếu nhập cho thiết bị tìm thấy khi kiểm kê: không cần hóa đơn, đã ghi là hàng cho tặng (0₫). Kiểm tra lại linh kiện
+                và tủ rồi lưu. Sau khi nhập, dán nhãn mã mới lên thiết bị.
+              </Alert>
+            )}
             {error && (
               <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>
                 {error}
