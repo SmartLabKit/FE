@@ -42,11 +42,14 @@ import {
   ExpandMore as ExpandMoreIcon,
   Download as DownloadIcon,
   ForwardToInbox as MailIcon,
+  PersonOff as DropIcon,
+  Undo as UndoIcon,
 } from '@mui/icons-material'
 import { academicService } from '../../services/academicService'
 import { userService } from '../../services/userService'
 import AccountStatusChip from '../../components/common/AccountStatusChip'
 import { useEntityChanged } from '../../hooks/useEntityChanged'
+import { useAuth } from '../../context/AuthContext'
 
 /**
  * ImportRosterFaculty Component (Actor: ADMIN / LAB STAFF)
@@ -271,6 +274,32 @@ export default function ImportRosterFaculty() {
 
   // Trạng thái mới nhất của tài khoản trong kết quả import, lấy theo danh sách lớp
   const studentOf = (row) => students.find((student) => student.userId === row.userId) || row
+
+  const { hasPermission } = useAuth()
+  const canManageRoster = hasPermission('ACADEMIC_MANAGE')
+  const [dropTarget, setDropTarget] = useState(null)
+  const [rosterBusy, setRosterBusy] = useState('')
+
+  const changeEnrollment = async (student, action) => {
+    setRosterBusy(student.studentProfileId)
+    try {
+      if (action === 'remove') {
+        await academicService.removeClassStudent(selectedClassId, student.studentProfileId)
+        setToast({ open: true, message: `Đã xóa ${student.fullName} khỏi lớp.`, severity: 'success' })
+      } else {
+        await academicService.updateClassStudentStatus(selectedClassId, student.studentProfileId, action)
+        let message = `${student.fullName} đã được cho học lại.`
+        if (action === 'Dropped') message = `${student.fullName} đã chuyển sang thôi học.`
+        setToast({ open: true, message, severity: 'success' })
+      }
+      setDropTarget(null)
+      reloadStudents()
+    } catch (err) {
+      setToast({ open: true, message: err.message, severity: 'error' })
+    } finally {
+      setRosterBusy('')
+    }
+  }
 
   const handleResend = async (userId) => {
     setResendingId(userId)
@@ -1008,12 +1037,13 @@ export default function ImportRosterFaculty() {
                           <TableCell>HỌ VÀ TÊN</TableCell>
                           <TableCell>EMAIL</TableCell>
                           <TableCell sx={{ width: 140 }}>TÀI KHOẢN</TableCell>
+                          {canManageRoster && <TableCell sx={{ width: 110 }}>HỌC TẬP</TableCell>}
                         </TableRow>
                       </TableHead>
                       <TableBody>
                         {filteredStudents.length === 0 ? (
                           <TableRow>
-                            <TableCell colSpan={5} align="center" sx={{ py: 3, color: '#9ca3af', fontSize: 12 }}>
+                            <TableCell colSpan={canManageRoster ? 6 : 5} align="center" sx={{ py: 3, color: '#9ca3af', fontSize: 12 }}>
                               Không tìm thấy sinh viên nào khớp với từ khóa &quot;{studentSearch}&quot;
                             </TableCell>
                           </TableRow>
@@ -1069,6 +1099,48 @@ export default function ImportRosterFaculty() {
                                     )}
                                   </Box>
                                 </TableCell>
+                                {canManageRoster && (
+                                  <TableCell>
+                                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, whiteSpace: 'nowrap' }}>
+                                      {s.status === 'Dropped' ? (
+                                        <>
+                                          <Chip size="small" label="Đã thôi học" sx={{ height: 22, fontSize: 11, fontWeight: 700, bgcolor: '#f1f5f9', color: '#64748b' }} />
+                                          <Tooltip title="Cho học lại">
+                                            <span>
+                                              <IconButton
+                                                size="small"
+                                                aria-label="Cho học lại"
+                                                disabled={rosterBusy === s.studentProfileId}
+                                                onClick={() => changeEnrollment(s, 'Studying')}
+                                                sx={{ p: 0.25 }}
+                                              >
+                                                <UndoIcon sx={{ fontSize: 18 }} />
+                                              </IconButton>
+                                            </span>
+                                          </Tooltip>
+                                        </>
+                                      ) : (
+                                        <>
+                                          <Chip size="small" label="Đang học" sx={{ height: 22, fontSize: 11, fontWeight: 700, bgcolor: '#eff6ff', color: '#1d4ed8' }} />
+                                          <Tooltip title="Thôi học hoặc xóa khỏi lớp">
+                                            <span>
+                                              <IconButton
+                                                size="small"
+                                                color="error"
+                                                aria-label="Thôi học hoặc xóa khỏi lớp"
+                                                disabled={rosterBusy === s.studentProfileId}
+                                                onClick={() => setDropTarget(s)}
+                                                sx={{ p: 0.25 }}
+                                              >
+                                                <DropIcon sx={{ fontSize: 18 }} />
+                                              </IconButton>
+                                            </span>
+                                          </Tooltip>
+                                        </>
+                                      )}
+                                    </Box>
+                                  </TableCell>
+                                )}
                               </TableRow>
                             )
                           })
@@ -1368,6 +1440,41 @@ export default function ImportRosterFaculty() {
       </Dialog>
 
       {/* Snackbar Notification */}
+      <Dialog open={Boolean(dropTarget)} onClose={() => setDropTarget(null)} maxWidth="xs" fullWidth>
+        <DialogTitle sx={{ fontWeight: 800, fontSize: 17 }}>{dropTarget?.fullName} không học lớp này nữa?</DialogTitle>
+        <DialogContent>
+          <Typography sx={{ fontSize: 14, color: '#3d4556', lineHeight: 1.6 }}>
+            <strong>Thôi học</strong>: giữ tên trong danh sách nhưng không được xếp nhóm và không bị tính vào lớp. Có thể cho học lại.
+          </Typography>
+          <Typography sx={{ fontSize: 14, color: '#3d4556', lineHeight: 1.6, mt: 1 }}>
+            <strong>Xóa khỏi lớp</strong>: dùng khi nhập nhầm, chỉ được khi sinh viên chưa có dữ liệu nhóm.
+          </Typography>
+          <Typography sx={{ fontSize: 13, color: '#64748b', mt: 1 }}>
+            Sinh viên đang ở trong nhóm thì cần rời nhóm trước.
+          </Typography>
+        </DialogContent>
+        <DialogActions sx={{ px: 3, py: 1.5 }}>
+          <Button onClick={() => setDropTarget(null)} sx={{ textTransform: 'none' }}>Hủy</Button>
+          <Button
+            color="error"
+            disabled={Boolean(rosterBusy)}
+            onClick={() => changeEnrollment(dropTarget, 'remove')}
+            sx={{ textTransform: 'none', fontWeight: 700 }}
+          >
+            Xóa khỏi lớp
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            disabled={Boolean(rosterBusy)}
+            onClick={() => changeEnrollment(dropTarget, 'Dropped')}
+            sx={{ textTransform: 'none', fontWeight: 700 }}
+          >
+            Thôi học
+          </Button>
+        </DialogActions>
+      </Dialog>
+
       <Snackbar
         open={toast.open}
         autoHideDuration={4000}

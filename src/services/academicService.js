@@ -317,6 +317,33 @@ export const academicService = {
   },
 
   /**
+   * Đổi trạng thái sinh viên trong lớp: Studying (đang học) hoặc Dropped (thôi học)
+   * PUT /api/classes/{classId}/students/{studentProfileId}/status
+   * Quyền: ACADEMIC_MANAGE (Admin). 409 khi sinh viên còn ở trong nhóm.
+   */
+  async updateClassStudentStatus(classId, studentProfileId, status) {
+    try {
+      const response = await api.put(`/api/classes/${classId}/students/${studentProfileId}/status`, { status })
+      return response.data?.data || response.data
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Không thể đổi trạng thái sinh viên'), { cause: error })
+    }
+  },
+
+  /**
+   * Xóa sinh viên khỏi lớp (nhập nhầm). 409 khi sinh viên đã có dữ liệu nhóm, khi đó chuyển sang thôi học.
+   * DELETE /api/classes/{classId}/students/{studentProfileId}
+   * Quyền: ACADEMIC_MANAGE (Admin)
+   */
+  async removeClassStudent(classId, studentProfileId) {
+    try {
+      await api.delete(`/api/classes/${classId}/students/${studentProfileId}`)
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Không thể xóa sinh viên khỏi lớp'), { cause: error })
+    }
+  },
+
+  /**
    * Phân công giảng viên vào lớp
    * POST /api/classes/assign-instructor
    * Quyền: ACADEMIC_MANAGE (Admin)
