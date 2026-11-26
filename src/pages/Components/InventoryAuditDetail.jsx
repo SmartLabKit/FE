@@ -986,7 +986,7 @@ export default function InventoryAuditDetail() {
                     <Table size="small">
                       <TableHead>
                         <TableRow sx={{ bgcolor: '#faf9ff' }}>
-                          {['Loại', 'Linh kiện', 'Serial', 'Thay đổi', 'Lý do'].map((head) => (
+                          {['Loại', 'Linh kiện', 'Mã thiết bị', 'Thay đổi', 'Lý do'].map((head) => (
                             <TableCell key={head} sx={headCellSx}>{head}</TableCell>
                           ))}
                         </TableRow>
@@ -996,7 +996,10 @@ export default function InventoryAuditDetail() {
                           <TableRow key={line.transactionId}>
                             <TableCell>{line.type === 'Retire' ? 'Thất lạc' : TRANSACTION_TYPES[line.type] || line.type}</TableCell>
                             <TableCell>{line.componentName}</TableCell>
-                            <TableCell>{line.serialNumber || '—'}</TableCell>
+                            <TableCell>
+                              {line.itemCode || '—'}
+                              {line.serialNumber ? ` · S/N ${line.serialNumber}` : ''}
+                            </TableCell>
                             <TableCell sx={{ fontWeight: 700, color: diffColor(line.quantityChange) }}>
                               {formatDiff(line.quantityChange)}
                             </TableCell>
