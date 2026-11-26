@@ -40,7 +40,6 @@ import {
   RadioButtonUnchecked as SelectCircleIcon,
   RocketLaunch as ProjectIcon,
   Schedule as ScheduleIcon,
-  School as SchoolIcon,
   Search as SearchIcon,
   Star as StarIcon,
   SwapHoriz as TransferIcon,
@@ -861,8 +860,6 @@ export default function StudentGroupsPage() {
             }}
           >
             <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1.5, flex: '1 1 520px', flexWrap: { xs: 'wrap', sm: 'nowrap' } }}>
-              <SchoolIcon sx={{ color: '#0058be', fontSize: 28, mb: 0.75, display: { xs: 'none', sm: 'block' } }} />
-
               {/* Học kỳ */}
               <Box sx={{ width: { xs: '100%', sm: 180 }, flexShrink: 0 }}>
                 <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 10, mb: 0.5 }}>
