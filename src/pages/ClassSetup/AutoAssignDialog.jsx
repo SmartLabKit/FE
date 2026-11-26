@@ -22,10 +22,10 @@ const KEEP = 'keep'
 const newKey = (index) => `new:${index}`
 
 /**
- * Xem trước chia nhóm tự động: bạn lẻ được xếp vào đâu, nhóm thiếu người gộp vào nhóm nào, nhóm mới nào được tạo.
- * Giảng viên sửa được mọi chỗ, bấm Xác nhận mới lưu.
+ * Xem trước chia nhóm tự động, chỉ mở khi có gộp nhóm, vượt tối đa hoặc cảnh báo (trường hợp thường thì xếp luôn):
+ * bạn lẻ được xếp vào đâu, nhóm thiếu người gộp vào nhóm nào, nhóm mới nào được tạo. Giảng viên sửa được mọi chỗ, bấm Xác nhận mới lưu.
  */
-export default function AutoAssignDialog({ classId, teams, minTeamSize, maxTeamSize, onClose, onDone }) {
+export default function AutoAssignDialog({ classId, initialPreview, teams, minTeamSize, maxTeamSize, onClose, onDone }) {
   const [preview, setPreview] = useState(null)
   const [students, setStudents] = useState([])
   const [newTeams, setNewTeams] = useState([])
@@ -37,7 +37,8 @@ export default function AutoAssignDialog({ classId, teams, minTeamSize, maxTeamS
 
   useEffect(() => {
     let active = true
-    getAutoAssignPreview(classId)
+    const load = initialPreview ? Promise.resolve(initialPreview) : getAutoAssignPreview(classId)
+    load
       .then((data) => {
         if (!active) return
         setPreview(data)
@@ -54,7 +55,7 @@ export default function AutoAssignDialog({ classId, teams, minTeamSize, maxTeamS
     return () => {
       active = false
     }
-  }, [classId])
+  }, [classId, initialPreview])
 
   // Nhóm đã có đề tài được duyệt giữ nguyên thành viên khi chia tự động
   const openTeams = teams.filter((team) => !team.projectApproved)

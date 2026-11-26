@@ -34,6 +34,7 @@ import {
   updateTeamSettings,
   closeTeamFormation,
   assignTeams,
+  getAutoAssignPreview,
   moveMember,
   removeTeamMember,
 } from '../../services/teamFormationApi'
@@ -108,6 +109,9 @@ export default function TeamFormationTab({
 
   // Modal placeholders sẵn sàng cho Task 3
   const [autoAssignOpen, setAutoAssignOpen] = useState(false)
+  const [autoPreview, setAutoPreview] = useState(null)
+  const [autoAssigning, setAutoAssigning] = useState(false)
+  const [autoMessage, setAutoMessage] = useState(null)
   const [confirmRequest, setConfirmRequest] = useState(null)
   const [moveMemberOpen, setMoveMemberOpen] = useState(false)
   const [selectedTeamForMove, setSelectedTeamForMove] = useState(null)
@@ -167,6 +171,50 @@ export default function TeamFormationTab({
       .catch(() => {})
   }, [classId])
   useEntityChanged(reload)
+
+  // Bấm Chia nhóm tự động: bình thường xếp luôn; có gộp nhóm, vượt tối đa hoặc cảnh báo thì mở bảng xem trước để GV xác nhận
+  const handleAutoAssign = async () => {
+    setAutoAssigning(true)
+    setAutoMessage(null)
+    try {
+      const preview = await getAutoAssignPreview(classId)
+      const placesSomeone = preview.existingTeams.length > 0 || preview.newTeams.length > 0
+      const needsReview = preview.merges.length > 0 || preview.requiresExceedMax || preview.warnings.length > 0
+      if (!placesSomeone && !needsReview) {
+        setAutoMessage({ severity: 'info', text: 'Không còn ai cần xếp nhóm.' })
+        return
+      }
+      if (needsReview) {
+        setAutoPreview(preview)
+        setAutoAssignOpen(true)
+        return
+      }
+      await assignTeams(classId, {
+        existingTeams: preview.existingTeams.map((team) => ({
+          teamId: team.teamId,
+          studentProfileIds: team.addedStudents.map((student) => student.studentProfileId),
+        })),
+        newTeams: preview.newTeams.map((team) => ({
+          teamName: team.teamName,
+          leaderStudentProfileId: team.leaderStudentProfileId,
+          studentProfileIds: team.students.map((student) => student.studentProfileId),
+        })),
+        merges: [],
+        allowExceedMax: false,
+      })
+      const placed =
+        preview.existingTeams.reduce((sum, team) => sum + team.addedStudents.length, 0) +
+        preview.newTeams.reduce((sum, team) => sum + team.students.length, 0)
+      let text = `Đã xếp ${placed} sinh viên vào nhóm.`
+      if (preview.newTeams.length > 0) text = `Đã xếp ${placed} sinh viên, tạo thêm ${preview.newTeams.length} nhóm mới.`
+      setAutoMessage({ severity: 'success', text })
+      reload()
+    } catch (autoError) {
+      setAutoMessage({ severity: 'error', text: extractErrorMessage(autoError, 'Không thể chia nhóm tự động.') })
+    } finally {
+      setAutoAssigning(false)
+    }
+  }
 
   const confirmClose = () =>
     setConfirmRequest({
@@ -373,13 +421,20 @@ export default function TeamFormationTab({
           {isSettingsConfigured && !choosing && needsLecturer && (
             <Button
               variant="contained"
-              onClick={() => setAutoAssignOpen(true)}
+              onClick={handleAutoAssign}
+              disabled={autoAssigning}
+              startIcon={autoAssigning ? <CircularProgress size={16} color="inherit" /> : null}
               sx={{ whiteSpace: 'nowrap', fontWeight: 700, textTransform: 'none', boxShadow: 'none', flexShrink: 0, alignSelf: 'center', ml: { md: 'auto !important' } }}
             >
               Chia nhóm tự động
             </Button>
           )}
         </Stack>
+        {autoMessage && (
+          <Alert severity={autoMessage.severity} onClose={() => setAutoMessage(null)} sx={{ mt: 2 }}>
+            {autoMessage.text}
+          </Alert>
+        )}
       </Paper>
 
       {/* ======================================================================
@@ -888,12 +943,18 @@ export default function TeamFormationTab({
       {autoAssignOpen && (
         <AutoAssignDialog
           classId={classId}
+          initialPreview={autoPreview}
           teams={teams}
           minTeamSize={overview.minTeamSize}
           maxTeamSize={overview.maxTeamSize}
-          onClose={() => setAutoAssignOpen(false)}
+          onClose={() => {
+            setAutoAssignOpen(false)
+            setAutoPreview(null)
+          }}
           onDone={() => {
             setAutoAssignOpen(false)
+            setAutoPreview(null)
+            setAutoMessage({ severity: 'success', text: 'Đã chia nhóm.' })
             reload()
           }}
         />
