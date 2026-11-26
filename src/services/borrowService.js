@@ -42,6 +42,27 @@ export const borrowService = {
   },
 
   /**
+   * Đơn mượn của các lớp giảng viên phụ trách (chỉ để theo dõi), nạp đủ các trang.
+   * GET /api/borrow-requests/teaching
+   * Quyền: Lecturer, Admin
+   */
+  async getTeachingBorrowRequests() {
+    try {
+      const fetchPage = (page) =>
+        api.get('/api/borrow-requests/teaching', { params: { page, size: 100 } }).then((res) => res.data?.data ?? res.data)
+      const firstPage = await fetchPage(1)
+      const items = [...extractPagedItems(firstPage)]
+      const totalPages = Math.min(Number(firstPage?.totalPages || 1), 10)
+      for (let page = 2; page <= totalPages; page += 1) {
+        items.push(...extractPagedItems(await fetchPage(page)))
+      }
+      return items
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Không thể tải đơn mượn của lớp'), { cause: error })
+    }
+  },
+
+  /**
    * Lấy toàn bộ đơn mượn của sinh viên (tự động nạp đủ các trang từ /api/borrow-requests/my
    * và bổ sung đối chiếu với danh sách đơn gắn trên các đề tài của nhóm).
    */

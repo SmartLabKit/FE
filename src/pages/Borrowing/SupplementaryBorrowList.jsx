@@ -9,6 +9,8 @@ import {
   InputAdornment,
   Paper,
   Snackbar,
+  Tab,
+  Tabs,
   Table,
   TableBody,
   TableCell,
@@ -31,7 +33,8 @@ import { useEntityChanged } from '../../hooks/useEntityChanged'
 import { projectService } from '../../services/projectService'
 import { useAuth } from '../../context/AuthContext'
 import { formatVietnamDate } from '../../utils/dateFormatting'
-import { getBorrowRequestStatusMeta } from './borrowHelpers'
+import { borrowProgressOf, currentRequestOfProject, getBorrowRequestStatusMeta } from './borrowHelpers'
+import LecturerBorrowTracking from './LecturerBorrowTracking'
 import { labCode, labLabel, labName } from '../../utils/labLabel'
 
 const ACTIVE_BORROW_STATUSES = ['Pending', 'PendingApproval', 'PendingLecturer', 'Submitted', 'Approved', 'Ready', 'Borrowing']
@@ -60,6 +63,8 @@ export default function SupplementaryBorrowList() {
   const [borrowStatusFilter, setBorrowStatusFilter] = useState('all') // 'all' | 'active' | 'overdue' | 'history'
   const [borrowSearch, setBorrowSearch] = useState('')
   const [lecturerProjects, setLecturerProjects] = useState([])
+  const [classRequests, setClassRequests] = useState([])
+  const [lecturerTab, setLecturerTab] = useState('projects')
   const [loadingLecturerProjects, setLoadingLecturerProjects] = useState(false)
   const [lecturerProjectsError, setLecturerProjectsError] = useState('')
   const [projectStatusFilter, setProjectStatusFilter] = useState('all') // 'all' | 'Submitted' | 'Approved' | 'Rejected'
@@ -72,8 +77,12 @@ export default function SupplementaryBorrowList() {
     if (isLecturer) {
       if (!silent) setLoadingLecturerProjects(true)
       try {
-        const projects = await projectService.getLecturerProjects()
+        const [projects, requests] = await Promise.all([
+          projectService.getLecturerProjects(),
+          borrowService.getTeachingBorrowRequests().catch(() => []),
+        ])
         setLecturerProjects(Array.isArray(projects) ? projects : [])
+        setClassRequests(Array.isArray(requests) ? requests : [])
         setLecturerProjectsError('')
       } catch (err) {
         setLecturerProjectsError(err.message || 'Không thể tải danh sách project của sinh viên.')
@@ -122,6 +131,12 @@ export default function SupplementaryBorrowList() {
   useEntityChanged(refreshSilently)
 
   // Thống kê số lượng project theo trạng thái cho Giảng viên (bao gồm cả đề tài đã Approved nhưng có đơn mượn thêm Pending)
+  // Số đơn quá hạn của các lớp giảng viên dạy, hiện trên tab Theo dõi mượn
+  const overdueClassRequests = useMemo(
+    () => classRequests.filter((request) => borrowProgressOf(request)?.key === 'overdue').length,
+    [classRequests]
+  )
+
   const pendingCount = useMemo(
     () =>
       lecturerProjects.filter(
@@ -265,9 +280,19 @@ export default function SupplementaryBorrowList() {
             elevation={0}
             sx={{ p: 3, mb: 4, borderRadius: 2, border: '1px solid #e4e6ef', bgcolor: '#ffffff' }}
           >
-            <Typography variant="h6" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 18, mb: 2.5 }}>
-              Quản lý đơn duyệt đồ án & mượn linh kiện
-            </Typography>
+            <Tabs
+              value={lecturerTab}
+              onChange={(_, value) => setLecturerTab(value)}
+              sx={{ mb: 2.5, borderBottom: '1px solid #eef0f6', '& .MuiTab-root': { textTransform: 'none', fontWeight: 700, fontSize: 14 } }}
+            >
+              <Tab value="projects" label="Đề tài" />
+              <Tab value="borrows" label={overdueClassRequests > 0 ? `Theo dõi mượn (${overdueClassRequests} quá hạn)` : 'Theo dõi mượn'} />
+            </Tabs>
+
+            {lecturerTab === 'borrows' && <LecturerBorrowTracking requests={classRequests} />}
+
+            {lecturerTab === 'projects' && (
+            <>
 
             {/* Thanh lọc trạng thái và ô tìm kiếm */}
             <Box
@@ -411,13 +436,14 @@ export default function SupplementaryBorrowList() {
                       <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>NGÀY GỬI</TableCell>
                       <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>HẠN TRẢ</TableCell>
                       <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>TRẠNG THÁI</TableCell>
+                      <TableCell sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>MƯỢN ĐỒ</TableCell>
                       <TableCell align="right" sx={{ fontWeight: 800, fontSize: 11, color: '#6b7280' }}>THAO TÁC</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {filteredLecturerProjects.length === 0 ? (
                       <TableRow>
-                        <TableCell colSpan={7} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                        <TableCell colSpan={8} align="center" sx={{ py: 4, color: 'text.secondary' }}>
                           {projectSearch
                             ? 'Không tìm thấy đề tài nào phù hợp với từ khóa.'
                             : 'Không có đề tài nào trong danh mục này.'}
@@ -432,6 +458,10 @@ export default function SupplementaryBorrowList() {
                           ['Submitted', 'PendingApproval', 'PendingLecturer', 'Pending'].includes(project.status) ||
                           isSupplementaryPending ||
                           Boolean(project.hasPendingApproval)
+                        let borrowProgress = null
+                        if (project.status === 'Approved') {
+                          borrowProgress = borrowProgressOf(currentRequestOfProject(classRequests, project.projectId))
+                        }
                         return (
                           <TableRow key={project.projectId} hover>
                             <TableCell>
@@ -462,6 +492,18 @@ export default function SupplementaryBorrowList() {
                                   />
                                 )}
                               </Box>
+                            </TableCell>
+                            <TableCell>
+                              {borrowProgress ? (
+                                <Chip
+                                  size="small"
+                                  label={borrowProgress.label}
+                                  sx={{ ...borrowProgress.sx, cursor: 'pointer' }}
+                                  onClick={() => setLecturerTab('borrows')}
+                                />
+                              ) : (
+                                <Typography variant="body2" sx={{ color: '#94a3b8', fontSize: 12 }}>—</Typography>
+                              )}
                             </TableCell>
                             <TableCell align="right">
                               {isPending ? (
@@ -507,6 +549,8 @@ export default function SupplementaryBorrowList() {
                   </TableBody>
                 </Table>
               </TableContainer>
+            )}
+            </>
             )}
           </Paper>
         )}
