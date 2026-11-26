@@ -121,8 +121,6 @@ export default function CabinetDetail() {
             {tab === 'consumables' && (
               <CabinetConsumablesTab
                 cabinet={cabinet}
-                cabinets={targetCabinets}
-                canMove={canMove}
                 canAdjust={canAdjust}
                 onChanged={() => setReloadKey((key) => key + 1)}
                 showToast={showToast}
