@@ -148,7 +148,7 @@ export default function InventoryAuditDetail() {
         key: `i:${item.itemId}`,
         kind: 'item',
         name: item.componentName,
-        detail: [item.itemCode, item.serialNumber && `S/N ${item.serialNumber}`].filter(Boolean).join(' · '),
+        detail: item.serialNumber ? `S/N ${item.serialNumber}` : 'Thiết bị',
         searchText: normalizeSearchText(`${item.componentName} ${item.itemCode || ''} ${item.serialNumber || ''}`),
         item,
       })),
@@ -219,11 +219,11 @@ export default function InventoryAuditDetail() {
     if (!option) return
     if (option.kind === 'item') {
       if (presentIds[option.item.itemId]) {
-        setScanMessage(`${option.item.itemCode} đã được ghi nhận trước đó.`)
+        setScanMessage(`${option.name} này đã được ghi nhận trước đó.`)
       } else {
         setPresentIds((current) => ({ ...current, [option.item.itemId]: true }))
         markChecked(option.key)
-        setScanMessage(`Có mặt: ${option.name} (${option.item.itemCode})`)
+        setScanMessage(`Có mặt: ${option.name}`)
       }
       focusSearch()
       return
@@ -261,10 +261,10 @@ export default function InventoryAuditDetail() {
         toStatus: 'Available',
         reason: 'Tìm thấy lại thiết bị và khôi phục về kho',
       })
-      setNotice(`Đã khôi phục thiết bị ${item.itemCode} về kho.`)
+      setNotice(`Đã khôi phục ${item.componentName} về kho.`)
       await applyAudit(await inventoryService.getInventoryAudit(auditId))
     } catch (restoreErr) {
-      setError(extractErrorMessage(restoreErr, `Không thể khôi phục thiết bị ${item.itemCode}.`))
+      setError(extractErrorMessage(restoreErr, `Không thể khôi phục ${item.componentName}.`))
     } finally {
       setRestoringId('')
     }
@@ -634,7 +634,7 @@ export default function InventoryAuditDetail() {
                     <Stack spacing={0.5}>
                       {audit.missingItems.map((item) => (
                         <Typography key={item.itemId} variant="body2">
-                          <strong>{item.itemCode}</strong> · {item.componentName}
+                          <strong>{item.componentName}</strong>
                           {item.serialNumber ? ` · S/N ${item.serialNumber}` : ''}
                         </Typography>
                       ))}
@@ -738,7 +738,7 @@ export default function InventoryAuditDetail() {
                   <Table size="small">
                     <TableHead>
                       <TableRow sx={{ bgcolor: '#fffbeb' }}>
-                        {['Linh kiện', 'Mã thiết bị', 'Serial', ''].map((head) => (
+                        {['Linh kiện', 'Serial', ''].map((head) => (
                           <TableCell key={head} sx={headCellSx}>{head}</TableCell>
                         ))}
                       </TableRow>
@@ -747,7 +747,6 @@ export default function InventoryAuditDetail() {
                       {lostItems.map((item) => (
                         <TableRow key={item.itemId} hover>
                           <TableCell>{item.componentName}</TableCell>
-                          <TableCell sx={{ whiteSpace: 'nowrap' }}>{item.itemCode}</TableCell>
                           <TableCell>{item.serialNumber || '—'}</TableCell>
                           <TableCell align="right">
                             {canRestore && (
