@@ -1,8 +1,10 @@
 import { Fragment, useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import {
   ArrowBack as BackIcon,
+  DeleteOutlined as DeleteIcon,
   Done as DoneIcon,
   Restore as RestoreIcon,
+  Search as SearchIcon,
 } from '@mui/icons-material'
 import {
   Alert,
@@ -19,7 +21,9 @@ import {
   DialogContent,
   DialogTitle,
   FormControlLabel,
-  LinearProgress,
+  IconButton,
+  InputAdornment,
+  Paper,
   Stack,
   Table,
   TableBody,
@@ -82,15 +86,12 @@ export default function InventoryAuditDetail() {
   const [missingPicks, setMissingPicks] = useState({})
   const [scannedIds, setScannedIds] = useState({})
   const [searchInput, setSearchInput] = useState('')
-  const [quantityError, setQuantityError] = useState('')
   const [checkedOrder, setCheckedOrder] = useState([])
-  const [tab, setTab] = useState('checked')
-  const [selected, setSelected] = useState(null)
-  const [quantityInput, setQuantityInput] = useState('')
+  const [tab, setTab] = useState('all')
   const [searchKey, setSearchKey] = useState(0)
   const [scanMessage, setScanMessage] = useState('')
   const searchRef = useRef(null)
-  const quantityRef = useRef(null)
+  const rowInputs = useRef({})
   const [note, setNote] = useState('')
   const [confirm, setConfirm] = useState(null)
   const [saving, setSaving] = useState(false)
@@ -105,8 +106,6 @@ export default function InventoryAuditDetail() {
     setMissingPicks({})
     setScannedIds({})
     setCheckedOrder([])
-    setSelected(null)
-    setQuantityInput('')
     setNote(data.note || '')
     if (data?.cabinetId) {
       const lost = await inventoryService
@@ -180,8 +179,8 @@ export default function InventoryAuditDetail() {
 
   const countedOf = (option) => {
     const value = counts[option.componentId]
-    if (value === undefined) return null
-    return value
+    if (value === undefined || value === '') return null
+    return Number(value)
   }
 
   const differenceOf = (option) => {
@@ -202,10 +201,11 @@ export default function InventoryAuditDetail() {
   const needsPicking = (option) => isChecked(option) && missingPicked(option) !== missingNeeded(option)
 
   const optionsByKey = new Map(searchOptions.map((option) => [option.key, option]))
-  const checkedOptions = checkedOrder.map((key) => optionsByKey.get(key)).filter(Boolean)
+  const addedOptions = checkedOrder.map((key) => optionsByKey.get(key)).filter(Boolean)
   const uncheckedOptions = searchOptions.filter((option) => !isChecked(option))
-  const diffOptions = checkedOptions.filter((option) => differenceOf(option) !== 0)
-  const pickingOptions = checkedOptions.filter(needsPicking)
+  const matchOptions = addedOptions.filter((option) => isChecked(option) && differenceOf(option) === 0)
+  const diffOptions = addedOptions.filter((option) => isChecked(option) && differenceOf(option) !== 0)
+  const pickingOptions = addedOptions.filter(needsPicking)
   const checkedCount = searchOptions.length - uncheckedOptions.length
   const totalCount = searchOptions.length
 
@@ -250,14 +250,32 @@ export default function InventoryAuditDetail() {
     window.setTimeout(() => searchRef.current?.focus(), 0)
   }
 
+  const focusRow = (key) => {
+    window.setTimeout(() => rowInputs.current[key]?.focus(), 0)
+  }
+
   const pickOption = (option) => {
     if (!option) return
-    setSelected(option)
-    setQuantityError('')
-    const current = counts[option.componentId]
-    setQuantityInput(current === undefined ? '' : String(current))
+    if (counts[option.componentId] === undefined) {
+      setCounts((current) => ({ ...current, [option.componentId]: '' }))
+    }
+    markChecked(option.key)
+    setTab('all')
+    setSearchKey((key) => key + 1)
+    setSearchInput('')
     setScanMessage('')
-    window.setTimeout(() => quantityRef.current?.focus(), 0)
+    focusRow(option.key)
+  }
+
+  const changeCount = (option, value) => {
+    if (value !== '' && !/^\d+$/.test(value)) return
+    if (option.kind === 'device' && value !== '' && Number(value) > option.system) return
+    setCounts((current) => ({ ...current, [option.componentId]: value }))
+    if (option.kind === 'device') {
+      setUnitFlags(setScannedIds, option.units, () => false)
+      setUnitFlags(setMissingPicks, option.units, () => false)
+    }
+    if (!checkedOrder.includes(option.key)) markChecked(option.key)
   }
 
   const scanUnit = (unit) => {
@@ -271,33 +289,11 @@ export default function InventoryAuditDetail() {
     const nextScanned = { ...scannedIds, [unit.itemId]: true }
     const scannedCount = option.units.filter((groupUnit) => nextScanned[groupUnit.itemId]).length
     setScannedIds(nextScanned)
-    setCounts((current) => ({ ...current, [option.componentId]: scannedCount }))
+    setCounts((current) => ({ ...current, [option.componentId]: String(scannedCount) }))
     setUnitFlags(setMissingPicks, option.units, (groupUnit) => !nextScanned[groupUnit.itemId])
     markChecked(option.key)
-    setSelected(null)
+    setTab('all')
     setScanMessage(`Có mặt: ${option.name} (${scannedCount}/${option.system})`)
-    focusSearch()
-  }
-
-  const saveQuantity = () => {
-    if (!selected || quantityInput === '') return
-    const value = Number(quantityInput)
-    if (selected.kind === 'device' && value > selected.system) {
-      setQuantityError(`Tối đa ${selected.system}`)
-      return
-    }
-    setCounts((current) => ({ ...current, [selected.componentId]: value }))
-    setUnitFlags(setScannedIds, selected.units, () => false)
-    setUnitFlags(setMissingPicks, selected.units, () => false)
-    markChecked(selected.key)
-    if (selected.kind === 'device' && value < selected.system) {
-      setScanMessage(`${selected.name}: thiếu ${selected.system - value}, chọn cái thiếu ở bảng bên dưới.`)
-      setTab('checked')
-    } else {
-      setScanMessage(`Đã ghi ${selected.name}: ${value}`)
-    }
-    setSelected(null)
-    setQuantityInput('')
     focusSearch()
   }
 
@@ -310,9 +306,10 @@ export default function InventoryAuditDetail() {
     })
   }
 
-  let shownOptions = checkedOptions
-  if (tab === 'unchecked') shownOptions = uncheckedOptions
+  let shownOptions = addedOptions
+  if (tab === 'match') shownOptions = matchOptions
   if (tab === 'diff') shownOptions = diffOptions
+  if (tab === 'unchecked') shownOptions = uncheckedOptions
 
   const handleRestoreLostItem = async (item) => {
     setRestoringId(item.itemId)
@@ -427,6 +424,7 @@ export default function InventoryAuditDetail() {
 
         {audit && (
           <>
+            {!inProgress && (
             <Card variant="outlined" sx={{ mb: 2, borderColor: '#d8dced', boxShadow: 'none' }}>
               <CardContent sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap', alignItems: 'center' }}>
                 <Box>
@@ -438,6 +436,7 @@ export default function InventoryAuditDetail() {
                 <Chip label={status.label} color={status.color} sx={{ fontWeight: 700 }} />
               </CardContent>
             </Card>
+            )}
 
             {inProgress && (
               <>
@@ -447,175 +446,150 @@ export default function InventoryAuditDetail() {
                   </Alert>
                 )}
 
-                <Card variant="outlined" sx={{ mb: 2, borderColor: '#d8dced', boxShadow: 'none' }}>
-                  <CardContent>
-                    <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1.5} alignItems={{ sm: 'flex-start' }}>
-                      <Autocomplete
-                        key={searchKey}
-                        options={searchOptions}
-                        autoHighlight
-                        openOnFocus={false}
-                        value={null}
-                        onChange={(_event, option) => pickOption(option)}
-                        inputValue={searchInput}
-                        onInputChange={(_event, value, reason) => {
-                          if (reason !== 'reset') setSearchInput(value)
-                        }}
-                        onKeyDown={(event) => {
-                          if (event.key !== 'Enter') return
-                          const unit = unitByCode.get(normalizeSearchText(searchInput))
-                          if (unit) {
-                            event.defaultMuiPrevented = true
-                            event.preventDefault()
-                            scanUnit(unit)
-                          }
-                        }}
-                        getOptionLabel={(option) => option.name}
-                        getOptionKey={(option) => option.key}
-                        filterOptions={(options, state) => {
-                          const query = normalizeSearchText(state.inputValue)
-                          const matched = options.filter((option) => option.searchText.includes(query))
-                          const unchecked = matched.filter((option) => !isChecked(option))
-                          const checked = matched.filter((option) => isChecked(option))
-                          return [...unchecked, ...checked]
-                        }}
-                        noOptionsText="Không có món này trong tủ"
-                        renderOption={(props, option) => {
-                          const { key, ...rest } = props
-                          return (
-                            <Box component="li" key={key} {...rest} sx={{ display: 'block !important' }}>
-                              <Typography sx={{ fontWeight: 600, fontSize: 14 }}>
-                                {option.name}
-                                {isChecked(option) && (
-                                  <Box component="span" sx={{ color: '#2e7d32', fontSize: 12, ml: 1 }}>đã kiểm</Box>
-                                )}
-                              </Typography>
-                              <Typography sx={{ fontSize: 12, color: '#64748b' }}>
-                                Hệ thống: {option.system}{option.kind === 'device' ? ' thiết bị' : ''}
-                              </Typography>
-                            </Box>
-                          )
-                        }}
-                        renderInput={(params) => (
-                          <TextField
-                            {...params}
-                            inputRef={searchRef}
-                            autoFocus
-                            placeholder="Chọn linh kiện trong tủ, gõ tên hoặc quét mã thiết bị"
-                          />
-                        )}
-                        sx={{ flex: 1, minWidth: 0 }}
-                      />
-                      {selected && (
-                        <Stack direction="row" spacing={1} alignItems="center">
-                          <Typography sx={{ fontWeight: 600, fontSize: 14, maxWidth: 200 }} noWrap title={selected.name}>
-                            {selected.name}
-                          </Typography>
-                          <TextField
-                            inputRef={quantityRef}
-                            size="small"
-                            placeholder="Số đếm"
-                            value={quantityInput}
-                            onChange={(event) => {
-                              const value = event.target.value
-                              if (value === '' || /^\d+$/.test(value)) {
-                                setQuantityInput(value)
-                                setQuantityError('')
-                              }
-                            }}
-                            error={Boolean(quantityError)}
-                            helperText={quantityError}
-                            onKeyDown={(event) => {
-                              if (event.key === 'Enter') saveQuantity()
-                              if (event.key === 'Escape') {
-                                setSelected(null)
-                                focusSearch()
-                              }
-                            }}
-                            slotProps={{ htmlInput: { inputMode: 'numeric' } }}
-                            sx={{ width: 100 }}
-                          />
-                          <Button
-                            variant="contained"
-                            onClick={saveQuantity}
-                            disabled={quantityInput === ''}
-                            sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#0058be' }}
-                          >
-                            Ghi
-                          </Button>
-                        </Stack>
-                      )}
-                    </Stack>
-                    {scanMessage && (
-                      <Typography sx={{ fontSize: 13, color: '#2e7d32', mt: 1 }}>{scanMessage}</Typography>
-                    )}
-                    <Box sx={{ mt: 2 }}>
-                      <Typography sx={{ fontWeight: 700, fontSize: 13, mb: 0.5 }}>
-                        Đã kiểm {checkedCount}/{totalCount}
+                <Paper variant="outlined" sx={{ borderColor: '#d8dced', mb: 3 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', px: 2, pt: 2, pb: 1 }}>
+                    <Box sx={{ minWidth: 0 }}>
+                      <Typography sx={{ fontWeight: 800, fontSize: 18, color: '#182238' }}>
+                        Kiểm kho · {audit.cabinetName || audit.cabinetCode}
                       </Typography>
-                      <LinearProgress
-                        variant="determinate"
-                        value={totalCount === 0 ? 100 : (checkedCount * 100) / totalCount}
-                        sx={{ height: 6, borderRadius: 3 }}
-                      />
+                      <Typography sx={{ fontSize: 12.5, color: '#64748b' }}>
+                        {audit.auditorName} · {formatDateTime(audit.auditDate)}
+                      </Typography>
                     </Box>
-                  </CardContent>
-                </Card>
+                    <Autocomplete
+                      key={searchKey}
+                      size="small"
+                      options={searchOptions}
+                      autoHighlight
+                      value={null}
+                      onChange={(_event, option) => pickOption(option)}
+                      inputValue={searchInput}
+                      onInputChange={(_event, value, reason) => {
+                        if (reason !== 'reset') setSearchInput(value)
+                      }}
+                      onKeyDown={(event) => {
+                        if (event.key !== 'Enter') return
+                        const unit = unitByCode.get(normalizeSearchText(searchInput))
+                        if (unit) {
+                          event.defaultMuiPrevented = true
+                          event.preventDefault()
+                          scanUnit(unit)
+                        }
+                      }}
+                      getOptionLabel={(option) => option.name}
+                      getOptionKey={(option) => option.key}
+                      filterOptions={(options, state) => {
+                        const query = normalizeSearchText(state.inputValue)
+                        const matched = options.filter((option) => option.searchText.includes(query))
+                        const unchecked = matched.filter((option) => !isChecked(option))
+                        const checked = matched.filter((option) => isChecked(option))
+                        return [...unchecked, ...checked]
+                      }}
+                      noOptionsText="Không có món này trong tủ"
+                      renderOption={(props, option) => {
+                        const { key, ...rest } = props
+                        return (
+                          <Box component="li" key={key} {...rest} sx={{ display: 'flex !important', justifyContent: 'space-between', gap: 2 }}>
+                            <Typography sx={{ fontSize: 14 }}>{option.name}</Typography>
+                            <Typography sx={{ fontSize: 12, color: isChecked(option) ? '#2e7d32' : '#64748b', whiteSpace: 'nowrap' }}>
+                              {isChecked(option) ? 'đã kiểm' : `Tồn ${option.system}`}
+                            </Typography>
+                          </Box>
+                        )
+                      }}
+                      renderInput={(params) => (
+                        <TextField
+                          {...params}
+                          inputRef={searchRef}
+                          autoFocus
+                          placeholder="Tìm linh kiện hoặc quét mã thiết bị"
+                          slotProps={{
+                            input: {
+                              ...params.InputProps,
+                              startAdornment: (
+                                <InputAdornment position="start">
+                                  <SearchIcon fontSize="small" sx={{ color: '#94a3b8' }} />
+                                </InputAdornment>
+                              ),
+                            },
+                          }}
+                        />
+                      )}
+                      sx={{ flex: 1, minWidth: 240, maxWidth: 480 }}
+                    />
+                    <Typography sx={{ ml: 'auto', fontWeight: 700, fontSize: 13.5, color: '#334155' }}>
+                      Đã kiểm {checkedCount}/{totalCount}
+                    </Typography>
+                  </Box>
+                  {scanMessage && (
+                    <Typography sx={{ fontSize: 13, color: '#2e7d32', px: 2 }}>{scanMessage}</Typography>
+                  )}
 
-                <Card variant="outlined" sx={{ mb: 2, borderColor: '#d8dced', boxShadow: 'none' }}>
                   <Tabs value={tab} onChange={(_event, value) => setTab(value)} sx={{ px: 1, borderBottom: '1px solid #eef0f6' }}>
-                    <Tab value="checked" label={`Đã kiểm (${checkedOptions.length})`} sx={{ textTransform: 'none', fontWeight: 700 }} />
-                    <Tab value="unchecked" label={`Chưa kiểm (${uncheckedOptions.length})`} sx={{ textTransform: 'none', fontWeight: 700 }} />
-                    <Tab value="diff" label={`Lệch (${diffOptions.length})`} sx={{ textTransform: 'none', fontWeight: 700 }} />
+                    <Tab value="all" label={`Tất cả (${addedOptions.length})`} sx={{ textTransform: 'none', fontWeight: 600 }} />
+                    <Tab value="match" label={`Khớp (${matchOptions.length})`} sx={{ textTransform: 'none', fontWeight: 600 }} />
+                    <Tab value="diff" label={`Lệch (${diffOptions.length})`} sx={{ textTransform: 'none', fontWeight: 600 }} />
+                    <Tab value="unchecked" label={`Chưa kiểm (${uncheckedOptions.length})`} sx={{ textTransform: 'none', fontWeight: 600 }} />
                   </Tabs>
+
                   <TableContainer>
                     <Table size="small">
                       <TableHead>
-                        <TableRow sx={{ bgcolor: '#faf9ff' }}>
-                          <TableCell sx={headCellSx}>Linh kiện</TableCell>
-                          <TableCell align="right" sx={headCellSx}>Hệ thống</TableCell>
-                          <TableCell align="right" sx={headCellSx}>Thực tế</TableCell>
-                          <TableCell align="right" sx={headCellSx}>Lệch</TableCell>
-                          <TableCell />
+                        <TableRow>
+                          <TableCell sx={{ width: 40 }} />
+                          <TableCell sx={{ ...headCellSx, width: 50 }}>STT</TableCell>
+                          <TableCell sx={headCellSx}>Tên linh kiện</TableCell>
+                          <TableCell align="right" sx={{ ...headCellSx, width: 100 }}>Tồn kho</TableCell>
+                          <TableCell align="right" sx={{ ...headCellSx, width: 120 }}>Thực tế</TableCell>
+                          <TableCell align="right" sx={{ ...headCellSx, width: 100 }}>SL lệch</TableCell>
                         </TableRow>
                       </TableHead>
                       <TableBody>
-                        {shownOptions.map((option) => {
-                          const checked = isChecked(option)
+                        {shownOptions.map((option, index) => {
                           const difference = differenceOf(option)
                           const needed = missingNeeded(option)
                           const picked = missingPicked(option)
-                          let actual = '—'
-                          if (checked) actual = countedOf(option)
+                          const added = checkedOrder.includes(option.key)
                           return (
                             <Fragment key={option.key}>
                               <TableRow hover>
+                                <TableCell sx={{ px: 1 }}>
+                                  {added && (
+                                    <IconButton size="small" onClick={() => unmark(option)} title="Bỏ dòng này">
+                                      <DeleteIcon fontSize="small" />
+                                    </IconButton>
+                                  )}
+                                </TableCell>
+                                <TableCell sx={{ color: '#64748b' }}>{index + 1}</TableCell>
                                 <TableCell>
-                                  <Typography sx={{ fontWeight: 600, fontSize: 13.5 }}>{option.name}</Typography>
+                                  <Typography sx={{ fontSize: 14 }}>{option.name}</Typography>
                                   {needsPicking(option) && (
                                     <Typography sx={{ fontSize: 12, color: '#b45309' }}>
-                                      Chọn {needed} cái thiếu (đã chọn {picked})
+                                      Chọn {needed} cái thiếu bên dưới (đã chọn {picked})
                                     </Typography>
                                   )}
                                 </TableCell>
                                 <TableCell align="right">{option.system}</TableCell>
-                                <TableCell align="right" sx={{ fontWeight: 700 }}>{actual}</TableCell>
+                                <TableCell align="right">
+                                  <TextField
+                                    variant="standard"
+                                    value={counts[option.componentId] ?? ''}
+                                    onChange={(event) => changeCount(option, event.target.value)}
+                                    onKeyDown={(event) => {
+                                      if (event.key === 'Enter') focusSearch()
+                                    }}
+                                    inputRef={(element) => { rowInputs.current[option.key] = element }}
+                                    slotProps={{ htmlInput: { inputMode: 'numeric', style: { textAlign: 'right' } } }}
+                                    sx={{ width: 70 }}
+                                  />
+                                </TableCell>
                                 <TableCell align="right" sx={{ fontWeight: 700, color: diffColor(difference) }}>
                                   {formatDiff(difference)}
-                                </TableCell>
-                                <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
-                                  <Button size="small" onClick={() => pickOption(option)} sx={{ textTransform: 'none' }}>
-                                    {checked ? 'Sửa' : 'Đếm'}
-                                  </Button>
-                                  {checked && (
-                                    <Button size="small" onClick={() => unmark(option)} sx={{ textTransform: 'none', color: '#64748b' }}>
-                                      Bỏ
-                                    </Button>
-                                  )}
                                 </TableCell>
                               </TableRow>
                               {option.kind === 'device' && needed > 0 && (
                                 <TableRow>
+                                  <TableCell />
                                   <TableCell colSpan={5} sx={{ bgcolor: '#fffbeb', py: 1 }}>
                                     <Typography sx={{ fontSize: 12.5, color: '#92400e', mb: 0.5 }}>
                                       Tick những cái không tìm thấy (xem mã dán trên thiết bị):
@@ -653,43 +627,34 @@ export default function InventoryAuditDetail() {
                         })}
                         {shownOptions.length === 0 && (
                           <TableRow>
-                            <TableCell colSpan={5} align="center" sx={{ py: 4, color: 'text.secondary' }}>
-                              {tab === 'checked' && 'Chưa kiểm món nào. Gõ tên hoặc quét mã ở ô phía trên để bắt đầu.'}
-                              {tab === 'unchecked' && (totalCount === 0 ? 'Tủ đang trống.' : 'Đã kiểm hết.')}
+                            <TableCell colSpan={6} align="center" sx={{ py: 6, color: 'text.secondary' }}>
+                              {tab === 'all' && 'Tìm linh kiện hoặc quét mã ở ô phía trên để bắt đầu đếm.'}
+                              {tab === 'match' && 'Chưa có món nào khớp.'}
                               {tab === 'diff' && 'Chưa có món nào lệch.'}
+                              {tab === 'unchecked' && (totalCount === 0 ? 'Tủ đang trống.' : 'Đã kiểm hết.')}
                             </TableCell>
                           </TableRow>
                         )}
                       </TableBody>
                     </Table>
                   </TableContainer>
-                </Card>
 
-                <TextField
-                  label="Ghi chú (không bắt buộc)"
-                  value={note}
-                  onChange={(event) => setNote(event.target.value)}
-                  multiline
-                  minRows={2}
-                  fullWidth
-                  sx={{ mb: 2, bgcolor: '#fff' }}
-                />
-
-                <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', mb: 3 }}>
-                  <Button
-                    color="error"
-                    onClick={() => setConfirm('cancel')}
-                    disabled={saving}
-                    sx={{ textTransform: 'none', fontWeight: 700 }}
-                  >
-                    Hủy phiên kiểm kê
-                  </Button>
-                  <Stack direction="row" spacing={1.5} alignItems="center">
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', px: 2, py: 1.5, borderTop: '1px solid #eef0f6' }}>
+                    <TextField
+                      size="small"
+                      placeholder="Ghi chú (không bắt buộc)"
+                      value={note}
+                      onChange={(event) => setNote(event.target.value)}
+                      sx={{ flex: 1, minWidth: 200 }}
+                    />
                     {pickingOptions.length > 0 && (
                       <Typography variant="body2" sx={{ color: '#b45309' }}>
                         Còn {pickingOptions.length} loại thiết bị chưa chọn cái thiếu
                       </Typography>
                     )}
+                    <Button color="error" onClick={() => setConfirm('cancel')} disabled={saving} sx={{ textTransform: 'none', fontWeight: 700 }}>
+                      Hủy phiên
+                    </Button>
                     <Button
                       variant="contained"
                       startIcon={<DoneIcon />}
@@ -699,8 +664,8 @@ export default function InventoryAuditDetail() {
                     >
                       Gửi kết quả
                     </Button>
-                  </Stack>
-                </Box>
+                  </Box>
+                </Paper>
               </>
             )}
 
