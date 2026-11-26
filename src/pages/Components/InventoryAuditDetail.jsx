@@ -504,8 +504,9 @@ export default function InventoryAuditDetail() {
                           autoFocus
                           placeholder="Tìm linh kiện hoặc quét mã thiết bị"
                           slotProps={{
+                            ...params.slotProps,
                             input: {
-                              ...params.InputProps,
+                              ...params.slotProps?.input,
                               startAdornment: (
                                 <InputAdornment position="start">
                                   <SearchIcon fontSize="small" sx={{ color: '#94a3b8' }} />
