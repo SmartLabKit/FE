@@ -27,7 +27,7 @@ import { TRANSACTION_TYPES, cabinetLabel, formatDateTime, itemStatusOf, rowsOf }
 const PAGE_SIZE = 20
 const headCellSx = { fontWeight: 700, color: '#334155', whiteSpace: 'nowrap' }
 const EMPTY_FILTERS = { component: null, cabinetId: '', type: '', fromDate: '', toDate: '' }
-const COLUMNS = ['Thời gian', 'Loại', 'Linh kiện', 'Mã thiết bị', 'Tủ', 'Thay đổi', 'Người làm', 'Lý do / Chứng từ']
+const COLUMNS = ['Thời gian', 'Loại', 'Linh kiện', 'Tủ', 'Thay đổi', 'Người làm', 'Lý do / Chứng từ']
 
 /** Lý do BE ghi kèm trạng thái tiếng Anh và mã nội bộ: đổi sang chữ dễ đọc. */
 const readableReason = (reason) =>
@@ -174,7 +174,6 @@ export default function InventoryLedger() {
                       <Typography sx={{ fontSize: 13, fontWeight: 600 }}>{row.componentName}</Typography>
                       <Typography sx={{ fontSize: 11.5, color: '#64748b' }}>{row.componentCode}</Typography>
                     </TableCell>
-                    <TableCell sx={{ whiteSpace: 'nowrap' }}>{row.itemCode || '—'}</TableCell>
                     <TableCell sx={{ whiteSpace: 'nowrap' }}>{row.cabinetCode || '—'}</TableCell>
                     <TableCell sx={{ fontWeight: 700, color: row.quantityChange < 0 ? '#c62828' : row.quantityChange > 0 ? '#2e7d32' : '#64748b' }}>
                       {row.quantityChange > 0 ? `+${row.quantityChange}` : row.quantityChange}
