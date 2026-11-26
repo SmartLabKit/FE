@@ -180,8 +180,12 @@ export function AuditExtrasReview({ audit, canResolve, receipts, onResolved, onE
       toStatus: 'Available',
       reason: 'Kiểm kê: tìm thấy lại thiết bị thất lạc',
     }
-    if (extra.sameLab) request.toCabinetId = audit.cabinetId
-    return run(extra, request, `Đã khôi phục ${extra.itemCode}.`)
+    let done = `Đã khôi phục ${extra.itemCode} về tủ ${extra.itemCabinetCode}, nhớ mang về tủ đó.`
+    if (extra.sameLab && extra.fitsThisCabinet) {
+      request.toCabinetId = audit.cabinetId
+      done = `Đã khôi phục ${extra.itemCode} về tủ này.`
+    }
+    return run(extra, request, done)
   }
 
   // Phiếu nhập điền sẵn: lab của tủ đã kiểm, đúng linh kiện, 1 cái, hàng cho tặng, ghi chú nguồn gốc
@@ -213,9 +217,13 @@ export function AuditExtrasReview({ audit, canResolve, receipts, onResolved, onE
     )
     if (extra.resolution === 'InThisCabinet') return <Typography sx={{ fontSize: 13, color: '#16a34a' }}>Đã xong</Typography>
     if (!canResolve) return null
-    if (extra.resolution === 'OtherCabinet' && extra.sameLab) return button('Chuyển về tủ này', () => moveHere(extra))
-    if (extra.resolution === 'OtherCabinet') return <Typography sx={{ fontSize: 13 }}>Khác lab: mang trả về {extra.itemRoomCode}</Typography>
-    if (extra.resolution === 'Lost') return button(extra.sameLab ? 'Khôi phục về tủ này' : 'Khôi phục', () => restore(extra))
+    const canMoveHere = extra.sameLab && extra.fitsThisCabinet
+    if (extra.resolution === 'OtherCabinet' && canMoveHere) return button('Chuyển về tủ này', () => moveHere(extra))
+    if (extra.resolution === 'OtherCabinet') {
+      return <Typography sx={{ fontSize: 13 }}>Mang trả về tủ {extra.itemCabinetCode} ({extra.itemRoomCode})</Typography>
+    }
+    if (extra.resolution === 'Lost' && canMoveHere) return button('Khôi phục về tủ này', () => restore(extra))
+    if (extra.resolution === 'Lost') return button(`Khôi phục về tủ ${extra.itemCabinetCode}`, () => restore(extra))
     if (extra.resolution === 'Borrowed' && extra.borrowRequestId) {
       return button('Mở đơn mượn', () => navigate(`/borrow/requests/${extra.borrowRequestId}`))
     }
