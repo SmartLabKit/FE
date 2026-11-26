@@ -352,11 +352,13 @@ export default function InventoryAuditDetail() {
     setUnitFlags(setMissingPicks, unitsToChange, () => !found)
   }
 
-  // "Có đủ": thật ra không thiếu cái nào, số thực tế bằng tồn kho
-  const markAllFound = (option) => {
-    setDirty(true)
-    setCounts((current) => ({ ...current, [option.componentId]: String(option.system) }))
-    setUnitFlags(setMissingPicks, option.units, () => false)
+  // Dòng nhắc dưới danh sách thiết bị khi số thực tế ít hơn tồn kho
+  const pickingHint = (option) => {
+    const chosen = option.system - missingPicked(option)
+    const counted = countedOf(option)
+    if (chosen > counted) return `Đã chọn ${chosen}, nhiều hơn thực tế ${counted}: bỏ chọn ${chosen - counted} cái không tìm thấy.`
+    if (chosen < counted) return `Đã chọn ${chosen}/${counted} cái.`
+    return `${missingNeeded(option)} cái chưa chọn sẽ được báo thiếu.`
   }
 
   const shownOptions = addedOptions
@@ -712,10 +714,10 @@ export default function InventoryAuditDetail() {
                                   <TableCell colSpan={5} sx={{ bgcolor: '#f8fafc', py: 1 }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 0.5 }}>
                                       <Typography sx={{ fontSize: 12.5, color: '#334155' }}>
-                                        Thiếu {needed} cái. Chọn {countedOf(option)} cái có trong tủ (xem mã dán trên thiết bị):
+                                        Thiếu {needed} cái. Chọn những cái có trong tủ, hoặc chọn tất cả rồi bỏ những cái không thấy:
                                       </Typography>
-                                      <Button size="small" onClick={() => markAllFound(option)} sx={{ textTransform: 'none', py: 0 }}>
-                                        Có đủ cả {option.system}
+                                      <Button size="small" onClick={() => setFound(option.units, true)} sx={{ textTransform: 'none', py: 0 }}>
+                                        Chọn tất cả
                                       </Button>
                                       <Button size="small" color="inherit" onClick={() => setFound(option.units, false)} sx={{ textTransform: 'none', py: 0 }}>
                                         Bỏ chọn hết
@@ -724,7 +726,6 @@ export default function InventoryAuditDetail() {
                                     <Box sx={{ display: 'flex', flexWrap: 'wrap', columnGap: 2 }}>
                                       {option.units.map((unit) => {
                                         const found = !missingPicks[unit.itemId]
-                                        const enoughChosen = option.system - missingPicked(option) >= countedOf(option)
                                         return (
                                         <FormControlLabel
                                           key={unit.itemId}
@@ -733,7 +734,6 @@ export default function InventoryAuditDetail() {
                                               size="small"
                                               color="success"
                                               checked={found}
-                                              disabled={!found && enoughChosen}
                                               onChange={(event) => setFound([unit], event.target.checked)}
                                             />
                                           }
@@ -748,9 +748,7 @@ export default function InventoryAuditDetail() {
                                       })}
                                     </Box>
                                     <Typography sx={{ fontSize: 12, color: '#b45309', mt: 0.5 }}>
-                                      {needsPicking(option)
-                                        ? `Đã chọn ${option.system - missingPicked(option)}/${countedOf(option)} cái.`
-                                        : `${needed} cái chưa chọn sẽ được báo thiếu.`}
+                                      {pickingHint(option)}
                                     </Typography>
                                   </TableCell>
                                 </TableRow>
