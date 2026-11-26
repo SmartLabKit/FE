@@ -379,10 +379,11 @@ export default function Components() {
                     fontWeight: 700,
                     borderColor: '#16a34a',
                     color: '#15803d',
+                    whiteSpace: 'nowrap',
                     '&:hover': { bgcolor: '#f0fdf4', borderColor: '#15803d' },
                   }}
                 >
-                  Nhập từ Excel
+                  Tạo hàng loạt từ Excel
                 </Button>
                 <Button
                   startIcon={<AddIcon />}
