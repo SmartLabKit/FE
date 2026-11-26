@@ -12,6 +12,7 @@ import {
   DialogContent,
   DialogTitle,
   Divider,
+  Drawer,
   Grid,
   IconButton,
   InputAdornment,
@@ -33,6 +34,7 @@ import {
 } from '@mui/material'
 import PhotoCameraIcon from '@mui/icons-material/PhotoCamera'
 import SearchIcon from '@mui/icons-material/Search'
+import CloseIcon from '@mui/icons-material/Close'
 import PortalLayout from '../../components/layout/PortalLayout'
 import TrackingTypeBadge from '../../components/common/TrackingTypeBadge'
 import IssueBorrowModal from '../../components/borrowing/IssueBorrowModal'
@@ -277,6 +279,11 @@ export default function LabBorrowManagement() {
       setDetailLoading(false)
     }
   }, [])
+
+  const closeDetail = () => {
+    setSelectedRequestId('')
+    setRequestDetail(null)
+  }
 
   const reloadData = useCallback(async () => {
     await refresh()
@@ -692,11 +699,19 @@ export default function LabBorrowManagement() {
           )}
         </Paper>
 
-        {(tab === 0 || tab === 2 || tab === 3 || tab === 4) && (
-          <Paper variant="outlined" sx={{ p: { xs: 2, md: 3 } }}>
-            {!selectedRequestId ? (
-              <Typography color="text.secondary">Chọn một đơn để xem chi tiết và xử lý.</Typography>
-            ) : detailLoading ? (
+        <Drawer
+          anchor="right"
+          open={(tab === 0 || tab === 2 || tab === 3 || tab === 4) && Boolean(selectedRequestId)}
+          onClose={closeDetail}
+        >
+          <Box sx={{ width: { xs: '100vw', sm: 560, md: 720 }, p: { xs: 2, md: 3 } }}>
+            <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 1 }}>
+              <Typography sx={{ fontWeight: 800, color: '#64748b', fontSize: 13 }}>Chi tiết đơn mượn</Typography>
+              <IconButton onClick={closeDetail} aria-label="Đóng">
+                <CloseIcon />
+              </IconButton>
+            </Box>
+            {detailLoading ? (
               <Box sx={{ display: 'flex', justifyContent: 'center', py: 4 }}><CircularProgress /></Box>
             ) : detailError ? (
               <Alert severity="error">{detailError}</Alert>
@@ -920,8 +935,8 @@ export default function LabBorrowManagement() {
                 </Stack>
               </Stack>
             ) : null}
-          </Paper>
-        )}
+          </Box>
+        </Drawer>
       </Container>
 
       {pickupRequest && (
