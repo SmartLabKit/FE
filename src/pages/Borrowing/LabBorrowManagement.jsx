@@ -796,6 +796,7 @@ export default function LabBorrowManagement() {
                               {isLentUnit(item, requestDetail.status) && (
                                 <Button
                                   size="small"
+                                  variant="outlined"
                                   color="warning"
                                   disabled={Boolean(actionLoading)}
                                   onClick={() => setBrokenItemCode(item.itemCode)}
