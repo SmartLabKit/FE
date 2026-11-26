@@ -396,8 +396,10 @@ export default function InventoryAuditDetail() {
                         getOptionKey={(option) => option.key}
                         filterOptions={(options, state) => {
                           const query = normalizeSearchText(state.inputValue)
-                          if (!query) return []
-                          return options.filter((option) => option.searchText.includes(query)).slice(0, 20)
+                          const matched = options.filter((option) => option.searchText.includes(query))
+                          const unchecked = matched.filter((option) => !isChecked(option))
+                          const checked = matched.filter((option) => isChecked(option))
+                          return [...unchecked, ...checked]
                         }}
                         noOptionsText="Không có món này trong tủ"
                         renderOption={(props, option) => {
@@ -419,7 +421,7 @@ export default function InventoryAuditDetail() {
                             {...params}
                             inputRef={searchRef}
                             autoFocus
-                            placeholder="Gõ tên linh kiện hoặc quét mã thiết bị"
+                            placeholder="Chọn linh kiện trong tủ, gõ tên hoặc quét mã thiết bị"
                           />
                         )}
                         sx={{ flex: 1, minWidth: 0 }}
