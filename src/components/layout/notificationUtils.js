@@ -14,7 +14,7 @@ export function formatRelativeTime(value) {
 
 /**
  * Trang cần mở khi bấm vào thông báo, dựa vào refType + role của người dùng.
- * refType do BE gửi: BorrowRequest, BorrowApproval, BorrowExtension, Project, Team, Class (refId là id tương ứng).
+ * refType do BE gửi: BorrowRequest, BorrowApproval, BorrowExtension, Project, Team, Class, InventoryAudit (refId là id tương ứng).
  * Trả về null khi không có trang phù hợp (chỉ đánh dấu đã đọc).
  */
 export function getNotificationPath(notification, hasRole) {
@@ -35,6 +35,8 @@ export function getNotificationPath(notification, hasRole) {
       if (is('Student')) return '/class-setup/student/groups'
       if (is('Lecturer')) return '/class-setup/lecturer/classes'
       return null
+    case 'InventoryAudit':
+      return notification.refId ? `/class-setup/admin/inventory-audits/${notification.refId}` : '/class-setup/admin/inventory-audits'
     default:
       return null
   }

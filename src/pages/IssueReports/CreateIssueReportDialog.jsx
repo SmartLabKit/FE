@@ -399,7 +399,7 @@ export default function CreateIssueReportDialog({ initialCode = '', onClose, onC
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', ml: 4 }}>
                     {unit.freeReplacementUnits === 0
                       ? 'Lab không còn con nào để đổi.'
-                      : `Lab còn ${unit.freeReplacementUnits} con. Giao con thay thế ở trang Đơn mượn tại Lab.`}
+                      : `Lab còn ${unit.freeReplacementUnits} con. Giao con thay thế ở trang Xử lý đơn mượn.`}
                   </Typography>
                 </Box>
               )}

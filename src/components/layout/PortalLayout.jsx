@@ -35,7 +35,6 @@ import {
   Assessment as ReportIcon,
   FactCheck as FinalSubmissionIcon,
   ReportProblem as IssueIcon,
-  Checklist as AuditIcon,
   MeetingRoom as RoomIcon,
   History as AuditLogIcon,
 } from '@mui/icons-material'
@@ -112,11 +111,18 @@ export default function PortalLayout({
       roles: ['Admin', 'InventoryManager', 'LabStaff', 'Lecturer'],
     },
     {
+      label: 'Xử lý sự cố',
+      icon: <IssueIcon fontSize="small" />,
+      path: '/issue-reports',
+      roles: ['LabStaff'],
+      excludeRoles: ['Admin'],
+    },
+    {
       label: 'Sự cố thiết bị',
       icon: <IssueIcon fontSize="small" />,
       path: '/issue-reports',
-      roles: ['InventoryManager', 'LabStaff'],
-      excludeRoles: ['Admin'],
+      roles: ['InventoryManager'],
+      excludeRoles: ['Admin', 'LabStaff'],
     },
 
     // 1. Phân hệ SINH VIÊN (Student)
@@ -182,7 +188,7 @@ export default function PortalLayout({
 
     // 4. Phân hệ QUẢN LÝ KHO & LINH KIỆN (InventoryManager / LabStaff); Admin chỉ quản lý phòng lab
     {
-      label: 'Linh kiện kho',
+      label: 'Quản lý linh kiện',
       icon: <CategoryIcon fontSize="small" />,
       path: '/class-setup/admin/components',
       roles: ['InventoryManager', 'LabStaff'],
@@ -194,7 +200,7 @@ export default function PortalLayout({
       roles: ['InventoryManager', 'LabStaff', 'Lecturer', 'Student'],
     },
     {
-      label: 'Tủ lưu trữ',
+      label: 'Tủ & kiểm kê',
       icon: <RoomIcon fontSize="small" />,
       path: '/class-setup/admin/cabinets',
       roles: ['InventoryManager', 'LabStaff'],
@@ -212,12 +218,6 @@ export default function PortalLayout({
       roles: [ 'InventoryManager'],
     },
     {
-      label: 'Kiểm kê kho',
-      icon: <AuditIcon fontSize="small" />,
-      path: '/class-setup/admin/inventory-audits',
-      roles: ['InventoryManager', 'LabStaff'],
-    },
-    {
       label: 'Sổ kho',
       icon: <AuditLogIcon fontSize="small" />,
       path: '/class-setup/admin/inventory-ledger',
@@ -226,7 +226,7 @@ export default function PortalLayout({
 
     // 5. Phân hệ BÀN GIAO & TRẢ ĐỒ (LabStaff)
     {
-      label: 'Đơn mượn tại Lab',
+      label: 'Xử lý đơn mượn',
       icon: <BorrowReturnIcon fontSize="small" />,
       path: '/borrow/lab-orders',
       roles: ['LabStaff'],
@@ -377,7 +377,9 @@ export default function PortalLayout({
             location.pathname.startsWith('/class-setup/admin/stock-inwards')
           const isCategoriesRoute = location.pathname.startsWith('/class-setup/admin/categories')
           const isLabRoomsRoute = location.pathname.startsWith('/class-setup/admin/lab-rooms')
-          const isCabinetsRoute = location.pathname.startsWith('/class-setup/admin/cabinets')
+          const isCabinetsRoute =
+            location.pathname.startsWith('/class-setup/admin/cabinets') ||
+            location.pathname.startsWith('/class-setup/admin/inventory-audits')
           const isUsersRoute = location.pathname.startsWith('/admin/users')
           const isRolesRoute = location.pathname.startsWith('/admin/roles')
           const isSystemSettingsRoute = location.pathname.startsWith('/admin/system-settings')
@@ -418,8 +420,6 @@ export default function PortalLayout({
               ? isLecturerClassesRoute
               : item.path === '/borrow/my-requests'
               ? isBorrowRoute
-              : item.path === '/class-setup/admin/inventory-audits'
-              ? location.pathname.startsWith(item.path)
               : location.pathname === item.path
 
           return (

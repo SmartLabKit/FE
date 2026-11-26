@@ -32,6 +32,8 @@ export default function CabinetDetail() {
   const canAudit = ownLab && hasRole('LabStaff')
   const canAdjust = isManager || hasPermission('INVENTORY_AUDIT_APPROVE')
   const canReport = ownLab && hasRole('LabStaff')
+  const showsItems = cabinet?.trackingType !== 'CONSUMABLE'
+  const showsConsumables = !cabinet?.trackingType || cabinet.trackingType === 'CONSUMABLE'
   const targetCabinets = cabinets.filter((item) => item.roomId === cabinet?.roomId)
 
   useEffect(() => {
@@ -104,10 +106,10 @@ export default function CabinetDetail() {
           <Card variant="outlined" sx={{ borderColor: '#d8dced', boxShadow: 'none' }}>
             <Tabs value={tab} onChange={(_, value) => setTab(value)} variant="scrollable" sx={{ px: 1, borderBottom: '1px solid #eef0f6' }}>
               <Tab value="overview" label="Tổng quan" sx={{ textTransform: 'none', fontWeight: 600 }} />
-              <Tab value="items" label="Từng thiết bị" sx={{ textTransform: 'none', fontWeight: 600 }} />
-              <Tab value="consumables" label="Vật tư tiêu hao" sx={{ textTransform: 'none', fontWeight: 600 }} />
+              {showsItems && <Tab value="items" label="Từng thiết bị" sx={{ textTransform: 'none', fontWeight: 600 }} />}
+              {showsConsumables && <Tab value="consumables" label="Vật tư tiêu hao" sx={{ textTransform: 'none', fontWeight: 600 }} />}
             </Tabs>
-            {tab === 'items' && (
+            {tab === 'items' && showsItems && (
               <CabinetItemsTab
                 cabinet={cabinet}
                 cabinets={targetCabinets}
@@ -118,7 +120,7 @@ export default function CabinetDetail() {
                 showToast={showToast}
               />
             )}
-            {tab === 'consumables' && (
+            {tab === 'consumables' && showsConsumables && (
               <CabinetConsumablesTab
                 cabinet={cabinet}
                 canAdjust={canAdjust}

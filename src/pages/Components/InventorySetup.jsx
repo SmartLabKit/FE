@@ -7,6 +7,7 @@ import {
 import { Add as AddIcon, Delete as DeleteIcon, PersonAdd as StaffAddIcon } from '@mui/icons-material'
 import { useLocation, useNavigate } from 'react-router-dom'
 import PortalLayout from '../../components/layout/PortalLayout'
+import InventoryAudits from './InventoryAudits'
 import ConfirmDialog from '../../components/common/ConfirmDialog'
 import TrackingTypeBadge from '../../components/common/TrackingTypeBadge'
 import { inventoryService } from '../../services/inventoryService'
@@ -123,17 +124,37 @@ export default function InventorySetup() {
   const canManageStorage = hasRole('Admin') || hasRole('InventoryManager') || hasPermission('COMPONENT_MANAGE')
   const canEditInventory = canManageStorage
 
+  const canApproveAudits = hasPermission('INVENTORY_AUDIT_APPROVE')
+  const [pendingAudits, setPendingAudits] = useState(0)
+
+  useEffect(() => {
+    if (!canApproveAudits) return undefined
+    let active = true
+    inventoryService
+      .getInventoryAudits({ status: 'Submitted', page: 1, size: 1 })
+      .then((data) => { if (active) setPendingAudits(Number(data?.totalCount || 0)) })
+      .catch(() => { if (active) setPendingAudits(0) })
+    return () => { active = false }
+  }, [canApproveAudits, location.pathname])
+
+  let auditTabLabel = 'Kiểm kê'
+  if (pendingAudits > 0) auditTabLabel = `Kiểm kê (${pendingAudits} chờ duyệt)`
+
   // Xác định các Tabs hiển thị phù hợp với quyền người dùng
   const tabs = useMemo(() => {
     if (isLabStaff || !canManageStorage) {
-      return [['/class-setup/admin/cabinets', 'Tủ lưu trữ']]
+      return [
+        ['/class-setup/admin/cabinets', 'Tủ lưu trữ'],
+        ['/class-setup/admin/inventory-audits', auditTabLabel],
+      ]
     }
     return [
       ['/class-setup/admin/categories', 'Danh mục'],
       ['/class-setup/admin/lab-rooms', 'Phòng lab'],
       ['/class-setup/admin/cabinets', 'Tủ lưu trữ'],
+      ['/class-setup/admin/inventory-audits', auditTabLabel],
     ]
-  }, [canManageStorage, isLabStaff])
+  }, [auditTabLabel, canManageStorage, isLabStaff])
 
   // Người không có quyền quản lý rời khỏi mục danh mục.
   useEffect(() => {
@@ -142,11 +163,10 @@ export default function InventorySetup() {
     }
   }, [canManageStorage, isLabStaff, location.pathname, navigate])
 
-  const kind = location.pathname.endsWith('/categories')
-    ? 'categories'
-    : location.pathname.endsWith('/lab-rooms')
-      ? 'rooms'
-      : 'cabinets'
+  let kind = 'cabinets'
+  if (location.pathname.endsWith('/categories')) kind = 'categories'
+  if (location.pathname.endsWith('/lab-rooms')) kind = 'rooms'
+  if (location.pathname.endsWith('/inventory-audits')) kind = 'audits'
 
   const [rows, setRows] = useState([])
   const [rooms, setRooms] = useState([])
@@ -177,6 +197,7 @@ export default function InventorySetup() {
   const [deleting, setDeleting] = useState(false)
 
   const load = useCallback(async (isSubscribed = () => true, resetView = false) => {
+    if (kind === 'audits') return
     setLoading(true)
     setError('')
     if (resetView) {
@@ -433,17 +454,28 @@ export default function InventorySetup() {
     }
   }
 
+  const tabBar = tabs.length > 1 && (
+    <Tabs value={tabIndex} onChange={(_, index) => navigate(tabs[index][0])} sx={{ mb: 2 }}>
+      {tabs.map(([, label]) => <Tab key={label} label={label} sx={{ fontWeight: 700 }} />)}
+    </Tabs>
+  )
+
+  if (kind === 'audits') {
+    return (
+      <PortalLayout headerTitle="Tủ & kiểm kê" headerSubtitle="Tủ lưu trữ và các phiên kiểm kê">
+        <Box sx={{ maxWidth: 1440, mx: 'auto' }}>{tabBar}</Box>
+        <InventoryAudits embedded />
+      </PortalLayout>
+    )
+  }
+
   return (
     <PortalLayout
-      headerTitle="Tủ lưu trữ"
-      headerSubtitle="Quản lý tủ lưu trữ được phân công"
+      headerTitle="Tủ & kiểm kê"
+      headerSubtitle="Tủ lưu trữ và các phiên kiểm kê"
     >
       <Box sx={{ maxWidth: 1440, mx: 'auto' }}>
-        {tabs.length > 1 && (
-          <Tabs value={tabIndex} onChange={(_, index) => navigate(tabs[index][0])} sx={{ mb: 2 }}>
-            {tabs.map(([, label]) => <Tab key={label} label={label} sx={{ fontWeight: 700 }} />)}
-          </Tabs>
-        )}
+        {tabBar}
 
         {error && <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError('')}>{error}</Alert>}
         {notice && <Alert severity="success" sx={{ mb: 2 }} onClose={() => setNotice('')}>{notice}</Alert>}

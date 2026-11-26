@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { FactCheck as AuditIcon } from '@mui/icons-material'
 import {
   Alert,
@@ -29,6 +29,7 @@ import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
 import { AUDIT_STATUSES, auditStatusOf, formatDateTime, rowsOf } from './inventoryLabels'
 import { labLabel } from '../../utils/labLabel'
+import { useEntityChanged } from '../../hooks/useEntityChanged'
 
 const PAGE_SIZE = 20
 const headCellSx = { fontWeight: 700, color: '#334155' }
@@ -138,22 +139,35 @@ function StartAuditDialog({ onClose, onStarted }) {
   )
 }
 
-/** Danh sách phiên kiểm kê tủ (mới nhất trước), lọc theo trạng thái, bắt đầu phiên mới. */
-export default function InventoryAudits() {
+/**
+ * Danh sách phiên kiểm kê tủ (mới nhất trước), lọc theo trạng thái, bắt đầu phiên mới.
+ * embedded: hiện bên trong tab "Kiểm kê" của trang Tủ & kiểm kê, không tự bọc PortalLayout.
+ */
+export default function InventoryAudits({ embedded = false }) {
   const navigate = useNavigate()
-  const [status, setStatus] = useState('')
+  const { hasRole, hasPermission } = useAuth()
+  const canCount = hasRole('LabStaff')
+  const canApprove = hasPermission('INVENTORY_AUDIT_APPROVE')
+  const [status, setStatus] = useState(canApprove ? 'Submitted' : '')
   const [page, setPage] = useState(1)
   const [result, setResult] = useState(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [startOpen, setStartOpen] = useState(false)
-  const { hasRole } = useAuth()
-  const canCount = hasRole('LabStaff')
+  const [reloadKey, setReloadKey] = useState(0)
+  const quietReload = useRef(false)
+
+  const reloadQuietly = useCallback(() => {
+    quietReload.current = true
+    setReloadKey((key) => key + 1)
+  }, [])
+  useEntityChanged(reloadQuietly)
 
   useEffect(() => {
     let active = true
     const timer = window.setTimeout(async () => {
-      setLoading(true)
+      if (!quietReload.current) setLoading(true)
+      quietReload.current = false
       setError('')
       try {
         const data = await inventoryService.getInventoryAudits({ status: status || undefined, page, size: PAGE_SIZE })
@@ -168,12 +182,12 @@ export default function InventoryAudits() {
       active = false
       window.clearTimeout(timer)
     }
-  }, [status, page])
+  }, [status, page, reloadKey])
 
   const audits = rowsOf(result)
 
-  return (
-    <PortalLayout headerTitle="Kiểm kê kho" headerSubtitle="Đếm thực tế từng tủ và ghi nhận chênh lệch vào sổ kho">
+  const content = (
+    <>
       <Box sx={{ maxWidth: 1440, mx: 'auto' }}>
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <Box
@@ -264,6 +278,14 @@ export default function InventoryAudits() {
           onStarted={(audit) => navigate(`/class-setup/admin/inventory-audits/${audit.auditId}`)}
         />
       )}
+    </>
+  )
+
+  if (embedded) return content
+
+  return (
+    <PortalLayout headerTitle="Kiểm kê kho" headerSubtitle="Đếm thực tế từng tủ và ghi nhận chênh lệch vào sổ kho">
+      {content}
     </PortalLayout>
   )
 }

@@ -197,7 +197,7 @@ function RetireItemDialog({ item, onClose, onSaved }) {
         {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
         <Stack spacing={2} sx={{ pt: 1 }}>
           <Alert severity="info">
-            Dùng cho thiết bị cũ, hết hạn dùng hoặc nhập nhầm. Thiết bị hỏng, cháy hoặc mất do nhân viên lab ghi nhận ở Sự cố thiết bị.
+            Dùng cho thiết bị cũ, hết hạn dùng hoặc nhập nhầm. Thiết bị hỏng, cháy hoặc mất do nhân viên lab ghi nhận ở Xử lý sự cố.
           </Alert>
           <TextField label="Lý do (bắt buộc)" value={reason} onChange={(event) => setReason(event.target.value)} multiline minRows={2} required fullWidth />
           <Alert severity="warning">Thiết bị thanh lý sẽ ra khỏi hệ thống, muốn dùng lại phải nhập phiếu mới.</Alert>
