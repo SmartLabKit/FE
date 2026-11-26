@@ -438,10 +438,12 @@ export default function InventoryAuditDetail() {
     setError('')
     try {
       await inventoryService.completeInventoryAudit(auditId, {
-        consumables: consumables.map((line) => ({
-          componentId: line.componentId,
-          countedQuantity: counts[line.componentId] ?? 0,
-        })),
+        consumables: consumables.map((line) => {
+          const value = counts[line.componentId]
+          let countedQuantity = 0
+          if (value !== undefined && value !== '') countedQuantity = Number(value)
+          return { componentId: line.componentId, countedQuantity }
+        }),
         missingItemIds: missingIds,
         note: note.trim() || null,
       })
