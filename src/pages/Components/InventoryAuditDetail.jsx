@@ -34,7 +34,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { useNavigate, useParams } from 'react-router-dom'
+import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
 import PortalLayout from '../../components/layout/PortalLayout'
 import { inventoryService } from '../../services/inventoryService'
@@ -106,6 +106,31 @@ export default function InventoryAuditDetail() {
   const [extras, setExtras] = useState([])
   const [allComponents, setAllComponents] = useState([])
   const [unknownCode, setUnknownCode] = useState('')
+  const location = useLocation()
+  // Phiếu nhập đã lập cho thiết bị thừa không nhãn (nhớ trong phiên trình duyệt), để dòng đó hiện "Đã lập phiếu"
+  const [extraReceipts] = useState(() => {
+    let saved
+    try {
+      saved = JSON.parse(window.sessionStorage.getItem(`audit-extra-receipts:${auditId}`) || '{}')
+    } catch {
+      saved = {}
+    }
+    const done = location.state?.receiptDone
+    if (done?.extraId) {
+      saved = { ...saved, [done.extraId]: { receiptId: done.receiptId, receiptCode: done.receiptCode } }
+      try {
+        window.sessionStorage.setItem(`audit-extra-receipts:${auditId}`, JSON.stringify(saved))
+      } catch {
+        // Không lưu được (chế độ riêng tư): chỉ mất nhãn "Đã lập phiếu" khi tải lại trang
+      }
+    }
+    return saved
+  })
+  const [receiptNotice] = useState(() => {
+    const done = location.state?.receiptDone
+    if (!done) return ''
+    return `Đã nhập kho phiếu ${done.receiptCode || ''}. Xử lý xong thiết bị thừa thì duyệt phiếu kiểm kê.`
+  })
 
   const applyAudit = useCallback(async (data) => {
     setAudit(data)
@@ -574,6 +599,9 @@ export default function InventoryAuditDetail() {
             {error}
           </Alert>
         )}
+        {receiptNotice && !notice && (
+          <Alert severity="success" sx={{ mb: 2 }}>{receiptNotice}</Alert>
+        )}
         {notice && (
           <Alert severity="success" sx={{ mb: 2 }} onClose={() => setNotice('')}>
             {notice}
@@ -924,7 +952,7 @@ export default function InventoryAuditDetail() {
                     <Stack spacing={0.5}>
                       {audit.missingItems.map((item) => (
                         <Typography key={item.itemId} variant="body2">
-                          <strong>{item.componentName}</strong>
+                          <strong>{item.componentName}</strong> · {item.itemCode}
                           {item.serialNumber ? ` · S/N ${item.serialNumber}` : ''}
                         </Typography>
                       ))}
@@ -1024,6 +1052,7 @@ export default function InventoryAuditDetail() {
                 <AuditExtrasReview
                   audit={audit}
                   canResolve={canRestore}
+                  receipts={extraReceipts}
                   onError={setError}
                   onResolved={async (message) => {
                     setNotice(message)
@@ -1043,7 +1072,7 @@ export default function InventoryAuditDetail() {
                   <Table size="small">
                     <TableHead>
                       <TableRow sx={{ bgcolor: '#fffbeb' }}>
-                        {['Linh kiện', 'Serial', ''].map((head) => (
+                        {['Linh kiện', 'Mã thiết bị', 'Serial', ''].map((head) => (
                           <TableCell key={head} sx={headCellSx}>{head}</TableCell>
                         ))}
                       </TableRow>
@@ -1052,6 +1081,7 @@ export default function InventoryAuditDetail() {
                       {lostItems.map((item) => (
                         <TableRow key={item.itemId} hover>
                           <TableCell>{item.componentName}</TableCell>
+                          <TableCell>{item.itemCode}</TableCell>
                           <TableCell>{item.serialNumber || '—'}</TableCell>
                           <TableCell align="right">
                             {canRestore && (

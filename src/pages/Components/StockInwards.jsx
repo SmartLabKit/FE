@@ -689,6 +689,13 @@ export default function StockInwards() {
           uploadMessage = extractErrorMessage(uploadError, 'Không thể tải lên hóa đơn.')
         }
       }
+      if (fromAudit?.auditId) {
+        // Lập từ kiểm kê: quay về phiếu kiểm kê để duyệt tiếp
+        navigate(`/class-setup/admin/inventory-audits/${fromAudit.auditId}`, {
+          state: { receiptDone: { extraId: fromAudit.extraId, receiptId: id, receiptCode: receipt?.receiptCode || '' } },
+        })
+        return
+      }
       navigate(`/class-setup/admin/stock-receipts/${id}`, { state: { invoiceError: uploadMessage } })
     } catch (saveError) {
       setError(extractErrorMessage(saveError, 'Không thể lưu phiếu nhập.'))
@@ -696,6 +703,16 @@ export default function StockInwards() {
       setLoading(false)
     }
   }
+
+  // Rời trang: về phiếu kiểm kê nếu mở từ đó, không thì về chi tiết / danh sách phiếu nhập
+  const leavePage = () => {
+    if (fromAudit?.auditId) return navigate(`/class-setup/admin/inventory-audits/${fromAudit.auditId}`)
+    if (editId) return navigate(`/class-setup/admin/stock-receipts/${editId}`)
+    return navigate('/class-setup/admin/stock-receipts')
+  }
+  let backLabel = 'Nhập kho'
+  if (editId) backLabel = 'Chi tiết phiếu nhập'
+  if (fromAudit?.auditId) backLabel = 'Phiếu kiểm kê'
 
   // Filter nhanh danh sách linh kiện trong Autocomplete (không dấu, giới hạn 50 dòng để không lag với hàng ngàn linh kiện)
   const filterComponentOptions = (options, { inputValue }) => {
@@ -724,12 +741,10 @@ export default function StockInwards() {
         <Box sx={{ mb: 2 }}>
           <Button
             startIcon={<BackIcon />}
-            onClick={() =>
-              navigate(editId ? `/class-setup/admin/stock-receipts/${editId}` : '/class-setup/admin/stock-receipts')
-            }
+            onClick={leavePage}
             sx={{ textTransform: 'none', fontWeight: 600 }}
           >
-            {editId ? 'Chi tiết phiếu nhập' : 'Nhập kho'}
+            {backLabel}
           </Button>
         </Box>
 
@@ -1373,9 +1388,7 @@ export default function StockInwards() {
             {/* Các nút bấm hành động */}
             <Box sx={{ mt: 3, display: 'flex', justifyContent: 'flex-end', alignItems: 'center', gap: 1.5, flexWrap: 'wrap' }}>
               <Button
-                onClick={() =>
-                  navigate(editId ? `/class-setup/admin/stock-receipts/${editId}` : '/class-setup/admin/stock-receipts')
-                }
+                onClick={leavePage}
                 sx={{ textTransform: 'none' }}
               >
                 Hủy

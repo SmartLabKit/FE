@@ -139,7 +139,7 @@ function describe(extra) {
  * Quản lý kho xem thiết bị thừa của phiên kiểm và xử lý từng con: chuyển về tủ này, khôi phục,
  * nhắc nhận trả, hoặc lập phiếu nhập kho.
  */
-export function AuditExtrasReview({ audit, canResolve, onResolved, onError }) {
+export function AuditExtrasReview({ audit, canResolve, receipts, onResolved, onError }) {
   const navigate = useNavigate()
   const [busyId, setBusyId] = useState('')
   const extras = audit?.extras || []
@@ -193,6 +193,8 @@ export function AuditExtrasReview({ audit, canResolve, onResolved, onError }) {
     navigate('/class-setup/admin/stock-inwards', {
       state: {
         fromAudit: {
+          auditId: audit.auditId,
+          extraId: extra.extraId,
           roomId: audit.roomId,
           cabinetId: audit.cabinetId,
           componentId: extra.componentId || '',
@@ -218,6 +220,14 @@ export function AuditExtrasReview({ audit, canResolve, onResolved, onError }) {
       return button('Mở đơn mượn', () => navigate(`/borrow/requests/${extra.borrowRequestId}`))
     }
     if (extra.resolution === 'Unknown' || extra.resolution === 'NoLabel') {
+      const done = receipts?.[extra.extraId]
+      if (done) {
+        return (
+          <Button size="small" color="success" onClick={() => navigate(`/class-setup/admin/stock-receipts/${done.receiptId}`)} sx={{ textTransform: 'none', fontWeight: 700 }}>
+            Đã lập phiếu {done.receiptCode}
+          </Button>
+        )
+      }
       return button('Lập phiếu nhập kho', () => openReceipt(extra))
     }
     return null
