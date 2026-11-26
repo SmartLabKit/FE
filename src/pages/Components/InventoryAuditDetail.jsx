@@ -699,11 +699,6 @@ export default function InventoryAuditDetail() {
                       }}
                       sx={{ flex: 1, minWidth: 200 }}
                     />
-                    {pickingOptions.length > 0 && (
-                      <Typography variant="body2" sx={{ color: '#b45309' }}>
-                        Còn {pickingOptions.length} loại thiết bị chưa chọn cái thiếu
-                      </Typography>
-                    )}
                     <Typography variant="body2" color="text.secondary">
                       {dirty && 'Có thay đổi chưa lưu'}
                       {!dirty && draftSavedAt && `Đã lưu lúc ${formatDateTime(draftSavedAt)}`}
