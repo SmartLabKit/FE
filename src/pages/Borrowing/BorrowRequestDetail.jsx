@@ -53,7 +53,7 @@ export default function BorrowRequestDetail() {
   const isStudent = user?.roleLabel === 'STUDENT' || user?.roles?.some((role) => role.toLowerCase() === 'student')
   const isStaff = hasRole?.('LabStaff')
   const hasMyRequests = isStudent || hasRole?.('Lecturer')
-  const backLabel = isStaff ? 'Đơn mượn tại Lab' : isStudent ? 'Đơn mượn của tôi' : 'Quay lại'
+  const backLabel = isStaff ? 'Xử lý đơn mượn' : isStudent ? 'Đơn mượn của tôi' : 'Quay lại'
   const goBack = () => {
     if (isStaff) navigate('/borrow/lab-orders')
     else if (hasMyRequests) navigate('/borrow/my-requests')

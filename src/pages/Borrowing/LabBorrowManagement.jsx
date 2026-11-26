@@ -437,7 +437,7 @@ export default function LabBorrowManagement() {
 
   return (
     <PortalLayout
-      headerTitle="Đơn mượn tại Lab"
+      headerTitle="Xử lý đơn mượn"
       headerSubtitle="Xử lý đơn đã duyệt: giao đồ, nhận trả và theo dõi đơn của lab mình"
       activeMenuKey="handover"
     >
