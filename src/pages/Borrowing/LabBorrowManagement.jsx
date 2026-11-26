@@ -609,8 +609,10 @@ export default function LabBorrowManagement() {
                 <TableHead>
                   <TableRow sx={{ bgcolor: '#faf9ff' }}>
                     <TableCell sx={{ fontWeight: 700 }}>Mã đơn</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Sinh viên / Lớp</TableCell>
-                    <TableCell sx={{ fontWeight: 700 }}>Đề tài / Số món</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Sinh viên</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Lớp</TableCell>
+                    <TableCell sx={{ fontWeight: 700 }}>Đề tài</TableCell>
+                    <TableCell align="right" sx={{ fontWeight: 700 }}>Số món</TableCell>
                     <TableCell sx={{ fontWeight: 700 }}>Lab nhận</TableCell>
                     <TableCell sx={{ fontWeight: 700 }}>Hạn trả</TableCell>
                     <TableCell sx={{ fontWeight: 700 }}>Trạng thái</TableCell>
@@ -632,16 +634,10 @@ export default function LabBorrowManagement() {
                       <TableCell sx={{ fontWeight: 700, color: '#0058be', whiteSpace: 'nowrap' }}>
                         {request.requestCode || '—'}
                       </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" fontWeight={700}>{request.requesterName || '—'}</Typography>
-                        <Typography variant="caption" color="text.secondary">{request.classCode || ''}</Typography>
-                      </TableCell>
-                      <TableCell>
-                        <Typography variant="body2" fontWeight={600}>{request.projectTitle || '—'}</Typography>
-                        {typeof request.itemCount === 'number' && (
-                          <Typography variant="caption" color="text.secondary">{request.itemCount} món</Typography>
-                        )}
-                      </TableCell>
+                      <TableCell sx={{ fontWeight: 700 }}>{request.requesterName || '—'}</TableCell>
+                      <TableCell sx={{ whiteSpace: 'nowrap' }}>{request.classCode || '—'}</TableCell>
+                      <TableCell>{request.projectTitle || '—'}</TableCell>
+                      <TableCell align="right">{typeof request.itemCount === 'number' ? request.itemCount : '—'}</TableCell>
                       <TableCell title={labName(request)} sx={{ whiteSpace: 'nowrap' }}>{labCode(request)}</TableCell>
                       <TableCell sx={{ whiteSpace: 'nowrap', fontWeight: 600, color: isOverdue(request) ? '#dc2626' : 'inherit' }}>
                         {formatVietnamDate(request.dueDate)}
@@ -668,7 +664,7 @@ export default function LabBorrowManagement() {
                   ))}
                   {!requests.length && (
                     <TableRow>
-                      <TableCell colSpan={6} align="center" sx={{ py: 4, color: 'text.secondary' }}>
+                      <TableCell colSpan={8} align="center" sx={{ py: 4, color: 'text.secondary' }}>
                         {tab === 2
                           ? 'Không tìm thấy đơn sẵn sàng giao.'
                           : tab === 3
