@@ -777,7 +777,7 @@ export default function LabBorrowManagement() {
                         const statusInfo = getItemStatusInfo(item, requestDetail.status)
                         return (
                           <TableRow key={item.borrowItemId}>
-                            <TableCell>{item.componentName}<br /><Typography variant="caption" color="text.secondary">{item.itemCode || item.componentCode}</Typography></TableCell>
+                            <TableCell>{item.componentName}</TableCell>
                             <TableCell><TrackingTypeBadge type={item.trackingType} /></TableCell>
                             <TableCell>{item.quantity} {item.unit || ''}</TableCell>
                             <TableCell>
