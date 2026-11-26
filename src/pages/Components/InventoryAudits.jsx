@@ -34,8 +34,6 @@ const PAGE_SIZE = 20
 const headCellSx = { fontWeight: 700, color: '#334155' }
 
 function StartAuditDialog({ onClose, onStarted }) {
-  const { hasPermission } = useAuth()
-  const everyLab = hasPermission('INVENTORY_AUDIT_APPROVE')
   const [rooms, setRooms] = useState([])
   const [cabinets, setCabinets] = useState([])
   const [busyCabinets, setBusyCabinets] = useState({})
@@ -50,8 +48,7 @@ function StartAuditDialog({ onClose, onStarted }) {
     Promise.all([inventoryService.getCabinets(), inventoryService.getLabRooms()])
       .then(([items, labRooms]) => {
         if (!active) return
-        let shownRooms = labRooms
-        if (!everyLab) shownRooms = labRooms.filter((room) => room.isMine)
+        const shownRooms = labRooms.filter((room) => room.isMine)
         const shownRoomIds = new Set(shownRooms.map((room) => room.roomId))
         setRooms(shownRooms)
         setCabinets(items.filter((item) => shownRoomIds.has(item.roomId)))
@@ -73,7 +70,7 @@ function StartAuditDialog({ onClose, onStarted }) {
       setBusyCabinets(busy)
     })
     return () => { active = false }
-  }, [everyLab])
+  }, [])
 
   const roomCabinets = cabinets.filter((item) => item.roomId === roomId)
 
@@ -150,6 +147,8 @@ export default function InventoryAudits() {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [startOpen, setStartOpen] = useState(false)
+  const { hasRole } = useAuth()
+  const canCount = hasRole('LabStaff')
 
   useEffect(() => {
     let active = true
@@ -203,9 +202,11 @@ export default function InventoryAudits() {
             <MenuItem value="">Tất cả</MenuItem>
             {Object.entries(AUDIT_STATUSES).map(([value, item]) => <MenuItem key={value} value={value}>{item.label}</MenuItem>)}
           </TextField>
-          <Button variant="contained" startIcon={<AuditIcon />} onClick={() => setStartOpen(true)} sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#0058be' }}>
-            Bắt đầu kiểm kê
-          </Button>
+          {canCount && (
+            <Button variant="contained" startIcon={<AuditIcon />} onClick={() => setStartOpen(true)} sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#0058be' }}>
+              Bắt đầu kiểm kê
+            </Button>
+          )}
         </Box>
         <Paper variant="outlined" sx={{ borderColor: '#d8dced', borderTop: 0, borderRadius: '0 0 6px 6px' }}>
           <TableContainer>

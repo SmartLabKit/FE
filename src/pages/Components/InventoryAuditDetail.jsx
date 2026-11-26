@@ -150,7 +150,9 @@ export default function InventoryAuditDetail() {
     }
   }, [auditId, applyAudit])
 
-  const inProgress = audit?.status === 'InProgress'
+  const canCount = Boolean(hasRole?.('LabStaff'))
+  const inProgress = audit?.status === 'InProgress' && canCount
+  const countingByStaff = audit?.status === 'InProgress' && !canCount
   const submitted = audit?.status === 'Submitted'
   const canReview = hasPermission?.('INVENTORY_AUDIT_APPROVE')
   const canRestore = hasPermission?.('COMPONENT_MANAGE')
@@ -728,6 +730,12 @@ export default function InventoryAuditDetail() {
               </>
             )}
 
+            {countingByStaff && (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                Nhân viên lab đang kiểm tủ này. Khi họ gửi kết quả, bạn sẽ duyệt ở đây.
+              </Alert>
+            )}
+
             {submitted && (
               <SectionCard
                 title="Kết quả đếm chờ duyệt"
@@ -814,7 +822,7 @@ export default function InventoryAuditDetail() {
               </SectionCard>
             )}
 
-            {!inProgress && !submitted && (
+            {audit.status !== 'InProgress' && !submitted && (
               <>
                 {audit.reviewNote && (
                   <Alert severity="info" sx={{ mb: 2, whiteSpace: 'pre-wrap' }}>
