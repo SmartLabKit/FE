@@ -43,6 +43,7 @@ import { TRANSACTION_TYPES, auditStatusOf, formatDateTime, rowsOf } from './inve
 import { normalizeSearchText } from './componentHelpers'
 import { clearLeaveGuard, setLeaveGuard } from '../../utils/leaveGuard'
 import { useEntityChanged } from '../../hooks/useEntityChanged'
+import { AuditExtrasEditor, AuditExtrasReview } from './AuditExtras'
 
 const headCellSx = { fontWeight: 700, color: '#334155' }
 
@@ -102,6 +103,9 @@ export default function InventoryAuditDetail() {
   const [reviewText, setReviewText] = useState('')
   const [lostItems, setLostItems] = useState([])
   const [restoringId, setRestoringId] = useState('')
+  const [extras, setExtras] = useState([])
+  const [allComponents, setAllComponents] = useState([])
+  const [unknownCode, setUnknownCode] = useState('')
 
   const applyAudit = useCallback(async (data) => {
     setAudit(data)
@@ -125,6 +129,8 @@ export default function InventoryAuditDetail() {
     }
     setCounts(draftCounts)
     setMissingPicks(draftMissing)
+    setExtras((draft?.extras || []).map((extra, index) => ({ ...extra, key: `d-${index}` })))
+    setUnknownCode('')
     setScannedIds({})
     setCheckedOrder(draftOrder)
     setDraftSavedAt(draft?.savedAt || null)
@@ -169,6 +175,21 @@ export default function InventoryAuditDetail() {
   useEntityChanged(reloadWhenStatusChanges)
 
   const canCount = Boolean(hasRole?.('LabStaff'))
+
+  // Danh sách linh kiện để ghi thiết bị thừa không có nhãn
+  useEffect(() => {
+    if (!canCount) return undefined
+    let active = true
+    inventoryService
+      .getComponents()
+      .then((list) => {
+        if (active) setAllComponents(rowsOf(list))
+      })
+      .catch(() => {})
+    return () => {
+      active = false
+    }
+  }, [canCount])
   const inProgress = audit?.status === 'InProgress' && canCount
   const countingByStaff = audit?.status === 'InProgress' && !canCount
   const submitted = audit?.status === 'Submitted'
@@ -394,6 +415,14 @@ export default function InventoryAuditDetail() {
     return () => window.removeEventListener('beforeunload', warn)
   }, [dirty])
 
+  const extrasPayload = () =>
+    extras.map((extra) => ({ itemCode: extra.itemCode || null, componentId: extra.componentId || null, note: extra.note || null }))
+
+  const changeExtras = (next) => {
+    setExtras(next)
+    setDirty(true)
+  }
+
   const saveDraft = async () => {
     setSavingDraft(true)
     setError('')
@@ -411,6 +440,7 @@ export default function InventoryAuditDetail() {
         lines,
         missingItemIds: Object.keys(missingPicks),
         note: note.trim() || null,
+        extras: extrasPayload(),
       })
       setDraftSavedAt(saved?.savedAt || new Date().toISOString())
       setDirty(false)
@@ -475,6 +505,7 @@ export default function InventoryAuditDetail() {
         }),
         missingItemIds: missingIds,
         note: note.trim() || null,
+        extras: extrasPayload(),
       })
       await applyAudit(await inventoryService.getInventoryAudit(auditId))
       setNotice('Đã gửi kết quả, chờ quản lý kho duyệt.')
@@ -606,6 +637,14 @@ export default function InventoryAuditDetail() {
                           event.defaultMuiPrevented = true
                           event.preventDefault()
                           scanUnit(unit)
+                          return
+                        }
+                        // Quét mã thiết bị không có trong danh sách tủ này: gợi ý ghi vào Thiết bị thừa
+                        const typed = searchInput.trim().toUpperCase()
+                        if (/^[A-Z0-9]+(-[A-Z0-9]+)+$/.test(typed)) {
+                          event.defaultMuiPrevented = true
+                          event.preventDefault()
+                          setUnknownCode(typed)
                         }
                       }}
                       getOptionLabel={(option) => option.name}
@@ -656,6 +695,31 @@ export default function InventoryAuditDetail() {
                   </Box>
                   {scanMessage && (
                     <Typography sx={{ fontSize: 13, color: '#2e7d32', px: 2 }}>{scanMessage}</Typography>
+                  )}
+                  {unknownCode && (
+                    <Alert
+                      severity="warning"
+                      sx={{ mx: 2 }}
+                      onClose={() => setUnknownCode('')}
+                      action={
+                        <Button
+                          color="inherit"
+                          size="small"
+                          onClick={() => {
+                            if (!extras.some((extra) => extra.itemCode === unknownCode)) {
+                              changeExtras([...extras, { key: `x-${Date.now()}`, itemCode: unknownCode, componentId: null, note: null }])
+                            }
+                            setUnknownCode('')
+                            focusSearch()
+                          }}
+                          sx={{ textTransform: 'none', fontWeight: 700 }}
+                        >
+                          Thêm vào thiết bị thừa
+                        </Button>
+                      }
+                    >
+                      Mã {unknownCode} không có trong danh sách của tủ này.
+                    </Alert>
                   )}
 
 
@@ -766,6 +830,8 @@ export default function InventoryAuditDetail() {
                       </TableBody>
                     </Table>
                   </TableContainer>
+
+                  <AuditExtrasEditor extras={extras} components={allComponents} onChange={changeExtras} />
 
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, flexWrap: 'wrap', px: 2, py: 1.5, borderTop: '1px solid #eef0f6' }}>
                     <TextField
@@ -951,6 +1017,20 @@ export default function InventoryAuditDetail() {
                   </TableContainer>
                 </SectionCard>
               </>
+            )}
+
+            {audit.status !== 'InProgress' && (audit.extras || []).length > 0 && (
+              <SectionCard title="Thiết bị thừa" subtitle="Có trong tủ mà danh sách không có. Xử lý từng con trước khi duyệt.">
+                <AuditExtrasReview
+                  audit={audit}
+                  canResolve={canRestore}
+                  onError={setError}
+                  onResolved={async (message) => {
+                    setNotice(message)
+                    await applyAudit(await inventoryService.getInventoryAudit(auditId))
+                  }}
+                />
+              </SectionCard>
             )}
 
             {/* Chỉ quản lý kho (khôi phục được) mới cần xem thiết bị đã thất lạc từ trước; nhân viên lab đang đếm thì không */}
