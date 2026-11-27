@@ -160,7 +160,7 @@ export default function LabComponentsDialog({ room, canEdit, onClose, onSaved })
           <Table size="small" stickyHeader>
             <TableHead>
               <TableRow>
-                {['Linh kiện', 'Mã', 'Loại', 'Lab đang giữ', ''].map((head) => (
+                {['Linh kiện', 'Mã', 'Loại', 'Tồn trong lab', ''].map((head) => (
                   <TableCell key={head} sx={headCellSx}>{head}</TableCell>
                 ))}
               </TableRow>
