@@ -37,7 +37,7 @@ export const NAV_ITEMS: NavItem[] = [
   // Học vụ (Admin)
   { label: 'Kỳ học & Lớp môn', icon: <SchoolIcon fontSize="small" />, path: '/class-setup/admin/semesters', roles: ['Admin'] },
   { label: 'Danh mục Môn học', icon: <MenuBookIcon fontSize="small" />, path: '/class-setup/admin/courses', roles: ['Admin'] },
-  { label: 'Nhập danh sách lớp & phân công', icon: <ApprovalsIcon fontSize="small" />, path: '/class-setup/admin/roster', roles: ['Admin'] },
+  { label: 'Quản lý lớp học', icon: <ApprovalsIcon fontSize="small" />, path: '/class-setup/admin/roster', roles: ['Admin'] },
 
   // Kho & linh kiện
   { label: 'Quản lý linh kiện', icon: <CategoryIcon fontSize="small" />, path: '/class-setup/admin/components', roles: ['InventoryManager', 'LabStaff'] },
