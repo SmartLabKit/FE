@@ -863,7 +863,7 @@ export default function TeamFormationTab({
                 Sinh viên chưa có nhóm ({unassignedCount})
               </Typography>
             </Box>
-            {showUnassigned && unassignedStudents.length > 0 && (
+            {showUnassigned && !choosing && unassignedStudents.length > 0 && (
               <Button
                 size="small"
                 onClick={handleToggleSelectAllStudents}
@@ -874,6 +874,11 @@ export default function TeamFormationTab({
             )}
           </Box>
 
+          {choosing ? (
+            <Typography variant="caption" sx={{ color: 'text.secondary', textAlign: 'right' }}>
+              Hết hạn chọn nhóm (hoặc kết thúc sớm) mới xếp được
+            </Typography>
+          ) : (
           <Button
             variant="contained"
             color="primary"
@@ -889,6 +894,7 @@ export default function TeamFormationTab({
           >
             Xếp nhóm
           </Button>
+          )}
         </Stack>
 
         {/* Body: Grid 2 cột danh sách checkbox thẻ SV, thu gọn được */}
@@ -912,14 +918,16 @@ export default function TeamFormationTab({
                 <Paper
                   key={student.studentProfileId}
                   variant="outlined"
-                  onClick={() => toggleStudentSelection(student.studentProfileId)}
+                  onClick={() => {
+                    if (!choosing) toggleStudentSelection(student.studentProfileId)
+                  }}
                   sx={{
                     p: 1.5,
                     borderRadius: 1.5,
                     display: 'flex',
                     alignItems: 'center',
                     gap: 1.25,
-                    cursor: 'pointer',
+                    cursor: choosing ? 'default' : 'pointer',
                     borderColor: isChecked ? 'primary.main' : '#e2e8f0',
                     bgcolor: isChecked ? '#f0f7ff' : '#ffffff',
                     transition: 'border-color 150ms ease, background-color 150ms ease',
@@ -929,12 +937,14 @@ export default function TeamFormationTab({
                     },
                   }}
                 >
-                  <Checkbox
-                    checked={isChecked}
-                    size="small"
-                    sx={{ p: 0.25 }}
-                    inputProps={{ 'aria-label': student.fullName }}
-                  />
+                  {!choosing && (
+                    <Checkbox
+                      checked={isChecked}
+                      size="small"
+                      sx={{ p: 0.25 }}
+                      inputProps={{ 'aria-label': student.fullName }}
+                    />
+                  )}
                   <Box sx={{ minWidth: 0 }}>
                     <Typography variant="body2" sx={{ fontWeight: 700, color: '#0f172a' }} noWrap>
                       {student.fullName}
