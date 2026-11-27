@@ -7,7 +7,7 @@ import {
 } from '@mui/icons-material'
 import BrandLogo from '../../common/BrandLogo'
 import type { NavCounts, NavItem } from './types'
-import { SHELL_COLORS, SIDEBAR_WIDTH_COLLAPSED, SIDEBAR_WIDTH_EXPANDED, TOOLTIP_Z_INDEX } from './types'
+import { SHELL_COLORS, SIDEBAR_WIDTH_COLLAPSED, SIDEBAR_WIDTH_EXPANDED, TOOLTIP_Z_INDEX, TOPBAR_HEIGHT } from './types'
 
 interface SidebarProps {
   items: NavItem[]
@@ -75,9 +75,8 @@ export default function Sidebar({
         height: '100%',
         width,
         boxSizing: 'border-box',
-        // Luôn trắng (cả thu gọn/mở rộng), ngăn cách vùng nội dung bằng viền mảnh
+        // Luôn trắng (cả thu gọn/mở rộng). Viền dọc chỉ nằm ở danh sách menu, không chạy lên khu vực Topbar.
         bgcolor: SHELL_COLORS.white,
-        borderRight: `1px solid ${SHELL_COLORS.border}`,
         transition: 'width 0.2s ease',
         overflow: 'hidden',
       }}
@@ -85,7 +84,9 @@ export default function Sidebar({
       {/* Đầu thanh: chiều cao cố định nên hover/đổi trạng thái không làm giật layout */}
       <Box
         sx={{
-          height: 64,
+          // Cùng chiều cao + viền dưới với Topbar để đường kẻ ngang liền mạch qua Sidebar
+          height: TOPBAR_HEIGHT,
+          boxSizing: 'border-box',
           flexShrink: 0,
           display: 'flex',
           alignItems: 'center',
@@ -102,7 +103,7 @@ export default function Sidebar({
                 width: 44,
                 height: 44,
                 position: 'relative',
-                borderRadius: 2,
+                borderRadius: '50%',
                 '&:hover': { bgcolor: SHELL_COLORS.primarySoft },
                 '&.Mui-focusVisible': focusRing,
                 // Hover/focus: ẩn logo, hiện icon mở thanh bên (xếp chồng, không đổi kích thước)
@@ -134,13 +135,8 @@ export default function Sidebar({
                 alignItems: 'center',
                 minWidth: 0,
                 py: 0.5,
-                px: 0.75,
-                ml: -0.75,
-                borderRadius: 1.5,
                 cursor: 'pointer',
                 textDecoration: 'none',
-                transition: 'background-color 0.15s ease',
-                '&:hover': { bgcolor: SHELL_COLORS.primarySoft },
                 '&:focus-visible': focusRing,
               }}
             >
@@ -154,6 +150,7 @@ export default function Sidebar({
                   aria-label="Thu gọn thanh bên"
                   sx={{
                     color: SHELL_COLORS.textMuted,
+                    borderRadius: '50%',
                     '&:hover': { bgcolor: SHELL_COLORS.primarySoft, color: SHELL_COLORS.primary },
                     '&.Mui-focusVisible': focusRing,
                   }}
@@ -179,6 +176,7 @@ export default function Sidebar({
           flexGrow: 1,
           overflowY: 'auto',
           overflowX: 'hidden',
+          borderRight: `1px solid ${SHELL_COLORS.border}`,
           scrollbarWidth: 'thin',
           scrollbarColor: '#cbd5e1 transparent',
         }}
@@ -193,10 +191,10 @@ export default function Sidebar({
               aria-label={item.label}
               aria-current={active ? 'page' : undefined}
               sx={{
-                borderRadius: isCollapsed ? 2 : 1.5,
-                py: 1,
-                px: isCollapsed ? 0 : 1.5,
-                minHeight: 44,
+                // Thu gọn: nút tròn 44x44 (hover/active/focus đều tròn), icon ở giữa
+                ...(isCollapsed
+                  ? { width: 44, height: 44, minHeight: 44, flexGrow: 0, p: 0, mx: 'auto', borderRadius: '50%' }
+                  : { borderRadius: 1.5, py: 1, px: 1.5, minHeight: 44 }),
                 justifyContent: isCollapsed ? 'center' : 'flex-start',
                 bgcolor: active ? SHELL_COLORS.primarySoft : 'transparent',
                 color: active ? SHELL_COLORS.primary : SHELL_COLORS.navText,
