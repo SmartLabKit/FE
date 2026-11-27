@@ -25,7 +25,7 @@ import {
   Add as AddIcon,
   Search as SearchIcon,
 } from '@mui/icons-material'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import PortalLayout from '../../components/layout/PortalLayout'
 import ProjectApprovalDialog from './ProjectApprovalDialog'
 import ProjectStatusChip from '../../components/borrowing/ProjectStatusChip'
@@ -72,9 +72,31 @@ export default function SupplementaryBorrowList() {
   const [projectStatusFilter, setProjectStatusFilter] = useState('all') // 'all' | 'Submitted' | 'Approved' | 'Rejected'
   const [projectSearch, setProjectSearch] = useState('')
   const [selectedProject, setSelectedProject] = useState(null)
+  // Bấm thông báo "Project chờ duyệt": ?project=<projectId> mở luôn hộp thoại duyệt của đề tài đó
+  const [searchParams, setSearchParams] = useSearchParams()
+  const projectToOpen = searchParams.get('project')
+  const requestToOpen = searchParams.get('request')
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
 
   // Hàm tải toàn bộ dữ liệu theo vai trò (Sinh viên vs Giảng viên)
+  useEffect(() => {
+    if ((!projectToOpen && !requestToOpen) || lecturerProjects.length === 0) return
+    const target = lecturerProjects.find((project) =>
+      projectToOpen
+        ? project.projectId === projectToOpen
+        : project.pendingBorrowRequestId === requestToOpen
+          || (project.borrowRequests || []).some((request) => request.borrowRequestId === requestToOpen))
+    const timer = window.setTimeout(() => {
+      if (target) setSelectedProject(target)
+      setSearchParams((params) => {
+        params.delete('project')
+        params.delete('request')
+        return params
+      }, { replace: true })
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [projectToOpen, requestToOpen, lecturerProjects, setSearchParams])
+
   const loadData = useCallback(async ({ silent = false } = {}) => {
     if (isLecturer) {
       if (!silent) setLoadingLecturerProjects(true)

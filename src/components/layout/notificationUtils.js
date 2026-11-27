@@ -25,11 +25,15 @@ export function getNotificationPath(notification, hasRole) {
       if (is('LabStaff')) return notification.refId ? `/borrow/lab-orders?open=${notification.refId}` : '/borrow/lab-orders'
       return notification.refId ? `/borrow/requests/${notification.refId}` : '/borrow/my-requests'
     case 'BorrowApproval':
+      // Giảng viên: đơn mượn của đề tài chờ duyệt, mở luôn hộp thoại duyệt đề tài chứa đơn đó
+      if (is('Lecturer') && notification.refId) return `/borrow/my-requests?request=${notification.refId}`
+      return '/borrow/my-requests'
     case 'BorrowExtension':
       return '/borrow/my-requests'
     case 'Project':
       if (is('Student')) return '/class-setup/student/project'
-      if (is('Lecturer')) return '/class-setup/lecturer/classes'
+      // Giảng viên duyệt đề tài ở mục "Duyệt đề tài" (/borrow/my-requests), mở luôn hộp thoại của đề tài đó
+      if (is('Lecturer')) return notification.refId ? `/borrow/my-requests?project=${notification.refId}` : '/borrow/my-requests'
       return null
     case 'Team':
     case 'Class':
