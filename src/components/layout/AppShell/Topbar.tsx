@@ -7,6 +7,7 @@ import {
   Menu as MenuIcon,
 } from '@mui/icons-material'
 import NotificationMenu from '../NotificationMenu'
+import { getRoleLabel } from './roleLabels'
 import type { ShellUser } from './types'
 import { SHELL_COLORS, TOPBAR_HEIGHT } from './types'
 
@@ -27,6 +28,8 @@ export default function Topbar({ user, currentRole, onOpenMobileMenu, onGoProfil
   const closeMenu = () => setAnchor(null)
   const initial = user.name ? user.name.charAt(0).toUpperCase() : 'U'
   const badgeColor = user.badgeColor || SHELL_COLORS.primary
+  const roleText = getRoleLabel(user.roleLabel || user.roles?.[0])
+  const currentRoleText = getRoleLabel(currentRole)
 
   return (
     <Box
@@ -54,7 +57,7 @@ export default function Topbar({ user, currentRole, onOpenMobileMenu, onGoProfil
 
         {currentRole && (
           <Chip
-            label={currentRole}
+            label={currentRoleText}
             size="small"
             sx={{
               display: { xs: 'none', sm: 'inline-flex' },
@@ -104,7 +107,7 @@ export default function Topbar({ user, currentRole, onOpenMobileMenu, onGoProfil
               {user.name}
             </Typography>
             <Typography variant="caption" sx={{ color: '#81899a', fontSize: 11, fontWeight: 600 }}>
-              {user.roleLabel}
+              {roleText}
             </Typography>
           </Box>
           <ArrowDownIcon fontSize="small" sx={{ color: SHELL_COLORS.textMuted }} />
@@ -144,9 +147,9 @@ export default function Topbar({ user, currentRole, onOpenMobileMenu, onGoProfil
               <Typography noWrap sx={{ fontWeight: 700, color: '#0F172A', fontSize: 14, lineHeight: 1.3 }}>
                 {user.name}
               </Typography>
-              {user.roleLabel && (
+              {roleText && (
                 <Chip
-                  label={user.roleLabel}
+                  label={roleText}
                   size="small"
                   sx={{
                     height: 20,

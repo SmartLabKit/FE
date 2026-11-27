@@ -13,7 +13,7 @@ interface BrandLogoProps {
 }
 
 /** Logo SmartLabKit dùng chung (Sidebar, Đăng nhập, Quên mật khẩu...). */
-export default function BrandLogo({ collapsed = false, size = 36, subtitle, color = '#0058be' }: BrandLogoProps) {
+export default function BrandLogo({ collapsed = false, size = 36, subtitle, color = '#0B4F96' }: BrandLogoProps) {
   return (
     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
       <Box

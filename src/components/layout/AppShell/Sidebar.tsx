@@ -1,3 +1,4 @@
+import type { MouseEvent } from 'react'
 import { Badge, Box, IconButton, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Tooltip } from '@mui/material'
 import {
   Close as CloseIcon,
@@ -17,6 +18,9 @@ interface SidebarProps {
   isActive: (item: NavItem) => boolean
   onNavigate: (item: NavItem) => void
   onToggleCollapsed: () => void
+  /** Đường dẫn trang chủ (dùng cho href) và handler điều hướng về đó. */
+  homePath: string
+  onGoHome: () => void
   /** Chỉ dùng cho mobile: đóng drawer. */
   onCloseMobile?: () => void
 }
@@ -33,7 +37,7 @@ const pillTooltipSlotProps = {
       px: 1.5,
       py: 0.75,
       borderRadius: 999,
-      boxShadow: '0 4px 14px rgba(0, 88, 190, 0.3)',
+      boxShadow: '0 4px 14px rgba(11, 79, 150, 0.3)',
     },
   },
 }
@@ -55,6 +59,8 @@ export default function Sidebar({
   isActive,
   onNavigate,
   onToggleCollapsed,
+  homePath,
+  onGoHome,
   onCloseMobile,
 }: SidebarProps) {
   // Mobile luôn hiển thị dạng mở rộng
@@ -114,7 +120,32 @@ export default function Sidebar({
           </Tooltip>
         ) : (
           <>
-            <BrandLogo subtitle="QUẢN LÝ PHÒNG LAB" />
+            {/* Logo + tên app: điều hướng về trang chủ */}
+            <Box
+              component="a"
+              href={homePath}
+              onClick={(e: MouseEvent<HTMLElement>) => {
+                e.preventDefault()
+                onGoHome()
+              }}
+              aria-label="Về trang chủ SmartLabKit"
+              sx={{
+                display: 'flex',
+                alignItems: 'center',
+                minWidth: 0,
+                py: 0.5,
+                px: 0.75,
+                ml: -0.75,
+                borderRadius: 1.5,
+                cursor: 'pointer',
+                textDecoration: 'none',
+                transition: 'background-color 0.15s ease',
+                '&:hover': { bgcolor: SHELL_COLORS.primarySoft },
+                '&:focus-visible': focusRing,
+              }}
+            >
+              <BrandLogo color={SHELL_COLORS.primary} />
+            </Box>
             {variant === 'desktop' ? (
               <Tooltip title="Thu gọn thanh bên" arrow slotProps={navTooltipSlotProps}>
                 <IconButton

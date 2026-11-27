@@ -43,11 +43,11 @@ export interface AppShellProps {
 
 /** Bảng màu dùng chung, đồng bộ với màn hình đăng nhập. */
 export const SHELL_COLORS = {
-  primary: '#0058be',
-  primaryDark: '#0049a3',
+  primary: '#0B4F96',
+  primaryDark: '#093F78',
   primarySoft: '#EFF6FF',
   hoverBg: '#F1F5F9',
-  focusRing: 'rgba(0, 88, 190, 0.35)',
+  focusRing: 'rgba(11, 79, 150, 0.35)',
   text: '#263247',
   textMuted: '#6b7280',
   border: '#E2E8F0',

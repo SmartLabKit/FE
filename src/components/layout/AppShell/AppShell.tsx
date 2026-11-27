@@ -47,6 +47,13 @@ export default function AppShell({ children, currentRole, currentUser: propUser,
   }
 
   const isActive = (item: NavItem) => isNavActive(item, location.pathname, activeMenuKey)
+  // Trang chủ: mục điều hướng đầu tiên mà user được phép thấy (mặc định /dashboard)
+  const homePath = items[0]?.path && items[0].path !== '#' ? items[0].path : '/dashboard'
+  const handleGoHome = () => {
+    setMobileOpen(false)
+    if (shouldBlockLeave(homePath)) return
+    navigate(homePath)
+  }
   const sidebarWidth = collapsed ? SIDEBAR_WIDTH_COLLAPSED : SIDEBAR_WIDTH_EXPANDED
 
   return (
@@ -70,6 +77,8 @@ export default function AppShell({ children, currentRole, currentUser: propUser,
           isActive={isActive}
           onNavigate={handleNavigate}
           onToggleCollapsed={() => setMobileOpen(false)}
+          homePath={homePath}
+          onGoHome={handleGoHome}
           onCloseMobile={() => setMobileOpen(false)}
         />
       </Drawer>
@@ -93,6 +102,8 @@ export default function AppShell({ children, currentRole, currentUser: propUser,
             isActive={isActive}
             onNavigate={handleNavigate}
             onToggleCollapsed={() => setCollapsed(!collapsed)}
+            homePath={homePath}
+            onGoHome={handleGoHome}
           />
         </Box>
       </Box>
