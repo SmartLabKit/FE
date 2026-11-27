@@ -6,6 +6,7 @@ import {
   Checkbox,
   Chip,
   CircularProgress,
+  Collapse,
   Dialog,
   DialogActions,
   DialogContent,
@@ -27,6 +28,7 @@ import {
   Typography,
 } from '@mui/material'
 import {
+  ExpandMore as ExpandMoreIcon,
   Save as SaveIcon,
 } from '@mui/icons-material'
 import {
@@ -115,6 +117,7 @@ export default function TeamFormationTab({
 
   // State danh sách sinh viên lẻ được tick chọn (Khối 5)
   const [selectedStudentIds, setSelectedStudentIds] = useState([])
+  const [showUnassigned, setShowUnassigned] = useState(false)
 
   // Modal placeholders sẵn sàng cho Task 3
   const [autoAssignOpen, setAutoAssignOpen] = useState(false)
@@ -849,10 +852,18 @@ export default function TeamFormationTab({
           sx={{ mb: 2 }}
         >
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5 }}>
-            <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.primary' }}>
-              Sinh viên chưa có nhóm ({unassignedCount})
-            </Typography>
-            {unassignedStudents.length > 0 && (
+            <Box
+              sx={{ display: 'flex', alignItems: 'center', gap: 0.5, cursor: 'pointer' }}
+              onClick={() => setShowUnassigned((current) => !current)}
+            >
+              <ExpandMoreIcon
+                sx={{ fontSize: 20, color: 'primary.main', transform: showUnassigned ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
+              />
+              <Typography variant="subtitle1" sx={{ fontWeight: 800, color: 'text.primary' }}>
+                Sinh viên chưa có nhóm ({unassignedCount})
+              </Typography>
+            </Box>
+            {showUnassigned && unassignedStudents.length > 0 && (
               <Button
                 size="small"
                 onClick={handleToggleSelectAllStudents}
@@ -880,7 +891,8 @@ export default function TeamFormationTab({
           </Button>
         </Stack>
 
-        {/* Body: Grid 2 cột danh sách checkbox thẻ SV */}
+        {/* Body: Grid 2 cột danh sách checkbox thẻ SV, thu gọn được */}
+        <Collapse in={showUnassigned} unmountOnExit>
         {unassignedStudents.length === 0 ? (
           <Alert severity="success" sx={{ my: 1 }}>
             Tất cả sinh viên trong lớp đã có nhóm.
@@ -939,6 +951,7 @@ export default function TeamFormationTab({
             })}
           </Box>
         )}
+        </Collapse>
 
         {/* Footer note */}
         <Typography
