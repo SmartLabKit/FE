@@ -272,9 +272,6 @@ export default function ImportRosterFaculty() {
   }, [selectedClassId])
   useEntityChanged(reloadStudents)
 
-  // Trạng thái mới nhất của tài khoản trong kết quả import, lấy theo danh sách lớp
-  const studentOf = (row) => students.find((student) => student.userId === row.userId) || row
-
   const { hasPermission } = useAuth()
   const canManageRoster = hasPermission('ACADEMIC_MANAGE')
   const [dropTarget, setDropTarget] = useState(null)
@@ -353,18 +350,6 @@ export default function ImportRosterFaculty() {
       setActivating(false)
     }
   }
-
-  const resendButton = (account) =>
-    account.activationPending && (
-      <Button
-        size="small"
-        disabled={resendingId === account.userId}
-        onClick={() => handleResend(account.userId)}
-        sx={{ textTransform: 'none', fontSize: 12, py: 0, whiteSpace: 'nowrap' }}
-      >
-        Gửi lại mail
-      </Button>
-    )
 
   const handleSemesterChange = (e) => {
     const sem = e.target.value
@@ -544,6 +529,7 @@ export default function ImportRosterFaculty() {
       setImportError('')
       const res = await academicService.importRoster(selectedClassId, selectedFile)
       setImportResult(res)
+      setShowStudents(true)
       setToast({ open: true, message: importSummary(res), severity: importSeverity(res) })
       // Cập nhật lại số sinh viên trong danh sách lớp và tải lại danh sách sinh viên thực tế
       await Promise.all([
@@ -931,7 +917,7 @@ export default function ImportRosterFaculty() {
 
             {/* Import Result Notification */}
             {importResult && (() => {
-              const { rows } = readImportResult(importResult)
+              const failedRows = readImportResult(importResult).rows.filter((row) => row.outcome === 'Failed')
 
               return (
                 <Box sx={{ mt: 3 }}>
@@ -942,12 +928,12 @@ export default function ImportRosterFaculty() {
                     {importSummary(importResult)}
                   </Alert>
 
-                  {rows.length > 0 && (
+                  {failedRows.length > 0 && (
                     <TableContainer sx={{ mt: 1.5, border: '1px solid #e5e7eb', borderRadius: 1.5, maxHeight: 360 }}>
                       <Table size="small" stickyHeader>
                         <TableHead>
                           <TableRow>
-                            {['Dòng', 'MSSV', 'Họ tên', 'Email', 'Trạng thái', 'Ghi chú'].map((h) => (
+                            {['Dòng', 'MSSV', 'Họ tên', 'Email', 'Lỗi'].map((h) => (
                               <TableCell key={h} sx={{ fontWeight: 700, fontSize: 12, bgcolor: '#f8fafc' }}>
                                 {h}
                               </TableCell>
@@ -955,27 +941,15 @@ export default function ImportRosterFaculty() {
                           </TableRow>
                         </TableHead>
                         <TableBody>
-                          {rows.map((row) => {
-                            const account = studentOf(row)
-                            return (
-                              <TableRow key={row.rowNumber}>
-                                <TableCell sx={{ fontSize: 12 }}>{row.rowNumber}</TableCell>
-                                <TableCell sx={{ fontSize: 12, fontWeight: 600 }}>{row.studentCode || '—'}</TableCell>
-                                <TableCell sx={{ fontSize: 12 }}>{row.fullName || '—'}</TableCell>
-                                <TableCell sx={{ fontSize: 12 }}>{row.email || '—'}</TableCell>
-                                <TableCell>
-                                  {row.outcome === 'Failed' ? (
-                                    <Chip size="small" label="Lỗi" sx={{ fontSize: 11, fontWeight: 700, height: 22, bgcolor: '#fef2f2', color: '#ef4444' }} />
-                                  ) : (
-                                    <AccountStatusChip account={account} />
-                                  )}
-                                </TableCell>
-                                <TableCell sx={{ fontSize: 12, color: '#64748b' }}>
-                                  {row.outcome === 'Failed' ? row.message : resendButton(account)}
-                                </TableCell>
-                              </TableRow>
-                            )
-                          })}
+                          {failedRows.map((row) => (
+                            <TableRow key={row.rowNumber}>
+                              <TableCell sx={{ fontSize: 12 }}>{row.rowNumber}</TableCell>
+                              <TableCell sx={{ fontSize: 12, fontWeight: 600 }}>{row.studentCode || '—'}</TableCell>
+                              <TableCell sx={{ fontSize: 12 }}>{row.fullName || '—'}</TableCell>
+                              <TableCell sx={{ fontSize: 12 }}>{row.email || '—'}</TableCell>
+                              <TableCell sx={{ fontSize: 12, color: '#ef4444' }}>{row.message}</TableCell>
+                            </TableRow>
+                          ))}
                         </TableBody>
                       </Table>
                     </TableContainer>
