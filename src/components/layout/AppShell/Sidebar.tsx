@@ -75,8 +75,9 @@ export default function Sidebar({
         height: '100%',
         width,
         boxSizing: 'border-box',
-        // Luôn trắng (cả thu gọn/mở rộng). Viền dọc chỉ nằm ở danh sách menu, không chạy lên khu vực Topbar.
+        // Luôn trắng (cả thu gọn/mở rộng), ngăn cách vùng nội dung bằng viền mảnh
         bgcolor: SHELL_COLORS.white,
+        borderRight: `1px solid ${SHELL_COLORS.border}`,
         transition: 'width 0.2s ease',
         overflow: 'hidden',
       }}
@@ -176,7 +177,6 @@ export default function Sidebar({
           flexGrow: 1,
           overflowY: 'auto',
           overflowX: 'hidden',
-          borderRight: `1px solid ${SHELL_COLORS.border}`,
           scrollbarWidth: 'thin',
           scrollbarColor: '#cbd5e1 transparent',
         }}
