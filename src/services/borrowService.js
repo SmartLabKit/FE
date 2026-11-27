@@ -596,12 +596,13 @@ export const borrowService = {
 
   // ===================== 5. MƯỢN BỔ SUNG (MF5.1) & TRẢ LINH KIỆN (MF5.2) =====================
 
-  async getAvailableComponents(search = '') {
+  async getAvailableComponents(search = '', classId) {
     try {
       const response = await api.get('/api/components', {
         params: {
           search: search?.trim() || undefined,
-          keptByLab: true,
+          classId: classId || undefined,
+          keptByLab: classId ? undefined : true,
           isActive: true,
           page: 1,
           size: 100,

@@ -163,13 +163,15 @@ export default function CreateSupplementaryBorrow() {
     }
   }, [selectedProjectId])
 
-  // Tải danh mục linh kiện kho theo từ khóa tìm kiếm (có debounce nhẹ), chỉ linh kiện có lab giữ
+  const selectedClassId = approvedProjects.find((p) => p.projectId === selectedProjectId)?.classId || ''
+
+  // Tải danh mục linh kiện kho theo từ khóa tìm kiếm (có debounce nhẹ), chỉ linh kiện trong danh sách lab của môn
   useEffect(() => {
     let active = true
     const timer = window.setTimeout(() => {
       setLoadingComponents(true)
       borrowService
-        .getAvailableComponents(searchComponent)
+        .getAvailableComponents(searchComponent, selectedClassId)
         .then((items) => {
           if (active) setAvailableComponents(Array.isArray(items) ? items : [])
         })
@@ -185,7 +187,7 @@ export default function CreateSupplementaryBorrow() {
       active = false
       window.clearTimeout(timer)
     }
-  }, [searchComponent])
+  }, [searchComponent, selectedClassId])
 
   const selectedProject = useMemo(
     () => approvedProjects.find((p) => p.projectId === selectedProjectId) || null,
@@ -268,7 +270,7 @@ export default function CreateSupplementaryBorrow() {
     [selectedItems]
   )
 
-  // Xem trước: mỗi lab một đơn mượn thêm, tính lại khi đổi linh kiện hoặc số lượng
+  // Xem trước: đơn mượn thêm về lab của môn, tính lại khi đổi linh kiện hoặc số lượng
   const [borrowPreview, setBorrowPreview] = useState(null)
   const [loadingPreview, setLoadingPreview] = useState(false)
   const [previewError, setPreviewError] = useState('')

@@ -436,7 +436,7 @@ export default function ProjectManagement() {
       const [projectsResult, componentsResult] = await Promise.allSettled([
         projectService.getProjectsByClass(teamData.classId),
         inventoryService
-          .getComponents({ keptByLab: true, isActive: true, page: 1, size: 1000 })
+          .getComponents({ classId: teamData.classId, isActive: true, page: 1, size: 1000 })
           .then((items) => items.filter((item) => item.isActive !== false)),
       ])
       if (projectsResult.status === 'rejected') throw projectsResult.reason
@@ -1821,7 +1821,7 @@ export default function ProjectManagement() {
                 </Box>
                 <BorrowPreviewList preview={borrowPreview} loading={loadingPreview} error={previewError} />
                 <Typography variant="body2" color="text.secondary">
-                  Giảng viên duyệt một lần cho cả đề tài. Sau khi duyệt, mỗi lab chuẩn bị phần linh kiện của mình và hẹn ngày đến nhận.
+                  Giảng viên duyệt xong, lab của môn chuẩn bị linh kiện và hẹn ngày đến nhận.
                 </Typography>
                 {!borrowDeadline.canBorrow && (
                   <Alert severity="error" sx={{ py: 0 }}>
