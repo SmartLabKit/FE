@@ -1270,7 +1270,7 @@ export default function ImportRosterFaculty() {
                   )}
                   noOptionsText="Không tìm thấy giảng viên"
                   renderInput={(params) => (
-                    <TextField {...params} label="Đổi giảng viên" placeholder="Gõ tên, mã hoặc email" />
+                    <TextField {...params} label={assignedInstructor ? 'Đổi giảng viên' : 'Chọn giảng viên'} placeholder="Gõ tên, mã hoặc email" />
                   )}
                 />
                 <Button
