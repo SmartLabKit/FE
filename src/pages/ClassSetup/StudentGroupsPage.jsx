@@ -1255,7 +1255,8 @@ export default function StudentGroupsPage() {
                             </>
                           )}
 
-                          {/* Nút lối tắt Thiết lập dự án (vẫn mở khi quá hạn nếu isReadyForProject === true) */}
+                          {/* Trưởng nhóm: Thiết lập dự án (vẫn mở khi quá hạn nếu isReadyForProject === true); thành viên: chỉ Xem dự án khi đã có */}
+                          {(isLeader || hasProject) && (
                           <Tooltip
                             arrow
                             placement="top"
@@ -1283,10 +1284,11 @@ export default function StudentGroupsPage() {
                                   '&:hover': { bgcolor: '#0049a3' },
                                 }}
                               >
-                                Thiết lập dự án
+                                {isLeader ? 'Thiết lập dự án' : 'Xem dự án'}
                               </Button>
                             </span>
                           </Tooltip>
+                          )}
 
                           {/* Nút Rời nhóm */}
                           {canModifyTeam && (

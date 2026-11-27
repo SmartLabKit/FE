@@ -396,7 +396,7 @@ export default function LecturerClassManagement() {
   )
 
   const handleTransferLeader = async () => {
-    if (!selectedTeam?.teamId || !selectedLeaderId || !isLecturer || projectRegistered) return
+    if (!selectedTeam?.teamId || !selectedLeaderId || !isLecturer) return
     setTransferring(true)
     setTransferError(null)
     try {
@@ -856,8 +856,11 @@ export default function LecturerClassManagement() {
                   {transferError.fieldErrors.map((message) => <Typography key={message} variant="body2">{message}</Typography>)}
                 </Alert>
               )}
-              {projectRegistered && (
-                <Alert severity="info">Nhóm đã đăng ký project; không thể chuyển quyền trưởng nhóm theo quy tắc nghiệp vụ.</Alert>
+              {isLecturer && projectRegistered && (
+                <Alert severity="info">
+                  Nhóm đã có đề tài: giảng viên đổi trưởng nhóm được ngay (ví dụ trưởng nhóm thôi học), trưởng nhóm mới nhận
+                  lại đề tài, mượn thêm và trả đồ của nhóm.
+                </Alert>
               )}
               <Stack direction="row" spacing={1} alignItems="center">
                 <Avatar sx={{ bgcolor: 'primary.main' }}><GroupsIcon /></Avatar>
@@ -891,7 +894,7 @@ export default function LecturerClassManagement() {
                   </TableBody>
                 </Table>
               </TableContainer>
-              {isLecturer && !projectRegistered && (
+              {isLecturer && (
                 <Box sx={{ pt: 1.5, borderTop: '1px solid', borderColor: 'divider' }}>
                   {eligibleLeaders.length ? (
                     <Box>
