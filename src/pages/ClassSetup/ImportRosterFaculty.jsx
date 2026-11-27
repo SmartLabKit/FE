@@ -1251,7 +1251,7 @@ export default function ImportRosterFaculty() {
                   onChange={(_, selected) => {
                     if (selected) handleSelectSampleInstructor(selected)
                   }}
-                  getOptionLabel={(inst) => `${inst.name} (${inst.title})`}
+                  getOptionLabel={(inst) => inst.name}
                   isOptionEqualToValue={(option, value) => option.code === value.code}
                   filterOptions={(options, { inputValue }) => {
                     const q = inputValue.trim().toLowerCase()
@@ -1262,10 +1262,10 @@ export default function ImportRosterFaculty() {
                   }}
                   renderOption={(props, inst) => (
                     <li {...props} key={inst.code}>
-                      <Box>
-                        <Typography sx={{ fontSize: 13, fontWeight: 700 }}>{inst.name} ({inst.title})</Typography>
-                        <Typography sx={{ fontSize: 11, color: '#6b7280' }}>{inst.code} • {inst.email}</Typography>
-                      </Box>
+                      <Typography sx={{ fontSize: 13 }}>
+                        <b>{inst.name}</b>
+                        <Box component="span" sx={{ color: '#6b7280', ml: 1 }}>{inst.email}</Box>
+                      </Typography>
                     </li>
                   )}
                   noOptionsText="Không tìm thấy giảng viên"
