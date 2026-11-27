@@ -105,7 +105,7 @@ export default function AppShell({ children, currentRole, currentUser: propUser,
           onGoProfile={() => navigate('/profile')}
           onLogout={handleLogout}
         />
-        <Box sx={{ px: { xs: 2, sm: 3 }, py: { xs: 2, sm: 3, md: 4 }, flexGrow: 1, width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
+        <Box sx={{ bgcolor: SHELL_COLORS.pageBg, px: { xs: 2, sm: 3 }, py: { xs: 2, sm: 3, md: 4 }, flexGrow: 1, width: '100%', minWidth: 0, boxSizing: 'border-box' }}>
           {children}
         </Box>
       </Box>

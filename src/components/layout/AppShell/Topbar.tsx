@@ -18,6 +18,9 @@ interface TopbarProps {
   onLogout: () => void
 }
 
+/** Style chung cho các mục trong menu tài khoản. */
+const menuItemSx = { minHeight: 40, px: 1.5, gap: 1.5, borderRadius: '8px', fontSize: 14, fontWeight: 500 } as const
+
 /** Topbar mỏng: không hiển thị tiêu đề trang; chỉ có thông báo và menu tài khoản. */
 export default function Topbar({ user, currentRole, onOpenMobileMenu, onGoProfile, onLogout }: TopbarProps) {
   const [anchor, setAnchor] = useState<HTMLElement | null>(null)
@@ -112,45 +115,82 @@ export default function Topbar({ user, currentRole, onOpenMobileMenu, onGoProfil
         anchorEl={anchor}
         open={Boolean(anchor)}
         onClose={closeMenu}
-        slotProps={{ paper: { elevation: 3, sx: { borderRadius: 2, minWidth: 240, mt: 1, p: 0.5 } } }}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'right' }}
+        transformOrigin={{ vertical: 'top', horizontal: 'right' }}
+        slotProps={{
+          paper: {
+            elevation: 0,
+            sx: {
+              minWidth: 240,
+              mt: 1,
+              borderRadius: '12px',
+              border: `1px solid ${SHELL_COLORS.border}`,
+              boxShadow: '0 10px 30px rgba(15, 23, 42, 0.12)',
+            },
+          },
+          list: { sx: { p: 0 } },
+        }}
       >
-        <Box sx={{ px: 2, py: 1.5, bgcolor: SHELL_COLORS.pageBg, borderRadius: 1, mb: 0.5 }}>
-          <Typography variant="subtitle2" sx={{ fontWeight: 800, color: SHELL_COLORS.text, fontSize: 13 }}>
-            {user.name}
-          </Typography>
-          <Typography variant="caption" sx={{ color: SHELL_COLORS.textMuted, fontSize: 11, display: 'block' }}>
-            {user.email}
-          </Typography>
-          <Chip
-            label={user.roleLabel}
-            size="small"
-            sx={{ mt: 0.5, height: 18, fontSize: 11, fontWeight: 800, bgcolor: `${badgeColor}20`, color: badgeColor }}
-          />
+        {/* Header: avatar | tên + badge role cùng hàng; email bên dưới */}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2, py: 1.75 }}>
+          <Avatar
+            src={user.avatarUrl}
+            sx={{ width: 40, height: 40, bgcolor: user.avatarBg || SHELL_COLORS.primary, fontSize: 16, fontWeight: 700 }}
+          >
+            {initial}
+          </Avatar>
+          <Box sx={{ minWidth: 0 }}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
+              <Typography noWrap sx={{ fontWeight: 700, color: '#0F172A', fontSize: 14, lineHeight: 1.3 }}>
+                {user.name}
+              </Typography>
+              {user.roleLabel && (
+                <Chip
+                  label={user.roleLabel}
+                  size="small"
+                  sx={{
+                    height: 20,
+                    flexShrink: 0,
+                    fontSize: 11,
+                    fontWeight: 700,
+                    bgcolor: `${badgeColor}1A`,
+                    color: badgeColor,
+                    '& .MuiChip-label': { px: 0.9 },
+                  }}
+                />
+              )}
+            </Box>
+            <Typography noWrap sx={{ color: '#94A3B8', fontSize: 12, lineHeight: 1.4 }}>
+              {user.email}
+            </Typography>
+          </Box>
         </Box>
 
-        <MenuItem
-          onClick={() => {
-            closeMenu()
-            onGoProfile()
-          }}
-          sx={{ borderRadius: 1, fontSize: 13, fontWeight: 600 }}
-        >
-          <AccountCircleIcon fontSize="small" sx={{ mr: 1.5, color: SHELL_COLORS.primary }} />
-          Hồ sơ cá nhân
-        </MenuItem>
+        <Divider sx={{ m: 0, borderColor: SHELL_COLORS.border }} />
 
-        <Divider sx={{ my: 0.5 }} />
-
-        <MenuItem
-          onClick={() => {
-            closeMenu()
-            onLogout()
-          }}
-          sx={{ color: '#ef4444', borderRadius: 1, fontWeight: 700, fontSize: 13 }}
-        >
-          <LogoutIcon fontSize="small" sx={{ mr: 1.5 }} />
-          Đăng xuất
-        </MenuItem>
+        {/* Hai mục dùng chung kích thước/padding/hover để đồng đều */}
+        <Box sx={{ p: 0.75 }}>
+          <MenuItem
+            onClick={() => {
+              closeMenu()
+              onGoProfile()
+            }}
+            sx={{ ...menuItemSx, color: SHELL_COLORS.navText, '&:hover': { bgcolor: SHELL_COLORS.hoverBg } }}
+          >
+            <AccountCircleIcon sx={{ fontSize: 20, color: SHELL_COLORS.primary }} />
+            Hồ sơ cá nhân
+          </MenuItem>
+          <MenuItem
+            onClick={() => {
+              closeMenu()
+              onLogout()
+            }}
+            sx={{ ...menuItemSx, color: '#DC2626', '&:hover': { bgcolor: '#FEF2F2' } }}
+          >
+            <LogoutIcon sx={{ fontSize: 20 }} />
+            Đăng xuất
+          </MenuItem>
+        </Box>
       </Menu>
     </Box>
   )

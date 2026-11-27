@@ -1,9 +1,10 @@
-import { Badge, Box, IconButton, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Tooltip, Typography } from '@mui/material'
+import { Badge, Box, IconButton, List, ListItem, ListItemButton, ListItemIcon, ListItemText, Tooltip } from '@mui/material'
 import {
   Close as CloseIcon,
   KeyboardDoubleArrowLeft as CollapseIcon,
   ViewSidebarOutlined as OpenSidebarIcon,
 } from '@mui/icons-material'
+import BrandLogo from '../../common/BrandLogo'
 import type { NavCounts, NavItem } from './types'
 import { SHELL_COLORS, SIDEBAR_WIDTH_COLLAPSED, SIDEBAR_WIDTH_EXPANDED, TOOLTIP_Z_INDEX } from './types'
 
@@ -44,30 +45,6 @@ const navTooltipSlotProps = {
   },
 }
 
-/** Logo "SK" dùng chung cho cả hai trạng thái. */
-function BrandLogo() {
-  return (
-    <Box
-      sx={{
-        width: 34,
-        height: 34,
-        bgcolor: SHELL_COLORS.primary,
-        borderRadius: 1.2,
-        display: 'flex',
-        alignItems: 'center',
-        justifyContent: 'center',
-        color: SHELL_COLORS.white,
-        boxShadow: '0 2px 6px rgba(0, 88, 190, 0.25)',
-        flexShrink: 0,
-      }}
-    >
-      <Typography variant="subtitle2" sx={{ fontWeight: 800, lineHeight: 1 }}>
-        SK
-      </Typography>
-    </Box>
-  )
-}
-
 const focusRing = { outline: `2px solid ${SHELL_COLORS.focusRing}`, outlineOffset: 2 }
 
 export default function Sidebar({
@@ -92,10 +69,10 @@ export default function Sidebar({
         height: '100%',
         width,
         boxSizing: 'border-box',
-        // Thu gọn: nền trùng nền trang, không viền để nội dung liền mạch
-        bgcolor: isCollapsed ? SHELL_COLORS.pageBg : SHELL_COLORS.white,
-        borderRight: isCollapsed ? '1px solid transparent' : `1px solid ${SHELL_COLORS.border}`,
-        transition: 'width 0.2s ease, background-color 0.2s ease',
+        // Luôn trắng (cả thu gọn/mở rộng), ngăn cách vùng nội dung bằng viền mảnh
+        bgcolor: SHELL_COLORS.white,
+        borderRight: `1px solid ${SHELL_COLORS.border}`,
+        transition: 'width 0.2s ease',
         overflow: 'hidden',
       }}
     >
@@ -130,25 +107,14 @@ export default function Sidebar({
               }}
             >
               <Box className="sk-logo" sx={{ display: 'flex' }}>
-                <BrandLogo />
+                <BrandLogo collapsed />
               </Box>
               <OpenSidebarIcon className="sk-open" />
             </IconButton>
           </Tooltip>
         ) : (
           <>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.25, minWidth: 0 }}>
-              <BrandLogo />
-              <Box sx={{ minWidth: 0 }}>
-                <Typography noWrap sx={{ fontWeight: 800, color: SHELL_COLORS.primary, lineHeight: 1.1, fontSize: 16 }}>
-                  SmartLabKit
-                </Typography>
-                <Typography noWrap sx={{ color: '#808999', fontSize: 11, fontWeight: 700, letterSpacing: 0.5 }}>
-                  QUẢN LÝ PHÒNG LAB
-                </Typography>
-              </Box>
-            </Box>
-
+            <BrandLogo subtitle="QUẢN LÝ PHÒNG LAB" />
             {variant === 'desktop' ? (
               <Tooltip title="Thu gọn thanh bên" arrow slotProps={navTooltipSlotProps}>
                 <IconButton
@@ -202,7 +168,8 @@ export default function Sidebar({
                 minHeight: 44,
                 justifyContent: isCollapsed ? 'center' : 'flex-start',
                 bgcolor: active ? SHELL_COLORS.primarySoft : 'transparent',
-                color: active ? SHELL_COLORS.primary : SHELL_COLORS.text,
+                color: active ? SHELL_COLORS.primary : SHELL_COLORS.navText,
+                transition: 'background-color 0.15s ease, color 0.15s ease',
                 '&:hover': { bgcolor: active ? SHELL_COLORS.primarySoft : SHELL_COLORS.hoverBg, color: SHELL_COLORS.primary },
                 '&.Mui-focusVisible': { bgcolor: SHELL_COLORS.hoverBg, ...focusRing },
               }}
@@ -211,7 +178,7 @@ export default function Sidebar({
                 sx={{
                   minWidth: isCollapsed ? 0 : 36,
                   justifyContent: 'center',
-                  color: active ? SHELL_COLORS.primary : SHELL_COLORS.textMuted,
+                  color: 'inherit',
                 }}
               >
                 <Badge

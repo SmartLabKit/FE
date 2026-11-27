@@ -9,12 +9,12 @@ import {
   Alert,
 } from '@mui/material'
 import {
-  LockReset,
   ArrowForward,
   ArrowBack,
 } from '@mui/icons-material'
 import { useNavigate, Link } from 'react-router-dom'
 import { authService } from '../../services/authService'
+import BrandLogo from '../../components/common/BrandLogo'
 
 export default function ForgotPassword() {
   const navigate = useNavigate()
@@ -68,21 +68,8 @@ export default function ForgotPassword() {
           textAlign: 'center',
         }}
       >
-        <Box
-          sx={{
-            width: 56,
-            height: 56,
-            borderRadius: 2.5,
-            bgcolor: '#eaedff',
-            color: '#0058be',
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-            mx: 'auto',
-            mb: 2.5,
-          }}
-        >
-          <LockReset sx={{ fontSize: 32 }} />
+        <Box sx={{ display: 'flex', justifyContent: 'center', mb: 2.5 }}>
+          <BrandLogo size={44} />
         </Box>
 
         <Typography variant="h5" sx={{ fontWeight: 800, color: '#131b2e', mb: 1 }}>

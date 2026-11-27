@@ -45,14 +45,15 @@ export interface AppShellProps {
 export const SHELL_COLORS = {
   primary: '#0058be',
   primaryDark: '#0049a3',
-  primarySoft: '#eaedff',
-  hoverBg: '#f1f5fd',
+  primarySoft: '#EFF6FF',
+  hoverBg: '#F1F5F9',
   focusRing: 'rgba(0, 88, 190, 0.35)',
   text: '#263247',
   textMuted: '#6b7280',
-  border: '#e4e6ef',
-  pageBg: '#f8fafc',
-  white: '#ffffff',
+  border: '#E2E8F0',
+  pageBg: '#F8FAFC',
+  white: '#FFFFFF',
+  navText: '#475569',
 } as const
 
 export const SIDEBAR_WIDTH_EXPANDED = 240

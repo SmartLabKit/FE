@@ -6,7 +6,6 @@ import {
   InfoOutlined,
   Language,
   LockOutlined,
-  Memory,
   PersonOutlined,
   ShieldOutlined,
   Visibility,
@@ -27,6 +26,7 @@ import {
 } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../../context/AuthContext'
+import BrandLogo from '../../components/common/BrandLogo'
 
 function Login() {
   const [identifier, setIdentifier] = useState('')
@@ -109,7 +109,9 @@ function Login() {
             position: 'relative',
           }}
         >
-          <Memory sx={{ fontSize: 36, p: 0.3, bgcolor: '#1673d1', borderRadius: 1 }} />
+          <Box sx={{ bgcolor: '#ffffff', borderRadius: 1.5, p: 0.5, display: 'flex' }}>
+            <BrandLogo collapsed size={36} />
+          </Box>
           <Typography variant="h5" sx={{ fontWeight: 700, letterSpacing: 0.1 }}>
             SmartLabKit
           </Typography>
