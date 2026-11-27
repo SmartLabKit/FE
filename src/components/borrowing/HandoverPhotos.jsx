@@ -4,8 +4,8 @@ import { Close as CloseIcon } from '@mui/icons-material'
 import { formatVietnamDateTime } from '../../utils/dateFormatting'
 
 const GROUPS = [
-  { type: 'Issue', title: 'Ảnh lúc giao đồ' },
-  { type: 'Return', title: 'Ảnh lúc trả đồ' },
+  { type: 'Issue', title: 'Ảnh lúc giao linh kiện' },
+  { type: 'Return', title: 'Ảnh lúc trả linh kiện' },
 ]
 
 /**

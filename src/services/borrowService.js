@@ -436,7 +436,7 @@ export const borrowService = {
   },
 
   /**
-   * Tải ảnh giao đồ (photoType = Issue) hoặc ảnh nhận trả (Return): AI đọc MSSV trên thẻ sinh viên
+   * Tải ảnh giao linh kiện (photoType = Issue) hoặc ảnh nhận trả (Return): AI đọc MSSV trên thẻ sinh viên
    * POST /api/borrow-requests/{id}/photos
    * Quyền: BORROW_ISSUE (Admin, LabStaff)
    * Path: id (guid)
@@ -477,7 +477,7 @@ export const borrowService = {
   },
 
   /**
-   * Giao đồ cho sinh viên (Ready → Borrowing)
+   * Giao linh kiện cho sinh viên (Ready → Borrowing)
    * POST /api/borrow-requests/{id}/issue
    * Quyền: BORROW_ISSUE (Admin, LabStaff)
    * Path: id (guid)
@@ -495,7 +495,7 @@ export const borrowService = {
   },
 
   /**
-   * Nhận trả tại lab nhận đồ (trả được nhiều lần)
+   * Nhận trả tại lab nhận linh kiện (trả được nhiều lần)
    * POST /api/borrow-requests/{id}/return
    * Quyền: BORROW_ISSUE (Admin, LabStaff)
    * Path: id (guid)
@@ -551,7 +551,7 @@ export const borrowService = {
   },
 
   /**
-   * Hủy đơn đã duyệt mà chưa giao đồ (Approved / Ready)
+   * Hủy đơn đã duyệt mà chưa giao linh kiện (Approved / Ready)
    * POST /api/borrow-requests/{id}/cancel
    * Quyền: Đăng nhập
    * Path: id (guid)

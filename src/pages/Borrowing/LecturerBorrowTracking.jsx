@@ -21,7 +21,7 @@ import { borrowProgressOf } from './borrowHelpers'
 const FILTERS = [
   { key: 'all', label: 'Tất cả' },
   { key: 'preparing', label: 'Lab đang chuẩn bị' },
-  { key: 'ready', label: 'Chờ nhận đồ' },
+  { key: 'ready', label: 'Chờ nhận linh kiện' },
   { key: 'borrowing', label: 'Đang mượn' },
   { key: 'overdue', label: 'Quá hạn' },
   { key: 'returned', label: 'Đã trả' },

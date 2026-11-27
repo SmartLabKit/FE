@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import {
   Avatar,
+  Badge,
   Box,
   Button,
   Chip,
@@ -41,6 +42,7 @@ import {
 import { useNavigate, useLocation } from 'react-router-dom'
 import { useAuth, DEMO_ACCOUNTS } from '../../context/AuthContext'
 import NotificationMenu from './NotificationMenu'
+import { useLabNewOrderCount } from '../../hooks/useLabNewOrderCount'
 import ForcePasswordChangeDialog from '../common/ForcePasswordChangeDialog'
 import { shouldBlockLeave } from '../../utils/leaveGuard'
 
@@ -231,6 +233,7 @@ export default function PortalLayout({
       icon: <BorrowReturnIcon fontSize="small" />,
       path: '/borrow/lab-orders',
       roles: ['LabStaff'],
+      countKey: 'labNewOrders',
     },
 
     // 6. Phân hệ QUẢN TRỊ HỆ THỐNG & TÀI KHOẢN (Admin)
@@ -261,6 +264,9 @@ export default function PortalLayout({
   ]
 
   // Lọc navigation theo đúng vai trò tài khoản đăng nhập (loại bỏ hoàn toàn tính năng không liên quan)
+  const labNewOrders = useLabNewOrderCount(hasUserRole('LabStaff'))
+  const navCounts = { labNewOrders }
+
   const visibleNavItems = navItems.filter((item) => {
     if (item.excludeRoles && item.excludeRoles.some((r) => hasUserRole(r))) {
       return false
@@ -453,7 +459,14 @@ export default function PortalLayout({
                     color: isActive ? '#0058be' : '#6b7280',
                   }}
                 >
-                  {item.icon}
+                  <Badge
+                    color="error"
+                    badgeContent={item.countKey ? navCounts[item.countKey] : 0}
+                    max={99}
+                    sx={{ '& .MuiBadge-badge': { fontSize: 10, height: 16, minWidth: 16 } }}
+                  >
+                    {item.icon}
+                  </Badge>
                 </ListItemIcon>
                 <ListItemText
                   primary={item.label}

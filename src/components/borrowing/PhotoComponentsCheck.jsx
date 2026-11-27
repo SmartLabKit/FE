@@ -1,7 +1,7 @@
 import { Alert, Box, Table, TableBody, TableCell, TableHead, TableRow, Typography } from '@mui/material'
 
 /**
- * Linh kiện AI đếm được trong ảnh giao đồ, so với đơn. Chỉ để nhắc: không khớp vẫn giao được.
+ * Linh kiện AI đếm được trong ảnh giao linh kiện, so với đơn. Chỉ để nhắc: không khớp vẫn giao được.
  * detail là aiDetail của ảnh; ảnh cũ không có danh sách linh kiện thì không hiện.
  */
 export default function PhotoComponentsCheck({ detail }) {

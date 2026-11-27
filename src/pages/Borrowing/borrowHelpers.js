@@ -120,7 +120,7 @@ export function borrowProgressOf(request) {
     case 'Approved':
       return { key: 'preparing', label: 'Lab đang chuẩn bị', sx: chip('#fffbeb', '#b45309') }
     case 'Ready':
-      return { key: 'ready', label: 'Chờ nhận đồ', sx: chip('#ecfeff', '#0e7490') }
+      return { key: 'ready', label: 'Chờ nhận linh kiện', sx: chip('#ecfeff', '#0e7490') }
     case 'Borrowing':
       return { key: 'borrowing', label: `Đang mượn · hạn ${formatShortDate(request.dueDate)}`, sx: chip('#eff6ff', '#0058be') }
     case 'Returned':

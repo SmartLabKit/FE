@@ -44,11 +44,20 @@ import { useEntityChanged } from '../../hooks/useEntityChanged'
 import AutoAssignDialog from './AutoAssignDialog'
 
 /** 17 bạn, tối đa 4 → [4, 4, 3, 3, 3]; null khi không chia được theo cỡ nhóm (BE cũng chặn). */
+// Giống BE: không lập nhóm dưới số tối thiểu, không vượt tối đa; ai không vừa thì chưa có nhóm (10 bạn, 4–4 → 4, 4, dư 2)
 function planSizes(students, min, max) {
   if (!students || !min || !max || min > max) return null
-  const count = Math.ceil(students / max)
-  if (count * min > students) return null
-  return Array.from({ length: count }, (_, index) => Math.floor(students / count) + (index < students % count ? 1 : 0))
+  const most = Math.floor(students / min)
+  let count = most
+  for (let k = 0; k <= most; k += 1) {
+    if (students <= k * max) {
+      count = k
+      break
+    }
+  }
+  const placed = Math.min(students, count * max)
+  const sizes = Array.from({ length: count }, (_, index) => Math.floor(placed / count) + (index < placed % count ? 1 : 0))
+  return { sizes, leftover: students - placed }
 }
 
 /**
@@ -630,10 +639,13 @@ export default function TeamFormationTab({
           </Stack>
 
           {Number(minTeamSize) > 0 && Number(maxTeamSize) > 0 && overview.studyingStudents > 0 && (
-            <Typography variant="body2" sx={{ mt: 1.5, color: sizes ? 'text.secondary' : '#b45309' }}>
-              {sizes
-                ? `${overview.studyingStudents} bạn → ${sizes.length} nhóm: ${sizes.join(', ')} người`
-                : `${overview.studyingStudents} bạn không chia hết được thành các nhóm ${minTeamSize}–${maxTeamSize} người`}
+            <Typography variant="body2" sx={{ mt: 1.5, color: sizes?.leftover ? '#b45309' : 'text.secondary' }}>
+              {!sizes
+                ? 'Số tối thiểu phải nhỏ hơn hoặc bằng số tối đa'
+                : sizes.sizes.length === 0
+                  ? `${overview.studyingStudents} bạn chưa đủ ${minTeamSize} người để lập nhóm`
+                  : `${overview.studyingStudents} bạn → ${sizes.sizes.length} nhóm: ${sizes.sizes.join(', ')} người` +
+                    (sizes.leftover > 0 ? ` · ${sizes.leftover} bạn chưa có nhóm, giảng viên tự xếp` : '')}
             </Typography>
           )}
 

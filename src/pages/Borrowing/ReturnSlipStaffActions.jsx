@@ -10,7 +10,7 @@ import { COLORS, daysUntil } from './returnSlipHelpers'
 const PRIMARY = { mt: 2.5, py: 1.25, textTransform: 'none', fontWeight: 700, bgcolor: '#0058be' }
 const LINK = { mt: 1, textTransform: 'none', color: COLORS.grey }
 
-/** Việc của LabStaff trên một phiếu: duyệt và chọn ngày, từ chối, đổi ngày, nhận đồ. onChanged nhận phiếu mới. */
+/** Việc của LabStaff trên một phiếu: duyệt và chọn ngày, từ chối, đổi ngày, nhận linh kiện. onChanged nhận phiếu mới. */
 export default function ReturnSlipStaffActions({ slip, onChanged }) {
   const [date, setDate] = useState(slip.appointmentDate ? getVietnamDateInputValue(slip.appointmentDate) : '')
   const [comment, setComment] = useState('')
@@ -140,7 +140,7 @@ export default function ReturnSlipStaffActions({ slip, onChanged }) {
       {!pending && !rescheduling && (
         <>
           <Button fullWidth variant="contained" disabled={busy} onClick={openReceive} sx={PRIMARY}>
-            Nhận đồ
+            Nhận trả
           </Button>
           <Button fullWidth disabled={busy} onClick={() => setRescheduling(true)} sx={LINK}>
             Đổi ngày hẹn

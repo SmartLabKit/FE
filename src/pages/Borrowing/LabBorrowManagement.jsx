@@ -182,7 +182,7 @@ function getItemStatusInfo(item, requestStatus) {
     }
   }
 
-  // 5. Đơn sẵn sàng nhận đồ
+  // 5. Đơn sẵn sàng nhận linh kiện
   if (requestStatus === 'Ready') {
     return {
       label: 'Sẵn sàng',
@@ -418,7 +418,7 @@ export default function LabBorrowManagement() {
         updatedRequest = await borrowService.returnBorrowRequest(returnRequest.borrowRequestId, payload)
         return updatedRequest
       },
-      'Tiếp nhận trả đồ thất bại.',
+      'Tiếp nhận trả linh kiện thất bại.',
     )
     if (success) {
       const updatedItems = updatedRequest?.items
@@ -442,7 +442,7 @@ export default function LabBorrowManagement() {
   return (
     <PortalLayout
       headerTitle="Xử lý đơn mượn"
-      headerSubtitle="Xử lý đơn đã duyệt: giao đồ, nhận trả và theo dõi đơn của lab mình"
+      headerSubtitle="Xử lý đơn đã duyệt: giao linh kiện, nhận trả và theo dõi đơn của lab mình"
       activeMenuKey="handover"
     >
       <Container maxWidth="xl" sx={{ py: 3 }}>
@@ -473,7 +473,7 @@ export default function LabBorrowManagement() {
             aria-label="Danh sách đơn Lab"
           >
             <Tab value={0} label="Đơn mượn" />
-            <Tab value={2} label="Giao đồ" />
+            <Tab value={2} label="Giao linh kiện" />
             <Tab value={3} label="Nhận trả" />
           </Tabs>
 
@@ -715,9 +715,6 @@ export default function LabBorrowManagement() {
                 <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', gap: 1, flexWrap: 'wrap' }}>
                   <Box>
                     <Typography variant="h6" fontWeight={700}>{requestDetail.requestCode}</Typography>
-                    <Typography color="text.secondary">
-                      {[requestDetail.requesterName, requestDetail.projectTitle].filter(Boolean).join(' · ')}
-                    </Typography>
                   </Box>
                   {(() => {
                     const meta = getBorrowRequestStatusMeta(requestDetail.status)
@@ -726,13 +723,23 @@ export default function LabBorrowManagement() {
                 </Box>
                 <Grid container spacing={2}>
                   <Grid size={{ xs: 12, sm: 3 }}>
-                    <Typography variant="caption" color="text.secondary">Sinh viên (MSSV / Lớp)</Typography>
-                    <Typography fontWeight={600}>
-                      {[requestDetail.studentCode, requestDetail.classCode].filter(Boolean).join(' · ') || '—'}
-                    </Typography>
+                    <Typography variant="caption" color="text.secondary">Sinh viên</Typography>
+                    <Typography fontWeight={600}>{requestDetail.requesterName || '—'}</Typography>
                   </Grid>
                   <Grid size={{ xs: 12, sm: 3 }}>
-                    <Typography variant="caption" color="text.secondary">Lab nhận đồ</Typography>
+                    <Typography variant="caption" color="text.secondary">MSSV</Typography>
+                    <Typography fontWeight={600}>{requestDetail.studentCode || '—'}</Typography>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 3 }}>
+                    <Typography variant="caption" color="text.secondary">Lớp</Typography>
+                    <Typography fontWeight={600}>{requestDetail.classCode || '—'}</Typography>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 3 }}>
+                    <Typography variant="caption" color="text.secondary">Đề tài</Typography>
+                    <Typography fontWeight={600}>{requestDetail.projectTitle || '—'}</Typography>
+                  </Grid>
+                  <Grid size={{ xs: 12, sm: 3 }}>
+                    <Typography variant="caption" color="text.secondary">Lab nhận linh kiện</Typography>
                     <Typography fontWeight={600}>{labLabel(requestDetail)}</Typography>
                   </Grid>
                   <Grid size={{ xs: 12, sm: 3 }}>
@@ -922,7 +929,7 @@ export default function LabBorrowManagement() {
                       disabled={Boolean(actionLoading)}
                       onClick={() => setReturnRequest(requestDetail)}
                     >
-                      Nhận trả đồ
+                      Nhận trả linh kiện
                     </Button>
                   )}
                   {canCancel && (

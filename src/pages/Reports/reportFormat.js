@@ -22,7 +22,7 @@ export const formatPercent = (value) =>
 const LABELS = {
   Pending: 'Chờ GV duyệt',
   Approved: 'Chờ lab xác nhận',
-  Ready: 'Sẵn sàng nhận đồ',
+  Ready: 'Sẵn sàng nhận linh kiện',
   Rejected: 'Từ chối',
   Borrowing: 'Đang mượn',
   Returned: 'Đã trả',

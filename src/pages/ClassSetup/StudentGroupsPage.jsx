@@ -290,7 +290,7 @@ function InvitationsCard({ invitations, isOpen, respondingKey, onRespond, compac
         {!isOpen && hasInvitations && (
           <Chip
             icon={<LockIcon sx={{ fontSize: '12px !important' }} />}
-            label="Đã khóa do quá hạn"
+            label="Đã khóa"
             size="small"
             sx={{
               height: 22,
@@ -575,7 +575,8 @@ export default function StudentGroupsPage() {
         ])
         setOverview(ov)
         setCurrentTeam(team)
-        setMyInvitations(Array.isArray(invites) ? invites : [])
+        // Lời mời của lớp khác hiện ở trang lớp đó, không khóa theo trạng thái chọn nhóm của lớp đang xem
+        setMyInvitations(Array.isArray(invites) ? invites.filter((inv) => !inv.classId || inv.classId === classId) : [])
         setMyProjects(Array.isArray(projects) ? projects : [])
 
         if (team && !team.isFull) {

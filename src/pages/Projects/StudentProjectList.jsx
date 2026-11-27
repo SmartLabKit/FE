@@ -642,7 +642,7 @@ export default function StudentProjectList() {
     setLoading(false)
   }, [])
 
-  // Giảng viên duyệt, lab giao đồ... thì tự cập nhật, không hiện vòng xoay
+  // Giảng viên duyệt, lab giao linh kiện... thì tự cập nhật, không hiện vòng xoay
   const reloadQuietly = useCallback(() => loadOverview(true), [loadOverview])
   useEntityChanged(reloadQuietly)
 

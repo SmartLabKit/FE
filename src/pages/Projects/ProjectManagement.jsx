@@ -309,6 +309,7 @@ export default function ProjectManagement() {
   const navigate = useNavigate()
   const { user } = useAuth()
   const [team, setTeam] = useState(null)
+  const [showBorrowHistory, setShowBorrowHistory] = useState(false)
   const [project, setProject] = useState(null)
   const [form, setForm] = useState(emptyForm)
   const [savedFormSnapshot, setSavedFormSnapshot] = useState(null)
@@ -1611,7 +1612,11 @@ export default function ProjectManagement() {
             </Paper>
 
             {project?.status === 'Approved' && (() => {
-              const projectBorrows = Array.isArray(project.borrowRequests) ? project.borrowRequests : []
+              const allBorrows = Array.isArray(project.borrowRequests) ? project.borrowRequests : []
+              // Chỉ hiện đơn hiện tại; đơn bị từ chối hoặc đã hủy nằm trong phần lịch sử
+              const historyBorrows = allBorrows.filter((br) => ['Rejected', 'Cancelled'].includes(br.status))
+              const currentBorrows = allBorrows.filter((br) => !['Rejected', 'Cancelled'].includes(br.status))
+              const projectBorrows = showBorrowHistory ? allBorrows : currentBorrows
               const pendingSupplementary = projectBorrows.find((br) => br.status === 'Pending')
               const isFinalLocked = ['Pending', 'Accepted'].includes(project.finalStatus)
               return (
@@ -1636,7 +1641,7 @@ export default function ProjectManagement() {
                   >
                     <Box>
                       <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#0f172a' }}>
-                        Đơn mượn của đề tài ({projectBorrows.length})
+                        Đơn mượn của đề tài ({currentBorrows.length})
                       </Typography>
                       <Typography variant="caption" sx={{ color: '#64748b' }}>
                         Theo dõi các đơn mượn kho và gửi yêu cầu mượn thêm linh kiện phát sinh khi cần
@@ -1689,7 +1694,7 @@ export default function ProjectManagement() {
 
                   {projectBorrows.length === 0 ? (
                     <Typography variant="body2" color="text.secondary">
-                      Đề tài chưa có đơn mượn linh kiện kho nào.
+                      {historyBorrows.length > 0 ? 'Không có đơn đang xử lý.' : 'Đề tài chưa có đơn mượn linh kiện kho nào.'}
                     </Typography>
                   ) : (
                     <Stack spacing={1.25}>
@@ -1741,6 +1746,17 @@ export default function ProjectManagement() {
                         )
                       })}
                     </Stack>
+                  )}
+                  {historyBorrows.length > 0 && (
+                    <Button
+                      size="small"
+                      onClick={() => setShowBorrowHistory((value) => !value)}
+                      sx={{ mt: 1, textTransform: 'none', fontWeight: 700 }}
+                    >
+                      {showBorrowHistory
+                        ? 'Ẩn lịch sử đơn'
+                        : `Xem lịch sử: ${historyBorrows.length} đơn bị từ chối hoặc đã hủy`}
+                    </Button>
                   )}
                 </Paper>
               )
@@ -1805,7 +1821,7 @@ export default function ProjectManagement() {
                 </Box>
                 <BorrowPreviewList preview={borrowPreview} loading={loadingPreview} error={previewError} />
                 <Typography variant="body2" color="text.secondary">
-                  Giảng viên duyệt từng đơn. Sau khi duyệt, lab của đơn đó chuẩn bị đồ và hẹn ngày đến nhận.
+                  Giảng viên duyệt một lần cho cả đề tài. Sau khi duyệt, mỗi lab chuẩn bị phần linh kiện của mình và hẹn ngày đến nhận.
                 </Typography>
                 {!borrowDeadline.canBorrow && (
                   <Alert severity="error" sx={{ py: 0 }}>

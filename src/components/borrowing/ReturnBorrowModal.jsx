@@ -154,11 +154,11 @@ export default function ReturnBorrowModal({ request, open, submitting, planned, 
     setPhotoPreviewUrl('')
     try {
       const result = await borrowService.uploadHandoverPhoto(request.borrowRequestId, file, 'Return')
-      if (!result?.photoId) throw new Error('Phản hồi ảnh trả đồ không có photoId.')
+      if (!result?.photoId) throw new Error('Phản hồi ảnh trả linh kiện không có photoId.')
       setPhoto(result)
       setPhotoPreviewUrl(URL.createObjectURL(file))
     } catch (uploadError) {
-      setError(extractErrorMessage(uploadError, 'Không thể tải ảnh đồ trả.'))
+      setError(extractErrorMessage(uploadError, 'Không thể tải ảnh linh kiện trả.'))
     } finally {
       setUploading(false)
     }
@@ -194,7 +194,7 @@ export default function ReturnBorrowModal({ request, open, submitting, planned, 
 
   const submitReturn = async () => {
     if (!photo?.photoId) {
-      setError('Cần chụp ảnh đồ trả trước khi xác nhận.')
+      setError('Cần chụp ảnh linh kiện trả trước khi xác nhận.')
       return
     }
     if (hasReturnedConsumables && !cabinetId) {
@@ -245,7 +245,7 @@ export default function ReturnBorrowModal({ request, open, submitting, planned, 
       scroll="paper"
       PaperProps={{ sx: { maxHeight: 'calc(100% - 32px)' } }}
     >
-      <DialogTitle sx={{ pb: 1 }}>Nhận trả đồ · {request?.requestCode}</DialogTitle>
+      <DialogTitle sx={{ pb: 1 }}>Nhận trả linh kiện · {request?.requestCode}</DialogTitle>
       <DialogContent dividers sx={{ overflowY: 'auto' }}>
         <Stack spacing={2} sx={{ py: 1 }}>
           {(error || submitError) && <Alert severity="error">{error || submitError}</Alert>}

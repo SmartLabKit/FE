@@ -1,7 +1,7 @@
 import { Alert, Box, CircularProgress, Stack, Typography } from '@mui/material'
 
 /**
- * Xem trước các đơn mượn sẽ tạo khi gửi: mỗi lab một đơn, mỗi lab duyệt và giao riêng.
+ * Xem trước các đơn mượn sẽ tạo khi gửi: mỗi lab một đơn, GV duyệt một lần cho cả đề tài, mỗi lab giao phần của mình.
  * preview = { labs: [{ roomCode, roomName, lines: [{ componentName, componentCode, quantity, unit }] }], problem }
  */
 export default function BorrowPreviewList({ preview, loading, error }) {
@@ -25,7 +25,7 @@ export default function BorrowPreviewList({ preview, loading, error }) {
       <Typography variant="body2" sx={{ fontWeight: 800, color: '#1e3a8a', mb: 1 }}>
         {labs.length === 1
           ? `Sẽ tạo 1 đơn mượn ở ${labs[0].roomCode}`
-          : `Sẽ tạo ${labs.length} đơn mượn, mỗi lab duyệt và giao riêng`}
+          : `Sẽ tạo ${labs.length} đơn mượn, mỗi lab giao phần của mình`}
       </Typography>
       <Stack spacing={1.25}>
         {labs.map((lab) => (

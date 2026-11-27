@@ -116,7 +116,7 @@ export default function BorrowReportsTab({ filters }) {
             <ReportTable
               rows={classRows}
               rowKey={(row) => row.classId}
-              emptyText="Không lớp nào mượn đồ trong kỳ."
+              emptyText="Không lớp nào mượn linh kiện trong kỳ."
               columns={[
                 { key: 'classCode', label: 'Lớp', render: (row) => <b>{row.classCode}</b> },
                 { key: 'requestCount', label: 'Số đơn', align: 'right', render: (row) => formatNumber(row.requestCount) },
@@ -176,7 +176,7 @@ export default function BorrowReportsTab({ filters }) {
           rows={getRows(damages.data)}
           onRowClick={openBorrowRequest}
           rowKey={(row) => `${row.borrowRequestId}-${row.componentCode}-${row.itemCode || ''}-${row.returnedAt}`}
-          emptyText="Không có đồ hư hỏng hoặc mất trong kỳ."
+          emptyText="Không có linh kiện hư hỏng hoặc mất trong kỳ."
           columns={[
             { key: 'requestCode', label: 'Mã đơn', render: (row) => <Box component="span" sx={{ color: '#0058be', fontWeight: 600 }}>{row.requestCode}</Box> },
             { key: 'requesterName', label: 'Người mượn', render: (row) => <>{row.requesterName}<br /><Box component="span" sx={{ color: '#697386', fontSize: 12 }}>{row.requesterUsername}</Box></> },

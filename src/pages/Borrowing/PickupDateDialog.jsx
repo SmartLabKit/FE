@@ -3,7 +3,7 @@ import { Alert, Button, Dialog, DialogActions, DialogContent, DialogTitle, TextF
 import { formatVietnamDate, getVietnamDateInputValue } from '../../utils/dateFormatting'
 
 /**
- * Lab chọn ngày hẹn sinh viên đến nhận đồ: lúc xác nhận sẵn sàng, hoặc đổi ngày khi chưa giao.
+ * Lab chọn ngày hẹn sinh viên đến nhận linh kiện: lúc xác nhận sẵn sàng, hoặc đổi ngày khi chưa giao.
  * onSave nhận ngày dạng yyyy-mm-dd; trả về chuỗi lỗi (rỗng là xong).
  */
 export default function PickupDateDialog({ request, onClose, onSave }) {

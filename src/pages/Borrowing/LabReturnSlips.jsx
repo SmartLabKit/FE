@@ -9,7 +9,7 @@ import { COLORS, daysUntil, slipStatusText } from './returnSlipHelpers'
 /** Chữ bên phải của một phiếu trong danh sách của lab. */
 function actionText(slip) {
   if (slip.status === 'Pending') return { text: 'Duyệt ›', color: COLORS.amber }
-  if (daysUntil(slip.appointmentDate) === 0) return { text: 'Nhận đồ ›', color: COLORS.blue }
+  if (daysUntil(slip.appointmentDate) === 0) return { text: 'Nhận trả ›', color: COLORS.blue }
   return slipStatusText(slip)
 }
 

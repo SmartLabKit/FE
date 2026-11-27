@@ -19,11 +19,13 @@ import { assignTeams, getAutoAssignPreview } from '../../services/teamFormationA
 import { extractErrorMessage } from '../../services/api'
 
 const KEEP = 'keep'
+const NONE = 'none'
 const newKey = (index) => `new:${index}`
 
 /**
  * Xem trước chia nhóm tự động, chỉ mở khi có gộp nhóm, vượt tối đa hoặc cảnh báo (trường hợp thường thì xếp luôn):
- * bạn lẻ được xếp vào đâu, nhóm thiếu người gộp vào nhóm nào, nhóm mới nào được tạo. Giảng viên sửa được mọi chỗ, bấm Xác nhận mới lưu.
+ * bạn lẻ được xếp vào đâu, nhóm thiếu người gộp vào nhóm nào, nhóm mới nào được tạo. Nhóm mới phải đủ số tối thiểu,
+ * bạn dư để "Chưa có nhóm". Giảng viên sửa được mọi chỗ, bấm Xác nhận mới lưu.
  */
 export default function AutoAssignDialog({ classId, initialPreview, teams, minTeamSize, maxTeamSize, onClose, onDone }) {
   const [preview, setPreview] = useState(null)
@@ -47,6 +49,7 @@ export default function AutoAssignDialog({ classId, initialPreview, teams, minTe
         setStudents([
           ...data.existingTeams.flatMap((team) => team.addedStudents.map((student) => ({ ...student, target: team.teamId }))),
           ...data.newTeams.flatMap((team, index) => team.students.map((student) => ({ ...student, target: newKey(index) }))),
+          ...(data.unplacedStudents || []).map((student) => ({ ...student, target: NONE })),
         ])
       })
       .catch((previewError) => {
@@ -87,7 +90,11 @@ export default function AutoAssignDialog({ classId, initialPreview, teams, minTe
   ].filter((row) => sizeOf(row.key) > 0)
   const tooBig = rows.filter((row) => sizeOf(row.key) > maxTeamSize)
   const tooSmall = rows.filter((row) => sizeOf(row.key) < minTeamSize)
-  const nothing = preview && students.length === 0 && merges.length === 0
+  const smallNew = newTeams
+    .map((team, index) => ({ name: team.teamName || `Nhóm mới ${index + 1}`, count: membersOfNew(index).length }))
+    .filter((team) => team.count > 0 && team.count < minTeamSize)
+  const unplacedCount = students.filter((student) => student.target === NONE).length
+  const nothing = preview && students.every((student) => student.target === NONE) && merges.length === 0
 
   const setTarget = (studentId, target) =>
     setStudents((previous) => previous.map((student) => (student.studentProfileId === studentId ? { ...student, target } : student)))
@@ -99,7 +106,9 @@ export default function AutoAssignDialog({ classId, initialPreview, teams, minTe
   const save = async () => {
     setSaving(true)
     setError('')
-    const existingIds = [...new Set(students.map((student) => student.target).filter((target) => !target.startsWith('new:')))]
+    const existingIds = [
+      ...new Set(students.map((student) => student.target).filter((target) => target !== NONE && !target.startsWith('new:'))),
+    ]
     try {
       await assignTeams(classId, {
         existingTeams: existingIds.map((teamId) => ({
@@ -126,7 +135,7 @@ export default function AutoAssignDialog({ classId, initialPreview, teams, minTe
   }
 
   const canSave =
-    preview && !nothing && !saving && (tooBig.length === 0 || allowExceedMax) && newTeams.every((team, index) => team.teamName.trim() || membersOfNew(index).length === 0)
+    preview && !nothing && !saving && smallNew.length === 0 && (tooBig.length === 0 || allowExceedMax) && newTeams.every((team, index) => team.teamName.trim() || membersOfNew(index).length === 0)
 
   return (
     <Dialog open onClose={() => !saving && onClose()} fullWidth maxWidth="md">
@@ -171,6 +180,7 @@ export default function AutoAssignDialog({ classId, initialPreview, teams, minTe
                         {newTeams.map((team, index) => (
                           <MenuItem key={newKey(index)} value={newKey(index)}>{team.teamName || `Nhóm mới ${index + 1}`} (mới)</MenuItem>
                         ))}
+                        <MenuItem value={NONE}>Chưa có nhóm</MenuItem>
                       </TextField>
                     </Stack>
                   ))}
@@ -250,6 +260,16 @@ export default function AutoAssignDialog({ classId, initialPreview, teams, minTe
               <Box>
                 <Typography sx={{ fontWeight: 700, mb: 0.5 }}>Kết quả</Typography>
                 <Typography variant="body2">{rows.map((row) => `${row.name}: ${sizeOf(row.key)} người`).join(' · ')}</Typography>
+                {unplacedCount > 0 && (
+                  <Typography variant="body2" sx={{ color: '#475569', mt: 0.5 }}>
+                    Chưa có nhóm: {unplacedCount} sinh viên (giảng viên tự xếp sau)
+                  </Typography>
+                )}
+                {smallNew.length > 0 && (
+                  <Typography variant="body2" sx={{ color: '#dc2626', mt: 0.5 }}>
+                    Nhóm mới phải có ít nhất {minTeamSize} người: {smallNew.map((team) => `${team.name} (${team.count})`).join(', ')}
+                  </Typography>
+                )}
                 {tooSmall.length > 0 && (
                   <Typography variant="body2" sx={{ color: '#b45309', mt: 0.5 }}>
                     Chưa đủ {minTeamSize} người: {tooSmall.map((row) => row.name).join(', ')}

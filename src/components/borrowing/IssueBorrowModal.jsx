@@ -439,7 +439,7 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
       fullWidth
       maxWidth="lg"
     >
-      <DialogTitle>{request?.replacementLine ? 'Giao con thay thế' : 'Giao đồ'} · {request?.requestCode}</DialogTitle>
+      <DialogTitle>{request?.replacementLine ? 'Giao con thay thế' : 'Giao linh kiện'} · {request?.requestCode}</DialogTitle>
       <DialogContent>
         <Stepper
           activeStep={step}

@@ -39,6 +39,7 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
   const [busy, setBusy] = useState(false)
   const [comment, setComment] = useState('')
   const [approvedQty, setApprovedQty] = useState({})
+  const [showHistory, setShowHistory] = useState(false)
   const [error, setError] = useState('')
   const rejectValidationMessage = 'Vui lòng nhập lý do từ chối.'
 
@@ -96,6 +97,10 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
   const borrowRequests = Array.isArray(detail?.borrowRequests) ? detail.borrowRequests : []
   const currentStatus = detail?.status || project?.status || ''
   const pendingRequests = borrowRequests.filter((br) => br.status === 'Pending')
+  // Chỉ hiện đơn hiện tại; đơn bị từ chối hoặc đã hủy nằm trong phần lịch sử
+  const historyRequests = borrowRequests.filter((br) => ['Rejected', 'Cancelled'].includes(br.status))
+  const currentRequests = borrowRequests.filter((br) => !['Rejected', 'Cancelled'].includes(br.status))
+  const shownRequests = showHistory ? borrowRequests : currentRequests
   const pendingBorrowRequest = pendingRequests[0] || null
   const pendingLab = pendingBorrowDetail?.roomCode || project?.pendingRoomCode || ''
   const pendingCount = pendingRequests.length
@@ -130,7 +135,7 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
       return value !== undefined && (value === '' || Number(value) < 0 || Number(value) > line.quantity)
     })
     if (invalid) {
-      setError('Số lượng duyệt phải từ 0 đến số nhóm xin.')
+      setError('Số lượng duyệt phải từ 0 đến số lượng xin mượn.')
       return
     }
     if (adjustments.length > 0 && !comment.trim()) {
@@ -381,15 +386,15 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
                 {/* Danh sách toàn bộ ĐƠN MƯỢN của đề tài (giống Mobile Hình 4) */}
                 <Box>
                   <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1.25 }}>
-                    Đơn mượn của đề tài ({borrowRequests.length})
+                    Đơn mượn của đề tài ({currentRequests.length})
                   </Typography>
-                  {borrowRequests.length === 0 ? (
+                  {shownRequests.length === 0 ? (
                     <Typography variant="body2" color="text.secondary">
-                      Chưa có đơn mượn nào được tạo từ đề tài này.
+                      {historyRequests.length > 0 ? 'Không có đơn đang xử lý.' : 'Chưa có đơn mượn nào được tạo từ đề tài này.'}
                     </Typography>
                   ) : (
                     <Stack spacing={1}>
-                      {borrowRequests.map((br) => {
+                      {shownRequests.map((br) => {
                         const meta = getBorrowRequestStatusMeta(br.status)
                         return (
                           <Paper
@@ -440,6 +445,15 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
                         )
                       })}
                     </Stack>
+                  )}
+                  {historyRequests.length > 0 && (
+                    <Button
+                      size="small"
+                      onClick={() => setShowHistory((value) => !value)}
+                      sx={{ mt: 1, textTransform: 'none', fontWeight: 700 }}
+                    >
+                      {showHistory ? 'Ẩn lịch sử đơn' : `Xem lịch sử: ${historyRequests.length} đơn bị từ chối hoặc đã hủy`}
+                    </Button>
                   )}
                 </Box>
 
@@ -499,7 +513,7 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
                             )}
                           </Typography>
                           <Typography variant="caption" color="text.secondary" sx={{ minWidth: 90 }}>
-                            Nhóm xin: {line.quantity} {line.unit || ''}
+                            Xin mượn: {line.quantity} {line.unit || ''}
                           </Typography>
                           <TextField
                             type="number"
