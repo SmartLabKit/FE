@@ -320,9 +320,25 @@ export default function SemesterClassManager({ onNext }) {
     setClassModalOpen(true)
   }
 
+  // Mã lớp tự sinh khi để trống: MÃMÔN-MÃKỲ-01, 02... (BE sinh lại lúc lưu nên không lo trùng)
+  const suggestedClassCode = (() => {
+    const course = courses.find((c) => c.courseId === classForm.courseId)
+    const semester = semesters.find((sem) => sem.semesterId === classForm.semesterId)
+    if (!course || !semester) return ''
+    const prefix = `${course.courseCode}-${semester.semesterCode}-`.toUpperCase()
+    const taken = new Set(
+      classes
+        .filter((c) => c.semesterId === classForm.semesterId)
+        .map((c) => String(c.classCode || '').toUpperCase())
+    )
+    let number = 1
+    while (taken.has(`${prefix}${String(number).padStart(2, '0')}`)) number += 1
+    return `${prefix}${String(number).padStart(2, '0')}`
+  })()
+
   const validateClassForm = () => {
     const errors = {}
-    if (!classForm.classCode.trim()) errors.classCode = 'Mã lớp không được để trống'
+    if (classModalMode !== 'create' && !classForm.classCode.trim()) errors.classCode = 'Mã lớp không được để trống'
     if (!classForm.courseId) errors.courseId = 'Vui lòng chọn môn học'
     const max = Number(classForm.maxStudents)
     if (!max || max < 1) errors.maxStudents = 'Sĩ số tối đa phải ít nhất 1'
@@ -857,14 +873,19 @@ export default function SemesterClassManager({ onNext }) {
           <DialogContent dividers>
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <TextField
-                label="Mã Lớp Học Phần *"
-                placeholder="VD: EE302-01, CS101-02"
+                label={classModalMode === 'create' ? 'Mã Lớp Học Phần' : 'Mã Lớp Học Phần *'}
+                placeholder={classModalMode === 'create' ? suggestedClassCode || 'Chọn môn để tự sinh mã' : 'VD: IOT201-FA26-01'}
                 size="small"
                 fullWidth
                 value={classForm.classCode}
                 onChange={(e) => setClassForm({ ...classForm, classCode: e.target.value })}
                 error={Boolean(classErrors.classCode)}
-                helperText={classErrors.classCode || 'Mã lớp không được trùng trong cùng học kỳ'}
+                helperText={
+                  classErrors.classCode ||
+                  (classModalMode === 'create'
+                    ? `Để trống để tự sinh${suggestedClassCode ? `: ${suggestedClassCode}` : ' theo môn và kỳ'}`
+                    : 'Mã lớp không được trùng trong cùng học kỳ')
+                }
               />
 
               <FormControl fullWidth size="small" error={Boolean(classErrors.courseId)}>
