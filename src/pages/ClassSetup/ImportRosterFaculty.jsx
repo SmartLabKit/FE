@@ -75,7 +75,7 @@ function readImportResult(result) {
 function importSummary(result) {
   const { alreadyCount, failedCount } = readImportResult(result)
   const parts = [`Đã thêm ${result?.enrolledStudents ?? 0} sinh viên`]
-  if (result?.createdUsers > 0) parts.push(`gửi email kích hoạt cho ${result.createdUsers} tài khoản mới`)
+  if (result?.createdUsers > 0) parts.push(`gửi email tài khoản cho ${result.createdUsers} tài khoản mới`)
   const sentences = [parts.join(', ')]
   if (alreadyCount > 0) sentences.push(`${alreadyCount} bạn đã có trong lớp nên bỏ qua`)
   if (failedCount > 0) sentences.push(`${failedCount} dòng lỗi`)
@@ -130,7 +130,7 @@ function downloadRosterTemplate() {
     ['Hướng dẫn'],
     ['Điền sinh viên vào sheet đầu tiên, từ dòng 2. Giữ nguyên thứ tự cột.'],
     ['Bắt buộc: Mã SV và Email. Dòng trùng MSSV hoặc email trong file sẽ bị bỏ qua.'],
-    ['Sinh viên chưa có tài khoản sẽ được tạo tài khoản và gửi email kích hoạt.'],
+    ['Sinh viên chưa có tài khoản sẽ được tạo tài khoản và nhận email tên đăng nhập, mật khẩu; đăng nhập lần đầu là kích hoạt.'],
   ])
   guide['!cols'] = [{ wch: 90 }]
   XLSX.utils.book_append_sheet(wb, data, 'DanhSachSinhVien')
@@ -317,7 +317,7 @@ export default function ImportRosterFaculty() {
     setResendingId(userId)
     try {
       await userService.resendActivation(userId)
-      setToast({ open: true, message: 'Đã gửi lại email kích hoạt.', severity: 'success' })
+      setToast({ open: true, message: 'Đã gửi lại email tài khoản.', severity: 'success' })
     } catch (err) {
       setToast({ open: true, message: err.message, severity: 'error' })
     } finally {
@@ -707,7 +707,7 @@ export default function ImportRosterFaculty() {
     if (assigned?.accountCreated) {
       setToast({
         open: true,
-        message: `Đã phân công ${newInst.name}. Email kích hoạt đã gửi tới ${newInst.email}.`,
+        message: `Đã phân công ${newInst.name}. Email tài khoản đã gửi tới ${newInst.email}.`,
         severity: 'success',
       })
     }
@@ -1367,7 +1367,7 @@ export default function ImportRosterFaculty() {
 
             <Box sx={{ p: 1.5, bgcolor: '#f0f9ff', borderRadius: 1.5, border: '1px solid #bae6fd' }}>
               <Typography variant="caption" sx={{ color: '#0369a1', display: 'block', lineHeight: 1.5 }}>
-                Giảng viên chưa có tài khoản sẽ nhận email gồm tên đăng nhập, mật khẩu và link kích hoạt. Kích hoạt xong mới đăng nhập được.
+                Giảng viên chưa có tài khoản sẽ nhận email gồm tên đăng nhập và mật khẩu. Đăng nhập lần đầu là tài khoản được kích hoạt.
               </Typography>
             </Box>
 
