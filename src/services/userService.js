@@ -103,6 +103,20 @@ export const userService = {
    * POST /api/users/{id}/activate
    * Body: { temporaryPassword }
    */
+  /**
+   * Kích hoạt cùng lúc mọi sinh viên đang chờ kích hoạt của lớp, chung một mật khẩu tạm (phải đổi ở lần đăng nhập đầu)
+   * POST /api/users/activate-class/{classId}
+   * Body: { temporaryPassword } → { activated }
+   */
+  async activateClass(classId, temporaryPassword) {
+    try {
+      const response = await api.post(`/api/users/activate-class/${classId}`, { temporaryPassword })
+      return response.data?.data || { activated: 0 }
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Không thể kích hoạt các tài khoản của lớp'), { cause: error })
+    }
+  },
+
   async activateUser(id, temporaryPassword) {
     try {
       await api.post(`/api/users/${id}/activate`, { temporaryPassword })

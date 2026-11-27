@@ -325,6 +325,35 @@ export default function ImportRosterFaculty() {
     }
   }
 
+  // Admin kích hoạt cùng lúc các sinh viên đang chờ của lớp, chung một mật khẩu tạm
+  const [activateOpen, setActivateOpen] = useState(false)
+  const [activatePassword, setActivatePassword] = useState('')
+  const [activating, setActivating] = useState(false)
+  const pendingCount = students.filter((s) => s.activationPending).length
+  const activatePasswordError =
+    activatePassword && !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{8,72}$/.test(activatePassword)
+      ? 'Tối thiểu 8 ký tự, có chữ hoa, chữ thường và chữ số'
+      : ''
+
+  const handleActivateClass = async () => {
+    setActivating(true)
+    try {
+      const result = await userService.activateClass(selectedClassId, activatePassword)
+      setToast({
+        open: true,
+        message: `Đã kích hoạt ${result.activated} tài khoản. Lần đầu đăng nhập sinh viên phải đổi mật khẩu.`,
+        severity: 'success',
+      })
+      setActivateOpen(false)
+      setActivatePassword('')
+      reloadStudents()
+    } catch (err) {
+      setToast({ open: true, message: err.message, severity: 'error' })
+    } finally {
+      setActivating(false)
+    }
+  }
+
   const resendButton = (account) =>
     account.activationPending && (
       <Button
@@ -993,6 +1022,16 @@ export default function ImportRosterFaculty() {
 
                 {showStudents && students.length > 0 && (
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  {pendingCount > 0 && (
+                    <Button
+                      size="small"
+                      variant="contained"
+                      onClick={() => setActivateOpen(true)}
+                      sx={{ textTransform: 'none', fontWeight: 700, fontSize: 12, whiteSpace: 'nowrap', bgcolor: '#0058be' }}
+                    >
+                      Kích hoạt {pendingCount} tài khoản chờ
+                    </Button>
+                  )}
                   <TextField
                     size="small"
                     placeholder="Tìm theo Mã SV, Tên, Email..."
@@ -1018,6 +1057,39 @@ export default function ImportRosterFaculty() {
                 </Box>
                 )}
               </Box>
+
+              <Dialog open={activateOpen} onClose={() => !activating && setActivateOpen(false)} maxWidth="xs" fullWidth>
+                <DialogTitle sx={{ fontWeight: 800, fontSize: 16 }}>Kích hoạt {pendingCount} tài khoản chờ</DialogTitle>
+                <DialogContent dividers>
+                  <Typography sx={{ fontSize: 13, color: '#424754', mb: 2 }}>
+                    Các sinh viên đang chờ kích hoạt của lớp sẽ dùng chung mật khẩu tạm này. Lần đầu đăng nhập phải đổi mật
+                    khẩu. Tài khoản bị khóa giữ nguyên.
+                  </Typography>
+                  <TextField
+                    label="Mật khẩu tạm *"
+                    size="small"
+                    fullWidth
+                    autoFocus
+                    value={activatePassword}
+                    onChange={(e) => setActivatePassword(e.target.value)}
+                    error={Boolean(activatePasswordError)}
+                    helperText={activatePasswordError || 'Tối thiểu 8 ký tự, có chữ hoa, chữ thường và chữ số'}
+                  />
+                </DialogContent>
+                <DialogActions sx={{ p: 2 }}>
+                  <Button onClick={() => setActivateOpen(false)} disabled={activating} sx={{ textTransform: 'none', color: '#6b7280' }}>
+                    Hủy
+                  </Button>
+                  <Button
+                    variant="contained"
+                    onClick={handleActivateClass}
+                    disabled={activating || !activatePassword || Boolean(activatePasswordError)}
+                    sx={{ textTransform: 'none', fontWeight: 700, bgcolor: '#0058be' }}
+                  >
+                    {activating ? 'Đang kích hoạt...' : 'Kích hoạt'}
+                  </Button>
+                </DialogActions>
+              </Dialog>
 
               <Collapse in={showStudents} unmountOnExit>
               {loadingStudents ? (
