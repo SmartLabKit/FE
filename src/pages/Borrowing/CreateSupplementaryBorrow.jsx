@@ -163,7 +163,7 @@ export default function CreateSupplementaryBorrow() {
     }
   }, [selectedProjectId])
 
-  // Tải danh mục linh kiện kho theo từ khóa tìm kiếm (có debounce nhẹ), chỉ linh kiện còn hàng ở lab
+  // Tải danh mục linh kiện kho theo từ khóa tìm kiếm (có debounce nhẹ), chỉ linh kiện có lab giữ
   useEffect(() => {
     let active = true
     const timer = window.setTimeout(() => {

@@ -41,6 +41,7 @@ import PortalLayout from '../../components/layout/PortalLayout'
 import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
 import { downloadComponentsTemplate, parseComponentsExcel } from '../../utils/excelHelper'
+import { suggestLabForCategory } from '../../utils/labSuggestion'
 import { trackingTypeLabel } from '../../utils/trackingTypeLabel'
 import {
   findDuplicateSpecKeys,
@@ -95,6 +96,7 @@ function getDuplicateMessages(rows, existingByName) {
 export default function ComponentExcelImport() {
   const navigate = useNavigate()
   const [categories, setCategories] = useState([])
+  const [labRooms, setLabRooms] = useState([])
   const [existingComponents, setExistingComponents] = useState([])
   const [loadingInit, setLoadingInit] = useState(true)
   const [rows, setRows] = useState([])
@@ -121,10 +123,12 @@ export default function ComponentExcelImport() {
     Promise.all([
       inventoryService.getCategories(),
       inventoryService.getComponents().catch(() => []),
+      inventoryService.getLabRooms().catch(() => []),
     ])
-      .then(([catList, compList]) => {
+      .then(([catList, compList, roomList]) => {
         if (active) {
           setCategories(Array.isArray(catList) ? catList : [])
+          setLabRooms(roomList.filter((room) => room.status === 'Active'))
           setExistingComponents(Array.isArray(compList) ? compList : [])
         }
       })
@@ -159,6 +163,13 @@ export default function ComponentExcelImport() {
     if (!row.componentName?.trim()) errors.push('Thiếu tên linh kiện')
     if (!row.categoryId) errors.push(`Không khớp danh mục "${row.categoryName || 'trống'}"`)
     if (!row.unit?.trim()) errors.push('Thiếu đơn vị tính')
+    const labCodes = row.labCodes || []
+    if (labCodes.length === 0) {
+      const hint = suggestLabForCategory(existingComponents, row.categoryId, row.categoryName)?.roomCode
+      errors.push(hint ? `Thiếu lab (cột Thuộc lab), gợi ý ${hint}` : 'Thiếu lab (cột Thuộc lab)')
+    }
+    const unknownLabs = labCodes.filter((code) => !labRooms.some((room) => room.roomCode === code))
+    if (unknownLabs.length > 0) errors.push(`Không có lab ${unknownLabs.join(', ')}`)
     if (!TRACKING_TYPES.includes(row.trackingType)) errors.push(`Loại quản lý không hợp lệ: "${row.rawTracking || 'trống'}"`)
     const minStockText = String(row.minStock ?? '').trim()
     const minStock = Number(minStockText)
@@ -243,7 +254,7 @@ export default function ComponentExcelImport() {
       return { ...row, errors, isDuplicate: duplicates.has(row.key), existsAlready: duplicateMessage.startsWith('Đã có') }
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, categories, existingByName])
+  }, [rows, categories, existingByName, labRooms])
 
   const duplicateCount = useMemo(() => evaluatedRows.filter((row) => row.isDuplicate).length, [evaluatedRows])
   // Bảng chỉ giữ dòng còn cần xử lý: dòng đã tạo xong và dòng đã có sẵn trong hệ thống được ẩn đi
@@ -297,6 +308,7 @@ export default function ComponentExcelImport() {
         unit: row.unit.trim(),
         minStock: minStockText === '' ? null : Number(minStockText),
         specs: parseSpecsText(row.specifications),
+        roomIds: labRooms.filter((room) => (row.labCodes || []).includes(room.roomCode)).map((room) => room.roomId),
       }
 
       try {
@@ -609,6 +621,7 @@ export default function ComponentExcelImport() {
                       <TableCell sx={{ fontWeight: 700, minWidth: 145 }}>Loại quản lý</TableCell>
                       <TableCell sx={{ fontWeight: 700, minWidth: 90 }}>Đơn vị</TableCell>
                       <TableCell sx={{ fontWeight: 700, minWidth: 110 }}>Tồn tối thiểu (*)</TableCell>
+                      <TableCell sx={{ fontWeight: 700, minWidth: 160 }}>Thuộc lab (*)</TableCell>
                       <TableCell sx={{ fontWeight: 700, minWidth: 105 }}>Tài liệu</TableCell>
                       <TableCell sx={{ fontWeight: 700, minWidth: 170 }}>Trạng thái</TableCell>
                       <TableCell />
@@ -720,6 +733,21 @@ export default function ComponentExcelImport() {
                               onChange={(e) => updateRow(row.key, { minStock: e.target.value })}
                               slotProps={{ htmlInput: { min: 0, step: 1 } }}
                             />
+                          </TableCell>
+                          <TableCell>
+                            <TextField
+                              select
+                              size="small"
+                              fullWidth
+                              disabled={importing || row.status === 'success'}
+                              value={(row.labCodes || []).filter((code) => labRooms.some((room) => room.roomCode === code))}
+                              onChange={(e) => updateRow(row.key, { labCodes: e.target.value })}
+                              slotProps={{ select: { multiple: true, renderValue: (selected) => selected.join(', ') } }}
+                            >
+                              {labRooms.map((room) => (
+                                <MenuItem key={room.roomId} value={room.roomCode}>{room.roomCode} · {room.roomName}</MenuItem>
+                              ))}
+                            </TextField>
                           </TableCell>
                           <TableCell>
                             <Stack direction="row" spacing={0.5} flexWrap="wrap">

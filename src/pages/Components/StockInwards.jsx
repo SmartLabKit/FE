@@ -89,6 +89,17 @@ const newLine = () => ({
   importRow: null,
 })
 
+// Dòng hàng chuyển sang phiếu của lab khác (giữ số lượng, giá, serial như trong file)
+const carryLineOf = (row, componentId) => ({
+  componentId,
+  quantity: Number.isInteger(Number(row.quantity)) && Number(row.quantity) > 0 ? String(Number(row.quantity)) : '1',
+  unitPrice: row.isGift ? '0' : String(row.unitPrice ?? ''),
+  isGift: Boolean(row.isGift),
+  serialsText: row.serialsText || '',
+  version: row.version || '1.0',
+  warrantyExpiresAt: row.warrantyExpiresAt || getDefaultWarrantyDateVn(1),
+})
+
 const sameImportRow = (a, b) =>
   normalizeSearchText(a.componentCode) === normalizeSearchText(b.componentCode) &&
   normalizeSearchText(a.componentName) === normalizeSearchText(b.componentName)
@@ -120,6 +131,7 @@ export default function StockInwards() {
   const fromAudit = location.state?.fromAudit || null
   const [searchParams] = useSearchParams()
   const editId = searchParams.get('edit')
+  const carryKey = searchParams.get('carry')
   const [components, setComponents] = useState([])
   const [confirmRequest, setConfirmRequest] = useState(null)
   const [categories, setCategories] = useState([])
@@ -140,6 +152,35 @@ export default function StockInwards() {
   const [error, setError] = useState('')
   const [excelNotice, setExcelNotice] = useState(null)
   const [declareRow, setDeclareRow] = useState(null)
+  // Dòng thuộc lab khác bị bỏ khỏi phiếu này, chờ lập phiếu cho đúng lab: { [roomCode]: carryLine[] }
+  const [carryOver, setCarryOver] = useState({})
+  // Phiếu này mở từ nút "Lập phiếu cho LAB-0x" của phiếu khác: lưu xong báo về phiếu đó rồi đóng tab
+  const [carryFrom, setCarryFrom] = useState(null)
+  const [carryDone, setCarryDone] = useState([])
+  const [carryAdd, setCarryAdd] = useState(null)
+
+  useEffect(() => {
+    if (typeof BroadcastChannel === 'undefined') return undefined
+    const channel = new BroadcastChannel('stock-carry')
+    channel.onmessage = (event) => {
+      const data = event.data || {}
+      if (data.type === 'add') {
+        // Tab phiếu của lab kia đang mở: nhận thêm dòng vừa chuyển sang
+        if (!data.component || !Array.isArray(data.lines)) return
+        setCarryAdd({ roomCode: data.roomCode, component: data.component, lines: data.lines })
+        return
+      }
+      if (data.type !== 'saved') return
+      setCarryDone((current) => [...current, `Đã lưu phiếu ${data.receiptCode || ''} cho ${data.roomCode} (${data.lineCount} dòng).`])
+      // Chỉ khi phiếu lab kia đã lưu mới bỏ nút; bấm Hủy hay đóng tab thì nút vẫn còn để mở lại
+      setCarryOver((current) => {
+        const next = { ...current }
+        delete next[data.roomCode]
+        return next
+      })
+    }
+    return () => channel.close()
+  }, [])
   const [submitAttempted, setSubmitAttempted] = useState(false)
   const [initialLoading, setInitialLoading] = useState(true)
 
@@ -200,8 +241,20 @@ export default function StockInwards() {
   const handleRoomChange = (nextRoomId) => {
     setRoomId(nextRoomId)
     const nextCabinets = activeCabinets.filter((cabinet) => cabinet.roomId === nextRoomId)
+    const nextCode = labRooms.find((room) => room.roomId === nextRoomId)?.roomCode || ''
     setLines((current) =>
-      current.map((line) => ({ ...line, cabinetId: cabinetFor(nextCabinets, componentMap.get(line.componentId)) }))
+      current.map((line) => {
+        const component = componentMap.get(line.componentId)
+        if (component && !(component.roomCodes || []).includes(nextCode)) {
+          return {
+            ...line,
+            componentId: '',
+            cabinetId: '',
+            importError: `${nextCode} không nhận ${component.componentName}, chọn linh kiện khác`,
+          }
+        }
+        return { ...line, cabinetId: cabinetFor(nextCabinets, component) }
+      })
     )
   }
 
@@ -224,13 +277,19 @@ export default function StockInwards() {
   }, [categories, components])
 
   // Danh sách linh kiện sau khi lọc theo danh mục (không load scroll toàn bộ hàng ngàn linh kiện)
+  // Lab chỉ nhận các linh kiện trong danh sách của lab (trang Phòng lab → Linh kiện)
+  const receivingLabCode = labRooms.find((room) => room.roomId === roomId)?.roomCode || ''
+  const labComponents = useMemo(() => {
+    if (!roomId) return components
+    return components.filter((c) => (c.roomCodes || []).includes(receivingLabCode))
+  }, [components, roomId, receivingLabCode])
 
   const filteredComponentsByCategory = useMemo(() => {
-    if (!categoryFilter) return components
-    return components.filter(
+    if (!categoryFilter) return labComponents
+    return labComponents.filter(
       (c) => (c.categoryId || c.CategoryId) === categoryFilter || c.categoryName === categoryFilter
     )
-  }, [components, categoryFilter])
+  }, [labComponents, categoryFilter])
 
   useEffect(() => {
     let active = true
@@ -289,6 +348,32 @@ export default function StockInwards() {
               }
             })
           )
+        } else if (carryKey) {
+          // Phiếu mở từ nút "Lập phiếu cho LAB-0x": điền lab và các dòng đã tách từ phiếu trước
+          let carry = null
+          try {
+            carry = JSON.parse(localStorage.getItem(carryKey) || 'null')
+            localStorage.removeItem(carryKey)
+          } catch {
+            carry = null
+          }
+          if (carry) {
+            const labCabinets = cabinetList.filter(
+              (cabinet) => cabinet.roomId === carry.roomId && (cabinet.status ? cabinet.status === 'Active' : true)
+            )
+            setCarryFrom({ fromLab: carry.fromLab || '', lineCount: (carry.lines || []).length })
+            setRoomId(carry.roomId || '')
+            setSupplier(carry.supplier || '')
+            setReceivedAt(carry.receivedAt || getVietnamDateInputValue())
+            setNote(carry.note || '')
+            setLines(
+              (carry.lines || []).map((line) => ({
+                ...newLine(),
+                ...line,
+                cabinetId: cabinetFor(labCabinets, componentList.find((item) => item.componentId === line.componentId)),
+              }))
+            )
+          }
         } else if (fromAudit) {
           // Hàng tìm thấy khi kiểm kê: không có nhà cung cấp, hóa đơn; nhập như hàng cho tặng (0₫) vào lab của tủ đã kiểm
           const component = componentList.find((item) => item.componentId === fromAudit.componentId)
@@ -318,7 +403,7 @@ export default function StockInwards() {
     return () => {
       active = false
     }
-  }, [editId, fromAudit])
+  }, [editId, fromAudit, carryKey])
 
   const chooseInvoice = (event) => {
     const file = event.target.files?.[0]
@@ -400,9 +485,24 @@ export default function StockInwards() {
       }
 
       const unmatchedWarnings = []
+      const skippedOutsideLab = []
+      const carried = {}
       const readLines = parsedRows.map((row) => {
         // Tìm linh kiện theo Mã hệ thống, Mã viết tắt hoặc Tên linh kiện
-        const matchedComp = findReceiptComponent(components, row)
+        const anyComp = findReceiptComponent(components, row)
+        const matchedComp = anyComp && (anyComp.roomCodes || []).includes(receivingLabCode) ? anyComp : null
+        const outsideLab = Boolean(anyComp && !matchedComp)
+        // Lab nhận hàng không nhận linh kiện này: bỏ dòng khỏi phiếu, chỉ báo ở thông báo
+        if (outsideLab) {
+          const owners = anyComp.roomCodes || []
+          if (owners.length > 0) {
+            carried[owners[0]] = [...(carried[owners[0]] || []), carryLineOf(row, anyComp.componentId)]
+          }
+          skippedOutsideLab.push(
+            `${anyComp.componentName} (${owners.length > 0 ? `thuộc ${owners.join(', ')}` : 'chưa thuộc lab nào'})`
+          )
+          return null
+        }
 
         // Tìm tủ lưu trữ theo Mã tủ hoặc Tên tủ
         const normCab = normalizeSearchText(row.cabinetCode)
@@ -461,9 +561,15 @@ export default function StockInwards() {
         }
       })
 
-      setLines(readLines.length > 0 ? readLines : [newLine()])
+      const importedLines = readLines.filter(Boolean)
+      setLines(importedLines.length > 0 ? importedLines : [newLine()])
+      setCarryOver(carried)
       setExcelNotice({
-        intro: `Đã đọc ${readLines.length} dòng.`,
+        intro: `Đã đọc ${importedLines.length} dòng.`,
+        skipped:
+          skippedOutsideLab.length > 0
+            ? `Bỏ ${skippedOutsideLab.length} dòng ${receivingLabCode} không nhận: ${skippedOutsideLab.join(', ')}.`
+            : '',
         warnings: unmatchedWarnings,
       })
     } catch (parseErr) {
@@ -471,11 +577,85 @@ export default function StockInwards() {
     }
   }
 
+  // Dòng mới gửi sang từ phiếu gốc khi tab này đang mở (chỉ tab lập cho đúng lab đó)
+  useEffect(() => {
+    if (!carryAdd) return undefined
+    const timer = window.setTimeout(() => {
+      const add = carryAdd
+      setCarryAdd(null)
+      if (!carryFrom || add.roomCode !== receivingLabCode) return
+      setComponents((current) =>
+        current.some((item) => item.componentId === add.component.componentId) ? current : [...current, add.component]
+      )
+      setLines((current) => {
+        const filled = current.filter((line) => line.componentId || line.quantity !== '1' || line.unitPrice)
+        return [
+          ...filled,
+          ...add.lines.map((line) => ({ ...newLine(), ...line, cabinetId: cabinetFor(roomCabinets, add.component) })),
+        ]
+      })
+      setCarryFrom((current) => (current ? { ...current, lineCount: current.lineCount + add.lines.length } : current))
+    }, 0)
+    return () => window.clearTimeout(timer)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [carryAdd])
+
+  // Mở phiếu mới (tab khác) cho lab đúng, điền sẵn các dòng đã tách; phiếu đang làm giữ nguyên
+  const openCarryReceipt = (roomCode) => {
+    const room = labRooms.find((item) => item.roomCode === roomCode)
+    const carryLines = carryOver[roomCode] || []
+    if (!room || carryLines.length === 0) return
+    const key = `stock-carry-${roomCode}`
+    try {
+      localStorage.setItem(
+        key,
+        JSON.stringify({
+          roomId: room.roomId,
+          fromLab: receivingLabCode,
+          supplier,
+          receivedAt,
+          note: `Tách từ phiếu ${receivingLabCode}`,
+          lines: carryLines,
+        })
+      )
+    } catch {
+      setError('Trình duyệt không cho lưu tạm, hãy lập phiếu cho lab đó bằng tay.')
+      return
+    }
+    window.open(`/class-setup/admin/stock-inwards?carry=${key}`, '_blank')
+  }
+
   // Vừa khai báo linh kiện mới từ một dòng của file: điền vào mọi dòng cùng linh kiện đó, giữ nguyên phần còn lại của phiếu
   const handleDeclared = (component) => {
     const isSameRow = (line) => !line.componentId && line.importRow && sameImportRow(line.importRow, declareRow)
     const rows = lines.filter(isSameRow).map((line) => line.importRow)
     setComponents((current) => [...current, component])
+    const owners = component.roomCodes || []
+    if (!owners.includes(receivingLabCode)) {
+      // Linh kiện thuộc lab khác: bỏ dòng khỏi phiếu này, hàng đó lập phiếu cho đúng lab
+      setLines((current) => {
+        const kept = current.filter((line) => !isSameRow(line))
+        return kept.length > 0 ? kept : [newLine()]
+      })
+      const movedLines = rows.map((row) => carryLineOf(row, component.componentId))
+      setCarryOver((current) => ({
+        ...current,
+        [owners[0]]: [...(current[owners[0]] || []), ...movedLines],
+      }))
+      try {
+        const channel = new BroadcastChannel('stock-carry')
+        channel.postMessage({ type: 'add', roomCode: owners[0], component, lines: movedLines })
+        channel.close()
+      } catch {
+        // Không gửi được: bấm lại nút Lập phiếu để mở phiếu đủ dòng
+      }
+      setExcelNotice((current) => ({
+        intro: `Đã tạo ${component.componentName} thuộc ${owners.join(', ')}. Dòng này chuyển sang phiếu ${owners[0]}.`,
+        warnings: (current?.warnings || []).filter((warning) => !rows.some((row) => warning === notFoundWarning(row))),
+      }))
+      setDeclareRow(null)
+      return
+    }
     setLines((current) =>
       current.map((line) => {
         if (!isSameRow(line)) return line
@@ -697,6 +877,22 @@ export default function StockInwards() {
         })
         return
       }
+      if (carryFrom) {
+        // Lập từ phiếu của lab khác: báo về phiếu đó rồi đóng tab này, quay lại phiếu đang làm
+        try {
+          const channel = new BroadcastChannel('stock-carry')
+          channel.postMessage({
+            type: 'saved',
+            roomCode: receivingLabCode,
+            receiptCode: receipt?.receiptCode || '',
+            lineCount: carryFrom.lineCount,
+          })
+          channel.close()
+        } catch {
+          // Trình duyệt không hỗ trợ: vẫn sang chi tiết phiếu bên dưới
+        }
+        window.close()
+      }
       navigate(`/class-setup/admin/stock-receipts/${id}`, { state: { invoiceError: uploadMessage } })
     } catch (saveError) {
       setError(extractErrorMessage(saveError, 'Không thể lưu phiếu nhập.'))
@@ -707,6 +903,7 @@ export default function StockInwards() {
 
   // Rời trang: về phiếu kiểm kê nếu mở từ đó, không thì về chi tiết / danh sách phiếu nhập
   const leavePage = () => {
+    if (carryFrom) window.close()
     if (fromAudit?.auditId) return navigate(`/class-setup/admin/inventory-audits/${fromAudit.auditId}`)
     if (editId) return navigate(`/class-setup/admin/stock-receipts/${editId}`)
     return navigate('/class-setup/admin/stock-receipts')
@@ -794,13 +991,41 @@ export default function StockInwards() {
               </Alert>
             )}
 
+            {carryDone.length > 0 && (
+              <Alert severity="success" sx={{ mb: 2 }} onClose={() => setCarryDone([])}>
+                {carryDone.join(' ')}
+              </Alert>
+            )}
+
+            {carryFrom && (
+              <Alert severity="info" sx={{ mb: 2 }}>
+                Phiếu tách từ phiếu {carryFrom.fromLab}. Lưu xong sẽ quay lại phiếu {carryFrom.fromLab}.
+              </Alert>
+            )}
+
             {excelNotice && (
               <Alert
-                severity={excelNotice.warnings.length > 0 ? 'warning' : 'success'}
+                severity={excelNotice.warnings.length > 0 || excelNotice.skipped ? 'warning' : 'success'}
                 sx={{ mb: 2 }}
                 onClose={() => setExcelNotice(null)}
               >
                 {excelNotice.intro}
+                {excelNotice.skipped ? ` ${excelNotice.skipped}` : ''}
+                {Object.keys(carryOver).length > 0 && (
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+                    {Object.entries(carryOver).map(([code, carryLines]) => (
+                      <Button
+                        key={code}
+                        size="small"
+                        variant="outlined"
+                        onClick={() => openCarryReceipt(code)}
+                        sx={{ textTransform: 'none', fontWeight: 700 }}
+                      >
+                        Lập phiếu cho {code} ({carryLines.length} dòng)
+                      </Button>
+                    ))}
+                  </Box>
+                )}
                 {excelNotice.warnings.length > 0
                   ? ` Cần sửa trước khi lưu: ${excelNotice.warnings.slice(0, 6).join('; ')}${excelNotice.warnings.length > 6 ? ` (+${excelNotice.warnings.length - 6} lỗi khác)` : ''}.`
                   : ''}
@@ -1021,7 +1246,7 @@ export default function StockInwards() {
                       variant="outlined"
                       startIcon={<DownloadIcon />}
                       disabled={initialLoading}
-                      onClick={() => downloadStockReceiptTemplate(components, roomId ? roomCabinets : activeCabinets)}
+                      onClick={() => downloadStockReceiptTemplate(labComponents, roomId ? roomCabinets : activeCabinets)}
                       sx={{
                         textTransform: 'none',
                         fontWeight: 700,
@@ -1139,7 +1364,7 @@ export default function StockInwards() {
                                 getOptionKey={(option) => option.componentId}
                                 getOptionLabel={(option) => option?.componentName || ''}
                                 disabled={!roomId}
-                                noOptionsText="Không tìm thấy linh kiện phù hợp — thử đổi danh mục hoặc từ khóa"
+                                noOptionsText={`Không tìm thấy linh kiện phù hợp trong danh sách của ${receivingLabCode || 'lab'} — thử đổi danh mục hoặc từ khóa`}
                                 renderOption={(props, option) => {
                                   const { key, ...rest } = props
                                   const refP = getComponentLatestPrice(option)
@@ -1427,6 +1652,9 @@ export default function StockInwards() {
         <DeclareComponentDialog
           row={declareRow}
           categories={categoryOptions}
+          roomId={roomId}
+          labRooms={receivingLabs}
+          catalog={components}
           onClose={() => setDeclareRow(null)}
           onDeclared={handleDeclared}
         />

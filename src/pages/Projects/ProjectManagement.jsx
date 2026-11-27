@@ -436,7 +436,7 @@ export default function ProjectManagement() {
       const [projectsResult, componentsResult] = await Promise.allSettled([
         projectService.getProjectsByClass(teamData.classId),
         inventoryService
-          .getComponents({ inStock: true, isActive: true, page: 1, size: 1000 })
+          .getComponents({ keptByLab: true, isActive: true, page: 1, size: 1000 })
           .then((items) => items.filter((item) => item.isActive !== false)),
       ])
       if (projectsResult.status === 'rejected') throw projectsResult.reason
