@@ -365,11 +365,14 @@ export default function StockReceiptDetail() {
             <Typography variant="subtitle1" fontWeight={700} sx={{ mb: 1 }}>
               Danh sách mặt hàng ({lines.length} dòng hàng)
             </Typography>
+            {(() => {
+              const hasUnits = lines.some((line) => getUnits(line).length > 0)
+              return (
             <TableContainer sx={{ bgcolor: '#fff', border: '1px solid #d8dced', borderRadius: 1, mb: 3 }}>
               <Table size="small">
                 <TableHead>
                   <TableRow sx={{ bgcolor: '#faf9ff' }}>
-                    {['Linh kiện', 'Số lượng', 'Đơn giá', 'Thành tiền', 'Tủ lưu trữ', 'Thông tin máy / Serial'].map((head) => (
+                    {['Linh kiện', 'Số lượng', 'Đơn giá', 'Thành tiền', 'Tủ lưu trữ', ...(hasUnits ? ['Mã con / Serial'] : [])].map((head) => (
                       <TableCell key={head} sx={{ fontWeight: 600 }}>{head}</TableCell>
                     ))}
                   </TableRow>
@@ -394,6 +397,7 @@ export default function StockReceiptDetail() {
                         </TableCell>
                         <TableCell sx={{ fontWeight: 600 }}>{money(lineTotal)} ₫</TableCell>
                         <TableCell>{line.cabinetName || line.cabinetCode || '—'}</TableCell>
+                        {hasUnits && (
                         <TableCell>
                           {units.length > 0 ? (
                             <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
@@ -409,12 +413,13 @@ export default function StockReceiptDetail() {
                             '—'
                           )}
                         </TableCell>
+                        )}
                       </TableRow>
                     )
                   })}
                   {lines.length === 0 && (
                     <TableRow>
-                      <TableCell colSpan={6} align="center" sx={{ py: 3, color: 'text.secondary' }}>
+                      <TableCell colSpan={hasUnits ? 6 : 5} align="center" sx={{ py: 3, color: 'text.secondary' }}>
                         Không có dòng hàng nào.
                       </TableCell>
                     </TableRow>
@@ -422,6 +427,8 @@ export default function StockReceiptDetail() {
                 </TableBody>
               </Table>
             </TableContainer>
+              )
+            })()}
 
           </>
         )}

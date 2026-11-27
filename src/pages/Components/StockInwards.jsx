@@ -424,6 +424,10 @@ export default function StockInwards() {
     )
 
   const selectedComponent = (line) => componentMap.get(line.componentId)
+  // Cột Thông tin máy / Serial chỉ hiện khi phiếu có dòng thiết bị giá trị cao
+  const hasHighValueLine = lines.some((line) => selectedComponent(line)?.trackingType === 'HIGH_VALUE')
+  const hasMachineInfo = lines.some((line) => line.serialsText || line.version)
+  const lineColumns = LINE_COLUMNS.filter((column) => hasHighValueLine || !column.head.startsWith('Thông tin máy'))
 
   // Khi chọn linh kiện trên dòng: tự động điền giá nhập gần nhất (nếu có và không phải hàng cho tặng)
   const handleSelectComponent = (line, comp) => {
@@ -1174,7 +1178,7 @@ export default function StockInwards() {
                   <Table size="small">
                     <TableHead>
                       <TableRow sx={{ bgcolor: '#faf9ff' }}>
-                        {['Linh kiện', 'Số lượng', 'Đơn giá', 'Tủ lưu trữ', 'Thông tin máy / Serial'].map((head) => (
+                        {['Linh kiện', 'Số lượng', 'Đơn giá', 'Tủ lưu trữ', ...(hasMachineInfo ? ['Thông tin máy / Serial'] : [])].map((head) => (
                           <TableCell key={head} sx={{ fontWeight: 600 }}>{head}</TableCell>
                         ))}
                       </TableRow>
@@ -1198,6 +1202,7 @@ export default function StockInwards() {
                             <TableCell>
                               {cabinets.find((c) => c.cabinetId === line.cabinetId)?.cabinetName || line.cabinetName || '—'}
                             </TableCell>
+                            {hasMachineInfo && (
                             <TableCell>
                               {line.serialsText ? (
                                 <Typography sx={{ fontSize: 12, whiteSpace: 'pre-line' }}>{line.serialsText}</Typography>
@@ -1205,6 +1210,7 @@ export default function StockInwards() {
                                 line.version ? `Version: ${line.version}` : '—'
                               )}
                             </TableCell>
+                            )}
                           </TableRow>
                         )
                       })}
@@ -1323,7 +1329,7 @@ export default function StockInwards() {
                   >
                     <TableHead>
                       <TableRow sx={{ bgcolor: '#faf9ff' }}>
-                        {LINE_COLUMNS.map((column) => (
+                        {lineColumns.map((column) => (
                           <TableCell key={column.head} sx={{ fontWeight: 700, color: '#334155', width: column.width }}>
                             {column.head}
                           </TableCell>
@@ -1502,6 +1508,7 @@ export default function StockInwards() {
                                 ))}
                               </TextField>
                             </TableCell>
+                            {hasHighValueLine && (
                             <TableCell>
                               {isHighValue ? (
                                 <Box sx={{ display: 'grid', gap: 1 }}>
@@ -1550,11 +1557,10 @@ export default function StockInwards() {
                                   </Box>
                                 </Box>
                               ) : (
-                                <Typography sx={{ pt: 1, fontSize: 12, color: 'text.secondary' }}>
-                                  {component ? component.trackingType : 'Chọn linh kiện'}
-                                </Typography>
+                                <Typography sx={{ pt: 1, fontSize: 12, color: 'text.secondary' }}>—</Typography>
                               )}
                             </TableCell>
+                            )}
                             <TableCell>
                               <Button
                                 aria-label="Xóa dòng"
