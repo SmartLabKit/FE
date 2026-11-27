@@ -38,7 +38,6 @@ export default function CabinetDetail() {
   const cabinetEmpty = Number(cabinet?.unitCount ?? 1) === 0 && Number(cabinet?.consumableQuantity ?? 1) === 0
   let auditLabel = 'Kiểm kê tủ này'
   if (cabinetEmpty) auditLabel = 'Tủ trống'
-  const canAdjust = isManager || hasPermission('INVENTORY_AUDIT_APPROVE')
   const canReport = ownLab && hasRole('LabStaff')
   const showsItems = cabinet?.trackingType !== 'CONSUMABLE'
   const showsConsumables = !cabinet?.trackingType || cabinet.trackingType === 'CONSUMABLE'
@@ -130,12 +129,7 @@ export default function CabinetDetail() {
               />
             )}
             {tab === 'consumables' && showsConsumables && (
-              <CabinetConsumablesTab
-                cabinet={cabinet}
-                canAdjust={canAdjust}
-                onChanged={() => setReloadKey((key) => key + 1)}
-                showToast={showToast}
-              />
+              <CabinetConsumablesTab cabinet={cabinet} />
             )}
             {tab === 'overview' && (
             <CardContent>

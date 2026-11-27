@@ -86,9 +86,6 @@ export const inventoryService = {
   async moveConsumableStock(data) {
     return unwrap(await api.post('/api/consumable-stocks/move', data))
   },
-  async adjustConsumableStock(data) {
-    return unwrap(await api.post('/api/consumable-stocks/adjust', data))
-  },
   async getInventoryTransactions(params) {
     return unwrap(await api.get('/api/inventory-transactions', { params }))
   },
