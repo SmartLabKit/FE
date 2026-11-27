@@ -799,7 +799,7 @@ export default function StudentGroupsPage() {
 
   // 4. Bật/tắt chế độ chọn trực tiếp trên bảng thành viên
   const handleToggleSelectionMode = (mode) => {
-    if (!canModifyTeam) return
+    if (mode === 'transfer' ? hasProject : !canModifyTeam) return
     setPendingConfirm(null)
     setSelectionMode((prev) => (prev === mode ? null : mode))
   }
@@ -1185,7 +1185,7 @@ export default function StudentGroupsPage() {
                             gap: 1,
                           }}
                         >
-                          {isLeader && canModifyTeam && (
+                          {isLeader && !hasProject && (
                             <>
                               <Tooltip
                                 arrow
@@ -1217,7 +1217,11 @@ export default function StudentGroupsPage() {
                                   </Button>
                                 </span>
                               </Tooltip>
+                            </>
+                          )}
 
+                          {isLeader && canModifyTeam && (
+                            <>
                               <Tooltip
                                 arrow
                                 placement="top"
