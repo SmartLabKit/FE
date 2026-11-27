@@ -320,12 +320,12 @@ export default function SemesterClassManager({ onNext }) {
     setClassModalOpen(true)
   }
 
-  // Mã lớp tự sinh khi để trống: MÃMÔN-MÃKỲ-01, 02... (BE sinh lại lúc lưu nên không lo trùng)
+  // Mã lớp tự sinh khi để trống: MÃMÔN_MÃKỲ_01, 02... (BE sinh lại lúc lưu nên không lo trùng)
   const suggestedClassCode = (() => {
     const course = courses.find((c) => c.courseId === classForm.courseId)
     const semester = semesters.find((sem) => sem.semesterId === classForm.semesterId)
     if (!course || !semester) return ''
-    const prefix = `${course.courseCode}-${semester.semesterCode}-`.toUpperCase()
+    const prefix = `${course.courseCode}_${semester.semesterCode}_`.toUpperCase()
     const taken = new Set(
       classes
         .filter((c) => c.semesterId === classForm.semesterId)
@@ -874,7 +874,7 @@ export default function SemesterClassManager({ onNext }) {
             <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
               <TextField
                 label={classModalMode === 'create' ? 'Mã Lớp Học Phần' : 'Mã Lớp Học Phần *'}
-                placeholder={classModalMode === 'create' ? suggestedClassCode || 'Chọn môn để tự sinh mã' : 'VD: IOT201-FA26-01'}
+                placeholder={classModalMode === 'create' ? suggestedClassCode || 'Chọn môn để tự sinh mã' : 'VD: IOT201_FA26_01'}
                 size="small"
                 fullWidth
                 value={classForm.classCode}
