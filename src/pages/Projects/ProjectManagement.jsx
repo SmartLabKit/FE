@@ -46,6 +46,7 @@ import FinalSubmissionPanel from './FinalSubmissionPanel'
 import ProjectStatus from './ProjectStatus'
 import { isTeamLeader } from './projectHelpers'
 import { labCode, labName } from '../../utils/labLabel'
+import BorrowPreviewList from '../../components/borrowing/BorrowPreviewList'
 
 const emptyForm = () => ({ title: '', description: '', components: [], selfSuppliedItems: [] })
 const suggestionCacheKey = (projectId) => `smartlabkit:project-suggestions:${projectId}`
@@ -321,6 +322,9 @@ export default function ProjectManagement() {
   const [suggestions, setSuggestions] = useState(null)
   const [selectedSuggestions, setSelectedSuggestions] = useState([])
   const [submitDialogOpen, setSubmitDialogOpen] = useState(false)
+  const [borrowPreview, setBorrowPreview] = useState(null)
+  const [loadingPreview, setLoadingPreview] = useState(false)
+  const [previewError, setPreviewError] = useState('')
   const [inlineDraft, setInlineDraft] = useState(null)
   const [borrowDeadline, setBorrowDeadline] = useState(null)
   const [loadingDeadline, setLoadingDeadline] = useState(false)
@@ -391,7 +395,17 @@ export default function ProjectManagement() {
     if (!project?.projectId) return
     setBorrowDeadline(null)
     setDeadlineError('')
+    setBorrowPreview(null)
+    setPreviewError('')
     setSubmitDialogOpen(true)
+    if (requiresBorrow) {
+      setLoadingPreview(true)
+      projectService
+        .previewBorrow(project.projectId, toProjectPayload(form).components)
+        .then((data) => setBorrowPreview(data))
+        .catch((error) => setPreviewError(error.message || 'Không thể xem trước đơn mượn.'))
+        .finally(() => setLoadingPreview(false))
+    }
     if (!requiresBorrow) {
       setLoadingDeadline(false)
       return
@@ -420,7 +434,9 @@ export default function ProjectManagement() {
 
       const [projectsResult, componentsResult] = await Promise.allSettled([
         projectService.getProjectsByClass(teamData.classId),
-        inventoryService.getComponents().then((items) => items.filter((item) => item.isActive !== false)),
+        inventoryService
+          .getComponents({ keptByLab: true, isActive: true, page: 1, size: 1000 })
+          .then((items) => items.filter((item) => item.isActive !== false)),
       ])
       if (projectsResult.status === 'rejected') throw projectsResult.reason
       setComponentTypes(componentsResult.status === 'fulfilled' ? componentsResult.value : [])
@@ -1787,8 +1803,9 @@ export default function ProjectManagement() {
                     </Typography>
                   </Box>
                 </Box>
+                <BorrowPreviewList preview={borrowPreview} loading={loadingPreview} error={previewError} />
                 <Typography variant="body2" color="text.secondary">
-                  Sau khi giảng viên duyệt, lab chuẩn bị đồ và hẹn ngày đến nhận.
+                  Giảng viên duyệt từng đơn. Sau khi duyệt, lab của đơn đó chuẩn bị đồ và hẹn ngày đến nhận.
                 </Typography>
                 {!borrowDeadline.canBorrow && (
                   <Alert severity="error" sx={{ py: 0 }}>
@@ -1812,6 +1829,7 @@ export default function ProjectManagement() {
             disabled={
               submitting ||
               loadingDeadline ||
+              (requiresBorrow && (loadingPreview || Boolean(borrowPreview?.problem))) ||
               (requiresBorrow && (
                 Boolean(deadlineError) ||
                 !borrowDeadline ||

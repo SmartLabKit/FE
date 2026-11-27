@@ -76,10 +76,22 @@ export const projectService = {
     directList.forEach((p) => {
       if (p?.projectId) projectMap.set(p.projectId, p)
     })
+    // Mỗi lab một đơn: một đề tài vẫn là một dòng, pendingRequests liệt kê các đơn lab đang chờ duyệt
     pendingList.forEach((p) => {
       if (p?.projectId) {
         const existing = projectMap.get(p.projectId) || {}
         const isSupp = Boolean(p.isSupplementary)
+        const pendingRequests = existing.hasPendingApproval ? [...(existing.pendingRequests || [])] : []
+        if (p.borrowRequestId) {
+          pendingRequests.push({
+            borrowRequestId: p.borrowRequestId,
+            requestCode: p.requestCode || '',
+            roomCode: p.roomCode || '',
+            componentCount: p.componentCount ?? null,
+          })
+        }
+        pendingRequests.sort((a, b) => String(a.roomCode).localeCompare(String(b.roomCode)))
+        const first = pendingRequests[0]
         projectMap.set(p.projectId, {
           ...existing,
           ...p,
@@ -87,10 +99,12 @@ export const projectService = {
           status: existing.status || (isSupp ? 'Approved' : p.status || 'Submitted'),
           hasPendingApproval: true,
           isSupplementary: isSupp,
-          pendingBorrowRequestId: p.borrowRequestId || null,
-          pendingRequestCode: p.requestCode || null,
+          pendingBorrowRequestId: first?.borrowRequestId || null,
+          pendingRequestCode: first?.requestCode || null,
+          pendingRequests,
           pendingPurpose: p.purpose || '',
           pendingComponentCount: p.componentCount ?? null,
+          pendingRoomCode: first?.roomCode || null,
         })
       }
     })
@@ -156,6 +170,14 @@ export const projectService = {
     }
   },
 
+  async previewBorrow(projectId, components = []) {
+    try {
+      return unwrap(await api.post(`/api/projects/${projectId}/borrow-preview`, { components }))
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Không thể xem trước đơn mượn'), { cause: error })
+    }
+  },
+
   async submitProject(projectId) {
     try {
       return unwrap(await api.post(`/api/projects/${projectId}/submit`, {}, {
@@ -174,17 +196,19 @@ export const projectService = {
     }
   },
 
-  async approveProject(projectId, comment = '', adjustments = []) {
+  async approveProject(projectId, comment = '', adjustments = [], borrowRequestId = null) {
     try {
-      return unwrap(await api.post(`/api/projects/${projectId}/approve`, { comment: comment || null, adjustments }))
+      return unwrap(
+        await api.post(`/api/projects/${projectId}/approve`, { comment: comment || null, adjustments, borrowRequestId })
+      )
     } catch (error) {
       throw new Error(extractErrorMessage(error, 'Không thể duyệt project'), { cause: error })
     }
   },
 
-  async rejectProject(projectId, reason) {
+  async rejectProject(projectId, reason, borrowRequestId = null) {
     try {
-      return unwrap(await api.post(`/api/projects/${projectId}/reject`, { reason }))
+      return unwrap(await api.post(`/api/projects/${projectId}/reject`, { reason, borrowRequestId }))
     } catch (error) {
       throw new Error(extractErrorMessage(error, 'Không thể từ chối project'), { cause: error })
     }

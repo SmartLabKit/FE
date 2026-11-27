@@ -3,13 +3,14 @@ import {
   Alert, Box, Button, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle,
   MenuItem, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, TextField, Typography,
 } from '@mui/material'
-import { Add as AddIcon, Edit as EditIcon, PersonAdd as PersonAddIcon } from '@mui/icons-material'
+import { Add as AddIcon, Edit as EditIcon, Inventory2 as ComponentsIcon, PersonAdd as PersonAddIcon } from '@mui/icons-material'
 import PortalLayout from '../../components/layout/PortalLayout'
 import ConfirmDialog from '../../components/common/ConfirmDialog'
 import { useAuth } from '../../context/AuthContext'
 import { extractErrorMessage } from '../../services/api'
 import { inventoryService } from '../../services/inventoryService'
 import { userService } from '../../services/userService'
+import LabComponentsDialog from './LabComponentsDialog'
 
 const getRoomId = (room) => room?.roomId || room?.labRoomId || room?.id || room?.RoomId || room?.LabRoomId || ''
 const getRoomName = (room) => room?.roomName || room?.labRoomName || room?.name || room?.RoomName || ''
@@ -66,6 +67,7 @@ export default function LabRoomManagement() {
   const [roomActive, setRoomActive] = useState(true)
   const [savingRoom, setSavingRoom] = useState(false)
 
+  const [componentsRoom, setComponentsRoom] = useState(null)
   const [assignmentDialogOpen, setAssignmentDialogOpen] = useState(false)
   const [assignmentRoom, setAssignmentRoom] = useState(null)
   const [confirmRequest, setConfirmRequest] = useState(null)
@@ -317,7 +319,7 @@ export default function LabRoomManagement() {
             <Table size="small">
               <TableHead>
                 <TableRow sx={{ bgcolor: '#faf9ff' }}>
-                  {['Mã phòng', 'Tên phòng', 'Số tủ', 'Nhân viên phụ trách', 'Trạng thái', 'Thao tác'].map((column) => (
+                  {['Mã phòng', 'Tên phòng', 'Số tủ', 'Linh kiện', 'Nhân viên phụ trách', 'Trạng thái', 'Thao tác'].map((column) => (
                     <TableCell key={column} sx={{ fontWeight: 700, color: '#334155' }}>{column}</TableCell>
                   ))}
                 </TableRow>
@@ -325,7 +327,7 @@ export default function LabRoomManagement() {
               <TableBody>
                 {loading && (
                   <TableRow>
-                    <TableCell colSpan={6} align="center" sx={{ py: 4 }}>
+                    <TableCell colSpan={7} align="center" sx={{ py: 4 }}>
                       <CircularProgress size={24} sx={{ mr: 1, verticalAlign: 'middle' }} />
                       <Typography variant="body2" component="span" color="text.secondary">Đang tải danh sách phòng lab...</Typography>
                     </TableCell>
@@ -344,6 +346,7 @@ export default function LabRoomManagement() {
                       <TableCell sx={{ fontWeight: 600, color: '#0058be' }}>{getRoomCode(room) || '—'}</TableCell>
                       <TableCell sx={{ fontWeight: 600 }}>{getRoomName(room) || '—'}</TableCell>
                       <TableCell>{room.cabinetCount ?? room.activeCabinetCount ?? room.cabinetsCount ?? 0}</TableCell>
+                      <TableCell>{room.componentCount ?? 0}</TableCell>
                       <TableCell>
                         {staffLabels.length > 0 && staffLabels.join(', ')}
                         {staffLabels.length === 0 && !canManageStaff && (room.staffCount ?? 0) > 0 && `${room.staffCount} nhân viên`}
@@ -369,6 +372,14 @@ export default function LabRoomManagement() {
                             Sửa
                           </Button>
                         )}
+                        <Button
+                          size="small"
+                          startIcon={<ComponentsIcon fontSize="small" />}
+                          onClick={() => setComponentsRoom({ roomId: getRoomId(room), roomCode: getRoomCode(room), roomName: getRoomName(room) })}
+                          sx={{ textTransform: 'none', mr: 0.5 }}
+                        >
+                          Linh kiện
+                        </Button>
                         {canManageStaff && (
                           <Button
                             size="small"
@@ -385,7 +396,7 @@ export default function LabRoomManagement() {
                 })}
                 {!loading && rooms.length === 0 && (
                   <TableRow>
-                    <TableCell colSpan={6} align="center" sx={{ py: 5, color: 'text.secondary' }}>
+                    <TableCell colSpan={7} align="center" sx={{ py: 5, color: 'text.secondary' }}>
                       Chưa có phòng lab.
                     </TableCell>
                   </TableRow>
@@ -394,6 +405,19 @@ export default function LabRoomManagement() {
             </Table>
           </TableContainer>
         </Paper>
+
+        {componentsRoom && (
+          <LabComponentsDialog
+            room={componentsRoom}
+            canEdit={canEditRooms}
+            onClose={() => setComponentsRoom(null)}
+            onSaved={(message) => {
+              setComponentsRoom(null)
+              setNotice(message)
+              loadRooms()
+            }}
+          />
+        )}
 
         <Dialog open={roomDialogOpen} onClose={() => !savingRoom && setRoomDialogOpen(false)} fullWidth maxWidth="sm">
           <Box component="form" onSubmit={handleSaveRoom}>

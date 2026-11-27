@@ -575,6 +575,7 @@ export const borrowService = {
       const response = await api.get('/api/components', {
         params: {
           search: search?.trim() || undefined,
+          keptByLab: true,
           isActive: true,
           page: 1,
           size: 100,

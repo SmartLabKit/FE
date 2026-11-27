@@ -129,7 +129,13 @@ export default function CabinetDetail() {
               />
             )}
             {tab === 'consumables' && showsConsumables && (
-              <CabinetConsumablesTab cabinet={cabinet} />
+              <CabinetConsumablesTab
+                cabinet={cabinet}
+                cabinets={targetCabinets}
+                canMove={canMove}
+                onChanged={() => setReloadKey((key) => key + 1)}
+                showToast={showToast}
+              />
             )}
             {tab === 'overview' && (
             <CardContent>

@@ -10,6 +10,7 @@ import {
   MenuItem,
   Paper,
   Snackbar,
+  Stack,
   Tab,
   Tabs,
   Table,
@@ -491,6 +492,7 @@ export default function SupplementaryBorrowList() {
                           ['Submitted', 'PendingApproval', 'PendingLecturer', 'Pending'].includes(project.status) ||
                           isSupplementaryPending ||
                           Boolean(project.hasPendingApproval)
+                        const pendingRequests = Array.isArray(project.pendingRequests) ? project.pendingRequests : []
                         let borrowProgress = null
                         if (project.status === 'Approved') {
                           borrowProgress = borrowProgressOf(currentRequestOfProject(classRequests, project.projectId))
@@ -501,6 +503,11 @@ export default function SupplementaryBorrowList() {
                               <Typography variant="body2" sx={{ fontWeight: 800, color: '#131b2e' }}>
                                 {project.title}
                               </Typography>
+                              {pendingRequests.length > 1 && (
+                                <Typography variant="caption" sx={{ display: 'block', color: '#b45309', fontWeight: 700, mt: 0.25 }}>
+                                  Tách {pendingRequests.length} đơn theo lab: {pendingRequests.map((r) => r.roomCode).join(' · ')}
+                                </Typography>
+                              )}
                             </TableCell>
                             <TableCell sx={{ fontSize: 12, color: '#334155', fontWeight: 700 }}>
                               {project.teamName || '—'}
@@ -539,7 +546,37 @@ export default function SupplementaryBorrowList() {
                               )}
                             </TableCell>
                             <TableCell align="right">
-                              {isPending ? (
+                              {isPending && pendingRequests.length > 1 ? (
+                                <Stack direction="column" spacing={0.5} alignItems="flex-end">
+                                  {pendingRequests.map((request) => (
+                                    <Button
+                                      key={request.borrowRequestId}
+                                      size="small"
+                                      variant="contained"
+                                      onClick={() =>
+                                        setSelectedProject({
+                                          ...project,
+                                          pendingBorrowRequestId: request.borrowRequestId,
+                                          pendingRequestCode: request.requestCode,
+                                          pendingRoomCode: request.roomCode,
+                                        })
+                                      }
+                                      sx={{
+                                        textTransform: 'none',
+                                        fontWeight: 700,
+                                        fontSize: 11,
+                                        borderRadius: 1.5,
+                                        bgcolor: '#0058be',
+                                        boxShadow: 'none',
+                                        whiteSpace: 'nowrap',
+                                        '&:hover': { bgcolor: '#004ca6' },
+                                      }}
+                                    >
+                                      Duyệt đơn {request.roomCode}
+                                    </Button>
+                                  ))}
+                                </Stack>
+                              ) : isPending ? (
                                 <Button
                                   size="small"
                                   variant="contained"
@@ -926,7 +963,7 @@ export default function SupplementaryBorrowList() {
           </Alert>
         </Snackbar>
         <ProjectApprovalDialog
-          key={selectedProject?.projectId || 'closed'}
+          key={selectedProject?.pendingBorrowRequestId || selectedProject?.projectId || 'closed'}
           project={selectedProject}
           open={Boolean(selectedProject)}
           onClose={() => setSelectedProject(null)}

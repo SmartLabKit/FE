@@ -44,6 +44,7 @@ import { useAuth } from '../../context/AuthContext'
 import { getDisplayCode } from '../Components/componentHelpers'
 import { trackingTypeLabel } from '../../utils/trackingTypeLabel'
 import { formatVietnamDate } from '../../utils/dateFormatting'
+import BorrowPreviewList from '../../components/borrowing/BorrowPreviewList'
 
 const REASON_MAX_LENGTH = 250
 const NOTE_MAX_LENGTH = 255
@@ -162,7 +163,7 @@ export default function CreateSupplementaryBorrow() {
     }
   }, [selectedProjectId])
 
-  // Tải danh mục linh kiện kho theo từ khóa tìm kiếm (có debounce nhẹ)
+  // Tải danh mục linh kiện kho theo từ khóa tìm kiếm (có debounce nhẹ), chỉ linh kiện có lab giữ
   useEffect(() => {
     let active = true
     const timer = window.setTimeout(() => {
@@ -266,6 +267,45 @@ export default function CreateSupplementaryBorrow() {
     () => selectedItems.reduce((sum, item) => sum + Number(item.quantity || 0), 0),
     [selectedItems]
   )
+
+  // Xem trước: mỗi lab một đơn mượn thêm, tính lại khi đổi linh kiện hoặc số lượng
+  const [borrowPreview, setBorrowPreview] = useState(null)
+  const [loadingPreview, setLoadingPreview] = useState(false)
+  const [previewError, setPreviewError] = useState('')
+  const previewKey = selectedItems.map((item) => `${item.componentId}:${item.quantity}`).join('|')
+  useEffect(() => {
+    let active = true
+    const lines = selectedItems
+      .filter((item) => Number(item.quantity) >= 1)
+      .map((item) => ({ componentId: item.componentId, quantity: Number(item.quantity) }))
+    const timer = window.setTimeout(() => {
+      if (!selectedProjectId || lines.length === 0) {
+        setBorrowPreview(null)
+        setPreviewError('')
+        return
+      }
+      setLoadingPreview(true)
+      projectService
+        .previewBorrow(selectedProjectId, lines)
+        .then((data) => {
+          if (active) {
+            setBorrowPreview(data)
+            setPreviewError('')
+          }
+        })
+        .catch((error) => {
+          if (active) setPreviewError(error.message || 'Không thể xem trước đơn mượn.')
+        })
+        .finally(() => {
+          if (active) setLoadingPreview(false)
+        })
+    }, 400)
+    return () => {
+      active = false
+      window.clearTimeout(timer)
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedProjectId, previewKey])
 
   // Rút lại đơn mượn thêm đang chờ duyệt (POST /api/projects/{id}/supplementary-borrow/withdraw)
   const handleWithdrawPending = async () => {
@@ -973,6 +1013,12 @@ export default function CreateSupplementaryBorrow() {
                 )}
               </Box>
 
+              {selectedItems.length > 0 && (
+                <Box sx={{ mb: 2 }}>
+                  <BorrowPreviewList preview={borrowPreview} loading={loadingPreview} error={previewError} />
+                </Box>
+              )}
+
               {/* Bottom Actions Bar */}
               <Box
                 sx={{
@@ -1010,7 +1056,7 @@ export default function CreateSupplementaryBorrow() {
                   <Button
                     variant="contained"
                     onClick={handleSubmit}
-                    disabled={submitting || !canSubmitForProject || selectedItems.length === 0 || !reason.trim()}
+                    disabled={submitting || !canSubmitForProject || selectedItems.length === 0 || !reason.trim() || Boolean(borrowPreview?.problem)}
                     startIcon={submitting ? <CircularProgress size={16} color="inherit" /> : <SendIcon sx={{ fontSize: 16 }} />}
                     sx={{
                       bgcolor: '#0058be',

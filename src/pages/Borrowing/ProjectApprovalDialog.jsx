@@ -71,8 +71,8 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
         // tải chi tiết đơn đó để hiển thị đúng danh sách linh kiện xin mượn thêm.
         const borrows = Array.isArray(result?.borrowRequests) ? result.borrowRequests : []
         const pendingBr =
-          borrows.find((br) => br.status === 'Pending') ||
-          (project?.pendingBorrowRequestId ? { borrowRequestId: project.pendingBorrowRequestId } : null)
+          (project?.pendingBorrowRequestId ? { borrowRequestId: project.pendingBorrowRequestId } : null) ||
+          borrows.find((br) => br.status === 'Pending')
 
         if (pendingBr?.borrowRequestId) {
           try {
@@ -96,14 +96,25 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
 
   const borrowRequests = Array.isArray(detail?.borrowRequests) ? detail.borrowRequests : []
   const currentStatus = detail?.status || project?.status || ''
-  const pendingBorrowRequest = borrowRequests.find((br) => br.status === 'Pending') || null
+  // Mỗi lab một đơn: dialog duyệt đúng đơn đang chọn trong danh sách chờ duyệt
+  const pendingBorrowRequest =
+    borrowRequests.find((br) => br.borrowRequestId === project?.pendingBorrowRequestId && br.status === 'Pending') ||
+    borrowRequests.find((br) => br.status === 'Pending') ||
+    null
+  const targetBorrowRequestId = pendingBorrowRequest?.borrowRequestId || project?.pendingBorrowRequestId || null
+  const pendingLab = pendingBorrowDetail?.roomCode || project?.pendingRoomCode || ''
+  const pendingCount = borrowRequests.filter((br) => br.status === 'Pending').length
   const isProjectPending = ['Submitted', 'Pending', 'PendingApproval', 'PendingLecturer'].includes(currentStatus)
   const isSupplementaryPending =
     currentStatus === 'Approved' && (Boolean(pendingBorrowRequest) || Boolean(project?.isSupplementary))
   const canReview = isProjectPending || isSupplementaryPending || Boolean(project?.hasPendingApproval)
 
   const reviewLines = useMemo(() => {
-    const source = isSupplementaryPending ? pendingBorrowDetail?.items || [] : detail?.components || []
+    const source = pendingBorrowDetail?.items?.length
+      ? pendingBorrowDetail.items
+      : isSupplementaryPending
+        ? []
+        : detail?.components || []
     const byComponent = new Map()
     source.forEach((item) => {
       if (!item?.componentId) return
@@ -134,11 +145,13 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
     setBusy(true)
     setError('')
     try {
-      await projectService.approveProject(project.projectId, comment.trim(), adjustments)
+      await projectService.approveProject(project.projectId, comment.trim(), adjustments, targetBorrowRequestId)
+      const labText = pendingLab ? ` ở ${pendingLab}` : ''
+      const restText = pendingCount > 1 ? ` Project còn ${pendingCount - 1} đơn lab khác chờ duyệt.` : ''
       onReviewed(
         isSupplementaryPending
-          ? 'Đã duyệt đơn mượn thêm thành công.'
-          : 'Đã duyệt project thành công.'
+          ? `Đã duyệt đơn mượn thêm${labText}.${restText}`
+          : `Đã duyệt đơn mượn${labText}.${restText}`
       )
     } catch (requestError) {
       setError(requestError.message || 'Không thể duyệt yêu cầu.')
@@ -155,7 +168,7 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
     setBusy(true)
     setError('')
     try {
-      await projectService.rejectProject(project.projectId, comment.trim())
+      await projectService.rejectProject(project.projectId, comment.trim(), targetBorrowRequestId)
       onReviewed(
         isSupplementaryPending
           ? 'Đã từ chối đơn mượn thêm và gửi lý do cho nhóm (đề tài vẫn giữ trạng thái Đã duyệt).'
@@ -208,6 +221,12 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
             <ProjectStatusChip status={currentStatus} size="medium" />
           </Stack>
         </Stack>
+        {canReview && pendingLab && (
+          <Typography variant="body2" sx={{ mt: 0.5, color: '#475569' }}>
+            Đơn {pendingBorrowRequest?.requestCode || project?.pendingRequestCode || ''} · {pendingLab}
+            {pendingCount > 1 ? ` · project còn ${pendingCount - 1} đơn lab khác, duyệt riêng từng đơn` : ''}
+          </Typography>
+        )}
       </DialogTitle>
 
       <DialogContent dividers>
@@ -398,6 +417,9 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
                                   #{br.requestCode || '—'}
                                 </Typography>
                                 <Chip label={meta.label} size="small" sx={meta.sx} />
+                                {br.borrowRequestId === targetBorrowRequestId && canReview && (
+                                  <Chip label="Đang duyệt đơn này" size="small" color="primary" sx={{ fontWeight: 700 }} />
+                                )}
                                 {labCode(br, '') && (
                                   <Typography variant="caption" title={labName(br)} sx={{ color: '#64748b' }}>
                                     · {labCode(br)}
