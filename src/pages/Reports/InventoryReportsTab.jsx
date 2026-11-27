@@ -7,6 +7,7 @@ import { reportService } from '../../services/reportService'
 import { formatDate, formatMoney, formatNumber, getRows, stockCardPath, toLabel } from './reportFormat'
 import { ReportBar, ReportSection, ReportTable, StatTile } from './reportUi'
 import { ShareDonut } from './reportCharts'
+import { locationLabel } from '../../utils/locationLabel'
 
 const PAGE_SIZE = 10
 const MAX_ROOMS = 10
@@ -238,7 +239,7 @@ export default function InventoryReportsTab({ filters, canSeeMoney }) {
             { key: 'itemCode', label: 'Mã thiết bị', render: (row) => <Box component="span" sx={{ color: '#0058be', fontWeight: 600 }}>{row.itemCode}</Box> },
             { key: 'serialNumber', label: 'Serial' },
             { key: 'componentName', label: 'Linh kiện', render: componentCell },
-            { key: 'location', label: 'Vị trí', render: (row) => `${row.roomCode} · ${row.cabinetCode}` },
+            { key: 'location', label: 'Vị trí', render: (row) => locationLabel(row.roomCode, row.cabinetCode) },
             { key: 'status', label: 'Trạng thái', render: (row) => toLabel(row.status) },
             { key: 'warrantyExpiresAt', label: 'Hết bảo hành', render: (row) => formatDate(row.warrantyExpiresAt) },
             { key: 'daysLeft', label: 'Còn lại', align: 'right', render: (row) => warrantyChip(row.daysLeft) },

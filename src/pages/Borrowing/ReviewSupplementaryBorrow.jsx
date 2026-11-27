@@ -188,7 +188,7 @@ export default function ReviewSupplementaryBorrow() {
 
               <Grid container spacing={2} sx={{ mb: 2 }}>
                 <Grid item xs={6}>
-                  <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 10, display: 'block' }}>
+                  <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 11, display: 'block' }}>
                     HỌ VÀ TÊN
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 800, color: '#131b2e', mt: 0.2 }}>
@@ -197,7 +197,7 @@ export default function ReviewSupplementaryBorrow() {
                 </Grid>
 
                 <Grid item xs={6}>
-                  <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 10, display: 'block' }}>
+                  <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 11, display: 'block' }}>
                     MÃ SỐ SINH VIÊN
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 800, color: '#131b2e', mt: 0.2 }}>
@@ -206,7 +206,7 @@ export default function ReviewSupplementaryBorrow() {
                 </Grid>
 
                 <Grid item xs={6}>
-                  <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 10, display: 'block' }}>
+                  <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 11, display: 'block' }}>
                     NHÓM
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 800, color: '#131b2e', mt: 0.2 }}>
@@ -215,7 +215,7 @@ export default function ReviewSupplementaryBorrow() {
                 </Grid>
 
                 <Grid item xs={6}>
-                  <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 10, display: 'block' }}>
+                  <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 11, display: 'block' }}>
                     ĐƠN MƯỢN GỐC
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 800, color: '#0058be', mt: 0.2 }}>
@@ -225,7 +225,7 @@ export default function ReviewSupplementaryBorrow() {
               </Grid>
 
               <Box sx={{ pt: 1, borderTop: '1px solid #f0f2f5' }}>
-                <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 10, display: 'block', mb: 0.5 }}>
+                <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 11, display: 'block', mb: 0.5 }}>
                   LÝ DO BỔ SUNG
                 </Typography>
                 <Typography variant="body2" sx={{ color: '#131b2e', fontWeight: 500 }}>
@@ -327,7 +327,7 @@ export default function ReviewSupplementaryBorrow() {
                 </Box>
 
                 <Box sx={{ mb: 2 }}>
-                  <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 10, display: 'block' }}>
+                  <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 11, display: 'block' }}>
                     NGƯỜI XEM XÉT
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 800, color: '#131b2e', mt: 0.2 }}>

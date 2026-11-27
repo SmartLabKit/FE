@@ -45,7 +45,7 @@ import { useLabNewOrderCount } from '../../hooks/useLabNewOrderCount'
 import { borrowService } from '../../services/borrowService'
 import { extractErrorMessage } from '../../services/api'
 import { formatVietnamDate, formatVietnamDateTime } from '../../utils/dateFormatting'
-import { getApprovalStatusMeta, getBorrowRequestStatusMeta, getShownPurpose } from './borrowHelpers'
+import { getBorrowRequestStatusMeta, getShownPurpose } from './borrowHelpers'
 import { labCode, labLabel, labName } from '../../utils/labLabel'
 import LabReturnSlips from './LabReturnSlips'
 import PickupDateDialog from './PickupDateDialog'
@@ -302,6 +302,17 @@ export default function LabBorrowManagement() {
     }
   }, [])
 
+  // Gỡ ảnh giao / nhận trả chưa dùng ngay trong chi tiết đơn; ảnh đã dùng để bàn giao thì BE từ chối
+  const removeHandoverPhoto = async (photo) => {
+    setActionError('')
+    try {
+      await borrowService.deleteHandoverPhoto(getId(requestDetail), photo.photoId)
+      await loadDetail(getId(requestDetail))
+    } catch (removeError) {
+      setActionError(removeError.message || 'Không gỡ được ảnh.')
+    }
+  }
+
   const closeDetail = () => {
     setSelectedRequestId('')
     setRequestDetail(null)
@@ -396,6 +407,12 @@ export default function LabBorrowManagement() {
 
   const totalCount = Number(requestResult?.totalCount ?? requestResult?.total ?? 0)
   const detailItems = requestDetail?.items || []
+  // Chỉ một bước GV duyệt: hiện người duyệt, giờ duyệt và nhận xét ngay trong thông tin đơn thay cho khối lịch sử
+  const lecturerDecision = (requestDetail?.approvals || []).filter((approval) => approval.decidedAt).slice(-1)[0] || null
+  // Cột Thao tác chỉ có khi đơn đang mượn: ghi nhận sự cố, giao hoặc hủy con thay thế
+  const showLineActions = detailItems.some(
+    (item) => isLentUnit(item, requestDetail?.status) || isPendingReplacement(item, requestDetail?.status),
+  )
   const canCancel = ['Approved', 'Ready'].includes(requestDetail?.status)
 
   const closeCancel = () => {
@@ -685,7 +702,7 @@ export default function LabBorrowManagement() {
                           <Chip
                             label="Mới"
                             size="small"
-                            sx={{ ml: 0.75, height: 18, fontSize: 10.5, fontWeight: 800, bgcolor: '#dc2626', color: '#fff' }}
+                            sx={{ ml: 0.75, height: 18, fontSize: 11, fontWeight: 800, bgcolor: '#dc2626', color: '#fff' }}
                           />
                         )}
                       </TableCell>
@@ -822,7 +839,22 @@ export default function LabBorrowManagement() {
                       {formatVietnamDate(requestDetail.dueDate)}
                     </Typography>
                   </Grid>
+                  {lecturerDecision && (
+                    <Grid size={{ xs: 12, sm: 6 }}>
+                      <Typography variant="caption" color="text.secondary">
+                        {lecturerDecision.status === 'Rejected' ? 'GV từ chối' : 'GV duyệt'}
+                      </Typography>
+                      <Typography fontWeight={600}>
+                        {lecturerDecision.approverName || '—'} · {formatVietnamDateTime(lecturerDecision.decidedAt)}
+                      </Typography>
+                    </Grid>
+                  )}
                 </Grid>
+                {lecturerDecision?.comment && (
+                  <Alert severity="warning" icon={false}>
+                    <strong>Nhận xét của GV:</strong> {lecturerDecision.comment}
+                  </Alert>
+                )}
                 {requestDetail.rejectReason && (
                   <Alert severity="error" sx={{ py: 0.5 }}>
                     <strong>Lý do {requestDetail.status === 'Cancelled' ? 'hủy' : 'từ chối'}:</strong> {requestDetail.rejectReason}
@@ -843,7 +875,7 @@ export default function LabBorrowManagement() {
                 </Box>
                 <TableContainer>
                   <Table size="small">
-                    <TableHead><TableRow><TableCell>Linh kiện</TableCell><TableCell>Loại quản lý</TableCell><TableCell>Số lượng</TableCell><TableCell>Trạng thái dòng</TableCell><TableCell align="right">Thao tác</TableCell></TableRow></TableHead>
+                    <TableHead><TableRow><TableCell>Linh kiện</TableCell><TableCell>Loại quản lý</TableCell><TableCell>Số lượng</TableCell><TableCell>Trạng thái dòng</TableCell>{showLineActions && <TableCell align="right">Thao tác</TableCell>}</TableRow></TableHead>
                     <TableBody>
                       {detailItems.map((item) => {
                         const statusInfo = getItemStatusInfo(item, requestDetail.status)
@@ -864,6 +896,7 @@ export default function LabBorrowManagement() {
                                 }}
                               />
                             </TableCell>
+                            {showLineActions && (
                             <TableCell align="right" sx={{ whiteSpace: 'nowrap' }}>
                               {isLentUnit(item, requestDetail.status) && (
                                 <Button
@@ -903,15 +936,24 @@ export default function LabBorrowManagement() {
                                 </>
                               )}
                             </TableCell>
+                            )}
                           </TableRow>
                         )
                       })}
-                      {!detailItems.length && <TableRow><TableCell colSpan={5} align="center">Đơn không có linh kiện mượn kho.</TableCell></TableRow>}
+                      {!detailItems.length && <TableRow><TableCell colSpan={showLineActions ? 5 : 4} align="center">Đơn không có linh kiện mượn kho.</TableCell></TableRow>}
                     </TableBody>
                   </Table>
                 </TableContainer>
 
-                <HandoverPhotos photos={requestDetail.photos} />
+                {actionError && <Alert severity="error" onClose={() => setActionError('')}>{actionError}</Alert>}
+                <HandoverPhotos
+                  photos={requestDetail.photos}
+                  canRemove={(photo) =>
+                    photo.photoType === 'Issue'
+                      ? requestDetail.status === 'Ready'
+                      : ['Borrowing', 'Overdue'].includes(requestDetail.status)}
+                  onRemove={removeHandoverPhoto}
+                />
 
                 {getShownPurpose(requestDetail.purpose) && (
                   <Box sx={{ p: 1.75, borderRadius: 1.5, bgcolor: '#f8fafc', border: '1px solid #e2e8f0' }}>
@@ -924,44 +966,6 @@ export default function LabBorrowManagement() {
                   </Box>
                 )}
 
-                {Array.isArray(requestDetail.approvals) && requestDetail.approvals.length > 0 && (
-                  <Box>
-                    <Typography variant="caption" sx={{ fontWeight: 700, color: '#64748b', display: 'block', mb: 1 }}>
-                      LỊCH SỬ DUYỆT
-                    </Typography>
-                    <Stack spacing={1}>
-                      {requestDetail.approvals.map((app, idx) => {
-                        const appMeta = getApprovalStatusMeta(app.status)
-                        return (
-                          <Paper
-                            key={`${app.approverId || idx}-${app.stepNo || idx}`}
-                            variant="outlined"
-                            sx={{
-                              p: 1.25,
-                              borderRadius: 1.5,
-                              display: 'flex',
-                              alignItems: 'center',
-                              justifyContent: 'space-between',
-                              gap: 1.5,
-                              flexWrap: 'wrap',
-                            }}
-                          >
-                            <Box>
-                              <Typography variant="body2" fontWeight={700} color="#0f172a">
-                                {app.approverName || 'Người duyệt'}
-                              </Typography>
-                              <Typography variant="caption" color="text.secondary">
-                                {app.decidedAt ? formatVietnamDateTime(app.decidedAt) : 'Chờ xử lý'}
-                                {app.comment ? ` · ${app.comment}` : ''}
-                              </Typography>
-                            </Box>
-                            <Chip size="small" label={appMeta.label} sx={appMeta.sx} />
-                          </Paper>
-                        )
-                      })}
-                    </Stack>
-                  </Box>
-                )}
                 <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} justifyContent="flex-end">
                   {requestDetail.status === 'Approved' && (
                     <Button

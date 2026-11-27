@@ -56,12 +56,6 @@ export const inventoryService = {
   async getLabStaff(labRoomId) {
     return asList(unwrap(await api.get(`/api/lab-rooms/${labRoomId}/staff`)), ['items', 'staff', 'users'])
   },
-  async getLabRoomComponents(labRoomId) {
-    return asList(unwrap(await api.get(`/api/lab-rooms/${labRoomId}/components`)), ['items'])
-  },
-  async updateLabRoomComponents(labRoomId, componentIds) {
-    return asList(unwrap(await api.put(`/api/lab-rooms/${labRoomId}/components`, { componentIds })), ['items'])
-  },
   async removeLabStaff(labRoomId, userId) {
     return api.delete(`/api/lab-rooms/${labRoomId}/staff/${userId}`)
   },

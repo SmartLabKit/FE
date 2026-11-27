@@ -159,7 +159,7 @@ export default function LecturerBorrowTracking({ requests }) {
                   <TableCell sx={{ fontSize: 12, fontWeight: 700, color: '#0058be', whiteSpace: 'nowrap' }}>{request.requestCode}</TableCell>
                   <TableCell sx={{ fontSize: 12, fontWeight: 700, color: '#334155' }}>{request.teamName || request.requesterName}</TableCell>
                   <TableCell>
-                    <Typography variant="body2" sx={{ fontSize: 12.5, fontWeight: 600, color: '#131b2e' }}>
+                    <Typography variant="body2" sx={{ fontSize: 13, fontWeight: 600, color: '#131b2e' }}>
                       {request.projectTitle || '—'}
                     </Typography>
                   </TableCell>

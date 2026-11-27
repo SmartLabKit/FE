@@ -17,7 +17,7 @@ export default function ReturnRow({ title, subtitle, status, before, after, onCl
     >
       {before}
       <Box sx={{ flex: 1, minWidth: 0 }}>
-        <Typography sx={{ fontSize: 15, color: '#1e293b', overflowWrap: 'anywhere' }}>{title}</Typography>
+        <Typography sx={{ fontSize: 16, color: '#1e293b', overflowWrap: 'anywhere' }}>{title}</Typography>
         {subtitle && <Typography sx={{ fontSize: 13, color: '#64748b', overflowWrap: 'anywhere' }}>{subtitle}</Typography>}
       </Box>
       {status && (

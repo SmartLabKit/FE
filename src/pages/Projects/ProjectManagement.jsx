@@ -295,7 +295,7 @@ function SuggestionCard({ suggestion, name, onSelect, disabled = false }) {
         {note || 'AI chưa cung cấp ghi chú.'}
       </Typography>
       {disabled && suggestion.available != null && (
-        <Typography variant="caption" sx={{ color: '#92400e', fontSize: 10, lineHeight: 1.3 }}>
+        <Typography variant="caption" sx={{ color: '#92400e', fontSize: 11, lineHeight: 1.3 }}>
           Tồn kho hiện có: {suggestion.available}
         </Typography>
       )}
@@ -436,7 +436,7 @@ export default function ProjectManagement() {
       const [projectsResult, componentsResult] = await Promise.allSettled([
         projectService.getProjectsByClass(teamData.classId),
         inventoryService
-          .getComponents({ keptByLab: true, isActive: true, page: 1, size: 1000 })
+          .getComponents({ inStock: true, isActive: true, page: 1, size: 1000 })
           .then((items) => items.filter((item) => item.isActive !== false)),
       ])
       if (projectsResult.status === 'rejected') throw projectsResult.reason

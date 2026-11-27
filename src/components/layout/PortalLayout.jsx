@@ -326,7 +326,7 @@ export default function PortalLayout({
           </Typography>
           <Typography
             variant="caption"
-            sx={{ color: '#808999', fontSize: 10, fontWeight: 700, letterSpacing: 0.5 }}
+            sx={{ color: '#808999', fontSize: 11, fontWeight: 700, letterSpacing: 0.5 }}
           >
             QUẢN LÝ PHÒNG LAB
           </Typography>
@@ -492,7 +492,7 @@ export default function PortalLayout({
             mb: 1,
             color: '#6b7280',
             fontWeight: 700,
-            fontSize: 10,
+            fontSize: 11,
             textTransform: 'uppercase',
             letterSpacing: 0.5,
           }}
@@ -548,7 +548,7 @@ export default function PortalLayout({
               size="small"
               sx={{
                 height: 16,
-                fontSize: 9,
+                fontSize: 11,
                 fontWeight: 800,
                 bgcolor: `${currentUser.badgeColor || '#0058be'}15`,
                 color: currentUser.badgeColor || '#0058be',
@@ -660,7 +660,7 @@ export default function PortalLayout({
                   {headerTitle}
                 </Typography>
                 {headerSubtitle && (
-                  <Typography noWrap sx={{ color: '#697386', fontSize: 10, lineHeight: 1.3 }}>
+                  <Typography noWrap sx={{ color: '#697386', fontSize: 11, lineHeight: 1.3 }}>
                     {headerSubtitle}
                   </Typography>
                 )}
@@ -711,7 +711,7 @@ export default function PortalLayout({
                 <Typography variant="body2" sx={{ fontWeight: 700, fontSize: 12, lineHeight: 1.2 }}>
                   {currentUser.name}
                 </Typography>
-                <Typography variant="caption" sx={{ color: '#81899a', fontSize: 10, fontWeight: 600 }}>
+                <Typography variant="caption" sx={{ color: '#81899a', fontSize: 11, fontWeight: 600 }}>
                   {currentUser.roleLabel}
                 </Typography>
               </Box>
@@ -744,7 +744,7 @@ export default function PortalLayout({
               sx={{
                 mt: 0.5,
                 height: 18,
-                fontSize: 9,
+                fontSize: 11,
                 fontWeight: 800,
                 bgcolor: `${currentUser.badgeColor || '#0058be'}20`,
                 color: currentUser.badgeColor || '#0058be',

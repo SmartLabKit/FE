@@ -14,7 +14,6 @@ import {
 import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
-import { suggestLabForCategory } from '../../utils/labSuggestion'
 import { findDuplicateSpecKeys, generateComponentShortCode, isYoutubeUrl, parseSpecsText } from './componentHelpers'
 
 const TRACKING_TYPES = [
@@ -79,7 +78,7 @@ async function saveExtras(id, name, form, images, datasheet) {
 }
 
 /** Khai báo linh kiện có trong file phiếu nhập nhưng chưa có trong hệ thống, không rời phiếu đang lập. */
-export default function DeclareComponentDialog({ row, categories, roomId, labRooms = [], catalog = [], onClose, onDeclared }) {
+export default function DeclareComponentDialog({ row, categories, onClose, onDeclared }) {
   const [form, setForm] = useState({
     componentName: row.componentName || '',
     shortCode: generateComponentShortCode(row.componentName || ''),
@@ -104,20 +103,6 @@ export default function DeclareComponentDialog({ row, categories, roomId, labRoo
   const [created, setCreated] = useState(null)
   const [extraErrors, setExtraErrors] = useState([])
 
-  // Thuộc lab: chọn sẵn theo gợi ý của danh mục, không có gợi ý thì lab của phiếu; người nhập sửa lại được
-  const [pickedRoomIds, setPickedRoomIds] = useState(null)
-  const receiptRoom = labRooms.find((room) => room.roomId === roomId)
-  const suggestion = form.categoryId
-    ? suggestLabForCategory(catalog, form.categoryId, undefined, receiptRoom?.roomCode)
-    : null
-  const suggestedRoom = suggestion ? labRooms.find((room) => room.roomCode === suggestion.roomCode) : null
-  let defaultRoomIds = []
-  if (suggestedRoom) defaultRoomIds = [suggestedRoom.roomId]
-  else if (roomId) defaultRoomIds = [roomId]
-  const roomIds = pickedRoomIds ?? defaultRoomIds
-  const chosenCodes = labRooms.filter((room) => roomIds.includes(room.roomId)).map((room) => room.roomCode)
-  const outsideReceipt = Boolean(receiptRoom) && roomIds.length > 0 && !roomIds.includes(roomId)
-
   const change = (event) => {
     const { name, value } = event.target
     if (name === 'shortCode') setManualShortCode(value.trim() !== '')
@@ -133,7 +118,7 @@ export default function DeclareComponentDialog({ row, categories, roomId, labRoo
   }
 
   const save = async () => {
-    const invalid = validate(form) || (roomIds.length === 0 ? 'Chọn ít nhất 1 lab.' : '')
+    const invalid = validate(form)
     if (invalid) return setError(invalid)
 
     setSaving(true)
@@ -151,7 +136,6 @@ export default function DeclareComponentDialog({ row, categories, roomId, labRoo
         unit: form.unit.trim(),
         minStock: Number(form.minStock),
         specs: parseSpecsText(form.specifications),
-        roomIds,
       })
       const failed = await saveExtras(saved.componentId, name, form, images, datasheet)
       if (failed.length === 0) return onDeclared(saved)
@@ -212,33 +196,6 @@ export default function DeclareComponentDialog({ row, categories, roomId, labRoo
               {field('unit', 'Đơn vị tính', { required: true, slotProps: { htmlInput: { maxLength: 20 } } })}
               {field('minStock', 'Tồn tối thiểu', { required: true, helperText: 'Dưới mức này sẽ báo Sắp hết. Nhập 0 nếu không cần giữ sẵn.' })}
             </Box>
-            <TextField
-              fullWidth
-              size="small"
-              select
-              required
-              label="Thuộc lab"
-              value={roomIds}
-              onChange={(event) => setPickedRoomIds(event.target.value)}
-              slotProps={{ select: { multiple: true, renderValue: () => chosenCodes.join(', ') } }}
-              helperText={
-                suggestion
-                  ? `Gợi ý ${suggestion.roomCode}: ${suggestion.count} linh kiện cùng danh mục đang ở lab này. Đồ dùng chung (điện trở, dây) chọn nhiều lab.`
-                  : 'Đồ dùng chung (điện trở, dây) chọn nhiều lab.'
-              }
-            >
-              {labRooms.map((room) => (
-                <MenuItem key={room.roomId} value={room.roomId}>
-                  {room.roomCode} · {room.roomName}
-                </MenuItem>
-              ))}
-            </TextField>
-            {outsideReceipt && (
-              <Alert severity="warning">
-                Linh kiện không thuộc {receiptRoom.roomCode} nên dòng này sẽ bị bỏ khỏi phiếu. Hãy lập phiếu cho {chosenCodes.join(', ')}.
-              </Alert>
-            )}
-
             <Typography sx={{ fontWeight: 700, color: '#334155' }}>Thông tin thêm (không bắt buộc)</Typography>
             <Box sx={TWO_COLUMNS}>
               {field('shortCode', 'Mã viết tắt', {

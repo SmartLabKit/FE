@@ -414,7 +414,7 @@ function StudentProjectCard({ team, project, isLeader, action, hasProjectData })
                         px: 2,
                         py: 0.75,
                         fontWeight: 700,
-                        fontSize: 12.5,
+                        fontSize: 13,
                         textTransform: 'none',
                         whiteSpace: 'nowrap',
                         boxShadow: 'none',
@@ -428,7 +428,7 @@ function StudentProjectCard({ team, project, isLeader, action, hasProjectData })
                         px: 2,
                         py: 0.75,
                         fontWeight: 700,
-                        fontSize: 12.5,
+                        fontSize: 13,
                         textTransform: 'none',
                         whiteSpace: 'nowrap',
                         '&:hover': { bgcolor: '#eff6ff', borderColor: '#0058be' },
@@ -495,10 +495,10 @@ function EmptyProjectsState({ title, description, showResetFilter = false, onRes
       >
         <ProjectIcon sx={{ fontSize: 30 }} />
       </Box>
-      <Typography variant="h6" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 17, mb: 0.75 }}>
+      <Typography variant="h6" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 16, mb: 0.75 }}>
         {title}
       </Typography>
-      <Typography variant="body2" sx={{ color: '#64748b', fontSize: 13.5, maxWidth: 480, mx: 'auto', mb: 2.5 }}>
+      <Typography variant="body2" sx={{ color: '#64748b', fontSize: 14, maxWidth: 480, mx: 'auto', mb: 2.5 }}>
         {description}
       </Typography>
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', flexWrap: 'wrap', gap: 1.25 }}>
@@ -515,7 +515,7 @@ function EmptyProjectsState({ title, description, showResetFilter = false, onRes
               px: 2,
               py: 0.85,
               fontWeight: 700,
-              fontSize: 12.5,
+              fontSize: 13,
               textTransform: 'none',
               '&:hover': { bgcolor: '#f8fafc', borderColor: '#94a3b8' },
             }}
@@ -537,7 +537,7 @@ function EmptyProjectsState({ title, description, showResetFilter = false, onRes
             px: 2.25,
             py: 0.85,
             fontWeight: 700,
-            fontSize: 12.5,
+            fontSize: 13,
             textTransform: 'none',
             boxShadow: 'none',
             '&:hover': { bgcolor: '#0049a3' },
@@ -774,7 +774,7 @@ export default function StudentProjectList() {
               px: 2,
               py: 0.85,
               fontWeight: 700,
-              fontSize: 12.5,
+              fontSize: 13,
               textTransform: 'none',
               whiteSpace: 'nowrap',
               '&:hover': { bgcolor: '#eff6ff', borderColor: '#0058be' },
@@ -901,7 +901,7 @@ export default function StudentProjectList() {
                         variant="caption"
                         component="label"
                         htmlFor="student-project-search"
-                        sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 10.5, mb: 0.6 }}
+                        sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 11, mb: 0.6 }}
                       >
                         TÌM KIẾM
                       </Typography>
@@ -938,7 +938,7 @@ export default function StudentProjectList() {
                         variant="caption"
                         component="label"
                         htmlFor="student-project-semester"
-                        sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 10.5, mb: 0.6 }}
+                        sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 11, mb: 0.6 }}
                       >
                         HỌC KỲ
                       </Typography>
@@ -966,7 +966,7 @@ export default function StudentProjectList() {
                         variant="caption"
                         component="label"
                         htmlFor="student-project-status"
-                        sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 10.5, mb: 0.6 }}
+                        sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 11, mb: 0.6 }}
                       >
                         TRẠNG THÁI
                       </Typography>
@@ -1001,7 +1001,7 @@ export default function StudentProjectList() {
                     }}
                   >
                     <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1 }} aria-live="polite">
-                      <Typography variant="body2" sx={{ color: '#475569', fontSize: 12.5, fontWeight: 600 }}>
+                      <Typography variant="body2" sx={{ color: '#475569', fontSize: 13, fontWeight: 600 }}>
                         Hiển thị <Box component="strong" sx={{ color: '#131b2e' }}>{rows.length}</Box> / {summaryCounts.total} nhóm
                       </Typography>
                       {overview.projectsByTeam && (

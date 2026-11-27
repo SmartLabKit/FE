@@ -88,10 +88,9 @@ function unitNotes(rows, lines) {
 /**
  * So file Excel với phiếu nhập, mỗi linh kiện một dòng (gộp các dòng cùng linh kiện).
  * status: unknown (file ghi mã không tồn tại), missing (file có, phiếu không), extra (phiếu có, file không), diff (lệch), match,
- * otherLab (file có, phiếu không, nhưng lab của phiếu không nhận linh kiện này: dòng đó nhập ở phiếu của lab giữ nó).
  * Ô để trống trong file (đơn giá, tủ, version, bảo hành) thì không so.
  */
-export function compareReceiptWithExcel(lines, rows, components, cabinets = [], receiptRoomCode = '') {
+export function compareReceiptWithExcel(lines, rows, components, cabinets = []) {
   const matched = rows.map((row) => ({ row, component: findReceiptComponent(components, row) }))
   const fileGroups = groupBy(matched.filter((x) => x.component), (x) => x.component.componentId)
   const lineGroups = groupBy(lines, (line) => line.componentId)
@@ -126,13 +125,7 @@ export function compareReceiptWithExcel(lines, rows, components, cabinets = [], 
       )
     }
     let status = notes.length > 0 ? 'diff' : 'match'
-    const owners = component.roomCodes || []
-    if (receiptLines.length === 0 && receiptRoomCode && !owners.includes(receiptRoomCode)) {
-      status = 'otherLab'
-      notes.push(owners.length > 0 ? `Thuộc ${owners.join(', ')}, nhập ở phiếu của lab đó` : 'Chưa thuộc lab nào')
-    } else if (receiptLines.length === 0) {
-      status = 'missing'
-    }
+    if (receiptLines.length === 0) status = 'missing'
     results.push({
       key: componentId,
       status,
@@ -157,6 +150,6 @@ export function compareReceiptWithExcel(lines, rows, components, cabinets = [], 
     })
   })
 
-  const order = ['unknown', 'missing', 'extra', 'diff', 'otherLab', 'match']
+  const order = ['unknown', 'missing', 'extra', 'diff', 'match']
   return results.sort((a, b) => order.indexOf(a.status) - order.indexOf(b.status) || a.code.localeCompare(b.code))
 }

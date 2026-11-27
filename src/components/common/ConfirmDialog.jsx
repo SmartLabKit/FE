@@ -24,7 +24,7 @@ export default function ConfirmDialog({ request, onClose }) {
 
   return (
     <Dialog open={Boolean(request)} onClose={close} maxWidth="xs" fullWidth>
-      <DialogTitle sx={{ fontWeight: 800, fontSize: 17 }}>{request?.title}</DialogTitle>
+      <DialogTitle sx={{ fontWeight: 800, fontSize: 16 }}>{request?.title}</DialogTitle>
       <DialogContent>
         <Typography sx={{ fontSize: 14, color: '#3d4556', lineHeight: 1.6 }}>{request?.message}</Typography>
         {needsReason && (

@@ -322,7 +322,7 @@ export default function SupplementaryBorrowDetail() {
               {/* Metadata 3 cột */}
               <Grid container spacing={2} sx={{ mb: 2.5 }}>
                 <Grid item xs={12} sm={4}>
-                  <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 10, letterSpacing: 0.5, display: 'block' }}>
+                  <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 11, letterSpacing: 0.5, display: 'block' }}>
                     TRƯỞNG NHÓM
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 800, color: '#131b2e', mt: 0.2 }}>
@@ -331,7 +331,7 @@ export default function SupplementaryBorrowDetail() {
                 </Grid>
 
                 <Grid item xs={12} sm={4}>
-                  <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 10, letterSpacing: 0.5, display: 'block' }}>
+                  <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 11, letterSpacing: 0.5, display: 'block' }}>
                     NHÓM THỰC HÀNH
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 800, color: '#131b2e', mt: 0.2 }}>
@@ -340,7 +340,7 @@ export default function SupplementaryBorrowDetail() {
                 </Grid>
 
                 <Grid item xs={12} sm={4}>
-                  <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 10, letterSpacing: 0.5, display: 'block' }}>
+                  <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 11, letterSpacing: 0.5, display: 'block' }}>
                     ĐƠN GỐC
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 800, color: '#0058be', mt: 0.2 }}>
@@ -351,7 +351,7 @@ export default function SupplementaryBorrowDetail() {
 
               {/* Lý do bổ sung */}
               <Box sx={{ mb: 3 }}>
-                <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 10, letterSpacing: 0.5, display: 'block' }}>
+                <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 11, letterSpacing: 0.5, display: 'block' }}>
                   LÝ DO BỔ SUNG
                 </Typography>
                 <Typography variant="body2" sx={{ color: '#131b2e', mt: 0.4, fontWeight: 500 }}>
@@ -412,7 +412,7 @@ export default function SupplementaryBorrowDetail() {
 
                   <Grid container spacing={2} sx={{ mb: 2 }}>
                     <Grid item xs={6}>
-                      <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 10, display: 'block' }}>
+                      <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 11, display: 'block' }}>
                         GIẢNG VIÊN
                       </Typography>
                       <Typography variant="body2" sx={{ fontWeight: 800, color: '#131b2e', mt: 0.2 }}>
@@ -421,7 +421,7 @@ export default function SupplementaryBorrowDetail() {
                     </Grid>
 
                     <Grid item xs={6}>
-                      <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 10, display: 'block' }}>
+                      <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 11, display: 'block' }}>
                         TIẾP NHẬN LÚC
                       </Typography>
                       <Typography variant="body2" sx={{ fontWeight: 700, color: '#131b2e', mt: 0.2 }}>
@@ -518,7 +518,7 @@ export default function SupplementaryBorrowDetail() {
 
               <Grid container spacing={3} sx={{ mb: 2.5 }}>
                 <Grid item xs={12} sm={4}>
-                  <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 10, display: 'block' }}>
+                  <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 11, display: 'block' }}>
                     GIẢNG VIÊN
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 800, color: '#131b2e', mt: 0.2 }}>
@@ -527,7 +527,7 @@ export default function SupplementaryBorrowDetail() {
                 </Grid>
 
                 <Grid item xs={12} sm={4}>
-                  <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 10, display: 'block' }}>
+                  <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 11, display: 'block' }}>
                     THỜI ĐIỂM QUYẾT ĐỊNH
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 800, color: '#131b2e', mt: 0.2 }}>
@@ -536,7 +536,7 @@ export default function SupplementaryBorrowDetail() {
                 </Grid>
 
                 <Grid item xs={12} sm={4}>
-                  <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 10, display: 'block' }}>
+                  <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 11, display: 'block' }}>
                     KẾT QUẢ
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 800, color: '#dc2626', mt: 0.2 }}>
@@ -554,7 +554,7 @@ export default function SupplementaryBorrowDetail() {
                   border: '1px solid #ffe4e6',
                 }}
               >
-                <Typography variant="caption" sx={{ color: '#e11d48', fontWeight: 800, fontSize: 10, display: 'block', mb: 0.5 }}>
+                <Typography variant="caption" sx={{ color: '#e11d48', fontWeight: 800, fontSize: 11, display: 'block', mb: 0.5 }}>
                   LÝ DO TỪ CHỐI
                 </Typography>
                 <Typography variant="body2" sx={{ color: '#9f1239', fontWeight: 600, fontSize: 13 }}>
@@ -582,7 +582,7 @@ export default function SupplementaryBorrowDetail() {
 
                   <Grid container spacing={2} sx={{ mb: 2 }}>
                     <Grid item xs={4}>
-                      <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 10, display: 'block' }}>
+                      <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 11, display: 'block' }}>
                         TRƯỞNG NHÓM
                       </Typography>
                       <Typography variant="body2" sx={{ fontWeight: 800, color: '#131b2e', mt: 0.2 }}>
@@ -591,7 +591,7 @@ export default function SupplementaryBorrowDetail() {
                     </Grid>
 
                     <Grid item xs={4}>
-                      <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 10, display: 'block' }}>
+                      <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 11, display: 'block' }}>
                         NHÓM THỰC HÀNH
                       </Typography>
                       <Typography variant="body2" sx={{ fontWeight: 800, color: '#131b2e', mt: 0.2 }}>
@@ -600,7 +600,7 @@ export default function SupplementaryBorrowDetail() {
                     </Grid>
 
                     <Grid item xs={4}>
-                      <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 10, display: 'block' }}>
+                      <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 11, display: 'block' }}>
                         ĐƠN GỐC
                       </Typography>
                       <Typography variant="body2" sx={{ fontWeight: 800, color: '#0058be', mt: 0.2 }}>
@@ -610,7 +610,7 @@ export default function SupplementaryBorrowDetail() {
                   </Grid>
 
                   <Box sx={{ mb: 2.5 }}>
-                    <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 10, display: 'block' }}>
+                    <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 11, display: 'block' }}>
                       LÝ DO BỔ SUNG
                     </Typography>
                     <Typography variant="body2" sx={{ color: '#131b2e', mt: 0.2 }}>
@@ -668,7 +668,7 @@ export default function SupplementaryBorrowDetail() {
                   }}
                 >
                   <Box>
-                    <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 15, mb: 1.5 }}>
+                    <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 16, mb: 1.5 }}>
                       Tạo lại yêu cầu
                     </Typography>
 

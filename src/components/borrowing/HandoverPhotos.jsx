@@ -10,9 +10,10 @@ const GROUPS = [
 
 /**
  * Ảnh nhân viên lab chụp lúc giao (linh kiện kèm thẻ sinh viên) và lúc nhận trả. Bấm ảnh để xem lớn.
- * Không có ảnh nào thì không hiện gì.
+ * Không có ảnh nào thì không hiện gì. Có onRemove thì ảnh canRemove(photo) = true có nút ✕ ở góc để gỡ.
  */
-export default function HandoverPhotos({ photos, sx }) {
+export default function HandoverPhotos({ photos, sx, canRemove, onRemove }) {
+  const [removingId, setRemovingId] = useState('')
   const [viewing, setViewing] = useState(null)
   const list = Array.isArray(photos) ? photos : []
   if (list.length === 0) return null
@@ -27,12 +28,12 @@ export default function HandoverPhotos({ photos, sx }) {
             <Typography sx={{ fontWeight: 700, mb: 1 }}>{group.title}</Typography>
             <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(140px, 1fr))', gap: 1.25 }}>
               {shown.map((photo) => (
+                <Box key={photo.photoId} sx={{ position: 'relative' }}>
                 <Box
-                  key={photo.photoId}
                   component="button"
                   type="button"
                   onClick={() => setViewing(photo)}
-                  sx={{ p: 0, border: '1px solid #e2e8f0', borderRadius: 1.5, overflow: 'hidden', bgcolor: '#f8fafc', cursor: 'zoom-in', textAlign: 'left' }}
+                  sx={{ p: 0, width: '100%', border: '1px solid #e2e8f0', borderRadius: 1.5, overflow: 'hidden', bgcolor: '#f8fafc', cursor: 'zoom-in', textAlign: 'left' }}
                 >
                   <Box
                     component="img"
@@ -45,6 +46,26 @@ export default function HandoverPhotos({ photos, sx }) {
                     {formatVietnamDateTime(photo.takenAt)}
                     {photo.takenByName && ` · ${photo.takenByName}`}
                   </Typography>
+                </Box>
+                {onRemove && canRemove?.(photo) && (
+                  <IconButton
+                    size="small"
+                    aria-label="Gỡ ảnh"
+                    title="Gỡ ảnh"
+                    disabled={removingId === photo.photoId}
+                    onClick={async () => {
+                      setRemovingId(photo.photoId)
+                      try {
+                        await onRemove(photo)
+                      } finally {
+                        setRemovingId('')
+                      }
+                    }}
+                    sx={{ position: 'absolute', top: 4, right: 4, p: 0.25, bgcolor: 'rgba(15,23,42,0.6)', color: '#fff', '&:hover': { bgcolor: 'rgba(15,23,42,0.8)' } }}
+                  >
+                    <CloseIcon sx={{ fontSize: 16 }} />
+                  </IconButton>
+                )}
                 </Box>
               ))}
             </Box>

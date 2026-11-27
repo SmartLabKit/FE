@@ -259,7 +259,7 @@ function Login() {
         <Box sx={{ width: '100%', maxWidth: 440, mx: 'auto', my: 5 }}>
           <Typography
             variant="h4"
-            sx={{ mb: 0.8, color: '#172033', fontSize: 26, fontWeight: 750, lineHeight: 1.3 }}
+            sx={{ mb: 0.8, color: '#172033', fontSize: 24, fontWeight: 750, lineHeight: 1.3 }}
           >
             Đăng nhập vào
             <br />
@@ -302,7 +302,7 @@ function Login() {
                 input: {
                   startAdornment: (
                     <InputAdornment position="start">
-                      <PersonOutlined sx={{ color: '#778195', fontSize: 18 }} />
+                      <PersonOutlined sx={{ color: '#778195', fontSize: 20 }} />
                     </InputAdornment>
                   ),
                 },
@@ -335,7 +335,7 @@ function Login() {
                 input: {
                   startAdornment: (
                     <InputAdornment position="start">
-                      <LockOutlined sx={{ color: '#778195', fontSize: 17 }} />
+                      <LockOutlined sx={{ color: '#778195', fontSize: 16 }} />
                     </InputAdornment>
                   ),
                   endAdornment: (
@@ -347,9 +347,9 @@ function Login() {
                         size="small"
                       >
                         {showPassword ? (
-                          <VisibilityOff sx={{ fontSize: 17 }} />
+                          <VisibilityOff sx={{ fontSize: 16 }} />
                         ) : (
-                          <Visibility sx={{ fontSize: 17 }} />
+                          <Visibility sx={{ fontSize: 16 }} />
                         )}
                       </IconButton>
                     </InputAdornment>
@@ -379,7 +379,7 @@ function Login() {
                 label="Ghi nhớ đăng nhập"
                 sx={{
                   m: 0,
-                  '& .MuiFormControlLabel-label': { color: 'text.secondary', fontSize: 10 },
+                  '& .MuiFormControlLabel-label': { color: 'text.secondary', fontSize: 11 },
                 }}
               />
               <Button
@@ -425,7 +425,7 @@ function Login() {
                 borderRadius: 1.5,
               }}
             >
-              <InfoOutlined sx={{ color: 'primary.main', fontSize: 18, flexShrink: 0 }} />
+              <InfoOutlined sx={{ color: 'primary.main', fontSize: 20, flexShrink: 0 }} />
               <Typography variant="caption" sx={{ color: 'text.secondary', fontSize: 11, lineHeight: 1.6 }}>
                 Tài khoản SmartLabKit được cấp và phân quyền bởi Quản trị viên đơn vị. Liên hệ Lab Staff hoặc quản trị viên nếu bạn chưa có tài khoản.
               </Typography>
@@ -441,17 +441,17 @@ function Login() {
             alignItems: 'center',
             gap: 1,
             color: '#81899a',
-            fontSize: 10,
+            fontSize: 11,
           }}
         >
-          <Typography variant="caption" sx={{ fontSize: 10 }}>
+          <Typography variant="caption" sx={{ fontSize: 11 }}>
             © 2026 SmartLabKit
           </Typography>
           <Box sx={{ display: 'flex', gap: { xs: 1, sm: 2 } }}>
-            <Button size="small" color="inherit" sx={{ p: 0, minWidth: 0, textTransform: 'none', fontSize: 10 }}>
+            <Button size="small" color="inherit" sx={{ p: 0, minWidth: 0, textTransform: 'none', fontSize: 11 }}>
               Quyền riêng tư
             </Button>
-            <Button size="small" color="inherit" sx={{ p: 0, minWidth: 0, textTransform: 'none', fontSize: 10 }}>
+            <Button size="small" color="inherit" sx={{ p: 0, minWidth: 0, textTransform: 'none', fontSize: 11 }}>
               Điều khoản sử dụng
             </Button>
           </Box>

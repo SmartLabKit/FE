@@ -336,7 +336,7 @@ export default function ComponentDetail() {
 
           <Typography
             sx={{
-              fontSize: 13.5,
+              fontSize: 14,
               color: '#64748b',
               fontWeight: 500,
               mb: 1.5,
@@ -370,7 +370,7 @@ export default function ComponentDetail() {
                   bgcolor: '#eff6ff',
                   color: '#0058be',
                   fontWeight: 700,
-                  fontSize: 12.5,
+                  fontSize: 13,
                   borderRadius: '9999px',
                   height: 28,
                   px: 0.5,
@@ -442,10 +442,10 @@ export default function ComponentDetail() {
             </Box>
 
             <Box sx={{ flex: 1 }}>
-              <Typography sx={{ fontWeight: 700, fontSize: 14.5, color: '#1e293b' }}>
+              <Typography sx={{ fontWeight: 700, fontSize: 14, color: '#1e293b' }}>
                 Ảnh
               </Typography>
-              <Typography sx={{ fontSize: 12.5, color: '#64748b' }}>
+              <Typography sx={{ fontSize: 13, color: '#64748b' }}>
                 {images.length} ảnh{canManage ? ' (thêm, xem hoặc xoá)' : ''}
               </Typography>
             </Box>
@@ -578,7 +578,7 @@ export default function ComponentDetail() {
                   target="_blank"
                   rel="noopener noreferrer"
                   endIcon={<LaunchIcon sx={{ fontSize: 14 }} />}
-                  sx={{ textTransform: 'none', borderRadius: '9999px', fontSize: 12.5, whiteSpace: 'nowrap' }}
+                  sx={{ textTransform: 'none', borderRadius: '9999px', fontSize: 13, whiteSpace: 'nowrap' }}
                 >
                   Xem Datasheet
                 </Button>
@@ -675,7 +675,7 @@ export default function ComponentDetail() {
                           target="_blank"
                           rel="noopener noreferrer"
                           endIcon={<LaunchIcon sx={{ fontSize: 14 }} />}
-                          sx={{ textTransform: 'none', borderRadius: '9999px', fontSize: 12.5, whiteSpace: 'nowrap' }}
+                          sx={{ textTransform: 'none', borderRadius: '9999px', fontSize: 13, whiteSpace: 'nowrap' }}
                         >
                           {isYt ? 'Xem YouTube' : isPdf ? 'Mở PDF' : 'Xem'}
                         </Button>

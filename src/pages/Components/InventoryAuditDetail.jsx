@@ -610,10 +610,10 @@ export default function InventoryAuditDetail() {
                 <Paper variant="outlined" sx={{ borderColor: '#d8dced', mb: 3 }}>
                   <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap', px: 2, pt: 2, pb: 1 }}>
                     <Box sx={{ minWidth: 0 }}>
-                      <Typography sx={{ fontWeight: 800, fontSize: 18, color: '#182238' }}>
+                      <Typography sx={{ fontWeight: 800, fontSize: 20, color: '#182238' }}>
                         Kiểm kho · {audit.cabinetName || audit.cabinetCode}
                       </Typography>
-                      <Typography sx={{ fontSize: 12.5, color: '#64748b' }}>
+                      <Typography sx={{ fontSize: 13, color: '#64748b' }}>
                         {audit.auditorName} · {formatDateTime(audit.auditDate)}
                       </Typography>
                     </Box>
@@ -687,7 +687,7 @@ export default function InventoryAuditDetail() {
                       )}
                       sx={{ flex: 1, minWidth: 240, maxWidth: 480 }}
                     />
-                    <Typography sx={{ ml: 'auto', fontWeight: 700, fontSize: 13.5, color: '#334155' }}>
+                    <Typography sx={{ ml: 'auto', fontWeight: 700, fontSize: 14, color: '#334155' }}>
                       Đã kiểm {checkedCount}/{totalCount}
                     </Typography>
                   </Box>
@@ -775,7 +775,7 @@ export default function InventoryAuditDetail() {
                                   <TableCell />
                                   <TableCell colSpan={5} sx={{ bgcolor: '#f8fafc', py: 1 }}>
                                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap', mb: 0.5 }}>
-                                      <Typography sx={{ fontSize: 12.5, color: '#334155' }}>
+                                      <Typography sx={{ fontSize: 13, color: '#334155' }}>
                                         Thiếu {needed} cái. Chọn những cái có trong tủ:
                                       </Typography>
                                       <Button size="small" onClick={() => setFound(option.units, true)} sx={{ textTransform: 'none', py: 0 }}>

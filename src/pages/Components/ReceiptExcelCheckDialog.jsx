@@ -29,7 +29,6 @@ const STATUS = {
   extra: { label: 'Không có trong file', color: 'warning' },
   diff: { label: 'Lệch', color: 'warning' },
   match: { label: 'Khớp', color: 'success' },
-  otherLab: { label: 'Phiếu lab khác', color: 'info' },
 }
 
 const quantityText = (value) => (value === null ? '—' : Number(value).toLocaleString('vi-VN'))
@@ -63,8 +62,7 @@ export default function ReceiptExcelCheckDialog({ receiptCode, lines, onClose })
         inventoryService.getComponents(),
         inventoryService.getCabinets({ size: 100 }),
       ])
-      const roomCode = cabinets.find((cabinet) => cabinet.cabinetId === lines[0]?.cabinetId)?.roomCode || ''
-      setResults(compareReceiptWithExcel(lines, rows, components, cabinets, roomCode))
+      setResults(compareReceiptWithExcel(lines, rows, components, cabinets))
     } catch (checkError) {
       setError(extractErrorMessage(checkError, 'Không thể tải dữ liệu để đối chiếu.'))
     } finally {
@@ -72,10 +70,8 @@ export default function ReceiptExcelCheckDialog({ receiptCode, lines, onClose })
     }
   }
 
-  const wrong = results ? results.filter((r) => r.status !== 'match' && r.status !== 'otherLab').length : 0
-  const otherLab = results ? results.filter((r) => r.status === 'otherLab').length : 0
-  const ownCount = results ? results.length - otherLab : 0
-  const otherText = otherLab > 0 ? ` ${otherLab} linh kiện thuộc lab khác, nhập ở phiếu riêng.` : ''
+  const wrong = results ? results.filter((r) => r.status !== 'match').length : 0
+  const ownCount = results ? results.length : 0
 
   return (
     <Dialog open onClose={onClose} maxWidth="md" fullWidth>
@@ -101,8 +97,8 @@ export default function ReceiptExcelCheckDialog({ receiptCode, lines, onClose })
           <>
             <Alert severity={wrong === 0 ? 'success' : 'warning'}>
               {wrong === 0
-                ? `Khớp hết ${ownCount} linh kiện của phiếu.${otherText}`
-                : `${wrong}/${ownCount} linh kiện cần xem lại.${otherText}`}
+                ? `Khớp hết ${ownCount} linh kiện của phiếu.`
+                : `${wrong}/${ownCount} linh kiện cần xem lại.`}
             </Alert>
             <TableContainer sx={{ border: '1px solid #d8dced', borderRadius: 1 }}>
               <Table size="small">

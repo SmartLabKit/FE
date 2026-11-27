@@ -45,7 +45,7 @@ export default function ForcePasswordChangeDialog() {
   return (
     <Dialog open maxWidth="xs" fullWidth disableEscapeKeyDown>
       <form onSubmit={submit} noValidate>
-        <DialogTitle sx={{ fontWeight: 800, fontSize: 18 }}>Đổi mật khẩu để tiếp tục</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 800, fontSize: 20 }}>Đổi mật khẩu để tiếp tục</DialogTitle>
         <DialogContent>
           <Typography sx={{ fontSize: 14, color: '#3d4556', mb: 2 }}>
             Bạn đang dùng mật khẩu tạm do Admin cấp. Hãy đặt mật khẩu mới của riêng bạn.

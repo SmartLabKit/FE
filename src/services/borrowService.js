@@ -474,6 +474,18 @@ export const borrowService = {
   },
 
   /**
+   * Gỡ ảnh giao / nhận trả chưa dùng (ảnh đã dùng để bàn giao thì BE trả 409)
+   * DELETE /api/borrow-requests/{id}/photos/{photoId}
+   */
+  async deleteHandoverPhoto(id, photoId) {
+    try {
+      await api.delete(`/api/borrow-requests/${id}/photos/${photoId}`)
+    } catch (error) {
+      throw new Error(extractErrorMessage(error, 'Không gỡ được ảnh'), { cause: error })
+    }
+  },
+
+  /**
    * Nhận diện thẻ sinh viên từ ảnh chụp/tải lên
    * POST /api/borrow-requests/read-student-card
    */
@@ -589,7 +601,7 @@ export const borrowService = {
       const response = await api.get('/api/components', {
         params: {
           search: search?.trim() || undefined,
-          keptByLab: true,
+          inStock: true,
           isActive: true,
           page: 1,
           size: 100,

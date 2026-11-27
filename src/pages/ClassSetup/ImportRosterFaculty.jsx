@@ -733,7 +733,7 @@ export default function ImportRosterFaculty() {
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flex: 1, minWidth: 320, flexWrap: 'wrap' }}>
           {/* Phân loại theo kỳ học */}
           <Box sx={{ minWidth: 190 }}>
-            <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 10, mb: 0.5 }}>
+            <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 11, mb: 0.5 }}>
               Học kỳ
             </Typography>
             <Select
@@ -756,7 +756,7 @@ export default function ImportRosterFaculty() {
 
           {/* Chọn lớp môn học */}
           <Box sx={{ flex: 1, minWidth: 260 }}>
-            <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 10, mb: 0.5 }}>
+            <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 11, mb: 0.5 }}>
               Lớp
             </Typography>
             {loadingClasses ? (
@@ -1227,7 +1227,7 @@ export default function ImportRosterFaculty() {
                       size="small"
                       sx={{
                         height: 20,
-                        fontSize: 10,
+                        fontSize: 11,
                         fontWeight: 700,
                         bgcolor: '#eaedff',
                         color: '#0058be',
@@ -1452,7 +1452,7 @@ export default function ImportRosterFaculty() {
 
       {/* Snackbar Notification */}
       <Dialog open={Boolean(dropTarget)} onClose={() => setDropTarget(null)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 800, fontSize: 17 }}>Cho {dropTarget?.fullName} thôi học?</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 800, fontSize: 16 }}>Cho {dropTarget?.fullName} thôi học?</DialogTitle>
         <DialogContent>
           <Typography sx={{ fontSize: 14, color: '#3d4556' }}>Sinh viên sẽ bị loại khỏi lớp.</Typography>
         </DialogContent>

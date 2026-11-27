@@ -179,7 +179,7 @@ function TeamFormationStatusCard({ overview }) {
             size="small"
             sx={{
               fontWeight: 800,
-              fontSize: 11.5,
+              fontSize: 12,
               px: 0.5,
               flexShrink: 0,
               bgcolor: isOpen ? '#dbeafe' : '#fef3c7',
@@ -192,7 +192,7 @@ function TeamFormationStatusCard({ overview }) {
             sx={{
               fontWeight: 500,
               color: isOpen ? '#1e3a8a' : '#92400e',
-              fontSize: 12.5,
+              fontSize: 13,
               lineHeight: 1.45,
             }}
           >
@@ -220,20 +220,20 @@ function TeamFormationStatusCard({ overview }) {
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }}>
             <ScheduleIcon sx={{ fontSize: 17, color: isOpen ? '#0058be' : '#b45309' }} />
             <Box>
-              <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 10, lineHeight: 1.2 }}>
+              <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 11, lineHeight: 1.2 }}>
                 HẠN CHÓT
               </Typography>
-              <Typography variant="body2" sx={{ fontWeight: 700, color: '#131b2e', fontSize: 12.5, whiteSpace: 'nowrap' }}>
+              <Typography variant="body2" sx={{ fontWeight: 700, color: '#131b2e', fontSize: 13, whiteSpace: 'nowrap' }}>
                 {formatDeadline(deadline)}
               </Typography>
             </Box>
           </Box>
 
           <Box>
-            <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 10, lineHeight: 1.2 }}>
+            <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 11, lineHeight: 1.2 }}>
               QUY MÔ NHÓM
             </Typography>
-            <Typography variant="body2" sx={{ fontWeight: 700, color: '#131b2e', fontSize: 12.5, whiteSpace: 'nowrap' }}>
+            <Typography variant="body2" sx={{ fontWeight: 700, color: '#131b2e', fontSize: 13, whiteSpace: 'nowrap' }}>
               {minTeamSize ?? '—'} – {maxTeamSize ?? '—'} thành viên
             </Typography>
           </Box>
@@ -281,7 +281,7 @@ function InvitationsCard({ invitations, isOpen, respondingKey, onRespond, compac
             sx={{
               fontWeight: 800,
               color: hasInvitations ? '#92400e' : '#131b2e',
-              fontSize: 15.5,
+              fontSize: 16,
             }}
           >
             Lời mời đến tôi
@@ -294,7 +294,7 @@ function InvitationsCard({ invitations, isOpen, respondingKey, onRespond, compac
             size="small"
             sx={{
               height: 22,
-              fontSize: 10.5,
+              fontSize: 11,
               fontWeight: 700,
               bgcolor: '#fef3c7',
               color: '#b45309',
@@ -363,18 +363,18 @@ function InvitationsCard({ invitations, isOpen, respondingKey, onRespond, compac
                       <Chip
                         label={`Lớp: ${inv.classCode}`}
                         size="small"
-                        sx={{ height: 20, fontSize: 10, fontWeight: 700, bgcolor: '#eaedff', color: '#0058be' }}
+                        sx={{ height: 20, fontSize: 11, fontWeight: 700, bgcolor: '#eaedff', color: '#0058be' }}
                       />
                     )}
                     {inv.memberCount !== undefined && (
                       <Chip
                         label={`${inv.memberCount}${inv.maxTeamSize ? `/${inv.maxTeamSize}` : ''} TV`}
                         size="small"
-                        sx={{ height: 20, fontSize: 10, fontWeight: 700, bgcolor: '#f1f5f9', color: '#475569' }}
+                        sx={{ height: 20, fontSize: 11, fontWeight: 700, bgcolor: '#f1f5f9', color: '#475569' }}
                       />
                     )}
                   </Box>
-                  <Typography variant="caption" sx={{ color: '#6b7280', display: 'block', fontSize: 11.5 }}>
+                  <Typography variant="caption" sx={{ color: '#6b7280', display: 'block', fontSize: 12 }}>
                     Trưởng nhóm:{' '}
                     <strong>{inv.leaderFullName || inv.leaderStudentCode || inv.invitedBy || 'Trưởng nhóm'}</strong>
                     {inv.invitedAt && ` • ${new Date(inv.invitedAt).toLocaleDateString('vi-VN')}`}
@@ -397,7 +397,7 @@ function InvitationsCard({ invitations, isOpen, respondingKey, onRespond, compac
                           color: '#ffffff',
                           textTransform: 'none',
                           fontWeight: 700,
-                          fontSize: 11.5,
+                          fontSize: 12,
                           height: 28,
                           px: 1.25,
                           boxShadow: 'none',
@@ -424,7 +424,7 @@ function InvitationsCard({ invitations, isOpen, respondingKey, onRespond, compac
                           borderColor: '#fca5a5',
                           textTransform: 'none',
                           fontWeight: 700,
-                          fontSize: 11.5,
+                          fontSize: 12,
                           height: 28,
                           px: 1.25,
                           whiteSpace: 'nowrap',
@@ -891,7 +891,7 @@ export default function StudentGroupsPage() {
             <Box sx={{ display: 'flex', alignItems: 'flex-end', gap: 1.5, flex: '1 1 520px', flexWrap: { xs: 'wrap', sm: 'nowrap' } }}>
               {/* Học kỳ */}
               <Box sx={{ width: { xs: '100%', sm: 180 }, flexShrink: 0 }}>
-                <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 10, mb: 0.5 }}>
+                <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 11, mb: 0.5 }}>
                   Học kỳ:
                 </Typography>
                 {loadingClasses ? (
@@ -921,7 +921,7 @@ export default function StudentGroupsPage() {
 
               {/* Môn học / Lớp */}
               <Box sx={{ flex: '1 1 auto', minWidth: 0, maxWidth: { sm: 400 }, width: { xs: '100%', sm: 'auto' } }}>
-                <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 10, mb: 0.5 }}>
+                <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 11, mb: 0.5 }}>
                   Môn học:
                 </Typography>
                 {loadingClasses ? (
@@ -961,7 +961,7 @@ export default function StudentGroupsPage() {
                 }}
               >
                 <Box>
-                  <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 10 }}>
+                  <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 11 }}>
                     GIẢNG VIÊN
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 700, color: '#131b2e' }}>
@@ -969,7 +969,7 @@ export default function StudentGroupsPage() {
                   </Typography>
                 </Box>
                 <Box>
-                  <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 10 }}>
+                  <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 11 }}>
                     SĨ SỐ LỚP
                   </Typography>
                   <Typography variant="body2" sx={{ fontWeight: 700, color: '#0058be' }}>
@@ -1125,7 +1125,7 @@ export default function StudentGroupsPage() {
                     >
                       <Box sx={{ minWidth: 0 }}>
                         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
-                          <Typography variant="h6" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 17 }}>
+                          <Typography variant="h6" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 16 }}>
                             {currentTeam.teamName}
                           </Typography>
                           {isFull && (
@@ -1143,7 +1143,7 @@ export default function StudentGroupsPage() {
                           )}
                         </Box>
 
-                        <Typography variant="body2" sx={{ color: '#64748b', fontSize: 12.5, mt: 0.5 }}>
+                        <Typography variant="body2" sx={{ color: '#64748b', fontSize: 13, mt: 0.5 }}>
                           <strong>
                             {currentTeam.memberCount ?? acceptedMembers.length}
                             {maxTeamSize ? `/${maxTeamSize}` : ''}
@@ -1152,7 +1152,7 @@ export default function StudentGroupsPage() {
                           {pendingMembers.length > 0 && ` • ${pendingMembers.length} lời mời đang chờ`}
                         </Typography>
                         {hasProject && (
-                          <Typography variant="body2" sx={{ color: '#b45309', fontSize: 12.5, mt: 0.5 }}>
+                          <Typography variant="body2" sx={{ color: '#b45309', fontSize: 13, mt: 0.5 }}>
                             {PROJECT_LOCKED_REASON}.
                           </Typography>
                         )}
@@ -1345,7 +1345,7 @@ export default function StudentGroupsPage() {
                         <Typography
                           variant="body2"
                           sx={{
-                            fontSize: 12.5,
+                            fontSize: 13,
                             fontWeight: 700,
                             color: selectionMode === 'transfer' ? '#1d4ed8' : '#b91c1c',
                           }}
@@ -1358,7 +1358,7 @@ export default function StudentGroupsPage() {
                           size="small"
                           color="inherit"
                           onClick={() => setSelectionMode(null)}
-                          sx={{ textTransform: 'none', fontWeight: 700, fontSize: 11.5, minWidth: 'auto', px: 1 }}
+                          sx={{ textTransform: 'none', fontWeight: 700, fontSize: 12, minWidth: 'auto', px: 1 }}
                         >
                           Hủy chọn
                         </Button>
@@ -1407,7 +1407,7 @@ export default function StudentGroupsPage() {
                           border: pendingConfirm.type === 'transfer' ? '1px solid #93c5fd' : '1px solid #fca5a5',
                         }}
                       >
-                        <Typography variant="body2" sx={{ fontSize: 12.5, color: '#1e293b', lineHeight: 1.45 }}>
+                        <Typography variant="body2" sx={{ fontSize: 13, color: '#1e293b', lineHeight: 1.45 }}>
                           {pendingConfirm.type === 'transfer' ? (
                             <>
                               Đề nghị <strong>{pendingConfirm.member?.fullName}</strong>
@@ -1533,7 +1533,7 @@ export default function StudentGroupsPage() {
                                     >
                                       {m.fullName?.charAt(0) || 'U'}
                                     </Avatar>
-                                    <Typography variant="body2" sx={{ fontWeight: 700, fontSize: 12.5, color: '#131b2e' }}>
+                                    <Typography variant="body2" sx={{ fontWeight: 700, fontSize: 13, color: '#131b2e' }}>
                                       {m.fullName}
                                       {isSelf && (
                                         <Box component="span" sx={{ color: '#0058be', fontWeight: 600, ml: 0.5 }}>
@@ -1554,7 +1554,7 @@ export default function StudentGroupsPage() {
                                       size="small"
                                       sx={{
                                         height: 22,
-                                        fontSize: 10.5,
+                                        fontSize: 11,
                                         fontWeight: 800,
                                         bgcolor: '#fef3c7',
                                         color: '#b45309',
@@ -1567,7 +1567,7 @@ export default function StudentGroupsPage() {
                                       size="small"
                                       sx={{
                                         height: 22,
-                                        fontSize: 10.5,
+                                        fontSize: 11,
                                         fontWeight: 700,
                                         bgcolor: '#f1f5f9',
                                         color: '#475569',
@@ -1589,7 +1589,7 @@ export default function StudentGroupsPage() {
                                           }
                                           sx={{
                                             height: 22,
-                                            fontSize: 10.5,
+                                            fontSize: 11,
                                             fontWeight: 700,
                                             bgcolor: '#fff7ed',
                                             color: '#c2410c',

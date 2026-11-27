@@ -452,7 +452,7 @@ export default function SemesterClassManager({ onNext }) {
             <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 2, gap: 1 }}>
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
                 <CalendarIcon sx={{ color: '#0058be', fontSize: 20 }} />
-                <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 15 }}>
+                <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 16 }}>
                   Học kỳ ({visibleSemesters.length})
                 </Typography>
               </Box>
@@ -543,7 +543,7 @@ export default function SemesterClassManager({ onNext }) {
                         size="small"
                         sx={{
                           height: 18,
-                          fontSize: 9,
+                          fontSize: 11,
                           fontWeight: 800,
                           bgcolor: ended ? '#f1f5f9' : '#ecfdf5',
                           color: ended ? '#64748b' : '#059669',

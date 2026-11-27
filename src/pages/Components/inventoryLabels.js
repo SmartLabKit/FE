@@ -3,6 +3,7 @@ import {
   formatVietnamDateTime,
   getVietnamDateInputValue,
 } from '../../utils/dateFormatting'
+import { locationLabel } from '../../utils/locationLabel'
 
 export const ITEM_STATUSES = {
   Available: { label: 'Sẵn sàng', color: 'success' },
@@ -51,4 +52,4 @@ export const cabinetAccepts = (cabinet, trackingType) =>
   !trackingType || !cabinet.trackingType || cabinet.trackingType === trackingType
 
 export const cabinetLabel = (cabinet) =>
-  [cabinet.roomCode, cabinet.cabinetCode, cabinet.cabinetName].filter(Boolean).join(' · ')
+  [locationLabel(cabinet.roomCode, cabinet.cabinetCode), cabinet.cabinetName].filter(Boolean).join(' · ')

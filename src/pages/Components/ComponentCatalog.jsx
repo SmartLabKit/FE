@@ -319,7 +319,7 @@ export default function ComponentCatalog() {
                         </Box>
                       </TableCell>
                       <TableCell>
-                        <Typography sx={{ fontWeight: 700, fontSize: 13.5, color: '#1e293b' }}>{component.componentName}</Typography>
+                        <Typography sx={{ fontWeight: 700, fontSize: 14, color: '#1e293b' }}>{component.componentName}</Typography>
                         <Typography sx={{ fontSize: 12, color: '#64748b' }}>
                           {getDisplayCode(component)}
                         </Typography>
@@ -474,7 +474,7 @@ export default function ComponentCatalog() {
                         />
                         <Typography
                           sx={{
-                            fontSize: 12.5,
+                            fontSize: 13,
                             fontWeight: 500,
                             color: isAvailable ? '#475569' : '#94a3b8',
                           }}

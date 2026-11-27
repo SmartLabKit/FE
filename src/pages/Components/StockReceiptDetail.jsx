@@ -472,7 +472,7 @@ export default function StockReceiptDetail() {
               sx={{
                 textTransform: 'none',
                 fontWeight: 700,
-                fontSize: 15,
+                fontSize: 16,
                 color: '#0058be',
                 minWidth: 'auto',
                 p: 0.5,
@@ -488,7 +488,7 @@ export default function StockReceiptDetail() {
 
             {/* NHÀ CUNG CẤP */}
             <Box>
-              <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: '#64748b', letterSpacing: 0.6, mb: 0.75 }}>
+              <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#64748b', letterSpacing: 0.6, mb: 0.75 }}>
                 NHÀ CUNG CẤP
               </Typography>
               <TextField
@@ -511,7 +511,7 @@ export default function StockReceiptDetail() {
 
             {/* SỐ HÓA ĐƠN */}
             <Box>
-              <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: '#64748b', letterSpacing: 0.6, mb: 0.75 }}>
+              <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#64748b', letterSpacing: 0.6, mb: 0.75 }}>
                 SỐ HÓA ĐƠN
               </Typography>
               <TextField
@@ -534,7 +534,7 @@ export default function StockReceiptDetail() {
 
             {/* NGÀY THÁNG (Gồm Ngày nhận và Ngày xuất hóa đơn) */}
             <Box>
-              <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: '#64748b', letterSpacing: 0.6, mb: 0.75 }}>
+              <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#64748b', letterSpacing: 0.6, mb: 0.75 }}>
                 NGÀY THÁNG
               </Typography>
               <Box
@@ -646,7 +646,7 @@ export default function StockReceiptDetail() {
 
             {/* GHI CHÚ */}
             <Box>
-              <Typography sx={{ fontSize: 11.5, fontWeight: 700, color: '#64748b', letterSpacing: 0.6, mb: 0.75 }}>
+              <Typography sx={{ fontSize: 12, fontWeight: 700, color: '#64748b', letterSpacing: 0.6, mb: 0.75 }}>
                 GHI CHÚ
               </Typography>
               <TextField
@@ -669,7 +669,7 @@ export default function StockReceiptDetail() {
             </Box>
 
             {/* Chú thích quy định không sửa mặt hàng (Đúng theo hình thứ 2) */}
-            <Typography sx={{ color: '#94a3b8', fontSize: 12.5, lineHeight: 1.5 }}>
+            <Typography sx={{ color: '#94a3b8', fontSize: 13, lineHeight: 1.5 }}>
               Không sửa được mặt hàng. Hãy hủy phiếu và tạo phiếu mới.
             </Typography>
           </DialogContent>

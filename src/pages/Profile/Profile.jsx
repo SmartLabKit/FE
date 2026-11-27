@@ -220,7 +220,7 @@ export default function Profile() {
                   width: 64,
                   height: 64,
                   bgcolor: currentUser.avatarBg || '#0058be',
-                  fontSize: 22,
+                  fontSize: 24,
                   fontWeight: 800,
                   boxShadow: '0 4px 12px rgba(0, 88, 190, 0.2)',
                 }}
@@ -279,7 +279,7 @@ export default function Profile() {
                     size="small"
                     sx={{
                       height: 20,
-                      fontSize: 10,
+                      fontSize: 11,
                       fontWeight: 800,
                       bgcolor: '#0058be15',
                       color: '#0058be',
@@ -291,7 +291,7 @@ export default function Profile() {
                     icon={<SchoolIcon sx={{ '&&': { fontSize: 13, color: '#059669' } }} />}
                     label={`MSSV: ${currentUser.studentCode}`}
                     size="small"
-                    sx={{ height: 20, fontSize: 10, fontWeight: 700, bgcolor: '#ecfdf5', color: '#059669' }}
+                    sx={{ height: 20, fontSize: 11, fontWeight: 700, bgcolor: '#ecfdf5', color: '#059669' }}
                   />
                 )}
               </Box>
@@ -408,7 +408,7 @@ export default function Profile() {
                       size="small"
                       sx={{
                         fontFamily: 'monospace',
-                        fontSize: 10,
+                        fontSize: 11,
                         fontWeight: 700,
                         bgcolor: '#ffffff',
                         border: '1px solid #dcdfe6',

@@ -125,7 +125,7 @@ export default function BorrowRequestDetail() {
             {error && <Alert severity="error">{error}</Alert>}
             <Paper elevation={0} sx={{ p: { xs: 2.5, sm: 3.5 }, border: '1px solid #e4e6ef', borderRadius: 2 }}>
               <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
-                <Typography sx={{ fontWeight: 800, fontSize: 21 }}>{request.requestCode}</Typography>
+                <Typography sx={{ fontWeight: 800, fontSize: 20 }}>{request.requestCode}</Typography>
                 <Typography sx={{ fontWeight: 700, color: getBorrowRequestStatusMeta(request.status).sx?.color || COLORS.grey }}>
                   {getBorrowRequestStatusMeta(request.status).label}
                 </Typography>

@@ -527,7 +527,7 @@ export default function SupplementaryBorrowList() {
                                   <Chip
                                     label="Mượn thêm · Chờ GV duyệt"
                                     size="small"
-                                    sx={{ bgcolor: '#fef3c7', color: '#b45309', fontWeight: 800, fontSize: 10.5 }}
+                                    sx={{ bgcolor: '#fef3c7', color: '#b45309', fontWeight: 800, fontSize: 11 }}
                                   />
                                 )}
                               </Box>
@@ -736,7 +736,7 @@ export default function SupplementaryBorrowList() {
                             {b.requestCode || '—'}
                           </TableCell>
                           <TableCell>
-                            <Typography variant="body2" sx={{ fontWeight: 700, fontSize: 12.5, color: '#131b2e' }}>
+                            <Typography variant="body2" sx={{ fontWeight: 700, fontSize: 13, color: '#131b2e' }}>
                               {b.projectTitle || '—'}
                             </Typography>
                             <Typography variant="caption" title={labName(b)} sx={{ color: '#64748b', fontSize: 11 }}>

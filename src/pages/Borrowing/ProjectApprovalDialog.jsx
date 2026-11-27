@@ -215,7 +215,7 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
               <Chip
                 label="Mượn thêm · Chờ GV duyệt"
                 size="small"
-                sx={{ bgcolor: '#fef3c7', color: '#b45309', fontWeight: 800, fontSize: 11.5 }}
+                sx={{ bgcolor: '#fef3c7', color: '#b45309', fontWeight: 800, fontSize: 12 }}
               />
             )}
             <ProjectStatusChip status={currentStatus} size="medium" />
@@ -437,7 +437,7 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
                                 onClose()
                                 navigate(`/borrow/requests/${br.borrowRequestId}`)
                               }}
-                              sx={{ textTransform: 'none', fontWeight: 700, fontSize: 11.5, borderRadius: 1.25 }}
+                              sx={{ textTransform: 'none', fontWeight: 700, fontSize: 12, borderRadius: 1.25 }}
                             >
                               Chi tiết đơn
                             </Button>

@@ -4,6 +4,7 @@ import {
   Box,
   Button,
   ButtonBase,
+  IconButton,
   Checkbox,
   CircularProgress,
   Dialog,
@@ -26,6 +27,7 @@ import {
   Typography,
 } from '@mui/material'
 import CheckCircleRoundedIcon from '@mui/icons-material/CheckCircleRounded'
+import CloseIcon from '@mui/icons-material/Close'
 import RadioButtonUncheckedRoundedIcon from '@mui/icons-material/RadioButtonUncheckedRounded'
 import { alpha } from '@mui/material/styles'
 import { extractErrorMessage } from '../../services/api'
@@ -170,6 +172,7 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
   const [selectedByLine, setSelectedByLine] = useState({})
   const [selectedLineId, setSelectedLineId] = useState('')
   const [itemSearch, setItemSearch] = useState('')
+  const [moreShown, setMoreShown] = useState(0)
   const [loadingData, setLoadingData] = useState(true)
   const [uploading, setUploading] = useState(false)
   const [error, setError] = useState('')
@@ -202,6 +205,7 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
       setSelectedByLine({})
       setSelectedLineId(items.find((line) => !isConsumable(line))?.borrowItemId || '')
       setItemSearch('')
+      setMoreShown(0)
       setPhoto(null)
       setPhotoPreviewUrl('')
       setOverrideReason('')
@@ -298,6 +302,7 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
     if (isConsumable(line)) return
     setSelectedLineId(line.borrowItemId)
     setItemSearch('')
+      setMoreShown(0)
     setError('')
     loadLineItems(line)
   }
@@ -314,6 +319,7 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
     if (nextLine) {
       setSelectedLineId(nextLine.borrowItemId)
       setItemSearch('')
+      setMoreShown(0)
       loadLineItems(nextLine)
     }
   }
@@ -346,6 +352,30 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
     }
   }
 
+  // Ảnh giao chỉ gỡ được khi đơn chưa giao (Ready); giao món thay thế thì giữ ảnh làm bằng chứng
+  const canRemovePhoto = request?.status === 'Ready'
+
+  const removePhoto = async () => {
+    if (!photo?.photoId) return
+    setError('')
+    try {
+      await borrowService.deleteHandoverPhoto(request.borrowRequestId, photo.photoId)
+      setPhoto(null)
+      setPhotoPreviewUrl('')
+      setOverrideReason('')
+    } catch (removeError) {
+      setError(extractErrorMessage(removeError, 'Không gỡ được ảnh.'))
+    }
+  }
+
+  // Hủy giữa chừng: ảnh vừa tải chưa dùng để giao thì gỡ luôn
+  const closeAndDropPhoto = () => {
+    if (photo?.photoId && canRemovePhoto) {
+      borrowService.deleteHandoverPhoto(request.borrowRequestId, photo.photoId).catch(() => {})
+    }
+    onClose()
+  }
+
   const handlePhotoSelected = async (event) => {
     const file = event.target.files?.[0]
     event.target.value = ''
@@ -361,6 +391,10 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
 
     setUploading(true)
     setError('')
+    // Chụp lại: gỡ ảnh cũ chưa dùng để đơn không giữ ảnh thừa
+    if (photo?.photoId && canRemovePhoto) {
+      borrowService.deleteHandoverPhoto(request.borrowRequestId, photo.photoId).catch(() => {})
+    }
     setPhoto(null)
     setPhotoPreviewUrl('')
     setOverrideReason('')
@@ -431,11 +465,23 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
     normalize(item.itemCode).includes(searchTerm) ||
     normalize(item.serialNumber).includes(searchTerm),
   )
+  // Chỉ hiện vừa đủ mã con (số cần giao + vài mã dự phòng), mã đã chọn luôn ở đầu; muốn xem thêm thì bấm "Hiện thêm".
+  // Đang lọc theo mã thì hiện hết kết quả lọc.
+  const UNIT_PAGE = 10
+  const activeSelectedIds = new Set(activeSelected.map((item) => item.itemId))
+  const orderedAvailable = [
+    ...filteredAvailable.filter((item) => activeSelectedIds.has(item.itemId)),
+    ...filteredAvailable.filter((item) => !activeSelectedIds.has(item.itemId)),
+  ]
+  const baseShown = Math.max(Number(activeLine?.quantity || 0) + 4, 6)
+  const shownLimit = searchTerm ? orderedAvailable.length : baseShown + moreShown
+  const shownAvailable = orderedAvailable.slice(0, shownLimit)
+  const hiddenCount = orderedAvailable.length - shownAvailable.length
 
   return (
     <Dialog
       open={open}
-      onClose={() => { if (!submitting && !uploading) onClose() }}
+      onClose={() => { if (!submitting && !uploading) closeAndDropPhoto() }}
       fullWidth
       maxWidth="lg"
     >
@@ -499,19 +545,33 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
                   </Box>
                 )}
                 {photoPreviewUrl && photo?.photoId && (
-                  <Box
-                    component="img"
-                    src={photoPreviewUrl}
-                    alt="Ảnh bàn giao đã tải lên"
-                    sx={{
-                      display: 'block',
-                      width: '100%',
-                      maxHeight: 240,
-                      objectFit: 'contain',
-                      borderRadius: 1,
-                      bgcolor: (theme) => alpha(theme.palette.common.black, 0.04),
-                    }}
-                  />
+                  <Box sx={{ position: 'relative' }}>
+                    <Box
+                      component="img"
+                      src={photoPreviewUrl}
+                      alt="Ảnh bàn giao đã tải lên"
+                      sx={{
+                        display: 'block',
+                        width: '100%',
+                        maxHeight: 240,
+                        objectFit: 'contain',
+                        borderRadius: 1,
+                        bgcolor: (theme) => alpha(theme.palette.common.black, 0.04),
+                      }}
+                    />
+                    {canRemovePhoto && (
+                      <IconButton
+                        size="small"
+                        aria-label="Gỡ ảnh"
+                        title="Gỡ ảnh"
+                        onClick={removePhoto}
+                        disabled={submitting || uploading}
+                        sx={{ position: 'absolute', top: 6, right: 6, bgcolor: 'rgba(15,23,42,0.6)', color: '#fff', '&:hover': { bgcolor: 'rgba(15,23,42,0.8)' } }}
+                      >
+                        <CloseIcon fontSize="small" />
+                      </IconButton>
+                    )}
+                  </Box>
                 )}
               </Stack>
             </Paper>
@@ -714,7 +774,7 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
                                 </TableRow>
                               </TableHead>
                               <TableBody>
-                                {filteredAvailable.map((inventoryItem) => {
+                                {shownAvailable.map((inventoryItem) => {
                                   const selected = selectedByLine[activeLine.borrowItemId] || []
                                   const checked = selected.some((item) => item.itemId === inventoryItem.itemId)
                                   const assignedElsewhere = selectedIdSet.has(inventoryItem.itemId) && !checked
@@ -770,6 +830,13 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
                                 )}
                               </TableBody>
                             </Table>
+                            {hiddenCount > 0 && (
+                              <Box sx={{ textAlign: 'center', py: 1 }}>
+                                <Button size="small" onClick={() => setMoreShown((value) => value + UNIT_PAGE)}>
+                                  Hiện thêm {Math.min(UNIT_PAGE, hiddenCount)} mã (còn {hiddenCount} mã khả dụng)
+                                </Button>
+                              </Box>
+                            )}
                           </TableContainer>
                         )}
                       </>
@@ -782,7 +849,7 @@ export default function IssueBorrowModal({ request, open, submitting, onClose, o
         )}
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose} disabled={submitting || uploading}>Hủy</Button>
+        <Button onClick={closeAndDropPhoto} disabled={submitting || uploading}>Hủy</Button>
         {step === 1 && (
           <Button onClick={() => { setError(''); setStep(0) }} disabled={submitting || uploading}>
             Quay lại

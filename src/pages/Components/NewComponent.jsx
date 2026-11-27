@@ -30,7 +30,6 @@ import {
   UploadFile as UploadFileIcon,
 } from '@mui/icons-material'
 import PortalLayout from '../../components/layout/PortalLayout'
-import { suggestLabForCategory } from '../../utils/labSuggestion'
 import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
 import {
@@ -63,10 +62,6 @@ export default function NewComponent() {
   const [form, setForm] = useState(blankForm)
   const [manualShortCode, setManualShortCode] = useState(false)
   const [categories, setCategories] = useState([])
-  const [labRooms, setLabRooms] = useState([])
-  const [roomIds, setRoomIds] = useState([])
-  const [roomCodes, setRoomCodes] = useState([])
-  const [catalog, setCatalog] = useState([])
   const [imageFiles, setImageFiles] = useState([])
   const [savedImages, setSavedImages] = useState([])
   const [datasheetFile, setDatasheetFile] = useState(null)
@@ -83,24 +78,13 @@ export default function NewComponent() {
   const [tab, setTab] = useState(0)
   const [error, setError] = useState('')
   const [saving, setSaving] = useState(false)
-  // Gợi ý lab: lab đang giữ nhiều linh kiện cùng danh mục nhất
-  const suggestion = form.categoryId ? suggestLabForCategory(catalog, form.categoryId) : null
-  const suggestedRoom = suggestion ? labRooms.find((room) => room.roomCode === suggestion.roomCode) : null
 
   useEffect(() => {
     let active = true
     const load = async () => {
       try {
-        const [categoryList, roomList, componentList] = await Promise.all([
-          inventoryService.getCategories(),
-          inventoryService.getLabRooms().catch(() => []),
-          componentId ? Promise.resolve([]) : inventoryService.getComponents().catch(() => []),
-        ])
-        if (active) {
-          setCategories(categoryList)
-          setLabRooms(roomList.filter((room) => room.status === 'Active'))
-          setCatalog(componentList)
-        }
+        const categoryList = await inventoryService.getCategories()
+        if (active) setCategories(categoryList)
         if (componentId) {
           const component = await inventoryService
             .getComponentById(componentId)
@@ -111,7 +95,6 @@ export default function NewComponent() {
             const existingShortCode = getComponentShortCode(component)
 
             setManualShortCode(true)
-            setRoomCodes(component.roomCodes || [])
             setForm({
               componentName: component.componentName || component.ComponentName || '',
               shortCode: existingShortCode,
@@ -351,7 +334,6 @@ export default function NewComponent() {
       }
       if (!componentId) {
         payload.trackingType = form.trackingType
-        payload.roomIds = roomIds
       }
 
       const saved = componentId
@@ -428,7 +410,7 @@ export default function NewComponent() {
               }}
             >
               <Box>
-                <Typography sx={{ color: '#182238', fontWeight: 800, fontSize: 18 }}>
+                <Typography sx={{ color: '#182238', fontWeight: 800, fontSize: 20 }}>
                   {componentId ? 'Cập nhật linh kiện' : 'Thông tin linh kiện'}
                 </Typography>
                 <Typography sx={{ color: '#697386', fontSize: 13 }}>
@@ -566,53 +548,6 @@ export default function NewComponent() {
                     helperText="Tồn kho dưới mức này sẽ báo Sắp hết. Nhập 0 nếu không cần giữ sẵn."
                   />
                 </Grid>
-                <Grid size={{ xs: 12 }}>
-                  {componentId ? (
-                    <Box>
-                      <Typography variant="body2" sx={{ fontWeight: 600, mb: 0.5 }}>Thuộc lab</Typography>
-                      <Stack direction="row" spacing={1} useFlexGap flexWrap="wrap" alignItems="center">
-                        {roomCodes.length > 0
-                          ? roomCodes.map((code) => <Chip key={code} size="small" label={code} />)
-                          : <Chip size="small" color="warning" variant="outlined" label="Chưa thuộc lab nào, chưa nhập kho được" />}
-                        <Typography variant="caption" color="text.secondary">Đổi ở trang Phòng lab → Linh kiện</Typography>
-                      </Stack>
-                    </Box>
-                  ) : (
-                    <TextField
-                      fullWidth
-                      select
-                      label="Thuộc lab"
-                      value={roomIds}
-                      onChange={(event) => setRoomIds(event.target.value)}
-                      slotProps={{
-                        select: {
-                          multiple: true,
-                          renderValue: (selected) =>
-                            labRooms.filter((room) => selected.includes(room.roomId)).map((room) => room.roomCode).join(', '),
-                        },
-                      }}
-                      helperText={
-                        roomIds.length === 0
-                          ? 'Chưa chọn lab thì linh kiện chưa nhập kho được. Linh kiện dùng chung (dây, điện trở) chọn nhiều lab.'
-                          : 'Chỉ các lab này nhập kho được linh kiện. Linh kiện dùng chung (dây, điện trở) chọn nhiều lab.'
-                      }
-                    >
-                      {labRooms.map((room) => (
-                        <MenuItem key={room.roomId} value={room.roomId}>{room.roomCode} · {room.roomName}</MenuItem>
-                      ))}
-                    </TextField>
-                  )}
-                  {!componentId && suggestedRoom && !roomIds.includes(suggestedRoom.roomId) && (
-                    <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 0.75 }}>
-                      <Typography variant="caption" sx={{ color: '#0058be' }}>
-                        Gợi ý: {suggestedRoom.roomCode} ({suggestion.count} linh kiện cùng danh mục đang ở lab này)
-                      </Typography>
-                      <Button size="small" onClick={() => setRoomIds((current) => [...current, suggestedRoom.roomId])} sx={{ textTransform: 'none', minWidth: 0, p: 0.25 }}>
-                        Chọn
-                      </Button>
-                    </Stack>
-                  )}
-                </Grid>
                 <Grid size={{ xs: 12, md: 6 }}>
                   <TextField
                     fullWidth
@@ -689,7 +624,7 @@ export default function NewComponent() {
                   {/* Cột 1: Ảnh linh kiện */}
                   <Grid size={{ xs: 12, md: 6 }}>
                     <Box sx={{ p: 2.5, bgcolor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 2, height: '100%' }}>
-                      <Typography sx={{ mb: 1, fontWeight: 700, color: '#182238', fontSize: 15 }}>Ảnh linh kiện</Typography>
+                      <Typography sx={{ mb: 1, fontWeight: 700, color: '#182238', fontSize: 16 }}>Ảnh linh kiện</Typography>
                       <Typography sx={{ mb: 2, color: '#64748b', fontSize: 12 }}>
                         Ảnh minh họa thực tế của linh kiện hiển thị trên Catalog cho sinh viên và thủ kho nhận diện.
                       </Typography>
@@ -757,7 +692,7 @@ export default function NewComponent() {
                   {/* Cột 2: Datasheet */}
                   <Grid size={{ xs: 12, md: 6 }}>
                     <Box sx={{ p: 2.5, bgcolor: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: 2, height: '100%' }}>
-                      <Typography sx={{ mb: 1, fontWeight: 700, color: '#182238', fontSize: 15 }}>
+                      <Typography sx={{ mb: 1, fontWeight: 700, color: '#182238', fontSize: 16 }}>
                         Tài liệu Datasheet (Thông số NSX)
                       </Typography>
                       <Typography sx={{ mb: 2, color: '#64748b', fontSize: 12 }}>

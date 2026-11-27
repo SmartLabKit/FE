@@ -343,7 +343,7 @@ export default function CourseManager() {
                         size="small"
                         sx={{
                           height: 20,
-                          fontSize: 10,
+                          fontSize: 11,
                           fontWeight: 800,
                           bgcolor: c.isActive ? '#ecfdf5' : '#f1f5f9',
                           color: c.isActive ? '#059669' : '#64748b',

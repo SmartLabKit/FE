@@ -595,7 +595,7 @@ export default function GroupInviteManager() {
             <Badge badgeContent={myInvitations.length} color="warning">
               <MailIcon sx={{ color: '#d97706' }} />
             </Badge>
-            <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#92400e', fontSize: 15 }}>
+            <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#92400e', fontSize: 16 }}>
               Lời mời tham gia nhóm đang chờ bạn phản hồi
             </Typography>
           </Box>
@@ -626,7 +626,7 @@ export default function GroupInviteManager() {
                     <Chip
                       label={`Lớp: ${inv.classCode}`}
                       size="small"
-                      sx={{ height: 20, fontSize: 10, fontWeight: 700, bgcolor: '#eaedff', color: '#0058be' }}
+                      sx={{ height: 20, fontSize: 11, fontWeight: 700, bgcolor: '#eaedff', color: '#0058be' }}
                     />
                   </Box>
                   <Typography variant="caption" sx={{ color: '#6b7280' }}>
@@ -696,7 +696,7 @@ export default function GroupInviteManager() {
 
           {/* Phân loại theo kỳ học */}
           <Box sx={{ minWidth: 190 }}>
-            <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 10, mb: 0.5 }}>
+            <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 11, mb: 0.5 }}>
               Học kỳ:
             </Typography>
             <Select
@@ -716,7 +716,7 @@ export default function GroupInviteManager() {
 
           {/* Chọn lớp môn học */}
           <Box sx={{ flex: 1, minWidth: 260 }}>
-            <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 10, mb: 0.5 }}>
+            <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 11, mb: 0.5 }}>
               Môn học:
             </Typography>
             {loadingClasses ? (
@@ -753,7 +753,7 @@ export default function GroupInviteManager() {
               sx={{ bgcolor: '#eff6ff', color: '#1d4ed8', fontWeight: 700, fontSize: 11 }}
             />
             <Box>
-              <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 10 }}>
+              <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 11 }}>
                 GIẢNG VIÊN
               </Typography>
               <Typography variant="body2" sx={{ fontWeight: 700, color: '#131b2e' }}>
@@ -761,7 +761,7 @@ export default function GroupInviteManager() {
               </Typography>
             </Box>
             <Box>
-              <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 10 }}>
+              <Typography variant="caption" sx={{ color: '#6b7280', fontWeight: 700, display: 'block', fontSize: 11 }}>
                 SĨ SỐ LỚP
               </Typography>
               <Typography variant="body2" sx={{ fontWeight: 700, color: '#0058be' }}>
@@ -859,7 +859,7 @@ export default function GroupInviteManager() {
               {/* Header nhóm */}
               <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', gap: 1.5, mb: 2 }}>
                 <Box>
-                  <Typography variant="h6" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 17 }}>
+                  <Typography variant="h6" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 16 }}>
                     {currentTeam.teamName}
                   </Typography>
                   
@@ -943,13 +943,13 @@ export default function GroupInviteManager() {
                               icon={<StarIcon sx={{ fontSize: '12px !important' }} />}
                               label="Trưởng nhóm"
                               size="small"
-                              sx={{ height: 20, fontSize: 10, fontWeight: 800, bgcolor: '#fef3c7', color: '#b45309' }}
+                              sx={{ height: 20, fontSize: 11, fontWeight: 800, bgcolor: '#fef3c7', color: '#b45309' }}
                             />
                           ) : (
                             <Chip
                               label="Thành viên"
                               size="small"
-                              sx={{ height: 20, fontSize: 10, fontWeight: 700, bgcolor: '#f1f5f9', color: '#475569' }}
+                              sx={{ height: 20, fontSize: 11, fontWeight: 700, bgcolor: '#f1f5f9', color: '#475569' }}
                             />
                           )}
                         </TableCell>
@@ -959,7 +959,7 @@ export default function GroupInviteManager() {
                             size="small"
                             sx={{
                               height: 20,
-                              fontSize: 10,
+                              fontSize: 11,
                               fontWeight: 700,
                               bgcolor: m.status === 'Accepted' ? '#dcfce7' : '#fff7ed',
                               color: m.status === 'Accepted' ? '#15803d' : '#c2410c',
@@ -977,7 +977,7 @@ export default function GroupInviteManager() {
                                 disabled={cancellingId === m.studentProfileId}
                                 sx={{
                                   textTransform: 'none',
-                                  fontSize: 10,
+                                  fontSize: 11,
                                   fontWeight: 700,
                                   height: 24,
                                   minWidth: 64,
@@ -998,7 +998,7 @@ export default function GroupInviteManager() {
                                   disabled={transferringId === m.studentProfileId || cancellingId === m.studentProfileId}
                                   sx={{
                                     textTransform: 'none',
-                                    fontSize: 10.5,
+                                    fontSize: 11,
                                     fontWeight: 700,
                                     height: 24,
                                     px: 0.75,
@@ -1015,7 +1015,7 @@ export default function GroupInviteManager() {
                                   disabled={cancellingId === m.studentProfileId || transferringId === m.studentProfileId}
                                   sx={{
                                     textTransform: 'none',
-                                    fontSize: 10.5,
+                                    fontSize: 11,
                                     fontWeight: 700,
                                     height: 24,
                                     px: 0.75,
@@ -1035,7 +1035,7 @@ export default function GroupInviteManager() {
                                 onClick={() => setConfirmAction({ type: 'leave' })}
                                 sx={{
                                   textTransform: 'none',
-                                  fontSize: 10.5,
+                                  fontSize: 11,
                                   fontWeight: 700,
                                   height: 24,
                                   px: 0.75,
@@ -1196,7 +1196,7 @@ export default function GroupInviteManager() {
               : 'Xác nhận rời nhóm'}
         </DialogTitle>
         <DialogContent>
-          <DialogContentText sx={{ fontSize: 13.5, color: '#334155' }}>
+          <DialogContentText sx={{ fontSize: 14, color: '#334155' }}>
             {confirmAction?.type === 'transfer' ? (
               <>
                 Bạn có chắc chắn muốn chuyển quyền <strong>Trưởng nhóm</strong> cho sinh viên{' '}

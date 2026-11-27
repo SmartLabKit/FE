@@ -26,6 +26,7 @@ import IssueFindStep from './IssueFindStep'
 import IssueItemsStep from './IssueItemsStep'
 import IssuePhotoStep from './IssuePhotoStep'
 import { issueCreatedMessage, issueTypeLabel } from './issueReportLabels'
+import { locationLabel } from '../../utils/locationLabel'
 
 const MAX_DESCRIPTION = 1000
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024
@@ -48,7 +49,7 @@ function UnitCard({ unit }) {
         <Box>
           <Typography sx={{ fontWeight: 800 }}>{item.componentName}</Typography>
           <Typography variant="body2" color="text.secondary">
-            {[item.itemCode, item.serialNumber && `Serial ${item.serialNumber}`, item.roomCode, item.cabinetCode]
+            {[item.itemCode, item.serialNumber && `Serial ${item.serialNumber}`, locationLabel(item.roomCode, item.cabinetCode)]
               .filter(Boolean)
               .join(' · ')}
           </Typography>

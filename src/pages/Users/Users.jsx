@@ -839,7 +839,7 @@ export default function Users() {
           fullWidth
           PaperProps={{ sx: { borderRadius: 2.5 } }}
         >
-          <DialogTitle sx={{ fontWeight: 800, fontSize: 17, color: '#131b2e', pb: 1 }}>
+          <DialogTitle sx={{ fontWeight: 800, fontSize: 16, color: '#131b2e', pb: 1 }}>
             Tạo tài khoản người dùng mới
           </DialogTitle>
           <Divider />
@@ -993,7 +993,7 @@ export default function Users() {
           fullWidth
           PaperProps={{ sx: { borderRadius: 2.5 } }}
         >
-          <DialogTitle sx={{ fontWeight: 800, fontSize: 17, color: '#131b2e', pb: 1 }}>
+          <DialogTitle sx={{ fontWeight: 800, fontSize: 16, color: '#131b2e', pb: 1 }}>
             Phân vai trò người dùng
           </DialogTitle>
           <Divider />
@@ -1092,7 +1092,7 @@ export default function Users() {
                           size="small"
                           sx={{
                             height: 20,
-                            fontSize: 10,
+                            fontSize: 11,
                             fontWeight: 800,
                             bgcolor: `${role.color}18`,
                             color: role.color,
@@ -1140,7 +1140,7 @@ export default function Users() {
           fullWidth
           PaperProps={{ sx: { borderRadius: 2.5 } }}
         >
-          <DialogTitle sx={{ fontWeight: 800, fontSize: 17, color: '#131b2e', pb: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <DialogTitle sx={{ fontWeight: 800, fontSize: 16, color: '#131b2e', pb: 1, display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
             <Box>
               <Typography variant="h6" sx={{ fontWeight: 800, color: '#131b2e' }}>
                 Cập nhật thông tin người dùng
@@ -1372,7 +1372,7 @@ export default function Users() {
         </Snackbar>
       </Container>
       <Dialog open={Boolean(resetConfirmUser)} onClose={() => setResetConfirmUser(null)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 800, fontSize: 17 }}>Reset mật khẩu?</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 800, fontSize: 16 }}>Reset mật khẩu?</DialogTitle>
         <DialogContent>
           <Typography sx={{ fontSize: 14, color: '#3d4556', lineHeight: 1.6 }}>
             Mật khẩu hiện tại của <strong>{resetConfirmUser?.fullName || resetConfirmUser?.username}</strong> sẽ
@@ -1393,7 +1393,7 @@ export default function Users() {
         </DialogActions>
       </Dialog>
       <Dialog open={Boolean(activateTarget)} onClose={() => setActivateTarget(null)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 800, fontSize: 17 }}>Kích hoạt thủ công</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 800, fontSize: 16 }}>Kích hoạt thủ công</DialogTitle>
         <DialogContent>
           <Typography sx={{ fontSize: 14, color: '#3d4556', lineHeight: 1.6, mb: 2 }}>
             Kích hoạt <strong>{activateTarget?.fullName || activateTarget?.username}</strong> không cần email.

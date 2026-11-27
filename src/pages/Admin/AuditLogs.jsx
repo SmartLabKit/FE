@@ -318,7 +318,7 @@ export default function AuditLogs() {
                       <TableRow key={log.auditLogId} hover onClick={() => setSelected(log)} sx={{ cursor: 'pointer', '&:nth-of-type(even)': { bgcolor: '#f7f9fc' } }}>
                         <TableCell sx={{ whiteSpace: 'nowrap' }}>{formatDay(log.createdAt)}</TableCell>
                         <TableCell sx={{ whiteSpace: 'nowrap', color: '#697386' }}>{formatTime(log.createdAt)}</TableCell>
-                        <TableCell sx={{ fontFamily: 'Consolas, monospace', fontSize: 12.5 }}>{log.ipAddress || '—'}</TableCell>
+                        <TableCell sx={{ fontFamily: 'Consolas, monospace', fontSize: 13 }}>{log.ipAddress || '—'}</TableCell>
                         <TableCell>
                           {log.fullName || log.username || <Box component="span" sx={{ color: 'text.secondary' }}>Không xác định</Box>}
                           {log.username && log.fullName && <Box component="span" sx={{ display: 'block', color: '#697386', fontSize: 12 }}>{log.username}</Box>}
@@ -379,7 +379,7 @@ export default function AuditLogs() {
               </DetailRow>
               <DetailRow label="Nhóm">{SECTION_LABELS[selected.entityName] || selected.entityName}</DetailRow>
               <DetailRow label="Mã đối tượng">
-                <Box component="span" sx={{ fontFamily: 'Consolas, monospace', fontSize: 12.5 }}>{selected.entityId || '—'}</Box>
+                <Box component="span" sx={{ fontFamily: 'Consolas, monospace', fontSize: 13 }}>{selected.entityId || '—'}</Box>
               </DetailRow>
               <DetailRow label="Địa chỉ IP">{selected.ipAddress || '—'}</DetailRow>
               <DetailRow label="Trình duyệt">

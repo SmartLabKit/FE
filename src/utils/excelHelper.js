@@ -94,7 +94,6 @@ export function downloadComponentsTemplate(categories = [], existingComponents =
     'Đơn vị (*)',
     'Loại quản lý (*)',
     'Tồn tối thiểu (*)',
-    'Thuộc lab (*)',
     'Hãng sản xuất',
     'Mô tả',
     'Thông số kỹ thuật',
@@ -137,12 +136,6 @@ export function downloadComponentsTemplate(categories = [], existingComponents =
       'Bắt buộc': 'Có',
       'Ghi chú / Quy định':
         'Số nguyên >= 0. Tồn kho dưới mức này sẽ báo "Sắp hết", nhập 0 nếu không cần giữ sẵn. Đơn giá không khai báo ở đây: giá lấy theo phiếu nhập kho.',
-    },
-    {
-      'Cột dữ liệu': 'Thuộc lab (*)',
-      'Bắt buộc': 'Có',
-      'Ghi chú / Quy định':
-        'Mã lab nhận linh kiện này, nhiều lab thì cách nhau dấu phẩy. VD: LAB-01 hoặc LAB-01, LAB-03. Linh kiện chưa thuộc lab nào thì chưa nhập kho được.',
     },
     {
       'Cột dữ liệu': 'Thông số kỹ thuật',
@@ -199,11 +192,10 @@ export function downloadComponentsTemplate(categories = [], existingComponents =
         'Danh mục': c.categoryName || '',
         'Đơn vị': c.unit || '',
         'Loại quản lý': trackingTypeLabel(c.trackingType),
-        'Thuộc lab': (c.roomCodes || []).join(', '),
         'Giá nhập gần nhất (VNĐ)': c.latestUnitPrice ?? '',
       }))
     )
-    wsExisting['!cols'] = [{ wch: 20 }, { wch: 38 }, { wch: 22 }, { wch: 12 }, { wch: 16 }, { wch: 20 }]
+    wsExisting['!cols'] = [{ wch: 20 }, { wch: 38 }, { wch: 22 }, { wch: 12 }, { wch: 16 }]
     XLSX.utils.book_append_sheet(wb, wsExisting, 'LinhKienHienCo')
   }
 
@@ -241,10 +233,6 @@ export async function parseComponentsExcel(file) {
 
       const minStockRaw = pickCell(row, ['Tồn tối thiểu', 'minStock', 'ton toi thieu'])
       const minStock = parseNumberStrict(minStockRaw, '')
-      const labCodes = String(pickCell(row, ['Thuộc lab', 'roomCodes', 'thuoc lab', 'lab']))
-        .split(/[,;]/)
-        .map((code) => code.trim().toUpperCase())
-        .filter(Boolean)
       const manufacturer = String(pickCell(row, ['Hãng sản xuất', 'manufacturer', 'hang san xuat'])).trim()
       const description = String(pickCell(row, ['Mô tả', 'description', 'mo ta'])).trim()
       const specifications = String(pickCell(row, ['Thông số kỹ thuật', 'specifications', 'thong so'])).trim()
@@ -261,7 +249,6 @@ export async function parseComponentsExcel(file) {
         trackingType,
         rawTracking: rawTracking.trim(),
         minStock: minStock === '' ? '' : String(minStock),
-        labCodes,
         manufacturer,
         description,
         specifications,

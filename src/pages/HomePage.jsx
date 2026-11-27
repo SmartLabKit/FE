@@ -45,7 +45,7 @@ export default function HomePage() {
   }
 
   return (
-    <div className="bg-white text-[#131b2e] min-h-screen" style={{ fontFamily: 'Geist, sans-serif' }}>
+    <div className="bg-white text-[#131b2e] min-h-screen">
 
       {/* Navigation */}
       <nav className="bg-white border-b border-[#e4e6ef] flex h-[72px] items-center justify-between px-16 sticky top-0 z-50">

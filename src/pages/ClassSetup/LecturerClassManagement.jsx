@@ -743,7 +743,7 @@ export default function LecturerClassManagement() {
                                         {(student.isTeamLeader || student.isLeader) && (
                                           <LeaderIcon
                                             titleAccess="Trưởng nhóm"
-                                            sx={{ fontSize: 17, color: 'warning.main' }}
+                                            sx={{ fontSize: 16, color: 'warning.main' }}
                                           />
                                         )}
                                       </Stack>

@@ -5,7 +5,7 @@ import {
   MenuItem, Tab, Tabs, Table, TableBody, TableCell, TableContainer, TableHead,
   TableRow, TextField, Typography,
 } from '@mui/material'
-import { Add as AddIcon, Delete as DeleteIcon, Inventory2 as ComponentsIcon, PersonAdd as StaffAddIcon } from '@mui/icons-material'
+import { Add as AddIcon, Delete as DeleteIcon, PersonAdd as StaffAddIcon } from '@mui/icons-material'
 import { useLocation, useNavigate } from 'react-router-dom'
 import PortalLayout from '../../components/layout/PortalLayout'
 import InventoryAudits from './InventoryAudits'
@@ -16,7 +16,6 @@ import { userService } from '../../services/userService'
 import { extractErrorMessage } from '../../services/api'
 import { useAuth } from '../../context/AuthContext'
 import { labCode, labLabel, labName } from '../../utils/labLabel'
-import LabComponentsDialog from './LabComponentsDialog'
 
 const CABINET_TYPES = [
   ['CONSUMABLE', 'Tiêu hao (vật tư đếm số lượng)'],
@@ -37,7 +36,7 @@ const fields = {
     singular: 'phòng lab',
     name: 'roomName',
     id: 'roomId',
-    columns: ['Mã phòng', 'Tên phòng', 'Trạng thái', 'Số tủ', 'Linh kiện'],
+    columns: ['Mã phòng', 'Tên phòng', 'Trạng thái', 'Số tủ'],
   },
   cabinets: {
     title: 'Tủ lưu trữ',
@@ -189,7 +188,6 @@ export default function InventorySetup() {
 
   // State Modal Phân công Staff cho phòng lab (POST /api/lab-rooms/{id}/staff)
   const [assignStaffOpen, setAssignStaffOpen] = useState(false)
-  const [componentsRoom, setComponentsRoom] = useState(null)
   const [selectedRoomForStaff, setSelectedRoomForStaff] = useState(null)
   const [confirmRequest, setConfirmRequest] = useState(null)
   const [staffList, setStaffList] = useState([])
@@ -587,7 +585,6 @@ export default function InventorySetup() {
                           />
                         </TableCell>
                         <TableCell>{row.cabinetCount ?? row.activeCabinetCount ?? row.cabinetsCount ?? 0}</TableCell>
-                        <TableCell>{row.componentCount ?? 0}</TableCell>
                       </>
                     )}
                     {kind === 'cabinets' && (
@@ -620,16 +617,6 @@ export default function InventorySetup() {
                             sx={{ textTransform: 'none', mr: 0.5, fontWeight: 600 }}
                           >
                             Chi tiết
-                          </Button>
-                        )}
-                        {kind === 'rooms' && (
-                          <Button
-                            size="small"
-                            startIcon={<ComponentsIcon fontSize="small" />}
-                            onClick={() => setComponentsRoom({ roomId: id, roomCode: row.roomCode || row.labRoomCode || '', roomName: getName(row, kind) })}
-                            sx={{ textTransform: 'none', mr: 0.5, fontWeight: 600 }}
-                          >
-                            Linh kiện
                           </Button>
                         )}
                         {kind === 'rooms' && canManageStaff && (
@@ -761,19 +748,6 @@ export default function InventorySetup() {
           </Box>
         </Dialog>
 
-        {componentsRoom && (
-          <LabComponentsDialog
-            room={componentsRoom}
-            canEdit={canManageStorage}
-            onClose={() => setComponentsRoom(null)}
-            onSaved={(message) => {
-              setComponentsRoom(null)
-              setNotice(message)
-              load()
-            }}
-          />
-        )}
-
         {/* Modal Phân công Staff cho phòng lab (POST /api/lab-rooms/{id}/staff & GET/DELETE) */}
         <Dialog open={assignStaffOpen} onClose={() => !assigningStaff && setAssignStaffOpen(false)} fullWidth maxWidth="sm">
           <Box component="form" onSubmit={handleAssignStaffSubmit}>
@@ -878,7 +852,7 @@ export default function InventorySetup() {
             sx: { borderRadius: 2, p: 0.5 },
           }}
         >
-          <DialogTitle sx={{ fontWeight: 800, color: '#182238', pb: 1, fontSize: 18 }}>
+          <DialogTitle sx={{ fontWeight: 800, color: '#182238', pb: 1, fontSize: 20 }}>
             Xác nhận xóa danh mục
           </DialogTitle>
           <DialogContent sx={{ pt: '4px !important', pb: 2 }}>

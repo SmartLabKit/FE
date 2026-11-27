@@ -50,7 +50,7 @@ export function StatTile({ label, value, icon, color = '#0865ce', valueColor = '
       {icon && <Box sx={{ color, display: 'flex' }}>{icon}</Box>}
       <Box sx={{ minWidth: 0 }}>
         <Typography sx={{ color: 'text.secondary', fontSize: 12 }}>{label}</Typography>
-        <Typography sx={{ fontWeight: 800, fontSize: 21, color: valueColor }}>{value}</Typography>
+        <Typography sx={{ fontWeight: 800, fontSize: 20, color: valueColor }}>{value}</Typography>
         {hint && <Typography sx={{ color: '#697386', fontSize: 11 }}>{hint}</Typography>}
       </Box>
     </CardContent>

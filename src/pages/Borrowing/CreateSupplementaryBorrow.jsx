@@ -163,7 +163,7 @@ export default function CreateSupplementaryBorrow() {
     }
   }, [selectedProjectId])
 
-  // Tải danh mục linh kiện kho theo từ khóa tìm kiếm (có debounce nhẹ), chỉ linh kiện có lab giữ
+  // Tải danh mục linh kiện kho theo từ khóa tìm kiếm (có debounce nhẹ), chỉ linh kiện còn hàng ở lab
   useEffect(() => {
     let active = true
     const timer = window.setTimeout(() => {
@@ -446,7 +446,7 @@ export default function CreateSupplementaryBorrow() {
         >
           <Box sx={{ display: 'flex', gap: 4, flexWrap: 'wrap', alignItems: 'center' }}>
             <Box>
-              <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 10, letterSpacing: 0.5, display: 'block' }}>
+              <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 11, letterSpacing: 0.5, display: 'block' }}>
                 NGƯỜI ĐỀ NGHỊ
               </Typography>
               <Typography variant="body2" sx={{ fontWeight: 800, color: '#131b2e', mt: 0.2 }}>
@@ -456,7 +456,7 @@ export default function CreateSupplementaryBorrow() {
             </Box>
 
             <Box>
-              <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 10, letterSpacing: 0.5, display: 'block' }}>
+              <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 11, letterSpacing: 0.5, display: 'block' }}>
                 NHÓM / LỚP HỌC
               </Typography>
               <Typography variant="body2" sx={{ fontWeight: 800, color: '#131b2e', mt: 0.2 }}>
@@ -468,7 +468,7 @@ export default function CreateSupplementaryBorrow() {
 
             {selectedProject?.instructorName && (
               <Box>
-                <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 10, letterSpacing: 0.5, display: 'block' }}>
+                <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 11, letterSpacing: 0.5, display: 'block' }}>
                   GIẢNG VIÊN DUYỆT
                 </Typography>
                 <Typography variant="body2" sx={{ fontWeight: 800, color: '#131b2e', mt: 0.2 }}>
@@ -479,7 +479,7 @@ export default function CreateSupplementaryBorrow() {
           </Box>
 
           <Box sx={{ minWidth: { xs: '100%', sm: 320 } }}>
-            <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 10, letterSpacing: 0.5, display: 'block', mb: 0.5 }}>
+            <Typography variant="caption" sx={{ color: '#81899a', fontWeight: 800, fontSize: 11, letterSpacing: 0.5, display: 'block', mb: 0.5 }}>
               ĐỀ TÀI ĐÃ DUYỆT ĐƯỢC CHỌN *
             </Typography>
             {loadingProjects ? (
@@ -583,7 +583,7 @@ export default function CreateSupplementaryBorrow() {
             >
               <Box sx={{ mb: 2, display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                 <Box>
-                  <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 15 }}>
+                  <Typography variant="subtitle1" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 16 }}>
                     Danh mục linh kiện trong kho
                   </Typography>
                   <Typography variant="caption" sx={{ color: '#81899a', fontSize: 12 }}>
@@ -863,7 +863,7 @@ export default function CreateSupplementaryBorrow() {
                               : ''}
                           </Typography>
                         </Box>
-                        <Typography variant="caption" sx={{ color: '#64748b', fontSize: 11.5, mt: 0.5, display: 'block' }}>
+                        <Typography variant="caption" sx={{ color: '#64748b', fontSize: 12, mt: 0.5, display: 'block' }}>
                           Hạn trả cố định theo học kỳ của lớp, sinh viên không tự chọn ngày.
                         </Typography>
                       </>
@@ -900,7 +900,7 @@ export default function CreateSupplementaryBorrow() {
                     <TableBody>
                       {selectedItems.length === 0 ? (
                         <TableRow>
-                          <TableCell colSpan={4} sx={{ textAlign: 'center', py: 4, color: '#81899a', fontSize: 12.5 }}>
+                          <TableCell colSpan={4} sx={{ textAlign: 'center', py: 4, color: '#81899a', fontSize: 13 }}>
                             Chưa chọn linh kiện nào. Hãy bấm nút <strong>+ Chọn</strong> ở danh mục bên trái.
                           </TableCell>
                         </TableRow>
@@ -910,7 +910,7 @@ export default function CreateSupplementaryBorrow() {
                           return (
                             <TableRow key={item.componentId} hover>
                               <TableCell>
-                                <Typography variant="body2" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 12.5 }}>
+                                <Typography variant="body2" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 13 }}>
                                   {item.componentName}
                                 </Typography>
                                 <Typography variant="caption" sx={{ color: '#81899a', fontSize: 11 }}>

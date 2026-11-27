@@ -18,8 +18,9 @@ import {
 import { useNavigate } from 'react-router-dom'
 import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
+import { locationLabel } from '../../utils/locationLabel'
 
-const headCellSx = { fontWeight: 700, color: '#475569', fontSize: 12.5 }
+const headCellSx = { fontWeight: 700, color: '#475569', fontSize: 13 }
 
 /**
  * Nhân viên lab ghi thiết bị thừa khi kiểm: con có trong tủ mà danh sách không có.
@@ -58,7 +59,7 @@ export function AuditExtrasEditor({ extras, components, onChange }) {
   return (
     <Box sx={{ px: 2, py: 1.5, borderTop: '1px solid #eef0f6' }}>
       <Typography sx={{ fontWeight: 700, fontSize: 14 }}>Thiết bị thừa ({extras.length})</Typography>
-      <Typography sx={{ fontSize: 12.5, color: '#64748b', mb: 1 }}>
+      <Typography sx={{ fontSize: 13, color: '#64748b', mb: 1 }}>
         Có trong tủ mà danh sách không có. Ghi lại để quản lý kho xử lý, tồn kho không tự cộng thêm.
       </Typography>
 
@@ -66,7 +67,7 @@ export function AuditExtrasEditor({ extras, components, onChange }) {
         <Box sx={{ mb: 1 }}>
           {extras.map((extra) => (
             <Box key={extra.key} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-              <Typography sx={{ fontSize: 13.5, flex: 1 }}>
+              <Typography sx={{ fontSize: 14, flex: 1 }}>
                 {extra.itemCode || `Không có nhãn · ${nameOf(extra.componentId)}`}
                 {extra.note ? ` — ${extra.note}` : ''}
               </Typography>
@@ -192,7 +193,7 @@ export function AuditExtrasReview({ audit, canResolve, receipts, onResolved, onE
   const openReceipt = (extra) => {
     let origin = 'không có nhãn'
     if (extra.itemCode) origin = `nhãn ${extra.itemCode} không có trong hệ thống`
-    const parts = [`Phát hiện khi kiểm kê tủ ${audit.cabinetCode} (${audit.roomCode}), ${origin}`]
+    const parts = [`Phát hiện khi kiểm kê tủ ${locationLabel(audit.roomCode, audit.cabinetCode)}, ${origin}`]
     if (extra.note) parts.push(extra.note)
     navigate('/class-setup/admin/stock-inwards', {
       state: {
@@ -255,8 +256,8 @@ export function AuditExtrasReview({ audit, canResolve, receipts, onResolved, onE
           {extras.map((extra) => (
             <TableRow key={extra.extraId}>
               <TableCell>
-                <Typography sx={{ fontSize: 13.5, fontWeight: 600 }}>{extra.itemCode || 'Không có nhãn'}</Typography>
-                <Typography sx={{ fontSize: 12.5, color: '#64748b' }}>
+                <Typography sx={{ fontSize: 14, fontWeight: 600 }}>{extra.itemCode || 'Không có nhãn'}</Typography>
+                <Typography sx={{ fontSize: 13, color: '#64748b' }}>
                   {[extra.componentName, extra.serialNumber && `S/N ${extra.serialNumber}`, extra.note].filter(Boolean).join(' · ')}
                 </Typography>
               </TableCell>

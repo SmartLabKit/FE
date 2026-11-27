@@ -4,6 +4,7 @@ import {
   Box,
   Button,
   Checkbox,
+  IconButton,
   Chip,
   CircularProgress,
   Dialog,
@@ -25,6 +26,7 @@ import {
   Typography,
 } from '@mui/material'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
+import CloseIcon from '@mui/icons-material/Close'
 import { alpha } from '@mui/material/styles'
 import { extractErrorMessage } from '../../services/api'
 import { borrowService } from '../../services/borrowService'
@@ -135,6 +137,24 @@ export default function ReturnBorrowModal({ request, open, submitting, planned, 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, requestId, roomId])
 
+  const removePhoto = async () => {
+    if (!photo?.photoId) return
+    setError('')
+    try {
+      await borrowService.deleteHandoverPhoto(request.borrowRequestId, photo.photoId)
+      setPhoto(null)
+      setPhotoPreviewUrl('')
+    } catch (removeError) {
+      setError(extractErrorMessage(removeError, 'Không gỡ được ảnh.'))
+    }
+  }
+
+  // Đóng giữa chừng: ảnh nhận trả vừa tải chưa dùng thì gỡ luôn
+  const closeAndDropPhoto = () => {
+    if (photo?.photoId) borrowService.deleteHandoverPhoto(request.borrowRequestId, photo.photoId).catch(() => {})
+    onClose()
+  }
+
   const handlePhotoSelected = async (event) => {
     const file = event.target.files?.[0]
     event.target.value = ''
@@ -150,6 +170,8 @@ export default function ReturnBorrowModal({ request, open, submitting, planned, 
 
     setUploading(true)
     setError('')
+    // Chụp lại: gỡ ảnh cũ chưa dùng
+    if (photo?.photoId) borrowService.deleteHandoverPhoto(request.borrowRequestId, photo.photoId).catch(() => {})
     setPhoto(null)
     setPhotoPreviewUrl('')
     try {
@@ -239,7 +261,7 @@ export default function ReturnBorrowModal({ request, open, submitting, planned, 
   return (
     <Dialog
       open={open}
-      onClose={() => { if (!submitting && !uploading && !uploadingLineId) onClose() }}
+      onClose={() => { if (!submitting && !uploading && !uploadingLineId) closeAndDropPhoto() }}
       fullWidth
       maxWidth="md"
       scroll="paper"
@@ -292,19 +314,31 @@ export default function ReturnBorrowModal({ request, open, submitting, planned, 
                 </Box>
               )}
               {photoPreviewUrl && photo?.photoId && (
-                <Box
-                  component="img"
-                  src={photoPreviewUrl}
-                  alt="Ảnh linh kiện trả đã tải lên"
-                  sx={{
-                    display: 'block',
-                    width: '100%',
-                    maxHeight: 240,
-                    objectFit: 'contain',
-                    borderRadius: 1,
-                    bgcolor: (theme) => alpha(theme.palette.common.black, 0.04),
-                  }}
-                />
+                <Box sx={{ position: 'relative' }}>
+                  <Box
+                    component="img"
+                    src={photoPreviewUrl}
+                    alt="Ảnh linh kiện trả đã tải lên"
+                    sx={{
+                      display: 'block',
+                      width: '100%',
+                      maxHeight: 240,
+                      objectFit: 'contain',
+                      borderRadius: 1,
+                      bgcolor: (theme) => alpha(theme.palette.common.black, 0.04),
+                    }}
+                  />
+                  <IconButton
+                    size="small"
+                    aria-label="Gỡ ảnh"
+                    title="Gỡ ảnh"
+                    onClick={removePhoto}
+                    disabled={submitting || uploading}
+                    sx={{ position: 'absolute', top: 6, right: 6, bgcolor: 'rgba(15,23,42,0.6)', color: '#fff', '&:hover': { bgcolor: 'rgba(15,23,42,0.8)' } }}
+                  >
+                    <CloseIcon fontSize="small" />
+                  </IconButton>
+                </Box>
               )}
             </Stack>
           </Paper>
@@ -539,7 +573,7 @@ export default function ReturnBorrowModal({ request, open, submitting, planned, 
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        <Button onClick={onClose} disabled={submitting || uploading}>Đóng</Button>
+        <Button onClick={closeAndDropPhoto} disabled={submitting || uploading}>Đóng</Button>
         <Button variant="contained" disabled={!canSubmit} onClick={submitReturn}>
           {submitting ? <CircularProgress size={20} color="inherit" /> : 'Xác nhận'}
         </Button>

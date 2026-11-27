@@ -6,8 +6,18 @@ const theme = createTheme({
       main: '#1976d2',
     },
   },
+  // Một font (Roboto, tải trong index.html) và 7 cỡ chữ: 11 · 12 · 13 · 14 · 16 · 20 · 24
   typography: {
     fontFamily: '"Roboto", "Helvetica", "Arial", sans-serif',
+    h3: { fontSize: '1.5rem' },
+    h4: { fontSize: '1.5rem' },
+    h5: { fontSize: '1.25rem' },
+    h6: { fontSize: '1rem' },
+    subtitle1: { fontSize: '0.875rem' },
+    subtitle2: { fontSize: '0.8125rem' },
+    body1: { fontSize: '0.875rem' },
+    body2: { fontSize: '0.8125rem' },
+    caption: { fontSize: '0.75rem' },
   },
   components: {
     MuiButton: {

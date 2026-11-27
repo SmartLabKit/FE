@@ -259,7 +259,7 @@ export default function Roles() {
                             size="small"
                             sx={{
                               height: 18,
-                              fontSize: 9,
+                              fontSize: 11,
                               fontWeight: 800,
                               bgcolor: `${color}18`,
                               color: color,
@@ -333,7 +333,7 @@ export default function Roles() {
                 >
                   <Box>
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1.2 }}>
-                      <Typography variant="h6" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 18 }}>
+                      <Typography variant="h6" sx={{ fontWeight: 800, color: '#131b2e', fontSize: 20 }}>
                         Vai trò: {selectedRole.roleName}
                       </Typography>
                       <Chip

@@ -98,7 +98,7 @@ export default function ReturnSlipDetail() {
         )}
         {slip && (
           <Paper elevation={0} sx={{ p: { xs: 2.5, sm: 3.5 }, border: '1px solid #e4e6ef', borderRadius: 2 }}>
-            <Typography sx={{ fontWeight: 800, fontSize: 18, mb: 2 }}>{slip.slipCode}</Typography>
+            <Typography sx={{ fontWeight: 800, fontSize: 20, mb: 2 }}>{slip.slipCode}</Typography>
             <Headline slip={slip} />
             <Typography sx={{ mt: 0.5 }}>{labLabel(slip)}</Typography>
             {isStaff && (
@@ -129,7 +129,7 @@ export default function ReturnSlipDetail() {
               />
             ))}
 
-            <Typography sx={{ mt: 2, fontSize: 12.5, color: COLORS.grey }}>
+            <Typography sx={{ mt: 2, fontSize: 13, color: COLORS.grey }}>
               {slip.createdByName} gửi {formatVietnamDateTime(slip.createdAt)}
               {slip.receivedByName ? ` · ${slip.receivedByName} nhận ${formatVietnamDateTime(slip.receivedAt)}` : ''}
             </Typography>

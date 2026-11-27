@@ -171,7 +171,7 @@ export default function ResetPassword() {
               slotProps={{
                 htmlInput: {
                   maxLength: 6,
-                  style: { textAlign: 'center', fontSize: 18, fontWeight: 700, letterSpacing: 4 },
+                  style: { textAlign: 'center', fontSize: 20, fontWeight: 700, letterSpacing: 4 },
                 },
               }}
               sx={{ '& .MuiOutlinedInput-root': { borderRadius: 1.5 } }}

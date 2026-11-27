@@ -41,7 +41,6 @@ import PortalLayout from '../../components/layout/PortalLayout'
 import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
 import { downloadComponentsTemplate, parseComponentsExcel } from '../../utils/excelHelper'
-import { suggestLabForCategory } from '../../utils/labSuggestion'
 import { trackingTypeLabel } from '../../utils/trackingTypeLabel'
 import {
   findDuplicateSpecKeys,
@@ -96,7 +95,6 @@ function getDuplicateMessages(rows, existingByName) {
 export default function ComponentExcelImport() {
   const navigate = useNavigate()
   const [categories, setCategories] = useState([])
-  const [labRooms, setLabRooms] = useState([])
   const [existingComponents, setExistingComponents] = useState([])
   const [loadingInit, setLoadingInit] = useState(true)
   const [rows, setRows] = useState([])
@@ -123,12 +121,10 @@ export default function ComponentExcelImport() {
     Promise.all([
       inventoryService.getCategories(),
       inventoryService.getComponents().catch(() => []),
-      inventoryService.getLabRooms().catch(() => []),
     ])
-      .then(([catList, compList, roomList]) => {
+      .then(([catList, compList]) => {
         if (active) {
           setCategories(Array.isArray(catList) ? catList : [])
-          setLabRooms(roomList.filter((room) => room.status === 'Active'))
           setExistingComponents(Array.isArray(compList) ? compList : [])
         }
       })
@@ -163,13 +159,6 @@ export default function ComponentExcelImport() {
     if (!row.componentName?.trim()) errors.push('Thiếu tên linh kiện')
     if (!row.categoryId) errors.push(`Không khớp danh mục "${row.categoryName || 'trống'}"`)
     if (!row.unit?.trim()) errors.push('Thiếu đơn vị tính')
-    const labCodes = row.labCodes || []
-    if (labCodes.length === 0) {
-      const hint = suggestLabForCategory(existingComponents, row.categoryId, row.categoryName)?.roomCode
-      errors.push(hint ? `Thiếu lab (cột Thuộc lab), gợi ý ${hint}` : 'Thiếu lab (cột Thuộc lab)')
-    }
-    const unknownLabs = labCodes.filter((code) => !labRooms.some((room) => room.roomCode === code))
-    if (unknownLabs.length > 0) errors.push(`Không có lab ${unknownLabs.join(', ')}`)
     if (!TRACKING_TYPES.includes(row.trackingType)) errors.push(`Loại quản lý không hợp lệ: "${row.rawTracking || 'trống'}"`)
     const minStockText = String(row.minStock ?? '').trim()
     const minStock = Number(minStockText)
@@ -254,7 +243,7 @@ export default function ComponentExcelImport() {
       return { ...row, errors, isDuplicate: duplicates.has(row.key), existsAlready: duplicateMessage.startsWith('Đã có') }
     })
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [rows, categories, existingByName, labRooms])
+  }, [rows, categories, existingByName])
 
   const duplicateCount = useMemo(() => evaluatedRows.filter((row) => row.isDuplicate).length, [evaluatedRows])
   // Bảng chỉ giữ dòng còn cần xử lý: dòng đã tạo xong và dòng đã có sẵn trong hệ thống được ẩn đi
@@ -308,7 +297,6 @@ export default function ComponentExcelImport() {
         unit: row.unit.trim(),
         minStock: minStockText === '' ? null : Number(minStockText),
         specs: parseSpecsText(row.specifications),
-        roomIds: labRooms.filter((room) => (row.labCodes || []).includes(room.roomCode)).map((room) => room.roomId),
       }
 
       try {
@@ -462,7 +450,7 @@ export default function ComponentExcelImport() {
               <Box sx={{ p: 2, bgcolor: '#f8fafc', borderRadius: 2, border: '1px solid #e2e8f0' }}>
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
                   <ExcelIcon sx={{ color: '#16a34a' }} />
-                  <Typography sx={{ fontWeight: 800, color: '#182238', fontSize: 15 }}>
+                  <Typography sx={{ fontWeight: 800, color: '#182238', fontSize: 16 }}>
                     Bước 1: Tải file mẫu Excel (.xlsx)
                   </Typography>
                 </Stack>
@@ -484,7 +472,7 @@ export default function ComponentExcelImport() {
               <Box sx={{ p: 2, bgcolor: '#f0f7ff', borderRadius: 2, border: '1px dashed #60a5fa' }}>
                 <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
                   <UploadIcon sx={{ color: '#0058be' }} />
-                  <Typography sx={{ fontWeight: 800, color: '#182238', fontSize: 15 }}>
+                  <Typography sx={{ fontWeight: 800, color: '#182238', fontSize: 16 }}>
                     Bước 2: Tải lên file Excel để đọc &amp; kiểm tra
                   </Typography>
                 </Stack>
@@ -621,7 +609,6 @@ export default function ComponentExcelImport() {
                       <TableCell sx={{ fontWeight: 700, minWidth: 145 }}>Loại quản lý</TableCell>
                       <TableCell sx={{ fontWeight: 700, minWidth: 90 }}>Đơn vị</TableCell>
                       <TableCell sx={{ fontWeight: 700, minWidth: 110 }}>Tồn tối thiểu (*)</TableCell>
-                      <TableCell sx={{ fontWeight: 700, minWidth: 160 }}>Thuộc lab (*)</TableCell>
                       <TableCell sx={{ fontWeight: 700, minWidth: 105 }}>Tài liệu</TableCell>
                       <TableCell sx={{ fontWeight: 700, minWidth: 170 }}>Trạng thái</TableCell>
                       <TableCell />
@@ -735,31 +722,16 @@ export default function ComponentExcelImport() {
                             />
                           </TableCell>
                           <TableCell>
-                            <TextField
-                              select
-                              size="small"
-                              fullWidth
-                              disabled={importing || row.status === 'success'}
-                              value={(row.labCodes || []).filter((code) => labRooms.some((room) => room.roomCode === code))}
-                              onChange={(e) => updateRow(row.key, { labCodes: e.target.value })}
-                              slotProps={{ select: { multiple: true, renderValue: (selected) => selected.join(', ') } }}
-                            >
-                              {labRooms.map((room) => (
-                                <MenuItem key={room.roomId} value={room.roomCode}>{room.roomCode} · {room.roomName}</MenuItem>
-                              ))}
-                            </TextField>
-                          </TableCell>
-                          <TableCell>
                             <Stack direction="row" spacing={0.5} flexWrap="wrap">
                               {row.datasheetUrl && (
-                                <Chip size="small" label="DS" sx={{ fontSize: 10, height: 20, bgcolor: '#e0f2fe', color: '#0369a1' }} />
+                                <Chip size="small" label="DS" sx={{ fontSize: 11, height: 20, bgcolor: '#e0f2fe', color: '#0369a1' }} />
                               )}
                               {row.youtubeUrl && (
                                 <Chip
                                   size="small"
                                   icon={<YoutubeIcon sx={{ fontSize: 13 }} />}
                                   label="YT"
-                                  sx={{ fontSize: 10, height: 20, bgcolor: '#fee2e2', color: '#b91c1c' }}
+                                  sx={{ fontSize: 11, height: 20, bgcolor: '#fee2e2', color: '#b91c1c' }}
                                 />
                               )}
                               {row.pdfGuideUrl && (
@@ -767,7 +739,7 @@ export default function ComponentExcelImport() {
                                   size="small"
                                   icon={<PdfIcon sx={{ fontSize: 13 }} />}
                                   label="PDF"
-                                  sx={{ fontSize: 10, height: 20, bgcolor: '#fef3c7', color: '#b45309' }}
+                                  sx={{ fontSize: 11, height: 20, bgcolor: '#fef3c7', color: '#b45309' }}
                                 />
                               )}
                               {!row.datasheetUrl && !row.youtubeUrl && !row.pdfGuideUrl && (
@@ -821,7 +793,7 @@ export default function ComponentExcelImport() {
         )}
       </Box>
       <Dialog open={Boolean(pendingFile)} onClose={() => setPendingFile(null)} maxWidth="xs" fullWidth>
-        <DialogTitle sx={{ fontWeight: 800, fontSize: 17 }}>Thay danh sách hiện tại bằng file mới?</DialogTitle>
+        <DialogTitle sx={{ fontWeight: 800, fontSize: 16 }}>Thay danh sách hiện tại bằng file mới?</DialogTitle>
         <DialogContent>
           <Typography sx={{ fontSize: 14, color: '#3d4556', lineHeight: 1.6 }}>
             Bảng đang có <strong>{visibleRows.length} dòng chưa đẩy</strong>. File <strong>{pendingFile?.name}</strong> có{' '}

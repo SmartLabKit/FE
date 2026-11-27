@@ -58,7 +58,7 @@ export default function NotificationMenu() {
           badgeContent={unreadCount}
           max={99}
           color="primary"
-          slotProps={{ badge: { style: { fontSize: 10, height: 16, minWidth: 16 } } }}
+          slotProps={{ badge: { style: { fontSize: 11, height: 16, minWidth: 16 } } }}
         >
           <NotificationsIcon fontSize="small" />
         </Badge>
