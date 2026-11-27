@@ -6,6 +6,7 @@ import {
   normalizeSearchText,
 } from '../pages/Components/componentHelpers'
 import { parseFlexibleDateToYmd } from './dateFormatting'
+import { trackingTypeLabel } from './trackingTypeLabel'
 
 /**
  * Chuẩn hóa tên cột để đọc linh hoạt cả tiêu đề tiếng Việt có dấu, không dấu và tiếng Anh.
@@ -128,7 +129,7 @@ export function downloadComponentsTemplate(categories = [], existingComponents =
     {
       'Cột dữ liệu': 'Loại quản lý (*)',
       'Bắt buộc': 'Có',
-      'Ghi chú / Quy định': 'Một trong 3 giá trị: CONSUMABLE (Tiêu hao), REUSABLE (Tái sử dụng), HIGH_VALUE (Giá thành cao - có Serial).',
+      'Ghi chú / Quy định': 'Một trong 3 giá trị: Tiêu hao, Tái sử dụng, Giá trị cao (có Serial).',
     },
     {
       'Cột dữ liệu': 'Tồn tối thiểu (*)',
@@ -190,7 +191,7 @@ export function downloadComponentsTemplate(categories = [], existingComponents =
         'Tên linh kiện': c.componentName || '',
         'Danh mục': c.categoryName || '',
         'Đơn vị': c.unit || '',
-        'Loại quản lý': c.trackingType || '',
+        'Loại quản lý': trackingTypeLabel(c.trackingType),
         'Giá nhập gần nhất (VNĐ)': c.latestUnitPrice ?? '',
       }))
     )
@@ -277,8 +278,8 @@ export function downloadStockReceiptTemplate(components = [], cabinets = []) {
     'Đơn giá (VNĐ) (*)',
     'Hàng cho tặng (Có/Không)',
     'Mã tủ lưu trữ (không bắt buộc)',
-    'Serial (HIGH_VALUE, ngăn cách dấu phẩy)',
-    'Version (HIGH_VALUE)',
+    'Serial (Giá trị cao, ngăn cách dấu phẩy)',
+    'Version (Giá trị cao)',
     'Bảo hành đến (YYYY-MM-DD)',
   ]
 
@@ -288,9 +289,9 @@ export function downloadStockReceiptTemplate(components = [], cabinets = []) {
     { 'Cột dữ liệu': 'Đơn giá (VNĐ) (*)', 'Bắt buộc': 'Có', 'Ghi chú': 'Linh kiện mua thường bắt buộc > 0. Nếu là hàng cho tặng/tài trợ, nhập 0 và điền "Có" ở cột Hàng cho tặng.' },
     { 'Cột dữ liệu': 'Hàng cho tặng (Có/Không)', 'Bắt buộc': 'Không', 'Ghi chú': 'Điền "Có" nếu là hàng tài trợ/cho tặng (đơn giá = 0₫), mặc định là "Không".' },
     { 'Cột dữ liệu': 'Mã tủ lưu trữ (không bắt buộc)', 'Bắt buộc': 'Không', 'Ghi chú': 'Để trống: hệ thống tự chọn tủ của lab nhận hàng theo loại linh kiện. Nếu điền, lấy đúng Mã tủ từ sheet DanhSachTu.' },
-    { 'Cột dữ liệu': 'Serial (HIGH_VALUE, ngăn cách dấu phẩy)', 'Bắt buộc': 'Nếu HIGH_VALUE', 'Ghi chú': 'Nhập đủ số lượng serial tương ứng số lượng máy, ngăn cách bằng dấu phẩy.' },
-    { 'Cột dữ liệu': 'Version (HIGH_VALUE)', 'Bắt buộc': 'Nếu HIGH_VALUE', 'Ghi chú': 'Phiên bản phần cứng của thiết bị (VD: 1.0).' },
-    { 'Cột dữ liệu': 'Bảo hành đến (YYYY-MM-DD)', 'Bắt buộc': 'Nếu HIGH_VALUE', 'Ghi chú': 'Định dạng YYYY-MM-DD hoặc DD/MM/YYYY, phải >= ngày nhập kho.' },
+    { 'Cột dữ liệu': 'Serial (Giá trị cao, ngăn cách dấu phẩy)', 'Bắt buộc': 'Nếu Giá trị cao', 'Ghi chú': 'Nhập đủ số lượng serial tương ứng số lượng máy, ngăn cách bằng dấu phẩy.' },
+    { 'Cột dữ liệu': 'Version (Giá trị cao)', 'Bắt buộc': 'Nếu Giá trị cao', 'Ghi chú': 'Phiên bản phần cứng của thiết bị (VD: 1.0).' },
+    { 'Cột dữ liệu': 'Bảo hành đến (YYYY-MM-DD)', 'Bắt buộc': 'Nếu Giá trị cao', 'Ghi chú': 'Định dạng YYYY-MM-DD hoặc DD/MM/YYYY, phải >= ngày nhập kho.' },
   ]
 
   const wb = XLSX.utils.book_new()
@@ -310,7 +311,7 @@ export function downloadStockReceiptTemplate(components = [], cabinets = []) {
       'Mã linh kiện': getDisplayCode(c),
       'Tên linh kiện': c.componentName || '',
       'Danh mục': c.categoryName || '',
-      'Loại quản lý': c.trackingType || '',
+      'Loại quản lý': trackingTypeLabel(c.trackingType),
       'Giá nhập gần nhất (VNĐ)': getComponentLatestPrice(c) || '',
     }))
     const wsRefComp = XLSX.utils.json_to_sheet(refComps)

@@ -41,6 +41,7 @@ import PortalLayout from '../../components/layout/PortalLayout'
 import { inventoryService } from '../../services/inventoryService'
 import { extractErrorMessage } from '../../services/api'
 import { downloadComponentsTemplate, parseComponentsExcel } from '../../utils/excelHelper'
+import { trackingTypeLabel } from '../../utils/trackingTypeLabel'
 import {
   findDuplicateSpecKeys,
   getDisplayCode,
@@ -692,7 +693,7 @@ export default function ComponentExcelImport() {
                             >
                               {TRACKING_TYPES.map((t) => (
                                 <MenuItem key={t} value={t}>
-                                  {t}
+                                  {trackingTypeLabel(t)}
                                 </MenuItem>
                               ))}
                             </TextField>

@@ -26,6 +26,7 @@ import { formatDateTime, issueStatusOf, issueTypeLabel } from '../IssueReports/i
 import { formatVietnamDate } from '../../utils/dateFormatting'
 import { getBorrowRequestStatusMeta, getShownPurpose } from './borrowHelpers'
 import { labCode, labName } from '../../utils/labLabel'
+import { trackingTypeLabel } from '../../utils/trackingTypeLabel'
 
 const COMMENT_MAX_LENGTH = 255
 
@@ -255,7 +256,7 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
                         {pendingBorrowDetail.items.map((item, idx) => (
                           <Tooltip
                             key={item.borrowItemId || `${item.componentId}-${idx}`}
-                            title={`${item.componentCode || ''} · ${item.trackingType || ''}`}
+                            title={`${item.componentCode || ''} · ${trackingTypeLabel(item.trackingType)}`}
                           >
                             <Chip
                               label={`${item.componentName} ×${item.quantity} ${item.unit || ''}`.trim()}

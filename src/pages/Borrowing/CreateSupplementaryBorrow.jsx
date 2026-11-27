@@ -42,6 +42,7 @@ import { borrowService } from '../../services/borrowService'
 import { projectService } from '../../services/projectService'
 import { useAuth } from '../../context/AuthContext'
 import { getDisplayCode } from '../Components/componentHelpers'
+import { trackingTypeLabel } from '../../utils/trackingTypeLabel'
 import { formatVietnamDate } from '../../utils/dateFormatting'
 
 const REASON_MAX_LENGTH = 250
@@ -649,7 +650,7 @@ export default function CreateSupplementaryBorrow() {
                             </Typography>
                             <Typography variant="caption" sx={{ color: '#81899a', fontSize: 11 }}>
                               {getDisplayCode(comp)}
-                              {comp.trackingType ? ` · ${comp.trackingType}` : ''}
+                              {comp.trackingType ? ` · ${trackingTypeLabel(comp.trackingType)}` : ''}
                             </Typography>
                           </Box>
                         </Box>

@@ -524,9 +524,9 @@ export default function NewComponent() {
                     value={form.trackingType}
                     onChange={updateField}
                   >
-                    <MenuItem value="CONSUMABLE">CONSUMABLE - Tiêu hao (dùng một lần)</MenuItem>
-                    <MenuItem value="REUSABLE">REUSABLE - Tái sử dụng (quản lý từng chiếc)</MenuItem>
-                    <MenuItem value="HIGH_VALUE">HIGH_VALUE - Giá thành cao (có Serial & Bảo hành)</MenuItem>
+                    <MenuItem value="CONSUMABLE">Tiêu hao (dùng một lần)</MenuItem>
+                    <MenuItem value="REUSABLE">Tái sử dụng (quản lý từng chiếc)</MenuItem>
+                    <MenuItem value="HIGH_VALUE">Giá trị cao (có Serial & Bảo hành)</MenuItem>
                   </TextField>
                 </Grid>
                 <Grid size={{ xs: 12, md: 4 }}>

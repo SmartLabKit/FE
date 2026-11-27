@@ -17,9 +17,9 @@ import { useAuth } from '../../context/AuthContext'
 import { findDuplicateSpecKeys, generateComponentShortCode, isYoutubeUrl, parseSpecsText } from './componentHelpers'
 
 const TRACKING_TYPES = [
-  { value: 'CONSUMABLE', label: 'CONSUMABLE - Tiêu hao (dùng một lần)' },
-  { value: 'REUSABLE', label: 'REUSABLE - Tái sử dụng (quản lý từng chiếc)' },
-  { value: 'HIGH_VALUE', label: 'HIGH_VALUE - Giá thành cao (có Serial & Bảo hành)' },
+  { value: 'CONSUMABLE', label: 'Tiêu hao (dùng một lần)' },
+  { value: 'REUSABLE', label: 'Tái sử dụng (quản lý từng chiếc)' },
+  { value: 'HIGH_VALUE', label: 'Giá trị cao (có Serial & Bảo hành)' },
 ]
 
 const TWO_COLUMNS = { display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr' }, gap: 2 }

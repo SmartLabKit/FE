@@ -60,6 +60,7 @@ import DeclareComponentDialog from './DeclareComponentDialog'
 import { INVOICE_ACCEPT, invoiceFileError } from './invoiceFile'
 import { findReceiptComponent, hasDifferentName } from './receiptCheck'
 import { labLabel } from '../../utils/labLabel'
+import { trackingTypeLabel } from '../../utils/trackingTypeLabel'
 
 const MAX_DROPDOWN_OPTIONS = 50
 
@@ -440,7 +441,7 @@ export default function StockInwards() {
 
         const cabinetFits = matchedCab && (!matchedComp || !matchedCab.trackingType || matchedCab.trackingType === matchedComp.trackingType)
         if (matchedCab && matchedComp && !cabinetFits) {
-          unmatchedWarnings.push(`${label}: tủ "${row.cabinetCode}" không dành cho loại ${matchedComp.trackingType}, đã đổi sang tủ đúng loại`)
+          unmatchedWarnings.push(`${label}: tủ "${row.cabinetCode}" không dành cho loại ${trackingTypeLabel(matchedComp.trackingType)}, đã đổi sang tủ đúng loại`)
         }
 
         return {
@@ -1148,7 +1149,7 @@ export default function StockInwards() {
                                       </Typography>
                                       <Typography sx={{ fontSize: 11.5, color: '#64748b' }}>
                                         {getDisplayCode(option)} · {option.categoryName || 'Chưa phân loại'} ·{' '}
-                                        {option.trackingType}
+                                        {trackingTypeLabel(option.trackingType)}
                                         {refP > 0 ? ` · Giá chuẩn: ${refP.toLocaleString('vi-VN')} ₫` : ''}
                                       </Typography>
                                     </Box>
