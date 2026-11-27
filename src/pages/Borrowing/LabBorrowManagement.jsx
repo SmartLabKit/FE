@@ -1,5 +1,5 @@
-import { useCallback, useRef, useState } from 'react'
-import { useLocation } from 'react-router-dom'
+import { useCallback, useEffect, useRef, useState } from 'react'
+import { useLocation, useNavigate } from 'react-router-dom'
 import {
   Alert,
   Box,
@@ -41,6 +41,7 @@ import IssueBorrowModal from '../../components/borrowing/IssueBorrowModal'
 import ReturnBorrowModal from '../../components/borrowing/ReturnBorrowModal'
 import CreateIssueReportDialog from '../IssueReports/CreateIssueReportDialog'
 import { useLabBorrowRequests } from '../../hooks/useLabBorrowRequests'
+import { useLabNewOrderCount } from '../../hooks/useLabNewOrderCount'
 import { borrowService } from '../../services/borrowService'
 import { extractErrorMessage } from '../../services/api'
 import { formatVietnamDate, formatVietnamDateTime } from '../../utils/dateFormatting'
@@ -222,10 +223,12 @@ function getItemStatusInfo(item, requestStatus) {
   }
 }
 
-const STATUS_BY_TAB = { 0: '', 2: 'Ready', 3: 'Borrowing' }
+// Tab Đơn mượn mở sẵn "Chờ lab xác nhận": việc lab cần làm trước là nhận các đơn GV vừa duyệt
+const STATUS_BY_TAB = { 0: 'Approved', 2: 'Ready', 3: 'Borrowing' }
 
 export default function LabBorrowManagement() {
   const location = useLocation()
+  const navigate = useNavigate()
   const initialTab = LEGACY_TABS[location.state?.tab] ?? location.state?.tab ?? 0
   const [status, setStatus] = useState(STATUS_BY_TAB[initialTab] ?? '')
   const [overdueFilter, setOverdueFilter] = useState(false)
@@ -241,6 +244,28 @@ export default function LabBorrowManagement() {
     realtimeUnavailable,
     refresh,
   } = useLabBorrowRequests({ status, overdue: overdueFilter, search, page, size: PAGE_SIZE })
+
+  // Đơn mới tới lab = GV đã duyệt, lab chưa xác nhận: hiện số trên nút lọc và chữ "Mới" trên từng dòng
+  const newOrderCount = useLabNewOrderCount(true)
+
+  // SV đến nhầm lab: tìm không ra ở lab mình thì xem đơn có ở lab khác không để hướng dẫn qua đúng lab
+  const [otherLabMatches, setOtherLabMatches] = useState([])
+  useEffect(() => {
+    let active = true
+    const timer = window.setTimeout(() => {
+      if (!search || loading || requests.length > 0) {
+        if (active) setOtherLabMatches([])
+        return
+      }
+      borrowService.findInOtherLabs(search).then((matches) => {
+        if (active) setOtherLabMatches(matches)
+      })
+    }, 0)
+    return () => {
+      active = false
+      window.clearTimeout(timer)
+    }
+  }, [search, loading, requests.length])
 
   const [selectedRequestId, setSelectedRequestId] = useState('')
   const [requestDetail, setRequestDetail] = useState(null)
@@ -280,7 +305,19 @@ export default function LabBorrowManagement() {
   const closeDetail = () => {
     setSelectedRequestId('')
     setRequestDetail(null)
+    if (location.search) navigate(location.pathname, { replace: true })
   }
+
+  // Mở từ thông báo (?open=<id>): hiện ngay chi tiết đơn đó
+  const openFromLink = new URLSearchParams(location.search).get('open')
+  useEffect(() => {
+    if (!openFromLink) return undefined
+    const timer = window.setTimeout(() => {
+      setSelectedRequestId(openFromLink)
+      loadDetail(openFromLink)
+    }, 0)
+    return () => window.clearTimeout(timer)
+  }, [openFromLink, loadDetail])
 
   const reloadData = useCallback(async () => {
     await refresh()
@@ -290,6 +327,11 @@ export default function LabBorrowManagement() {
   const handleSearch = (event) => {
     event.preventDefault()
     setPage(1)
+    // Tìm theo MSSV / mã đơn thì tìm trên mọi trạng thái của tab Đơn mượn
+    if (tab === 0 && searchInput.trim()) {
+      setStatus('')
+      setOverdueFilter(false)
+    }
     setSearch(searchInput.trim())
   }
 
@@ -468,7 +510,7 @@ export default function LabBorrowManagement() {
               setOverdueFilter(false)
               if (value === 2) setStatus('Ready')
               else if (value === 3) setStatus('Borrowing')
-              else if (value === 0) setStatus('')
+              else if (value === 0) setStatus('Approved')
             }}
             aria-label="Danh sách đơn Lab"
           >
@@ -592,6 +634,7 @@ export default function LabBorrowManagement() {
                         }}
                       >
                         {opt.label}
+                        {opt.key === 'Approved' && newOrderCount > 0 ? ` (${newOrderCount})` : ''}
                       </Button>
                     )
                   })}
@@ -638,6 +681,13 @@ export default function LabBorrowManagement() {
                     >
                       <TableCell sx={{ fontWeight: 700, color: '#0058be', whiteSpace: 'nowrap' }}>
                         {request.requestCode || '—'}
+                        {request.status === 'Approved' && (
+                          <Chip
+                            label="Mới"
+                            size="small"
+                            sx={{ ml: 0.75, height: 18, fontSize: 10.5, fontWeight: 800, bgcolor: '#dc2626', color: '#fff' }}
+                          />
+                        )}
                       </TableCell>
                       <TableCell sx={{ fontWeight: 700 }}>{request.requesterName || '—'}</TableCell>
                       <TableCell sx={{ whiteSpace: 'nowrap' }}>{request.classCode || '—'}</TableCell>
@@ -674,7 +724,21 @@ export default function LabBorrowManagement() {
                           ? 'Không tìm thấy đơn sẵn sàng giao.'
                           : tab === 3
                             ? 'Không có đơn đang mượn cần nhận trả.'
-                            : 'Không có đơn phù hợp.'}
+                            : status === 'Approved' && !search
+                              ? 'Không có đơn mới chờ lab xác nhận.'
+                              : 'Không có đơn phù hợp.'}
+                        {otherLabMatches.length > 0 && (
+                          <Alert severity="warning" sx={{ mt: 2, textAlign: 'left' }}>
+                            {otherLabMatches.map((match) => (
+                              <div key={match.requestCode}>
+                                Đơn <strong>{match.requestCode}</strong>
+                                {match.studentCode ? ` của ${match.studentCode}` : ''} thuộc{' '}
+                                <strong>{match.roomCode}</strong> · {match.roomName} ({getBorrowRequestStatusMeta(match.status).label}).
+                                Hướng dẫn sinh viên qua {match.roomCode}.
+                              </div>
+                            ))}
+                          </Alert>
+                        )}
                       </TableCell>
                     </TableRow>
                   )}

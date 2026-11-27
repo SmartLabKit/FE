@@ -315,6 +315,20 @@ export const borrowService = {
   },
 
   /**
+   * Lab tìm không ra đơn ở lab mình: các đơn đang mở khớp từ khóa nhưng thuộc lab khác (tối đa 5)
+   * GET /api/borrow-requests/other-labs?search=
+   * Trả về (200): [{ requestCode, status, studentCode, roomCode, roomName }]
+   */
+  async findInOtherLabs(search) {
+    try {
+      const response = await api.get('/api/borrow-requests/other-labs', { params: { search } })
+      return response.data?.data || []
+    } catch {
+      return []
+    }
+  },
+
+  /**
    * Chi tiết đơn: các dòng linh kiện, ảnh giao/trả, lịch sử duyệt
    * GET /api/borrow-requests/{id}
    * Quyền: Đăng nhập

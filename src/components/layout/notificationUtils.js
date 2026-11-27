@@ -21,7 +21,8 @@ export function getNotificationPath(notification, hasRole) {
   const is = (role) => Boolean(hasRole?.(role))
   switch (notification.refType) {
     case 'BorrowRequest':
-      if (is('LabStaff')) return '/borrow/lab-orders'
+      // Lab bấm thông báo: mở luôn chi tiết đơn trong màn Xử lý đơn mượn (có nút xác nhận, giao, nhận trả)
+      if (is('LabStaff')) return notification.refId ? `/borrow/lab-orders?open=${notification.refId}` : '/borrow/lab-orders'
       return notification.refId ? `/borrow/requests/${notification.refId}` : '/borrow/my-requests'
     case 'BorrowApproval':
     case 'BorrowExtension':
