@@ -381,9 +381,11 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
                   )}
                 </Box>
 
+                {/* Danh sách ĐƠN MƯỢN của đề tài; đề tài chỉ có đồ tự chuẩn bị (không đơn nào) thì ẩn cả mục */}
+                {currentRequests.length + historyRequests.length > 0 && (
+                <>
                 <Divider />
 
-                {/* Danh sách toàn bộ ĐƠN MƯỢN của đề tài (giống Mobile Hình 4) */}
                 <Box>
                   <Typography variant="subtitle2" sx={{ fontWeight: 800, mb: 1.25 }}>
                     Đơn mượn của đề tài ({currentRequests.length})
@@ -456,6 +458,8 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
                     </Button>
                   )}
                 </Box>
+                </>
+                )}
 
                 {issues.length > 0 && (
                   <>
