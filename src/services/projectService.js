@@ -196,19 +196,17 @@ export const projectService = {
     }
   },
 
-  async approveProject(projectId, comment = '', adjustments = [], borrowRequestId = null) {
+  async approveProject(projectId, comment = '', adjustments = []) {
     try {
-      return unwrap(
-        await api.post(`/api/projects/${projectId}/approve`, { comment: comment || null, adjustments, borrowRequestId })
-      )
+      return unwrap(await api.post(`/api/projects/${projectId}/approve`, { comment: comment || null, adjustments }))
     } catch (error) {
       throw new Error(extractErrorMessage(error, 'Không thể duyệt project'), { cause: error })
     }
   },
 
-  async rejectProject(projectId, reason, borrowRequestId = null) {
+  async rejectProject(projectId, reason) {
     try {
-      return unwrap(await api.post(`/api/projects/${projectId}/reject`, { reason, borrowRequestId }))
+      return unwrap(await api.post(`/api/projects/${projectId}/reject`, { reason }))
     } catch (error) {
       throw new Error(extractErrorMessage(error, 'Không thể từ chối project'), { cause: error })
     }

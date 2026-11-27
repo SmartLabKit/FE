@@ -10,7 +10,6 @@ import {
   MenuItem,
   Paper,
   Snackbar,
-  Stack,
   Tab,
   Tabs,
   Table,
@@ -546,37 +545,7 @@ export default function SupplementaryBorrowList() {
                               )}
                             </TableCell>
                             <TableCell align="right">
-                              {isPending && pendingRequests.length > 1 ? (
-                                <Stack direction="column" spacing={0.5} alignItems="flex-end">
-                                  {pendingRequests.map((request) => (
-                                    <Button
-                                      key={request.borrowRequestId}
-                                      size="small"
-                                      variant="contained"
-                                      onClick={() =>
-                                        setSelectedProject({
-                                          ...project,
-                                          pendingBorrowRequestId: request.borrowRequestId,
-                                          pendingRequestCode: request.requestCode,
-                                          pendingRoomCode: request.roomCode,
-                                        })
-                                      }
-                                      sx={{
-                                        textTransform: 'none',
-                                        fontWeight: 700,
-                                        fontSize: 11,
-                                        borderRadius: 1.5,
-                                        bgcolor: '#0058be',
-                                        boxShadow: 'none',
-                                        whiteSpace: 'nowrap',
-                                        '&:hover': { bgcolor: '#004ca6' },
-                                      }}
-                                    >
-                                      Duyệt đơn {request.roomCode}
-                                    </Button>
-                                  ))}
-                                </Stack>
-                              ) : isPending ? (
+                              {isPending ? (
                                 <Button
                                   size="small"
                                   variant="contained"
