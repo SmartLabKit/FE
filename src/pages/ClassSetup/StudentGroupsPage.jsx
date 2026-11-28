@@ -63,6 +63,7 @@ import {
   respondLeaderTransfer,
 } from '../../services/teamFormationApi'
 import { useEntityChanged } from '../../hooks/useEntityChanged'
+import TeamProgressSteps from './TeamProgressSteps'
 
 // ─── Constants & Helpers ──────────────────────────────────────────────────────
 
@@ -993,7 +994,8 @@ export default function StudentGroupsPage() {
           )}
 
           {/* ── 2. Khung trạng thái & hạn chót (GET /api/classes/{classId}/team-formation) ── */}
-          {!loadingData && selectedClassId && <TeamFormationStatusCard overview={overview} />}
+          {/* Hết hạn chọn nhóm mà đã có nhóm thì khung hạn chót không còn cần; thanh bước của nhóm thay thế */}
+          {!loadingData && selectedClassId && (isOpen || !currentTeam) && <TeamFormationStatusCard overview={overview} />}
 
           {/* ── 3. Đang tải dữ liệu nhóm ────────────────────────────────────── */}
           {loadingData && selectedClassId && (
@@ -1167,7 +1169,7 @@ export default function StudentGroupsPage() {
                           ml: 'auto',
                         }}
                       >
-                        {isReadyForProject && (
+                        {isReadyForProject && !hasProject && (
                           <Chip
                             label="Đủ điều kiện lập dự án"
                             size="small"
@@ -1262,7 +1264,9 @@ export default function StudentGroupsPage() {
                             placement="top"
                             slotProps={BLUE_TOOLTIP_SLOT_PROPS}
                             title={
-                              isReadyForProject || hasProject
+                              hasProject
+                                ? 'Xem đề tài của nhóm'
+                                : isReadyForProject
                                 ? 'Đi tới màn hình thiết lập dự án cho nhóm'
                                 : `Nhóm cần đủ tối thiểu ${minTeamSize ?? 'số'} thành viên để thiết lập dự án`
                             }
@@ -1284,7 +1288,7 @@ export default function StudentGroupsPage() {
                                   '&:hover': { bgcolor: '#0049a3' },
                                 }}
                               >
-                                {isLeader ? 'Thiết lập dự án' : 'Xem dự án'}
+                                {isLeader && !hasProject ? 'Thiết lập dự án' : 'Xem dự án'}
                               </Button>
                             </span>
                           </Tooltip>
@@ -1328,6 +1332,12 @@ export default function StudentGroupsPage() {
                         </Box>
                       </Box>
                     </Box>
+
+                    {/* Thanh bước: nhóm đang ở bước nào (lập nhóm → đề tài → duyệt → nhận đồ → nộp bài) */}
+                    <TeamProgressSteps
+                      project={myProjects.find((p) => p?.teamId && p.teamId === currentTeam.teamId) || null}
+                      choosingOpen={isOpen}
+                    />
 
                     <Divider sx={{ mb: 2 }} />
 
