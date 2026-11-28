@@ -36,7 +36,7 @@ const FINAL_STATUS = {
 const LINK_FIELDS = [
   { key: 'githubUrl', label: 'Link GitHub' },
   { key: 'slideUrl', label: 'Link slide thuyết trình' },
-  { key: 'demoVideoUrl', label: 'Link video demo (không bắt buộc)', optional: true },
+  { key: 'demoVideoUrl', label: 'Link video demo' },
 ]
 
 const isValidUrl = (value) => /^https?:\/\/\S+$/i.test(value.trim())
@@ -53,7 +53,7 @@ function formatDateTime(value) {
 
 /**
  * Khối "Nộp bài cuối kỳ" trên trang Thiết lập dự án (chỉ hiện khi project đã Approved).
- * Nhóm trưởng cập nhật link GitHub, slide (bắt buộc) và video demo (không bắt buộc), tải báo cáo PDF (bắt buộc) và mã nguồn ZIP (không bắt buộc) rồi nộp.
+ * Nhóm trưởng cập nhật link GitHub, slide, video demo (đều không bắt buộc), tải báo cáo PDF (bắt buộc) và mã nguồn ZIP (không bắt buộc) rồi nộp.
  * Khi bài đang chờ xác nhận hoặc đã được xác nhận thì BE khóa chỉnh sửa, giao diện cũng khóa theo.
  */
 export default function FinalSubmissionPanel({ project, isLeader, onProjectUpdated, showToast }) {
@@ -77,7 +77,6 @@ export default function FinalSubmissionPanel({ project, isLeader, onProjectUpdat
   const linksChanged = LINK_FIELDS.some(({ key }) => links[key].trim() !== projectLinks[key])
   const invalidLink = LINK_FIELDS.find(({ key }) => links[key].trim() && !isValidUrl(links[key]))
   const missing = [
-    ...LINK_FIELDS.filter(({ key, optional }) => !optional && !projectLinks[key]).map(({ label }) => label),
     ...(project.reportUrl ? [] : ['File báo cáo PDF']),
   ]
   const canSubmit = canEdit && missing.length === 0 && !linksChanged
@@ -229,7 +228,7 @@ export default function FinalSubmissionPanel({ project, isLeader, onProjectUpdat
         />
       </Box>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
-        Cần link GitHub, slide và file báo cáo PDF. Video demo và mã nguồn ZIP không bắt buộc. File tối đa 10 MB.
+        Chỉ bắt buộc file báo cáo PDF. Các link và mã nguồn ZIP không bắt buộc. File tối đa 10 MB.
       </Typography>
 
       <Stack spacing={2}>
@@ -254,7 +253,7 @@ export default function FinalSubmissionPanel({ project, isLeader, onProjectUpdat
               <TextField
                 key={key}
                 size="small"
-                label={label}
+                label={`${label} (không bắt buộc)`}
                 placeholder="https://..."
                 value={links[key]}
                 onChange={(event) => setLinks((current) => ({ ...current, [key]: event.target.value }))}
