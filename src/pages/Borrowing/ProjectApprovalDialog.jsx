@@ -100,8 +100,9 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
   const pendingRequests = borrowRequests.filter((br) => br.status === 'Pending')
   // Chỉ hiện đơn hiện tại; đơn bị từ chối hoặc đã hủy nằm trong phần lịch sử
   const historyRequests = borrowRequests.filter((br) => ['Rejected', 'Cancelled'].includes(br.status))
-  const currentRequests = borrowRequests.filter((br) => !['Rejected', 'Cancelled'].includes(br.status))
-  const shownRequests = showHistory ? borrowRequests : currentRequests
+  // Đơn đang chờ duyệt đã hiện ở phần duyệt phía trên nên không lặp lại trong danh sách
+  const currentRequests = borrowRequests.filter((br) => !['Rejected', 'Cancelled', 'Pending'].includes(br.status))
+  const shownRequests = showHistory ? currentRequests.concat(historyRequests) : currentRequests
   const pendingBorrowRequest = pendingRequests[0] || null
   const pendingLab = pendingBorrowDetail?.roomCode || project?.pendingRoomCode || ''
   const pendingCount = pendingRequests.length
@@ -393,7 +394,7 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
                   </Typography>
                   {shownRequests.length === 0 ? (
                     <Typography variant="body2" color="text.secondary">
-                      {historyRequests.length > 0 ? 'Không có đơn đang xử lý.' : 'Chưa có đơn mượn nào được tạo từ đề tài này.'}
+                      {historyRequests.length > 0 ? 'Chưa có đơn nào đã được duyệt.' : 'Chưa có đơn mượn nào được tạo từ đề tài này.'}
                     </Typography>
                   ) : (
                     <Stack spacing={1}>
