@@ -38,7 +38,6 @@ import CloseIcon from '@mui/icons-material/Close'
 import PortalLayout from '../../components/layout/PortalLayout'
 import TrackingTypeBadge from '../../components/common/TrackingTypeBadge'
 import IssueBorrowModal from '../../components/borrowing/IssueBorrowModal'
-import ReturnBorrowModal from '../../components/borrowing/ReturnBorrowModal'
 import CreateIssueReportDialog from '../IssueReports/CreateIssueReportDialog'
 import { useLabBorrowRequests } from '../../hooks/useLabBorrowRequests'
 import { useLabNewOrderCount } from '../../hooks/useLabNewOrderCount'
@@ -281,7 +280,6 @@ export default function LabBorrowManagement() {
   const [actionLoading, setActionLoading] = useState('')
   const [issueRequest, setIssueRequest] = useState(null)
   const [pickupRequest, setPickupRequest] = useState(null)
-  const [returnRequest, setReturnRequest] = useState(null)
   const [toast, setToast] = useState({ open: false, message: '', severity: 'success' })
   const [cardLoading, setCardLoading] = useState(false)
   const [cardMessage, setCardMessage] = useState(null)
@@ -475,34 +473,6 @@ export default function LabBorrowManagement() {
     return success
   }
 
-  const returnBorrow = async (payload) => {
-    let updatedRequest = null
-    const success = await runAction(
-      'return',
-      async () => {
-        updatedRequest = await borrowService.returnBorrowRequest(returnRequest.borrowRequestId, payload)
-        return updatedRequest
-      },
-      'Tiếp nhận trả linh kiện thất bại.',
-    )
-    if (success) {
-      const updatedItems = updatedRequest?.items
-      const stillOutstanding = Array.isArray(updatedItems) &&
-        updatedItems.some((item) => ['Issued', 'Pending'].includes(item.status))
-      const message = !Array.isArray(updatedItems)
-        ? 'Đã ghi nhận nhận trả linh kiện.'
-        : stillOutstanding
-          ? 'Đã ghi nhận đợt trả. Đơn vẫn còn linh kiện đang mượn.'
-          : 'Đã nhận đủ linh kiện. Đơn chuyển sang trạng thái Đã trả.'
-      setReturnRequest(null)
-      setToast({
-        open: true,
-        severity: 'success',
-        message,
-      })
-    }
-    return success
-  }
 
   return (
     <PortalLayout
@@ -1007,16 +977,23 @@ export default function LabBorrowManagement() {
                       </Box>
                     )
                   })()}
-                  {['Borrowing', 'Overdue'].includes(requestDetail.status) && (
-                    <Button
-                      variant="contained"
-                      color="primary"
-                      disabled={Boolean(actionLoading)}
-                      onClick={() => setReturnRequest(requestDetail)}
-                    >
-                      Nhận trả linh kiện
-                    </Button>
-                  )}
+                  {['Borrowing', 'Overdue'].includes(requestDetail.status) && (() => {
+                    // Chỉ nhận trả theo phiếu trả của SV: phiếu đã duyệt thì nhận đồ, phiếu chờ thì duyệt trước
+                    const slips = requestDetail.returnSlips || []
+                    const slip = slips.find((s) => s.status === 'Approved') || slips.find((s) => s.status === 'Pending')
+                    if (!slip) {
+                      return (
+                        <Button variant="contained" disabled>
+                          Chờ SV gửi phiếu trả
+                        </Button>
+                      )
+                    }
+                    return (
+                      <Button variant="contained" onClick={() => navigate(`/borrow/return-slips/${slip.returnSlipId}`)}>
+                        {slip.status === 'Approved' ? `Nhận trả theo phiếu ${slip.slipCode}` : `Duyệt phiếu trả ${slip.slipCode}`}
+                      </Button>
+                    )
+                  })()}
                   {canCancel && (
                     <Button color="error" variant="outlined" onClick={() => setCancelOpen(true)} disabled={Boolean(actionLoading)}>
                       Hủy đơn
@@ -1040,15 +1017,6 @@ export default function LabBorrowManagement() {
         submitting={actionLoading === 'issue'}
         onClose={() => setIssueRequest(null)}
         onIssue={issueBorrow}
-      />
-
-      <ReturnBorrowModal
-        key={returnRequest?.borrowRequestId || 'return-modal'}
-        open={Boolean(returnRequest)}
-        request={returnRequest}
-        submitting={actionLoading === 'return'}
-        onClose={() => setReturnRequest(null)}
-        onReturn={returnBorrow}
       />
 
       {brokenItemCode && (
