@@ -63,6 +63,7 @@ import {
   respondLeaderTransfer,
 } from '../../services/teamFormationApi'
 import { useEntityChanged } from '../../hooks/useEntityChanged'
+import TeamProgressSteps from './TeamProgressSteps'
 
 // ─── Constants & Helpers ──────────────────────────────────────────────────────
 
@@ -1328,6 +1329,12 @@ export default function StudentGroupsPage() {
                         </Box>
                       </Box>
                     </Box>
+
+                    {/* Thanh bước: nhóm đang ở bước nào (lập nhóm → đề tài → duyệt → nhận đồ → nộp bài) */}
+                    <TeamProgressSteps
+                      project={myProjects.find((p) => p?.teamId && p.teamId === currentTeam.teamId) || null}
+                      choosingOpen={isOpen}
+                    />
 
                     <Divider sx={{ mb: 2 }} />
 
