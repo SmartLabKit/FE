@@ -3,7 +3,7 @@ import { Alert, Box, CircularProgress, Typography } from '@mui/material'
 import { useNavigate } from 'react-router-dom'
 import { useEntityChanged } from '../../hooks/useEntityChanged'
 import { returnSlipService } from '../../services/returnSlipService'
-import ReturnRow from './ReturnRow'
+import ReturnRow, { RowGroup } from './ReturnRow'
 import { COLORS, daysUntil, slipStatusText } from './returnSlipHelpers'
 
 /** Chữ bên phải của một phiếu trong danh sách của lab. */
@@ -60,8 +60,7 @@ export default function LabReturnSlips() {
     <Box sx={{ maxWidth: 680, px: { xs: 2, sm: 3 }, py: 1.5 }}>
       {sections.length === 0 && <Typography sx={{ py: 3, color: COLORS.grey }}>Không có phiếu trả nào cần xử lý.</Typography>}
       {sections.map((section) => (
-        <Box key={section.title} sx={{ mb: 2 }}>
-          <Typography sx={{ fontWeight: 700, mt: 1 }}>{section.title}</Typography>
+        <RowGroup key={section.title} title={section.title} count={section.items.length} sx={{ mb: 2 }}>
           {section.items.map((slip) => (
             <ReturnRow
               key={slip.returnSlipId}
@@ -71,7 +70,7 @@ export default function LabReturnSlips() {
               onClick={() => navigate(`/borrow/return-slips/${slip.returnSlipId}`)}
             />
           ))}
-        </Box>
+        </RowGroup>
       ))}
     </Box>
   )

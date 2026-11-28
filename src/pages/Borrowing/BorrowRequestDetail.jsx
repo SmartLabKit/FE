@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from 'react'
 import { Alert, Box, Button, CircularProgress, Container, Paper, Snackbar, Stack, Typography } from '@mui/material'
-import { ArrowBack as ArrowBackIcon, Cancel as CancelIcon } from '@mui/icons-material'
+import { ArrowBack as ArrowBackIcon, AssignmentReturn as AssignmentReturnIcon, Cancel as CancelIcon } from '@mui/icons-material'
 import { useLocation, useNavigate, useParams } from 'react-router-dom'
 import PortalLayout from '../../components/layout/PortalLayout'
 import { useAuth } from '../../context/AuthContext'
@@ -9,7 +9,7 @@ import { borrowService } from '../../services/borrowService'
 import { formatVietnamDate, formatVietnamDateTime } from '../../utils/dateFormatting'
 import { getBorrowRequestStatusMeta, getShownPurpose } from './borrowHelpers'
 import { labLabel } from '../../utils/labLabel'
-import ReturnRow from './ReturnRow'
+import ReturnRow, { RowGroup, StatusPill } from './ReturnRow'
 import HandoverPhotos from '../../components/borrowing/HandoverPhotos'
 import ReturnSlipDialog from './ReturnSlipDialog'
 import { COLORS, daysUntil, itemSubtitle, returnResult, shortDate, slipStatusText } from './returnSlipHelpers'
@@ -38,6 +38,17 @@ function dueText(dueDate) {
   if (days < 0) return { text: `quá hạn ${-days} ngày`, color: COLORS.red }
   if (days === 0) return { text: 'hôm nay', color: COLORS.red }
   return { text: `còn ${days} ngày`, color: days <= 7 ? COLORS.amber : COLORS.grey }
+}
+
+/** Ô tóm tắt nhỏ trong thẻ đầu: nhãn xám, giá trị đậm, dòng chú thích màu. */
+function SummaryBox({ label, value, note, noteColor }) {
+  return (
+    <Box sx={{ bgcolor: '#f8fafc', border: '1px solid #eef0f5', borderRadius: 2, px: 1.75, py: 1.25 }}>
+      <Typography sx={{ fontSize: 12, color: COLORS.grey, fontWeight: 600 }}>{label}</Typography>
+      <Typography sx={{ fontSize: 16, fontWeight: 800, color: '#0f172a' }}>{value}</Typography>
+      {note && <Typography sx={{ fontSize: 12, fontWeight: 600, color: noteColor || COLORS.grey }}>{note}</Typography>}
+    </Box>
+  )
 }
 
 export default function BorrowRequestDetail() {
@@ -123,32 +134,57 @@ export default function BorrowRequestDetail() {
         ) : request && (
           <Stack spacing={2}>
             {error && <Alert severity="error">{error}</Alert>}
-            <Paper elevation={0} sx={{ p: { xs: 2.5, sm: 3.5 }, border: '1px solid #e4e6ef', borderRadius: 2 }}>
-              <Box sx={{ display: 'flex', justifyContent: 'space-between', gap: 2, flexWrap: 'wrap' }}>
-                <Typography sx={{ fontWeight: 800, fontSize: 20 }}>{request.requestCode}</Typography>
-                <Typography sx={{ fontWeight: 700, color: getBorrowRequestStatusMeta(request.status).sx?.color || COLORS.grey }}>
-                  {getBorrowRequestStatusMeta(request.status).label}
-                </Typography>
+
+            {/* Thẻ đầu: mã đơn, trạng thái, đề tài · lab và các ô tóm tắt */}
+            <Paper elevation={0} sx={{ p: { xs: 2.5, sm: 3 }, border: '1px solid #e4e6ef', borderRadius: 2.5 }}>
+              <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
+                <Typography sx={{ fontWeight: 800, fontSize: 20, color: '#0f172a' }}>{request.requestCode}</Typography>
+                <StatusPill
+                  status={{
+                    text: getBorrowRequestStatusMeta(request.status).label,
+                    color: getBorrowRequestStatusMeta(request.status).sx?.color || COLORS.grey,
+                  }}
+                />
               </Box>
-              <Typography sx={{ fontSize: 14, color: COLORS.grey }}>
+              <Typography sx={{ fontSize: 14, color: COLORS.grey, mt: 0.5 }}>
                 {[request.projectTitle, labLabel(request)].filter(Boolean).join(' · ')}
               </Typography>
-              {request.status === 'Ready' && request.borrowDate && (
-                <Typography sx={{ mt: 1.5 }}>
-                  Đến nhận ngày <b>{formatVietnamDate(request.borrowDate)}</b>, nhớ mang thẻ sinh viên
-                </Typography>
-              )}
-              {request.dueDate && (
-                <Typography sx={{ mt: request.status === 'Ready' ? 0.5 : 1.5 }}>
-                  Hạn trả <b>{formatVietnamDate(request.dueDate)}</b>
-                  {borrowed && <span style={{ color: due.color }}> ({due.text})</span>}
-                </Typography>
-              )}
-              {request.rejectReason && <Alert severity="warning" sx={{ mt: 2 }}>{request.rejectReason}</Alert>}
 
-              {(borrowed ? stillOut : items).length > 0 && (
-                <Typography sx={{ fontWeight: 700, mt: 3, mb: 0.5 }}>{borrowed ? 'Đang mượn' : 'Linh kiện'}</Typography>
-              )}
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr 1fr', sm: 'repeat(3, 1fr)' }, gap: 1.25, mt: 2.5 }}>
+                {request.dueDate && (
+                  <SummaryBox
+                    label="Hạn trả"
+                    value={formatVietnamDate(request.dueDate)}
+                    note={borrowed ? due.text : ''}
+                    noteColor={due?.color}
+                  />
+                )}
+                {request.status === 'Ready' && request.borrowDate && (
+                  <SummaryBox label="Ngày nhận" value={formatVietnamDate(request.borrowDate)} note="mang thẻ sinh viên" noteColor={COLORS.blue} />
+                )}
+                {borrowed && <SummaryBox label="Đang mượn" value={`${stillOut.length} món`} />}
+                {borrowed && <SummaryBox label="Phiếu trả" value={`${request.returnSlips?.length || 0}`} />}
+              </Box>
+              {request.rejectReason && <Alert severity="warning" sx={{ mt: 2 }}>{request.rejectReason}</Alert>}
+            </Paper>
+
+            <RowGroup
+              title={borrowed ? 'Đang mượn' : 'Linh kiện'}
+              count={(borrowed ? stillOut : items).length}
+              footer={
+                canReturn && (
+                  <Button
+                    fullWidth
+                    variant="contained"
+                    startIcon={<AssignmentReturnIcon />}
+                    onClick={() => setReturnOpen(true)}
+                    sx={{ mt: 1.5, py: 1.25, textTransform: 'none', fontWeight: 700, borderRadius: 2, bgcolor: '#0058be', boxShadow: 'none' }}
+                  >
+                    Trả linh kiện
+                  </Button>
+                )
+              }
+            >
               {(borrowed ? stillOut : items).map((item) => (
                 <ReturnRow
                   key={item.borrowItemId}
@@ -158,62 +194,57 @@ export default function BorrowRequestDetail() {
                   onClick={item.returnSlipId ? () => navigate(`/borrow/return-slips/${item.returnSlipId}`) : undefined}
                 />
               ))}
-              {items.length === 0 && <Typography sx={{ mt: 2, color: COLORS.grey }}>Đơn chưa có linh kiện.</Typography>}
-
-              {canReturn && (
-                <Button
-                  fullWidth
-                  variant="contained"
-                  onClick={() => setReturnOpen(true)}
-                  sx={{ mt: 2.5, py: 1.25, textTransform: 'none', fontWeight: 700, bgcolor: '#0058be' }}
-                >
-                  Trả linh kiện
-                </Button>
+              {(borrowed ? stillOut : items).length === 0 && (
+                <Typography sx={{ py: 2, color: COLORS.grey, fontSize: 14 }}>
+                  {items.length === 0 ? 'Đơn chưa có linh kiện.' : 'Đã trả hết linh kiện.'}
+                </Typography>
               )}
+            </RowGroup>
 
-              {request.returnSlips?.length > 0 && (
+            {request.returnSlips?.length > 0 && (
+              <RowGroup title="Phiếu trả" count={request.returnSlips.length}>
+                {request.returnSlips.map((slip) => (
+                  <ReturnRow
+                    key={slip.returnSlipId}
+                    title={slip.slipCode}
+                    subtitle={`${slip.itemCount} món`}
+                    status={slipStatusText(slip)}
+                    onClick={() => navigate(`/borrow/return-slips/${slip.returnSlipId}`)}
+                  />
+                ))}
+              </RowGroup>
+            )}
+
+            {borrowed && others.length > 0 && (
+              <RowGroup title="Đã xử lý" count={others.length}>
+                {others.map((item) => (
+                  <ReturnRow
+                    key={item.borrowItemId}
+                    title={item.componentName}
+                    subtitle={itemSubtitle(item)}
+                    status={itemStatus(item, request)}
+                  />
+                ))}
+              </RowGroup>
+            )}
+
+            {request.photos?.length > 0 && (
+              <Paper elevation={0} sx={{ p: 2.5, border: '1px solid #e4e6ef', borderRadius: 2.5 }}>
+                <HandoverPhotos photos={request.photos} />
+              </Paper>
+            )}
+
+            <Typography sx={{ px: 0.5, fontSize: 13, color: COLORS.grey, lineHeight: 1.7 }}>
+              {request.requesterName} ({request.studentCode}) · {request.classCode}
+              <br />
+              Gửi {formatVietnamDateTime(request.requestDate)}
+              {getShownPurpose(request.purpose) && (
                 <>
-                  <Typography sx={{ fontWeight: 700, mt: 3, mb: 0.5 }}>Phiếu trả</Typography>
-                  {request.returnSlips.map((slip) => (
-                    <ReturnRow
-                      key={slip.returnSlipId}
-                      title={slip.slipCode}
-                      subtitle={`${slip.itemCount} món`}
-                      status={slipStatusText(slip)}
-                      onClick={() => navigate(`/borrow/return-slips/${slip.returnSlipId}`)}
-                    />
-                  ))}
+                  <br />
+                  {getShownPurpose(request.purpose)}
                 </>
               )}
-
-              {borrowed && others.length > 0 && (
-                <>
-                  <Typography sx={{ fontWeight: 700, mt: 3, mb: 0.5 }}>Đã xử lý</Typography>
-                  {others.map((item) => (
-                    <ReturnRow
-                      key={item.borrowItemId}
-                      title={item.componentName}
-                      subtitle={itemSubtitle(item)}
-                      status={itemStatus(item, request)}
-                    />
-                  ))}
-                </>
-              )}
-
-              <HandoverPhotos photos={request.photos} sx={{ mt: 3 }} />
-
-              <Typography sx={{ mt: 3, fontSize: 13, color: COLORS.grey, lineHeight: 1.7 }}>
-                {request.requesterName} ({request.studentCode}) · {request.classCode}
-                <br />
-                Gửi {formatVietnamDateTime(request.requestDate)}
-                {getShownPurpose(request.purpose) && (
-                  <>
-                    <br />
-                    {getShownPurpose(request.purpose)}
-                  </>
-                )}
-              </Typography>
-            </Paper>
+            </Typography>
 
             {canCancel && (
               <Alert
