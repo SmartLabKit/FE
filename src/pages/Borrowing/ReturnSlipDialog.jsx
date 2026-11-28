@@ -9,7 +9,6 @@ import { isConsumable, itemSubtitle } from './returnSlipHelpers'
 export default function ReturnSlipDialog({ borrowRequestId, items, preselected, onClose, onCreated }) {
   const [selected, setSelected] = useState(() => new Set((preselected || []).filter((id) => items.some((i) => i.borrowItemId === id))))
   const [quantities, setQuantities] = useState({})
-  const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
@@ -37,7 +36,7 @@ export default function ReturnSlipDialog({ borrowRequestId, items, preselected, 
     setError('')
     try {
       const slip = await returnSlipService.create(borrowRequestId, {
-        note: note.trim() || null,
+        note: null,
         lines: chosen.map((item) => ({
           borrowItemId: item.borrowItemId,
           quantity: isConsumable(item) ? Number(quantities[item.borrowItemId]) : null,
@@ -128,17 +127,6 @@ export default function ReturnSlipDialog({ borrowRequestId, items, preselected, 
           </Box>
         </Box>
 
-        <TextField
-          fullWidth
-          multiline
-          minRows={2}
-          label="Ghi chú cho lab"
-          placeholder="Không bắt buộc"
-          value={note}
-          onChange={(event) => setNote(event.target.value)}
-          slotProps={{ htmlInput: { maxLength: 500 } }}
-          sx={{ mt: 2.5, '& .MuiOutlinedInput-root': { borderRadius: 2 } }}
-        />
         {error && (
           <Alert severity="error" sx={{ mt: 2 }}>
             {error}
