@@ -140,7 +140,7 @@ function describe(extra) {
  * Quản lý kho xem thiết bị thừa của phiên kiểm và xử lý từng con: chuyển về tủ này, khôi phục,
  * nhắc nhận trả, hoặc lập phiếu nhập kho.
  */
-export function AuditExtrasReview({ audit, canResolve, canReceive, receipts, onResolved, onError }) {
+export function AuditExtrasReview({ audit, canResolve, canMoveUnits, receipts, onResolved, onError }) {
   const navigate = useNavigate()
   const [busyId, setBusyId] = useState('')
   const extras = audit?.extras || []
@@ -217,9 +217,22 @@ export function AuditExtrasReview({ audit, canResolve, canReceive, receipts, onR
       </Button>
     )
     if (extra.resolution === 'InThisCabinet') return <Typography sx={{ fontSize: 13, color: '#16a34a' }}>Đã xong</Typography>
-    // Hàng chưa từng nhập kho: quản lý kho lập phiếu nhập; chuyển tủ / khôi phục là việc của nhân viên lab
+    if (!canResolve) return null
+    const canMoveHere = extra.sameLab && extra.fitsThisCabinet
+    if (extra.resolution === 'OtherCabinet' && canMoveHere) {
+      // Chuyển tủ là việc của nhân viên lab, quản lý kho chỉ thấy lời nhắc
+      if (!canMoveUnits) return <Typography sx={{ fontSize: 13 }}>Nhân viên lab chuyển về tủ này</Typography>
+      return button('Chuyển về tủ này', () => moveHere(extra))
+    }
+    if (extra.resolution === 'OtherCabinet') {
+      return <Typography sx={{ fontSize: 13 }}>Mang trả về tủ {extra.itemCabinetCode} ({extra.itemRoomCode})</Typography>
+    }
+    if (extra.resolution === 'Lost' && canMoveHere) return button('Khôi phục về tủ này', () => restore(extra))
+    if (extra.resolution === 'Lost') return button(`Khôi phục về tủ ${extra.itemCabinetCode}`, () => restore(extra))
+    if (extra.resolution === 'Borrowed' && extra.borrowRequestId) {
+      return button('Mở đơn mượn', () => navigate(`/borrow/requests/${extra.borrowRequestId}`))
+    }
     if (extra.resolution === 'Unknown' || extra.resolution === 'NoLabel') {
-      if (!canReceive) return null
       const done = receipts?.[extra.extraId]
       if (done) {
         return (
@@ -229,17 +242,6 @@ export function AuditExtrasReview({ audit, canResolve, canReceive, receipts, onR
         )
       }
       return button('Lập phiếu nhập kho', () => openReceipt(extra))
-    }
-    if (!canResolve) return null
-    const canMoveHere = extra.sameLab && extra.fitsThisCabinet
-    if (extra.resolution === 'OtherCabinet' && canMoveHere) return button('Chuyển về tủ này', () => moveHere(extra))
-    if (extra.resolution === 'OtherCabinet') {
-      return <Typography sx={{ fontSize: 13 }}>Mang trả về tủ {extra.itemCabinetCode} ({extra.itemRoomCode})</Typography>
-    }
-    if (extra.resolution === 'Lost' && canMoveHere) return button('Khôi phục về tủ này', () => restore(extra))
-    if (extra.resolution === 'Lost') return button(`Khôi phục về tủ ${extra.itemCabinetCode}`, () => restore(extra))
-    if (extra.resolution === 'Borrowed' && extra.borrowRequestId) {
-      return button('Mở đơn mượn', () => navigate(`/borrow/requests/${extra.borrowRequestId}`))
     }
     return null
   }
