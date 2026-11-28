@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { Save as SaveIcon } from '@mui/icons-material'
+import { useNavigate } from 'react-router-dom'
+import { CheckCircle as CheckCircleIcon, Save as SaveIcon } from '@mui/icons-material'
 import {
   Alert,
   Box,
@@ -36,6 +37,7 @@ const emptyForm = { issueType: 'Damaged', description: '', image: null, replace:
 const LOAN_STEPS = ['find', 'items', 'photo', 'result']
 const CABINET_STEPS = ['find', 'photo', 'result']
 const STEP_LABELS = { items: 'Chọn món hư', photo: 'Ảnh món hư', result: 'Kết quả' }
+const LAB_ORDERS_PATH = '/borrow/lab-orders'
 
 function rowsOf(result) {
   return Array.isArray(result) ? result : result?.items || []
@@ -74,7 +76,7 @@ function UnitCard({ unit }) {
 /**
  * Ghi nhận sự cố: tìm đơn đang mượn → chọn món hư trong đơn → ảnh món hư → kết quả kiểm tra.
  * Thiết bị hỏng trong tủ thì nhập thẳng mã thiết bị. Chỉ nhân viên lab ghi nhận và ghi nhận là xong ngay (BE đóng dòng mượn).
- * Ghi xong một món thì quay lại đơn để ghi món tiếp theo. Chỉ render khi mở, để mỗi lần mở là một form mới.
+ * Ghi xong một món thì hiện màn hình xong: giao con thay thế ngay (mở bước giao của đơn) hoặc ghi tiếp món khác. Chỉ render khi mở, để mỗi lần mở là một form mới.
  */
 export default function CreateIssueReportDialog({ initialCode = '', onClose, onCreated }) {
   const [mode, setMode] = useState('loan')
@@ -88,8 +90,9 @@ export default function CreateIssueReportDialog({ initialCode = '', onClose, onC
   const [busy, setBusy] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
-  const [notice, setNotice] = useState('')
+  const [done, setDone] = useState(null)
   const taskId = useRef(0)
+  const navigate = useNavigate()
 
   const updateForm = (key, value) => setForm((current) => ({ ...current, [key]: value }))
 
@@ -100,7 +103,6 @@ export default function CreateIssueReportDialog({ initialCode = '', onClose, onC
     const isCurrent = () => id === taskId.current
     setBusy(true)
     setError('')
-    setNotice('')
     try {
       await work(isCurrent)
     } catch (taskError) {
@@ -215,7 +217,6 @@ export default function CreateIssueReportDialog({ initialCode = '', onClose, onC
     setCode(value)
     setOrders([])
     setError('')
-    setNotice('')
   }
 
   const changeMode = (value) => {
@@ -241,7 +242,8 @@ export default function CreateIssueReportDialog({ initialCode = '', onClose, onC
   }
 
   const steps = mode === 'loan' ? LOAN_STEPS : CABINET_STEPS
-  const stepIndex = steps.indexOf(step)
+  let stepIndex = steps.indexOf(step)
+  if (step === 'done') stepIndex = steps.length
   const isLost = form.issueType === 'Lost'
   const canReplace = Boolean(unit?.borrowContext) && !isLost
   const replace = canReplace && form.replace
@@ -253,7 +255,6 @@ export default function CreateIssueReportDialog({ initialCode = '', onClose, onC
     taskId.current += 1
     setBusy(false)
     setError('')
-    setNotice('')
     setStep(steps[stepIndex - 1])
   }
 
@@ -275,26 +276,40 @@ export default function CreateIssueReportDialog({ initialCode = '', onClose, onC
       return
     }
 
-    const message = `${unit.item.itemCode}: ${issueCreatedMessage(created, { replaceRequested: replace })}`
     onCreated(created)
+    let replacementRequestId = ''
+    if (replace && created?.replacementBorrowItemId) replacementRequestId = unit.borrowContext.borrowRequestId
+    setDone({
+      itemCode: unit.item.itemCode,
+      message: issueCreatedMessage(created, { replaceRequested: replace }),
+      replacementRequestId,
+    })
     setForm(emptyForm)
     setPreviewUrl('')
     setUnit(null)
-    if (mode === 'loan') {
+    setStep('done')
+    setSubmitting(false)
+  }
+
+  // Ghi tiếp: quay lại đơn đang xem (tải lại để thấy dòng vừa đóng) hoặc về bước tìm
+  const recordAnother = async () => {
+    setDone(null)
+    if (mode === 'loan' && order) {
       try {
         setOrder(await borrowService.getBorrowRequestById(order.borrowRequestId))
         setStep('items')
+        return
       } catch {
         setOrder(null)
-        setCode('')
-        setStep('find')
       }
-    } else {
-      setCode('')
-      setStep('find')
     }
-    setSubmitting(false)
-    setNotice(message)
+    setCode('')
+    setStep('find')
+  }
+
+  const handOverReplacement = () => {
+    onClose()
+    navigate(`${LAB_ORDERS_PATH}?open=${done.replacementRequestId}&replace=1`)
   }
 
   const close = () => {
@@ -321,7 +336,6 @@ export default function CreateIssueReportDialog({ initialCode = '', onClose, onC
         </Stepper>
 
         <Stack spacing={2}>
-          {notice && <Alert severity="success" onClose={() => setNotice('')}>{notice}</Alert>}
           {error && <Alert severity="error">{error}</Alert>}
 
           {step === 'find' && (
@@ -355,6 +369,14 @@ export default function CreateIssueReportDialog({ initialCode = '', onClose, onC
                 accept={IMAGE_TYPES.join(',')}
               />
             </>
+          )}
+
+          {step === 'done' && done && (
+            <Box sx={{ textAlign: 'center', py: 2 }}>
+              <CheckCircleIcon sx={{ fontSize: 56, color: '#16a34a' }} />
+              <Typography variant="h6" sx={{ fontWeight: 800, mt: 1 }}>Đã ghi nhận {done.itemCode}</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{done.message}</Typography>
+            </Box>
           )}
 
           {step === 'result' && unit && (
@@ -410,10 +432,20 @@ export default function CreateIssueReportDialog({ initialCode = '', onClose, onC
         </Stack>
       </DialogContent>
       <DialogActions sx={{ px: 3, pb: 2 }}>
-        {stepIndex > 0 && (
+        {stepIndex > 0 && step !== 'done' && (
           <Button onClick={goBack} disabled={submitting} sx={{ mr: 'auto' }}>Quay lại</Button>
         )}
         <Button onClick={close} disabled={submitting}>Đóng</Button>
+        {step === 'done' && (
+          <Button variant={done?.replacementRequestId ? 'outlined' : 'contained'} onClick={recordAnother}>
+            Ghi tiếp món khác
+          </Button>
+        )}
+        {step === 'done' && done?.replacementRequestId && (
+          <Button variant="contained" onClick={handOverReplacement} sx={{ bgcolor: '#0058be' }}>
+            Giao con thay thế ngay
+          </Button>
+        )}
         {step === 'photo' && (
           <Button variant="contained" onClick={() => setStep('result')} disabled={!photoReady} sx={{ bgcolor: '#0058be' }}>
             Tiếp tục

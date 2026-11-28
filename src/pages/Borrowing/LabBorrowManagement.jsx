@@ -297,10 +297,13 @@ export default function LabBorrowManagement() {
     setDetailLoading(true)
     setDetailError('')
     try {
-      setRequestDetail(await borrowService.getBorrowRequestById(id))
+      const detail = await borrowService.getBorrowRequestById(id)
+      setRequestDetail(detail)
+      return detail
     } catch (loadError) {
       setDetailError(loadError.message || 'Không thể tải chi tiết đơn mượn.')
       setRequestDetail(null)
+      return null
     } finally {
       setDetailLoading(false)
     }
@@ -323,16 +326,23 @@ export default function LabBorrowManagement() {
     if (location.search) navigate(location.pathname, { replace: true })
   }
 
-  // Mở từ thông báo (?open=<id>): hiện ngay chi tiết đơn đó
-  const openFromLink = new URLSearchParams(location.search).get('open')
+  // Mở từ thông báo (?open=<id>): hiện ngay chi tiết đơn đó.
+  // Từ ghi nhận sự cố (?open=<id>&replace=1): mở luôn bước giao con thay thế đang chờ của đơn
+  const linkParams = new URLSearchParams(location.search)
+  const openFromLink = linkParams.get('open')
+  const replaceFromLink = linkParams.get('replace') === '1'
   useEffect(() => {
     if (!openFromLink) return undefined
-    const timer = window.setTimeout(() => {
+    const timer = window.setTimeout(async () => {
       setSelectedRequestId(openFromLink)
-      loadDetail(openFromLink)
+      const detail = await loadDetail(openFromLink)
+      if (!replaceFromLink || !detail) return
+      const line = (detail.items || []).find((item) => isPendingReplacement(item, detail.status))
+      if (line) setIssueRequest({ ...detail, items: [line], replacementLine: line })
+      navigate(`${location.pathname}?open=${openFromLink}`, { replace: true })
     }, 0)
     return () => window.clearTimeout(timer)
-  }, [openFromLink, loadDetail])
+  }, [openFromLink, replaceFromLink, loadDetail, navigate, location.pathname])
 
   const reloadData = useCallback(async () => {
     await refresh()
