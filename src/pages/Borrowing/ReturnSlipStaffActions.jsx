@@ -1,49 +1,120 @@
 import { useState } from 'react'
-import { Alert, Button, TextField, Typography } from '@mui/material'
+import { Alert, Box, Button, Dialog, DialogActions, DialogContent, DialogTitle, TextField, Typography } from '@mui/material'
 import ConfirmDialog from '../../components/common/ConfirmDialog'
 import ReturnBorrowModal from '../../components/borrowing/ReturnBorrowModal'
 import { borrowService } from '../../services/borrowService'
 import { returnSlipService } from '../../services/returnSlipService'
 import { formatVietnamDate, getVietnamDateInputValue } from '../../utils/dateFormatting'
-import { COLORS, daysUntil } from './returnSlipHelpers'
+import { COLORS, daysUntil, longDate } from './returnSlipHelpers'
 
-const PRIMARY = { mt: 2.5, py: 1.25, textTransform: 'none', fontWeight: 700, bgcolor: '#0058be' }
-const LINK = { mt: 1, textTransform: 'none', color: COLORS.grey }
+const PRIMARY = { py: 1.25, textTransform: 'none', fontWeight: 700, borderRadius: 2, bgcolor: '#0058be', boxShadow: 'none' }
+const SECONDARY = { py: 1.25, textTransform: 'none', fontWeight: 700, borderRadius: 2 }
 
-/** Việc của LabStaff trên một phiếu: duyệt và chọn ngày, từ chối, đổi ngày, nhận linh kiện. onChanged nhận phiếu mới. */
-export default function ReturnSlipStaffActions({ slip, onChanged }) {
-  const [date, setDate] = useState(slip.appointmentDate ? getVietnamDateInputValue(slip.appointmentDate) : '')
+/** Popup chọn ngày sinh viên mang đồ lên: lúc duyệt phiếu hoặc đổi ngày hẹn. */
+function AppointmentDialog({ slip, approving, onClose, onSave }) {
+  const today = getVietnamDateInputValue()
+  const lastDay = daysUntil(slip.dueDate) >= 0 ? getVietnamDateInputValue(slip.dueDate) : ''
+  const current = slip.appointmentDate ? getVietnamDateInputValue(slip.appointmentDate) : ''
+  const [date, setDate] = useState(current >= today ? current : today)
   const [comment, setComment] = useState('')
-  const [rescheduling, setRescheduling] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState('')
+
+  const save = async () => {
+    if (!date) return setError('Chọn ngày mang lên.')
+    if (date < today) return setError('Ngày mang lên không được ở quá khứ.')
+    if (lastDay && date > lastDay) return setError(`Ngày mang lên không được sau hạn trả ${formatVietnamDate(slip.dueDate)}.`)
+    setSaving(true)
+    setError('')
+    const failure = await onSave({ appointmentDate: date, comment: comment.trim() || null })
+    if (failure) {
+      setError(failure)
+      setSaving(false)
+    }
+    return undefined
+  }
+
+  return (
+    <Dialog open onClose={() => !saving && onClose()} fullWidth maxWidth="xs" slotProps={{ paper: { sx: { borderRadius: 3 } } }}>
+      <DialogTitle sx={{ fontWeight: 800, pb: 0.5 }}>{approving ? `Duyệt ${slip.slipCode}` : 'Đổi ngày hẹn'}</DialogTitle>
+      <DialogContent>
+        <Typography sx={{ fontSize: 14, color: COLORS.grey, mb: 2 }}>
+          {slip.items.length} món · hạn trả {formatVietnamDate(slip.dueDate)}. Sinh viên được báo mang đồ lên ngày:
+        </Typography>
+        <TextField
+          fullWidth
+          type="date"
+          label="Ngày mang lên"
+          value={date}
+          onChange={(event) => {
+            setDate(event.target.value)
+            setError('')
+          }}
+          slotProps={{ inputLabel: { shrink: true }, htmlInput: { min: today, max: lastDay || undefined } }}
+        />
+        {date && (
+          <Box sx={{ mt: 1.5, px: 2, py: 1.25, borderRadius: 2, bgcolor: '#eff6ff', color: COLORS.blue, fontWeight: 700 }}>
+            {longDate(`${date}T00:00:00+07:00`)}
+          </Box>
+        )}
+        <TextField
+          fullWidth
+          multiline
+          minRows={2}
+          label="Nhắn sinh viên"
+          placeholder="Không bắt buộc"
+          value={comment}
+          onChange={(event) => setComment(event.target.value)}
+          slotProps={{ inputLabel: { shrink: true }, htmlInput: { maxLength: 500 } }}
+          sx={{ mt: 2 }}
+        />
+        {error && <Alert severity="error" sx={{ mt: 2 }}>{error}</Alert>}
+      </DialogContent>
+      <DialogActions sx={{ px: 3, pb: 2.5 }}>
+        <Button onClick={onClose} disabled={saving} sx={{ textTransform: 'none', fontWeight: 700, color: COLORS.grey }}>
+          Đóng
+        </Button>
+        <Button variant="contained" onClick={save} disabled={saving || (!approving && date === current)} sx={{ ...PRIMARY, px: 3 }}>
+          {saving ? 'Đang lưu...' : approving ? 'Duyệt' : 'Đổi ngày'}
+        </Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
+
+/** Việc của LabStaff trên một phiếu: duyệt (popup chọn ngày), từ chối, đổi ngày, nhận linh kiện. onChanged nhận phiếu mới. */
+export default function ReturnSlipStaffActions({ slip, onChanged }) {
+  const [dateOpen, setDateOpen] = useState(false)
   const [receiving, setReceiving] = useState(null)
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState('')
   const [confirmRequest, setConfirmRequest] = useState(null)
 
   const pending = slip.status === 'Pending'
-  const today = getVietnamDateInputValue()
-  const lastDay = daysUntil(slip.dueDate) >= 0 ? getVietnamDateInputValue(slip.dueDate) : ''
 
-  const run = async (action) => {
-    setBusy(true)
-    setError('')
+  const saveDate = async (data) => {
     try {
-      onChanged(await action())
-      setRescheduling(false)
-      setComment('')
-    } catch (actionError) {
-      setError(actionError.message)
-    } finally {
-      setBusy(false)
+      const updated = pending
+        ? await returnSlipService.approve(slip.returnSlipId, data)
+        : await returnSlipService.reschedule(slip.returnSlipId, data)
+      setDateOpen(false)
+      onChanged(updated)
+      return ''
+    } catch (saveError) {
+      return saveError.message
     }
   }
 
-  const saveDate = () => {
-    if (!date) return setError('Chọn ngày mang lên.')
-    if (date < today) return setError('Ngày mang lên không được ở quá khứ.')
-    if (lastDay && date > lastDay) return setError(`Ngày mang lên không được sau hạn trả ${formatVietnamDate(slip.dueDate)}.`)
-    const data = { appointmentDate: date, comment: comment.trim() || null }
-    return run(() => (pending ? returnSlipService.approve(slip.returnSlipId, data) : returnSlipService.reschedule(slip.returnSlipId, data)))
+  const reject = async (reason) => {
+    setBusy(true)
+    setError('')
+    try {
+      onChanged(await returnSlipService.reject(slip.returnSlipId, { reason }))
+    } catch (rejectError) {
+      setError(rejectError.message)
+    } finally {
+      setBusy(false)
+    }
   }
 
   const openReceive = async () => {
@@ -78,75 +149,47 @@ export default function ReturnSlipStaffActions({ slip, onChanged }) {
 
   return (
     <>
-      {(pending || rescheduling) && (
-        <>
-          <Typography sx={{ fontWeight: 700, mt: 3, mb: 1 }}>Ngày mang lên</Typography>
-          <TextField
-            fullWidth
-            type="date"
-            value={date}
-            onChange={(event) => setDate(event.target.value)}
-            slotProps={{ htmlInput: { min: today, max: lastDay || undefined, 'aria-label': 'Ngày mang lên' } }}
-          />
-          <TextField
-            fullWidth
-            multiline
-            placeholder="Nhắn sinh viên (không bắt buộc)"
-            value={comment}
-            onChange={(event) => setComment(event.target.value)}
-            slotProps={{ htmlInput: { maxLength: 500 } }}
-            sx={{ mt: 1.5 }}
-          />
-        </>
-      )}
       {error && (
         <Alert severity="error" sx={{ mt: 2 }}>
           {error}
         </Alert>
       )}
-      {pending && (
-        <>
-          <Button fullWidth variant="contained" disabled={busy} onClick={saveDate} sx={PRIMARY}>
-            Duyệt
-          </Button>
-          <Button
-            fullWidth
-            disabled={busy}
-            onClick={() =>
-              setConfirmRequest({
-                title: 'Từ chối phiếu trả?',
-                message: 'Sinh viên nhận được lý do và tạo lại phiếu khác được.',
-                confirmText: 'Từ chối',
-                reasonLabel: 'Lý do',
-                onConfirm: (reason) => run(() => returnSlipService.reject(slip.returnSlipId, { reason })),
-              })
-            }
-            sx={LINK}
-          >
-            Từ chối
-          </Button>
-        </>
-      )}
-      {!pending && rescheduling && (
-        <>
-          <Button fullWidth variant="contained" disabled={busy} onClick={saveDate} sx={PRIMARY}>
-            Lưu ngày mới
-          </Button>
-          <Button fullWidth disabled={busy} onClick={() => setRescheduling(false)} sx={LINK}>
-            Đóng
-          </Button>
-        </>
-      )}
-      {!pending && !rescheduling && (
-        <>
-          <Button fullWidth variant="contained" disabled={busy} onClick={openReceive} sx={PRIMARY}>
-            Nhận trả
-          </Button>
-          <Button fullWidth disabled={busy} onClick={() => setRescheduling(true)} sx={LINK}>
-            Đổi ngày hẹn
-          </Button>
-        </>
-      )}
+      <Box sx={{ display: 'flex', gap: 1.25, mt: 2.5 }}>
+        {pending ? (
+          <>
+            <Button
+              variant="outlined"
+              color="error"
+              disabled={busy}
+              onClick={() =>
+                setConfirmRequest({
+                  title: 'Từ chối phiếu trả?',
+                  message: 'Sinh viên nhận được lý do và tạo lại phiếu khác được.',
+                  confirmText: 'Từ chối',
+                  reasonLabel: 'Lý do',
+                  onConfirm: reject,
+                })
+              }
+              sx={{ ...SECONDARY, flex: 1 }}
+            >
+              Từ chối
+            </Button>
+            <Button variant="contained" disabled={busy} onClick={() => setDateOpen(true)} sx={{ ...PRIMARY, flex: 2 }}>
+              Duyệt và hẹn ngày
+            </Button>
+          </>
+        ) : (
+          <>
+            <Button variant="outlined" disabled={busy} onClick={() => setDateOpen(true)} sx={{ ...SECONDARY, flex: 1 }}>
+              Đổi ngày hẹn
+            </Button>
+            <Button variant="contained" disabled={busy} onClick={openReceive} sx={{ ...PRIMARY, flex: 2 }}>
+              Nhận trả
+            </Button>
+          </>
+        )}
+      </Box>
+      {dateOpen && <AppointmentDialog slip={slip} approving={pending} onClose={() => setDateOpen(false)} onSave={saveDate} />}
       {receiving && (
         <ReturnBorrowModal
           open
