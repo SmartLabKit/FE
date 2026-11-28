@@ -1001,7 +1001,7 @@ export default function LabBorrowManagement() {
                         </Button>
                         {beforePickupDay && (
                           <Typography variant="caption" sx={{ display: 'block', color: '#b45309', mt: 0.5 }}>
-                            Chưa tới ngày hẹn {formatVietnamDate(requestDetail.borrowDate)}. SV đến sớm thì bấm "Đổi ngày hẹn" sang hôm nay.
+                            Hẹn nhận {formatVietnamDate(requestDetail.borrowDate)}
                           </Typography>
                         )}
                       </Box>
