@@ -1,5 +1,6 @@
 import { useState } from 'react'
-import { Alert, Box, Button, Checkbox, Dialog, DialogContent, TextField, Typography } from '@mui/material'
+import { Alert, Box, Button, Checkbox, Dialog, DialogActions, DialogContent, TextField, Typography } from '@mui/material'
+import { AssignmentReturn as AssignmentReturnIcon } from '@mui/icons-material'
 import { returnSlipService } from '../../services/returnSlipService'
 import ReturnRow from './ReturnRow'
 import { isConsumable, itemSubtitle } from './returnSlipHelpers'
@@ -8,11 +9,11 @@ import { isConsumable, itemSubtitle } from './returnSlipHelpers'
 export default function ReturnSlipDialog({ borrowRequestId, items, preselected, onClose, onCreated }) {
   const [selected, setSelected] = useState(() => new Set((preselected || []).filter((id) => items.some((i) => i.borrowItemId === id))))
   const [quantities, setQuantities] = useState({})
-  const [note, setNote] = useState('')
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState('')
 
   const all = selected.size === items.length
+  const some = selected.size > 0 && !all
   const toggle = (id) => {
     setError('')
     setSelected((current) => {
@@ -35,7 +36,7 @@ export default function ReturnSlipDialog({ borrowRequestId, items, preselected, 
     setError('')
     try {
       const slip = await returnSlipService.create(borrowRequestId, {
-        note: note.trim() || null,
+        note: null,
         lines: chosen.map((item) => ({
           borrowItemId: item.borrowItemId,
           quantity: isConsumable(item) ? Number(quantities[item.borrowItemId]) : null,
@@ -49,86 +50,103 @@ export default function ReturnSlipDialog({ borrowRequestId, items, preselected, 
   }
 
   return (
-    <Dialog open onClose={(_event, reason) => reason !== 'backdropClick' && !saving && onClose()} maxWidth="xs" fullWidth>
-      <DialogContent sx={{ p: 3 }}>
-        <Typography sx={{ fontSize: 20, fontWeight: 800 }}>Trả linh kiện</Typography>
-        <Typography sx={{ fontSize: 14, color: '#64748b', mb: 1 }}>Lab sẽ báo ngày mang lên.</Typography>
+    <Dialog
+      open
+      onClose={(_event, reason) => reason !== 'backdropClick' && !saving && onClose()}
+      maxWidth="sm"
+      fullWidth
+      slotProps={{ paper: { sx: { borderRadius: 3 } } }}
+    >
+      <Box sx={{ px: 3, pt: 3, pb: 2, display: 'flex', gap: 1.75, alignItems: 'center' }}>
+        <Box sx={{ width: 44, height: 44, borderRadius: 2, bgcolor: '#eff6ff', color: '#0058be', display: 'grid', placeItems: 'center', flexShrink: 0 }}>
+          <AssignmentReturnIcon />
+        </Box>
+        <Box>
+          <Typography sx={{ fontSize: 19, fontWeight: 800, color: '#0f172a' }}>Trả linh kiện</Typography>
+          <Typography sx={{ fontSize: 13.5, color: '#64748b' }}>Chọn món muốn trả. Lab duyệt rồi báo ngày mang lên.</Typography>
+        </Box>
+      </Box>
 
-        <ReturnRow
-          title={<b>Trả hết</b>}
-          before={
+      <DialogContent sx={{ px: 3, pt: 0 }}>
+        <Box sx={{ border: '1px solid #e4e6ef', borderRadius: 2.5, overflow: 'hidden' }}>
+          <Box
+            onClick={() => setSelected(all ? new Set() : new Set(items.map((i) => i.borrowItemId)))}
+            sx={{ display: 'flex', alignItems: 'center', gap: 1.5, px: 2.5, py: 1.25, bgcolor: '#f8fafc', borderBottom: '1px solid #eef0f5', cursor: 'pointer' }}
+          >
             <Checkbox
               checked={all}
-              onChange={() => setSelected(all ? new Set() : new Set(items.map((i) => i.borrowItemId)))}
+              indeterminate={some}
               sx={{ p: 0 }}
-              slotProps={{ input: { 'aria-label': 'Trả hết' } }}
+              slotProps={{ input: { 'aria-label': 'Chọn tất cả' } }}
             />
-          }
-        />
-        {items.map((item) => {
-          const checked = selected.has(item.borrowItemId)
-          return (
-            <ReturnRow
-              key={item.borrowItemId}
-              title={item.componentName}
-              subtitle={isConsumable(item) && checked ? 'Còn lại bao nhiêu? Dùng hết thì nhập 0.' : itemSubtitle(item)}
-              before={
-                <Checkbox
-                  checked={checked}
-                  onChange={() => toggle(item.borrowItemId)}
-                  sx={{ p: 0 }}
-                  slotProps={{ input: { 'aria-label': item.componentName } }}
-                />
-              }
-              after={
-                isConsumable(item) &&
-                checked && (
-                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <TextField
-                      size="small"
-                      value={quantities[item.borrowItemId] ?? ''}
-                      onChange={(event) => {
-                        setError('')
-                        setQuantities((current) => ({ ...current, [item.borrowItemId]: event.target.value.trim() }))
-                      }}
-                      slotProps={{ htmlInput: { inputMode: 'numeric', 'aria-label': `Số còn lại ${item.componentName}`, style: { textAlign: 'center' } } }}
-                      sx={{ width: 74 }}
+            <Typography sx={{ fontWeight: 700, fontSize: 14, flex: 1 }}>Chọn tất cả</Typography>
+            <Typography sx={{ fontSize: 13, color: '#64748b', fontWeight: 600 }}>
+              Đã chọn {selected.size}/{items.length}
+            </Typography>
+          </Box>
+          <Box sx={{ px: 2.5, maxHeight: 360, overflowY: 'auto' }}>
+            {items.map((item) => {
+              const checked = selected.has(item.borrowItemId)
+              const consumable = isConsumable(item)
+              return (
+                <ReturnRow
+                  key={item.borrowItemId}
+                  selected={checked}
+                  onClick={() => toggle(item.borrowItemId)}
+                  title={item.componentName}
+                  subtitle={consumable && checked ? 'Còn lại bao nhiêu? Dùng hết thì nhập 0.' : itemSubtitle(item)}
+                  before={
+                    <Checkbox
+                      checked={checked}
+                      sx={{ p: 0 }}
+                      slotProps={{ input: { 'aria-label': item.componentName } }}
                     />
-                    <Typography sx={{ fontSize: 14, color: '#64748b' }}>/ {item.quantity}</Typography>
-                  </Box>
-                )
-              }
-            />
-          )
-        })}
+                  }
+                  after={
+                    consumable &&
+                    checked && (
+                      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.75 }} onClick={(event) => event.stopPropagation()}>
+                        <TextField
+                          size="small"
+                          value={quantities[item.borrowItemId] ?? ''}
+                          placeholder="0"
+                          onChange={(event) => {
+                            setError('')
+                            setQuantities((current) => ({ ...current, [item.borrowItemId]: event.target.value.trim() }))
+                          }}
+                          slotProps={{ htmlInput: { inputMode: 'numeric', 'aria-label': `Số còn lại ${item.componentName}`, style: { textAlign: 'center' } } }}
+                          sx={{ width: 68, '& .MuiOutlinedInput-root': { bgcolor: '#fff', borderRadius: 1.5 } }}
+                        />
+                        <Typography sx={{ fontSize: 14, color: '#64748b' }}>/ {item.quantity}</Typography>
+                      </Box>
+                    )
+                  }
+                />
+              )
+            })}
+          </Box>
+        </Box>
 
-        <TextField
-          fullWidth
-          multiline
-          placeholder="Ghi chú (không bắt buộc)"
-          value={note}
-          onChange={(event) => setNote(event.target.value)}
-          slotProps={{ htmlInput: { maxLength: 500 } }}
-          sx={{ mt: 2 }}
-        />
         {error && (
           <Alert severity="error" sx={{ mt: 2 }}>
             {error}
           </Alert>
         )}
-        <Button
-          fullWidth
-          variant="contained"
-          onClick={save}
-          disabled={saving}
-          sx={{ mt: 2.5, py: 1.25, textTransform: 'none', fontWeight: 700, bgcolor: '#0058be' }}
-        >
-          {saving ? 'Đang gửi…' : 'Gửi'}
-        </Button>
-        <Button fullWidth onClick={onClose} disabled={saving} sx={{ mt: 1, textTransform: 'none', color: '#64748b' }}>
+      </DialogContent>
+
+      <DialogActions sx={{ px: 3, pb: 3, pt: 1, gap: 1 }}>
+        <Button onClick={onClose} disabled={saving} sx={{ textTransform: 'none', fontWeight: 700, color: '#64748b' }}>
           Đóng
         </Button>
-      </DialogContent>
+        <Button
+          variant="contained"
+          onClick={save}
+          disabled={saving || selected.size === 0}
+          sx={{ px: 3, py: 1.1, textTransform: 'none', fontWeight: 700, borderRadius: 2, bgcolor: '#0058be', boxShadow: 'none' }}
+        >
+          {saving ? 'Đang gửi…' : selected.size > 0 ? `Gửi phiếu trả · ${selected.size} món` : 'Gửi phiếu trả'}
+        </Button>
+      </DialogActions>
     </Dialog>
   )
 }

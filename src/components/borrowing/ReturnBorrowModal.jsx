@@ -32,6 +32,7 @@ import { extractErrorMessage } from '../../services/api'
 import { borrowService } from '../../services/borrowService'
 import { inventoryService } from '../../services/inventoryService'
 import { cabinetAccepts } from '../../pages/Components/inventoryLabels'
+import { labLabel } from '../../utils/labLabel'
 
 const MAX_IMAGE_SIZE = 5 * 1024 * 1024
 
@@ -267,7 +268,14 @@ export default function ReturnBorrowModal({ request, open, submitting, planned, 
       scroll="paper"
       PaperProps={{ sx: { maxHeight: 'calc(100% - 32px)' } }}
     >
-      <DialogTitle sx={{ pb: 1 }}>Nhận trả linh kiện · {request?.requestCode}</DialogTitle>
+      <DialogTitle sx={{ pb: 1 }}>
+        Nhận trả linh kiện · {request?.requestCode}
+        {labLabel(request, '') && (
+          <Typography variant="body2" color="text.secondary">
+            Mượn và trả tại <b>{labLabel(request)}</b>
+          </Typography>
+        )}
+      </DialogTitle>
       <DialogContent dividers sx={{ overflowY: 'auto' }}>
         <Stack spacing={2} sx={{ py: 1 }}>
           {(error || submitError) && <Alert severity="error">{error || submitError}</Alert>}
@@ -485,6 +493,7 @@ export default function ReturnBorrowModal({ request, open, submitting, planned, 
                               <TableRow>
                                 <TableCell>Thiết bị</TableCell>
                                 <TableCell>Mã cá thể</TableCell>
+                                <TableCell>Tủ trả về</TableCell>
                                 <TableCell>Tình trạng</TableCell>
                               </TableRow>
                             </TableHead>
@@ -500,6 +509,16 @@ export default function ReturnBorrowModal({ request, open, submitting, planned, 
                                       </Typography>
                                     </TableCell>
                                     <TableCell>{item.itemCode || item.serialNumber || '—'}</TableCell>
+                                    {/* Mỗi con về lại đúng tủ đã lấy ra lúc giao; hỏng hoặc mất thì không cất lại */}
+                                    <TableCell sx={{ whiteSpace: 'nowrap' }}>
+                                      {['Damaged', 'Lost'].includes(currentCond) ? (
+                                        <Typography variant="body2" color="text.secondary">Không cất</Typography>
+                                      ) : (
+                                        <Typography variant="body2" sx={{ fontWeight: 700, color: currentCond === 'Good' ? '#0058be' : 'text.secondary' }}>
+                                          {item.cabinetCode || '—'}
+                                        </Typography>
+                                      )}
+                                    </TableCell>
                                     <TableCell>
                                       <Select
                                         size="small"

@@ -147,6 +147,11 @@ export function currentRequestOfProject(requests, projectId) {
   return [...own].sort((a, b) => new Date(b.requestDate) - new Date(a.requestDate))[0] || null
 }
 
+/** Đơn mượn thêm: BE ghi mục đích "Mượn bổ sung cho project: ...". */
+export function isSupplementaryPurpose(purpose) {
+  return String(purpose || '').trim().toLowerCase().startsWith('mượn bổ sung')
+}
+
 /** Đơn mượn đầu của đề tài có mục đích tự sinh, chỉ lặp lại tên đề tài nên không hiện. */
 export function getShownPurpose(purpose) {
   const text = String(purpose || '').trim()
