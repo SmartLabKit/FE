@@ -41,7 +41,7 @@ import { inventoryService } from '../../services/inventoryService'
 import { projectService } from '../../services/projectService'
 import { teamService } from '../../services/teamService'
 import { formatVietnamDate } from '../../utils/dateFormatting'
-import { getBorrowRequestStatusMeta, getShownPurpose } from '../Borrowing/borrowHelpers'
+import { getBorrowRequestStatusMeta, getShownPurpose, isSupplementaryPurpose } from '../Borrowing/borrowHelpers'
 import FinalSubmissionPanel from './FinalSubmissionPanel'
 import ProjectStatus from './ProjectStatus'
 import { isTeamLeader } from './projectHelpers'
@@ -1721,6 +1721,9 @@ export default function ProjectManagement() {
                                 <Typography variant="body2" sx={{ fontWeight: 800, color: '#0058be' }}>
                                   #{br.requestCode || '—'}
                                 </Typography>
+                                {isSupplementaryPurpose(br.purpose) && (
+                                  <Chip label="Mượn thêm" size="small" sx={{ bgcolor: '#fef3c7', color: '#b45309', fontWeight: 700 }} />
+                                )}
                                 <Chip label={meta.label} size="small" sx={meta.sx} />
                                 {labCode(br, '') && (
                                   <Typography variant="caption" title={labName(br)} sx={{ color: '#64748b' }}>

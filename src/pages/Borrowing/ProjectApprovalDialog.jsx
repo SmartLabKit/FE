@@ -24,7 +24,7 @@ import { borrowService } from '../../services/borrowService'
 import { issueReportService } from '../../services/issueReportService'
 import { formatDateTime, issueStatusOf, issueTypeLabel } from '../IssueReports/issueReportLabels'
 import { formatVietnamDate } from '../../utils/dateFormatting'
-import { getBorrowRequestStatusMeta, getShownPurpose } from './borrowHelpers'
+import { getBorrowRequestStatusMeta, getShownPurpose, isSupplementaryPurpose } from './borrowHelpers'
 import { labCode, labName } from '../../utils/labLabel'
 import { trackingTypeLabel } from '../../utils/trackingTypeLabel'
 
@@ -421,6 +421,9 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
                                 <Typography variant="body2" sx={{ fontWeight: 800, color: '#0058be' }}>
                                   #{br.requestCode || '—'}
                                 </Typography>
+                                {isSupplementaryPurpose(br.purpose) && (
+                                  <Chip label="Mượn thêm" size="small" sx={{ bgcolor: '#fef3c7', color: '#b45309', fontWeight: 700 }} />
+                                )}
                                 <Chip label={meta.label} size="small" sx={meta.sx} />
                                 {labCode(br, '') && (
                                   <Typography variant="caption" title={labName(br)} sx={{ color: '#64748b' }}>
