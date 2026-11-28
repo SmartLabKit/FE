@@ -76,6 +76,12 @@ function getId(row) {
   return row?.borrowRequestId || row?.id
 }
 
+// Ngày hẹn nhận là đầu ngày theo giờ VN (BE lưu dạng UTC); trước thời điểm đó chưa được giao đồ
+function isBeforePickupDay(borrowDate) {
+  if (!borrowDate) return false
+  return new Date() < new Date(borrowDate)
+}
+
 function getDaysOverdue(dueDate) {
   if (!dueDate) return 0
   const dateOnly = formatVietnamDate(dueDate)
@@ -981,15 +987,26 @@ export default function LabBorrowManagement() {
                       Đổi ngày hẹn
                     </Button>
                   )}
-                  {requestDetail.status === 'Ready' && (
-                    <Button
-                      variant="contained"
-                      disabled={Boolean(actionLoading)}
-                      onClick={() => setIssueRequest(requestDetail)}
-                    >
-                      Xác minh và bàn giao
-                    </Button>
-                  )}
+                  {requestDetail.status === 'Ready' && (() => {
+                    // Chỉ giao đồ từ ngày hẹn trở đi; SV đến sớm thì đổi ngày hẹn sang hôm nay trước
+                    const beforePickupDay = isBeforePickupDay(requestDetail.borrowDate)
+                    return (
+                      <Box sx={{ textAlign: 'right' }}>
+                        <Button
+                          variant="contained"
+                          disabled={Boolean(actionLoading) || beforePickupDay}
+                          onClick={() => setIssueRequest(requestDetail)}
+                        >
+                          Xác minh và bàn giao
+                        </Button>
+                        {beforePickupDay && (
+                          <Typography variant="caption" sx={{ display: 'block', color: '#b45309', mt: 0.5 }}>
+                            Chưa tới ngày hẹn {formatVietnamDate(requestDetail.borrowDate)}. SV đến sớm thì bấm "Đổi ngày hẹn" sang hôm nay.
+                          </Typography>
+                        )}
+                      </Box>
+                    )
+                  })()}
                   {['Borrowing', 'Overdue'].includes(requestDetail.status) && (
                     <Button
                       variant="contained"
