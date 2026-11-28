@@ -210,7 +210,8 @@ export default function InventoryAuditDetail() {
   const countingByStaff = audit?.status === 'InProgress' && !canCount
   const submitted = audit?.status === 'Submitted'
   const canReview = hasPermission?.('INVENTORY_AUDIT_APPROVE')
-  const canRestore = hasPermission?.('COMPONENT_MANAGE')
+  // Chuyển về tủ / khôi phục thiết bị thừa: nhân viên lab (BE kiểm đúng lab của tủ) hoặc Admin, không phải quản lý kho
+  const canRestore = Boolean(hasRole?.('Admin') || hasPermission?.('BORROW_ISSUE'))
   const isOwnCount = Boolean(audit?.auditorId && user?.userId && audit.auditorId === user.userId && !hasRole?.('Admin'))
   const consumables = useMemo(() => audit?.consumables || [], [audit])
   const items = useMemo(() => audit?.items || [], [audit])
@@ -1025,6 +1026,7 @@ export default function InventoryAuditDetail() {
                 <AuditExtrasReview
                   audit={audit}
                   canResolve={canRestore}
+                  canReceive={Boolean(hasPermission?.('STOCK_RECEIPT_MANAGE'))}
                   receipts={extraReceipts}
                   onError={setError}
                   onResolved={async (message) => {

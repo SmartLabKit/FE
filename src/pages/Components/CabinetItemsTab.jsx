@@ -216,9 +216,9 @@ function RetireItemDialog({ item, onClose, onSaved }) {
 
 /**
  * Tab "Từng thiết bị" của trang Chi tiết tủ: các thiết bị quản lý theo từng chiếc (REUSABLE / HIGH_VALUE) trong tủ.
- * - canManage (COMPONENT_MANAGE): sửa thông tin, thanh lý thiết bị cũ.
+ * - canManage (COMPONENT_MANAGE): sửa thông tin.
  * - canReport (LabStaff của lab chứa tủ): ghi nhận thiết bị hỏng / cháy / mất qua báo cáo sự cố.
- * - canMove (COMPONENT_MANAGE, hoặc LabStaff của lab chứa tủ): chuyển tủ; chỉ chuyển giữa các tủ cùng lab.
+ * - canMove (LabStaff của lab chứa tủ, hoặc Admin): chuyển tủ (chỉ giữa các tủ cùng lab), đưa về kho, thanh lý.
  * - Thiết bị bị mất (Lost) tìm lại được thì dùng "Đưa về kho" để chuyển về trạng thái Sẵn sàng.
  */
 export default function CabinetItemsTab({ cabinet, cabinets, canManage, canMove, canReport, onChanged, showToast }) {
@@ -331,7 +331,7 @@ export default function CabinetItemsTab({ cabinet, cabinets, canManage, canMove,
                     {canMove && item.status === 'Available' && (
                       <Button size="small" onClick={() => setDialog({ type: 'move', item })} sx={{ textTransform: 'none' }}>Chuyển tủ</Button>
                     )}
-                    {canManage && item.status === 'Lost' && (
+                    {canMove && item.status === 'Lost' && (
                       <Button size="small" onClick={() => restoreLostItem(item)} sx={{ textTransform: 'none' }}>Đưa về kho</Button>
                     )}
                     {canReport && item.status === 'Available' && (
@@ -339,7 +339,7 @@ export default function CabinetItemsTab({ cabinet, cabinets, canManage, canMove,
                         Báo hỏng / mất
                       </Button>
                     )}
-                    {canManage && item.status === 'Available' && (
+                    {canMove && item.status === 'Available' && (
                       <Button size="small" color="error" onClick={() => setDialog({ type: 'retire', item })} sx={{ textTransform: 'none' }}>
                         Thanh lý
                       </Button>
