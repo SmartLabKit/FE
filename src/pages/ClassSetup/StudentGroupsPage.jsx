@@ -1169,7 +1169,7 @@ export default function StudentGroupsPage() {
                           ml: 'auto',
                         }}
                       >
-                        {isReadyForProject && (
+                        {isReadyForProject && !hasProject && (
                           <Chip
                             label="Đủ điều kiện lập dự án"
                             size="small"
@@ -1264,7 +1264,9 @@ export default function StudentGroupsPage() {
                             placement="top"
                             slotProps={BLUE_TOOLTIP_SLOT_PROPS}
                             title={
-                              isReadyForProject || hasProject
+                              hasProject
+                                ? 'Xem đề tài của nhóm'
+                                : isReadyForProject
                                 ? 'Đi tới màn hình thiết lập dự án cho nhóm'
                                 : `Nhóm cần đủ tối thiểu ${minTeamSize ?? 'số'} thành viên để thiết lập dự án`
                             }
@@ -1286,7 +1288,7 @@ export default function StudentGroupsPage() {
                                   '&:hover': { bgcolor: '#0049a3' },
                                 }}
                               >
-                                {isLeader ? 'Thiết lập dự án' : 'Xem dự án'}
+                                {isLeader && !hasProject ? 'Thiết lập dự án' : 'Xem dự án'}
                               </Button>
                             </span>
                           </Tooltip>
