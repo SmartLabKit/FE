@@ -106,7 +106,8 @@ export default function IssueReportDetailDialog({ issueReportId, onClose, onChan
               <InfoRow label="Mô tả">{detail.description}</InfoRow>
               <InfoRow label="Người ghi nhận">{detail.reportedBy?.fullName}</InfoRow>
               <InfoRow label="Thời gian">{formatDateTime(detail.createdAt)}</InfoRow>
-              {detail.resolvedAt && (
+              {/* Lab staff ghi nhận là xác nhận luôn: chỉ hiện người xử lý khi là người khác */}
+              {detail.resolvedAt && detail.resolvedBy?.userId !== detail.reportedBy?.userId && (
                 <InfoRow label="Xử lý bởi">{detail.resolvedBy?.fullName} · {formatDateTime(detail.resolvedAt)}</InfoRow>
               )}
 
