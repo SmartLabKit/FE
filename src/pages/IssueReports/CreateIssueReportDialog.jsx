@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
-import { useNavigate } from 'react-router-dom'
 import { CheckCircle as CheckCircleIcon, Save as SaveIcon } from '@mui/icons-material'
 import {
   Alert,
@@ -22,6 +21,7 @@ import {
   Typography,
 } from '@mui/material'
 import { borrowService } from '../../services/borrowService'
+import IssueBorrowModal from '../../components/borrowing/IssueBorrowModal'
 import { issueReportService } from '../../services/issueReportService'
 import IssueFindStep from './IssueFindStep'
 import IssueItemsStep from './IssueItemsStep'
@@ -37,7 +37,6 @@ const emptyForm = { issueType: 'Damaged', description: '', image: null, replace:
 const LOAN_STEPS = ['find', 'items', 'photo', 'result']
 const CABINET_STEPS = ['find', 'photo', 'result']
 const STEP_LABELS = { items: 'Chọn món hư', photo: 'Ảnh món hư', result: 'Kết quả' }
-const LAB_ORDERS_PATH = '/borrow/lab-orders'
 
 function rowsOf(result) {
   return Array.isArray(result) ? result : result?.items || []
@@ -76,7 +75,7 @@ function UnitCard({ unit }) {
 /**
  * Ghi nhận sự cố: tìm đơn đang mượn → chọn món hư trong đơn → ảnh món hư → kết quả kiểm tra.
  * Thiết bị hỏng trong tủ thì nhập thẳng mã thiết bị. Chỉ nhân viên lab ghi nhận và ghi nhận là xong ngay (BE đóng dòng mượn).
- * Ghi xong một món thì hiện màn hình xong: giao con thay thế ngay (mở bước giao của đơn) hoặc ghi tiếp món khác. Chỉ render khi mở, để mỗi lần mở là một form mới.
+ * Ghi xong một món thì hiện màn hình xong: giao con thay thế ngay trong form này hoặc ghi tiếp món khác. Chỉ render khi mở, để mỗi lần mở là một form mới.
  */
 export default function CreateIssueReportDialog({ initialCode = '', onClose, onCreated }) {
   const [mode, setMode] = useState('loan')
@@ -91,8 +90,9 @@ export default function CreateIssueReportDialog({ initialCode = '', onClose, onC
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState('')
   const [done, setDone] = useState(null)
+  const [replacementRequest, setReplacementRequest] = useState(null)
+  const [handingOver, setHandingOver] = useState(false)
   const taskId = useRef(0)
-  const navigate = useNavigate()
 
   const updateForm = (key, value) => setForm((current) => ({ ...current, [key]: value }))
 
@@ -283,6 +283,8 @@ export default function CreateIssueReportDialog({ initialCode = '', onClose, onC
       itemCode: unit.item.itemCode,
       message: issueCreatedMessage(created, { replaceRequested: replace }),
       replacementRequestId,
+      replacementBorrowItemId: created?.replacementBorrowItemId || '',
+      handedOver: false,
     })
     setForm(emptyForm)
     setPreviewUrl('')
@@ -307,9 +309,46 @@ export default function CreateIssueReportDialog({ initialCode = '', onClose, onC
     setStep('find')
   }
 
-  const handOverReplacement = () => {
-    onClose()
-    navigate(`${LAB_ORDERS_PATH}?open=${done.replacementRequestId}&replace=1`)
+  // Mở bước giao con thay thế (chọn con, chụp ảnh) ngay trong form, không phải sang trang Xử lý đơn mượn
+  const handOverReplacement = async () => {
+    setError('')
+    setHandingOver(true)
+    try {
+      const detail = await borrowService.getBorrowRequestById(done.replacementRequestId)
+      const line = (detail.items || []).find((item) => item.borrowItemId === done.replacementBorrowItemId)
+      if (!line || line.status !== 'Pending') {
+        setError('Con thay thế này đã được giao hoặc đã hủy.')
+        return
+      }
+      setReplacementRequest({ ...detail, items: [line], replacementLine: line })
+    } catch (loadError) {
+      setError(loadError.message)
+    } finally {
+      setHandingOver(false)
+    }
+  }
+
+  const issueReplacement = async (payload) => {
+    setError('')
+    setHandingOver(true)
+    try {
+      await borrowService.issueReplacement(replacementRequest.borrowRequestId, {
+        borrowItemId: replacementRequest.replacementLine.borrowItemId,
+        itemId: payload.units[0].itemIds[0],
+        photoId: payload.photoId,
+        overrideReason: payload.overrideReason,
+      })
+    } catch (issueError) {
+      setError(issueError.message || 'Giao con thay thế thất bại.')
+      setReplacementRequest(null)
+      return false
+    } finally {
+      setHandingOver(false)
+    }
+    setReplacementRequest(null)
+    setDone((current) => ({ ...current, handedOver: true }))
+    onCreated()
+    return true
   }
 
   const close = () => {
@@ -375,7 +414,9 @@ export default function CreateIssueReportDialog({ initialCode = '', onClose, onC
             <Box sx={{ textAlign: 'center', py: 2 }}>
               <CheckCircleIcon sx={{ fontSize: 56, color: '#16a34a' }} />
               <Typography variant="h6" sx={{ fontWeight: 800, mt: 1 }}>Đã ghi nhận {done.itemCode}</Typography>
-              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>{done.message}</Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5 }}>
+                {done.handedOver ? 'Đã giao con thay thế cho sinh viên.' : done.message}
+              </Typography>
             </Box>
           )}
 
@@ -422,7 +463,7 @@ export default function CreateIssueReportDialog({ initialCode = '', onClose, onC
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', ml: 4 }}>
                     {unit.freeReplacementUnits === 0
                       ? 'Lab không còn con nào để đổi.'
-                      : `Lab còn ${unit.freeReplacementUnits} con. Giao con thay thế ở trang Xử lý đơn mượn.`}
+                      : `Lab còn ${unit.freeReplacementUnits} con. Ghi nhận xong là giao con thay thế được ngay.`}
                   </Typography>
                 </Box>
               )}
@@ -437,12 +478,18 @@ export default function CreateIssueReportDialog({ initialCode = '', onClose, onC
         )}
         <Button onClick={close} disabled={submitting}>Đóng</Button>
         {step === 'done' && (
-          <Button variant={done?.replacementRequestId ? 'outlined' : 'contained'} onClick={recordAnother}>
+          <Button variant={done?.replacementRequestId && !done.handedOver ? 'outlined' : 'contained'} onClick={recordAnother}>
             Ghi tiếp món khác
           </Button>
         )}
-        {step === 'done' && done?.replacementRequestId && (
-          <Button variant="contained" onClick={handOverReplacement} sx={{ bgcolor: '#0058be' }}>
+        {step === 'done' && done?.replacementRequestId && !done.handedOver && (
+          <Button
+            variant="contained"
+            onClick={handOverReplacement}
+            disabled={handingOver}
+            startIcon={handingOver ? <CircularProgress size={16} color="inherit" /> : null}
+            sx={{ bgcolor: '#0058be' }}
+          >
             Giao con thay thế ngay
           </Button>
         )}
@@ -463,6 +510,16 @@ export default function CreateIssueReportDialog({ initialCode = '', onClose, onC
           </Button>
         )}
       </DialogActions>
+
+      {replacementRequest && (
+        <IssueBorrowModal
+          open
+          request={replacementRequest}
+          submitting={handingOver}
+          onClose={() => setReplacementRequest(null)}
+          onIssue={issueReplacement}
+        />
+      )}
     </Dialog>
   )
 }
