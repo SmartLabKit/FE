@@ -213,38 +213,27 @@ export const borrowService = {
       byProject.set(br.projectId, arr)
     })
 
-    const supplementaryMap = new Map()
-    byProject.forEach((list) => {
-      if (list.length < 2) return
-      const chronological = [...list].sort((a, b) => {
-        const tA = a.requestDate ? new Date(a.requestDate).getTime() : 0
-        const tB = b.requestDate ? new Date(b.requestDate).getTime() : 0
-        return tA - tB
-      })
-      const originalCode = chronological[0]?.requestCode || '—'
-      chronological.slice(1).forEach((supp) => {
-        supplementaryMap.set(supp.borrowRequestId, {
-          ...supp,
-          originalBorrowCode: originalCode,
-        })
-      })
-    })
+    // Đơn mượn thêm được BE ghi mục đích "Mượn bổ sung cho project: ..."; đơn đầu là "Mượn linh kiện cho project: ..."
+    const isSupplementaryRequest = (br) => String(br.purpose || '').trim().toLowerCase().startsWith('mượn bổ sung')
 
+    // Đơn gốc: đơn đầu (không phải mượn thêm) còn hiệu lực; đơn đã hủy hoặc bị từ chối chỉ dùng khi không còn đơn nào khác
+    const findOriginalCode = (projectId) => {
+      const firstRequests = (byProject.get(projectId) || [])
+        .filter((br) => !isSupplementaryRequest(br))
+        .sort((a, b) => new Date(a.requestDate || 0).getTime() - new Date(b.requestDate || 0).getTime())
+      const active = firstRequests.find((br) => !['Cancelled', 'Rejected'].includes(br.status))
+      if (active) return active.requestCode
+      if (firstRequests.length > 0) return firstRequests[0].requestCode
+      return '—'
+    }
+
+    const supplementaryMap = new Map()
     borrowRequests.forEach((br) => {
-      const purpose = String(br.purpose || '').toLowerCase()
-      if (
-        (purpose.includes('bổ sung') || purpose.includes('bo sung') || purpose.includes('supplementary')) &&
-        !supplementaryMap.has(br.borrowRequestId)
-      ) {
-        const sameProj = byProject.get(br.projectId) || []
-        const oldest = [...sameProj].sort(
-          (a, b) => new Date(a.requestDate || 0).getTime() - new Date(b.requestDate || 0).getTime()
-        )[0]
-        supplementaryMap.set(br.borrowRequestId, {
-          ...br,
-          originalBorrowCode: oldest && oldest.borrowRequestId !== br.borrowRequestId ? oldest.requestCode : '—',
-        })
-      }
+      if (!isSupplementaryRequest(br)) return
+      supplementaryMap.set(br.borrowRequestId, {
+        ...br,
+        originalBorrowCode: findOriginalCode(br.projectId),
+      })
     })
 
     const supplementaryRequests = Array.from(supplementaryMap.values()).sort(
