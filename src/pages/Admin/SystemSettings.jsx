@@ -3,7 +3,6 @@ import {
   Alert,
   Box,
   Button,
-  Card,
   Chip,
   CircularProgress,
   Container,
@@ -12,7 +11,6 @@ import {
   DialogContent,
   DialogContentText,
   DialogTitle,
-  Grid,
   InputAdornment,
   Paper,
   Snackbar,
@@ -28,10 +26,8 @@ import {
 import {
   Edit as EditIcon,
   Tune as TuneIcon,
-  Event as EventIcon,
   NotificationsActive as NotificationsActiveIcon,
   Groups as GroupsIcon,
-  SettingsSuggest as SettingsSuggestIcon,
   Save as SaveIcon,
 } from '@mui/icons-material'
 import PortalLayout from '../../components/layout/PortalLayout'
@@ -42,8 +38,15 @@ import { systemSettingService } from '../../services/systemSettingService'
  * - GET /api/system-settings: BE trả { key, value, description, updatedAt } cho mọi cấu hình được sửa (value = null khi chưa đặt).
  * - PUT /api/system-settings/{key} với body { value }.
  * Không có thêm / xóa cấu hình: mỗi khóa gắn với code BE. Tên, đơn vị, nhóm hiển thị khai báo ở SETTING_META;
- * khóa mới từ BE chưa có trong SETTING_META vẫn hiện (nhóm theo tiền tố, tên = key).
+ * khóa mới được nhóm theo tiền tố và hiển thị theo mã, trừ các khóa ẩn khỏi trang quản trị.
  */
+const HIDDEN_SETTING_KEYS = new Set([
+  'BORROW_DAYS_BEFORE_SEMESTER_END',
+  'BORROW_REMINDER_HOUR',
+  'CLASS_MAX_STUDENTS_LIMIT',
+  'CLASS_DEFAULT_MAX_STUDENTS',
+])
+
 const SETTING_META = {
   BORROW_DAYS_BEFORE_SEMESTER_END: {
     name: 'Hạn trả trước khi hết học kỳ',
@@ -112,48 +115,6 @@ const SECTIONS = [
     bg: '#ecfdf5',
   },
 ]
-
-function StatCard({ icon, color, bg, caption, value }) {
-  return (
-    <Grid item xs={12} sm={6} md={3}>
-      <Card
-        elevation={0}
-        sx={{
-          p: 2,
-          border: '1px solid #e2e8f0',
-          borderRadius: 2,
-          bgcolor: '#ffffff',
-          display: 'flex',
-          alignItems: 'center',
-          gap: 2,
-        }}
-      >
-        <Box
-          sx={{
-            width: 44,
-            height: 44,
-            borderRadius: 1.5,
-            bgcolor: bg,
-            color,
-            display: 'flex',
-            alignItems: 'center',
-            justifyContent: 'center',
-          }}
-        >
-          {icon}
-        </Box>
-        <Box>
-          <Typography variant="caption" sx={{ color: 'text.secondary', fontWeight: 700 }}>
-            {caption}
-          </Typography>
-          <Typography variant="subtitle2" sx={{ fontWeight: 700, color: '#0f172a' }}>
-            {value}
-          </Typography>
-        </Box>
-      </Card>
-    </Grid>
-  )
-}
 
 function SettingSection({ section, items, onEdit, last }) {
   return (
@@ -418,59 +379,28 @@ export default function SystemSettings() {
     }
   }
 
-  const statValue = (key, suffix) => {
-    const value = effectiveValue(byKey(key))
-    if (value === null || value === undefined) return '—'
-    return `${value}${suffix}`
-  }
-
+  const visibleSettings = settings.filter((setting) => !HIDDEN_SETTING_KEYS.has(setting.key))
+  const visibleSections = SECTIONS.map((section) => ({
+    section,
+    items: visibleSettings.filter((setting) => setting.group === section.group),
+  })).filter(({ items }) => items.length > 0)
   const range = selectedSetting ? `${selectedSetting.min ?? 0}–${allowedMax(selectedSetting) ?? ''}` : ''
 
   return (
     <PortalLayout
       headerTitle="Cài đặt hệ thống"
-      headerSubtitle="Cấu hình hạn trả, nhắc nhở và sĩ số lớp (Dành cho Admin)"
       currentRole="Quản trị viên"
     >
       <Container maxWidth="xl" disableGutters sx={{ maxWidth: 1240, mx: 'auto', py: 3 }}>
-        <Grid container spacing={2.5} sx={{ mb: 3 }}>
-          <StatCard
-            icon={<EventIcon />}
-            color="#0058be"
-            bg="#eff6ff"
-            caption="HẠN TRẢ TRƯỚC HẾT KỲ"
-            value={statValue('BORROW_DAYS_BEFORE_SEMESTER_END', ' ngày')}
-          />
-          <StatCard
-            icon={<NotificationsActiveIcon />}
-            color="#9333ea"
-            bg="#faf5ff"
-            caption="GIỜ NHẮC HẠN TRẢ"
-            value={statValue('BORROW_REMINDER_HOUR', ':00 mỗi ngày')}
-          />
-          <StatCard
-            icon={<GroupsIcon />}
-            color="#059669"
-            bg="#ecfdf5"
-            caption="SĨ SỐ TỐI ĐA"
-            value={statValue('CLASS_MAX_STUDENTS_LIMIT', ' sinh viên')}
-          />
-          <StatCard
-            icon={<SettingsSuggestIcon />}
-            color="#b45309"
-            bg="#fef3c7"
-            caption="SĨ SỐ MẶC ĐỊNH"
-            value={statValue('CLASS_DEFAULT_MAX_STUDENTS', ' sinh viên')}
-          />
-        </Grid>
-
         <Box sx={{ mb: 2.5 }}>
           <Typography variant="h5" sx={{ fontWeight: 800, color: '#0f172a' }}>
             Danh sách tham số cấu hình hệ thống
           </Typography>
-          <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
-            Tất cả thay đổi sẽ có hiệu lực tức thì cho các đơn mượn, thông báo và lớp được tạo mới
-          </Typography>
+          {visibleSections.length > 0 && (
+            <Typography variant="body2" sx={{ color: 'text.secondary', mt: 0.5 }}>
+              Tất cả thay đổi sẽ có hiệu lực tức thì cho các đơn mượn, thông báo và lớp được tạo mới
+            </Typography>
+          )}
         </Box>
 
         {errorMsg && (
@@ -483,20 +413,18 @@ export default function SystemSettings() {
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 8 }}>
             <CircularProgress />
           </Box>
-        ) : (
-          SECTIONS.map((section, index) => {
-            const items = settings.filter((s) => s.group === section.group)
-            if (items.length === 0) return null
-            return (
-              <SettingSection
-                key={section.group}
-                section={section}
-                items={items}
-                onEdit={handleOpenEdit}
-                last={index === SECTIONS.length - 1}
-              />
-            )
-          })
+        ) : visibleSections.length > 0 ? (
+          visibleSections.map(({ section, items }, index) => (
+            <SettingSection
+              key={section.group}
+              section={section}
+              items={items}
+              onEdit={handleOpenEdit}
+              last={index === visibleSections.length - 1}
+            />
+          ))
+        ) : !errorMsg && (
+          <Alert severity="info">Hiện không có tham số cấu hình để hiển thị.</Alert>
         )}
 
         <Dialog open={editDialogOpen} onClose={handleCloseEdit} maxWidth="sm" fullWidth>
