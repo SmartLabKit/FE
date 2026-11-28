@@ -191,7 +191,7 @@ function MoveStockDialog({ stock, cabinets, onClose, onSaved }) {
 
 /**
  * Tab "Vật tư tiêu hao" của trang Chi tiết tủ: tồn vật tư tiêu hao trong tủ. Lệch số thì kiểm kê tủ.
- * - canMove (quản lý kho, hoặc staff của lab chứa tủ): chuyển vật tư sang tủ Tiêu hao khác trong cùng lab.
+ * - canMove (staff của lab chứa tủ, hoặc Admin): chuyển vật tư sang tủ Tiêu hao khác trong cùng lab.
  */
 export default function CabinetConsumablesTab({ cabinet, cabinets, canMove, onChanged, showToast }) {
   const [stocks, setStocks] = useState([])

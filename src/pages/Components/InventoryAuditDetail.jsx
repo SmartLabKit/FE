@@ -1025,6 +1025,7 @@ export default function InventoryAuditDetail() {
                 <AuditExtrasReview
                   audit={audit}
                   canResolve={canRestore}
+                  canMoveUnits={Boolean(hasRole?.('Admin') || hasPermission?.('BORROW_ISSUE'))}
                   receipts={extraReceipts}
                   onError={setError}
                   onResolved={async (message) => {

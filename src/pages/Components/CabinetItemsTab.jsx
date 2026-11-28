@@ -218,7 +218,7 @@ function RetireItemDialog({ item, onClose, onSaved }) {
  * Tab "Từng thiết bị" của trang Chi tiết tủ: các thiết bị quản lý theo từng chiếc (REUSABLE / HIGH_VALUE) trong tủ.
  * - canManage (COMPONENT_MANAGE): sửa thông tin, thanh lý thiết bị cũ.
  * - canReport (LabStaff của lab chứa tủ): ghi nhận thiết bị hỏng / cháy / mất qua báo cáo sự cố.
- * - canMove (COMPONENT_MANAGE, hoặc LabStaff của lab chứa tủ): chuyển tủ; chỉ chuyển giữa các tủ cùng lab.
+ * - canMove (LabStaff của lab chứa tủ, hoặc Admin): chuyển tủ; chỉ chuyển giữa các tủ cùng lab.
  * - Thiết bị bị mất (Lost) tìm lại được thì dùng "Đưa về kho" để chuyển về trạng thái Sẵn sàng.
  */
 export default function CabinetItemsTab({ cabinet, cabinets, canManage, canMove, canReport, onChanged, showToast }) {

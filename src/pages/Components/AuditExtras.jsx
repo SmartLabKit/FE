@@ -140,7 +140,7 @@ function describe(extra) {
  * Quản lý kho xem thiết bị thừa của phiên kiểm và xử lý từng con: chuyển về tủ này, khôi phục,
  * nhắc nhận trả, hoặc lập phiếu nhập kho.
  */
-export function AuditExtrasReview({ audit, canResolve, receipts, onResolved, onError }) {
+export function AuditExtrasReview({ audit, canResolve, canMoveUnits, receipts, onResolved, onError }) {
   const navigate = useNavigate()
   const [busyId, setBusyId] = useState('')
   const extras = audit?.extras || []
@@ -219,7 +219,11 @@ export function AuditExtrasReview({ audit, canResolve, receipts, onResolved, onE
     if (extra.resolution === 'InThisCabinet') return <Typography sx={{ fontSize: 13, color: '#16a34a' }}>Đã xong</Typography>
     if (!canResolve) return null
     const canMoveHere = extra.sameLab && extra.fitsThisCabinet
-    if (extra.resolution === 'OtherCabinet' && canMoveHere) return button('Chuyển về tủ này', () => moveHere(extra))
+    if (extra.resolution === 'OtherCabinet' && canMoveHere) {
+      // Chuyển tủ là việc của nhân viên lab, quản lý kho chỉ thấy lời nhắc
+      if (!canMoveUnits) return <Typography sx={{ fontSize: 13 }}>Nhân viên lab chuyển về tủ này</Typography>
+      return button('Chuyển về tủ này', () => moveHere(extra))
+    }
     if (extra.resolution === 'OtherCabinet') {
       return <Typography sx={{ fontSize: 13 }}>Mang trả về tủ {extra.itemCabinetCode} ({extra.itemRoomCode})</Typography>
     }

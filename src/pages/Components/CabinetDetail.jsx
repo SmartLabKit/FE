@@ -32,7 +32,8 @@ export default function CabinetDetail() {
   const isManager = hasRole('Admin') || hasRole('InventoryManager')
   const canManageItems = isManager || hasPermission('COMPONENT_MANAGE')
   const ownLab = rooms.some((room) => room.isMine && room.roomId === cabinet?.roomId)
-  const canMove = canManageItems || (ownLab && hasPermission('BORROW_ISSUE'))
+  // Chuyển tủ: chỉ nhân viên phụ trách lab chứa tủ (hoặc Admin); quản lý kho vẫn sửa, đưa về kho và thanh lý
+  const canMove = hasRole('Admin') || (ownLab && hasPermission('BORROW_ISSUE'))
   const canAudit = ownLab && hasRole('LabStaff')
   // Tủ trống thì không có gì để kiểm
   const cabinetEmpty = Number(cabinet?.unitCount ?? 1) === 0 && Number(cabinet?.consumableQuantity ?? 1) === 0
