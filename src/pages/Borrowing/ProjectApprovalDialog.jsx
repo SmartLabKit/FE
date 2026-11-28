@@ -56,6 +56,7 @@ export default function ProjectApprovalDialog({ project, open, onClose, onReview
       setIssues([])
       setComment('')
       setApprovedQty({})
+      setShowHistory(false)
       try {
         const result = await projectService.getProject(project.projectId)
         if (!active) return
