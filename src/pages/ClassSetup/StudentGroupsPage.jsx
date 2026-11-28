@@ -994,7 +994,8 @@ export default function StudentGroupsPage() {
           )}
 
           {/* ── 2. Khung trạng thái & hạn chót (GET /api/classes/{classId}/team-formation) ── */}
-          {!loadingData && selectedClassId && <TeamFormationStatusCard overview={overview} />}
+          {/* Hết hạn chọn nhóm mà đã có nhóm thì khung hạn chót không còn cần; thanh bước của nhóm thay thế */}
+          {!loadingData && selectedClassId && (isOpen || !currentTeam) && <TeamFormationStatusCard overview={overview} />}
 
           {/* ── 3. Đang tải dữ liệu nhóm ────────────────────────────────────── */}
           {loadingData && selectedClassId && (
