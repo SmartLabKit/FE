@@ -14,7 +14,7 @@ export function formatRelativeTime(value) {
 
 /**
  * Trang cần mở khi bấm vào thông báo, dựa vào refType + role của người dùng.
- * refType do BE gửi: BorrowRequest, BorrowApproval, BorrowExtension, Project, Team, Class, InventoryAudit (refId là id tương ứng).
+ * refType do BE gửi: BorrowRequest, BorrowApproval, BorrowExtension, Project, FinalSubmission, Team, Class, InventoryAudit (refId là id tương ứng).
  * Trả về null khi không có trang phù hợp (chỉ đánh dấu đã đọc).
  */
 export function getNotificationPath(notification, hasRole) {
@@ -34,6 +34,11 @@ export function getNotificationPath(notification, hasRole) {
       if (is('Student')) return '/class-setup/student/project'
       // Giảng viên duyệt đề tài ở mục "Duyệt đề tài" (/borrow/my-requests), mở luôn hộp thoại của đề tài đó
       if (is('Lecturer')) return notification.refId ? `/borrow/my-requests?project=${notification.refId}` : '/borrow/my-requests'
+      return null
+    case 'FinalSubmission':
+      // Bài nộp cuối kỳ: giảng viên xác nhận ở mục "Duyệt nộp cuối kỳ", sinh viên xem kết quả ở trang đề tài
+      if (is('Lecturer')) return '/class-setup/lecturer/final-submissions'
+      if (is('Student')) return '/class-setup/student/project'
       return null
     case 'Team':
     case 'Class':
