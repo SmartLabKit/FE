@@ -681,6 +681,13 @@ export default function LabBorrowManagement() {
                             sx={{ ml: 0.75, height: 18, fontSize: 11, fontWeight: 800, bgcolor: '#dc2626', color: '#fff' }}
                           />
                         )}
+                        {request.isSupplementary && (
+                          <Chip
+                            label="Mượn thêm"
+                            size="small"
+                            sx={{ ml: 0.75, height: 18, fontSize: 11, fontWeight: 700, bgcolor: '#fef3c7', color: '#b45309' }}
+                          />
+                        )}
                       </TableCell>
                       <TableCell sx={{ fontWeight: 700 }}>{request.requesterName || '—'}</TableCell>
                       <TableCell sx={{ whiteSpace: 'nowrap' }}>{request.classCode || '—'}</TableCell>
